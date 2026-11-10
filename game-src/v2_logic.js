@@ -279,7 +279,7 @@
       row.appendChild(prev); row.appendChild(val); row.appendChild(next);
       var sw = document.createElement('button'); sw.type = 'button'; sw.className = 'sw'; sw.setAttribute('aria-label', s.label + ' color');
       var noCol = s.kitColors && /^None$/.test(s.styles[look[s.key][0]]);
-      if (s.colors && !noCol) { sw.style.background = hexs(s.kitColors ? KIT_SW[kitOutfitOf(s.styles[look[s.key][0]])][look[s.key][1] % 5] : s.colors[look[s.key][1] % s.colors.length]); sw.onclick = function () { look[s.key][1] = (look[s.key][1] + 1) % s.colors.length; finish(); }; }
+      if (s.colors && !noCol) { var pal = s.kitColors ? KIT_SW[kitOutfitOf(s.styles[look[s.key][0]])] : s.colors; sw.style.background = hexs(s.kitColors ? pal[look[s.key][1] % pal.length] : s.colors[look[s.key][1] % s.colors.length]); sw.onclick = function () { look[s.key][1] = (look[s.key][1] + 1) % pal.length; finish(); }; }
       else sw.style.visibility = 'hidden';
       row.appendChild(sw); rowsEl.appendChild(row);
     });

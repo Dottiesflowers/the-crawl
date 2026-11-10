@@ -533,13 +533,13 @@
     { tab: 'Face', hand: 1, key: 'mouth', label: 'Mouth', styles: ['Neutral', 'Smile', 'Smirk', 'Frown'] },
     { tab: 'Face', hand: 1, key: 'marks', label: 'Marks', styles: ['None', 'Freckles', 'Scar', 'War paint', 'Lines'], colors: PAL },
     { tab: 'Face', hand: 1, key: 'eyewear', label: 'Eyewear', styles: ['None', 'Glasses', 'Shades', 'Eyepatch'], colors: PAL },
-    { tab: 'Clothes', kit: 1, key: 'kHead', label: 'Head', styles: ['None', 'Ranger hood', 'Knight helm', 'Horned helm', 'Crown'], colors: [0, 1, 2, 3, 4], kitColors: 1 },
+    { tab: 'Clothes', kit: 1, key: 'kHead', label: 'Head', styles: ['None', 'Ranger hood', 'Knight helm', 'Horned helm', 'Crown', 'Beanie', 'Cap', 'Cowboy hat', 'Hard hat', 'Winter hat', 'Santa hat', 'Clown hat', 'Wizard hat', 'Fedora', 'Trilby'], colors: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], kitColors: 1 },
     { tab: 'Clothes', kit: 1, key: 'kNeck', label: 'Neck', styles: ['None', 'Scarf', 'Gorget'], colors: [0, 1, 2, 3, 4], kitColors: 1 },
-    { tab: 'Clothes', kit: 1, key: 'kTop', label: 'Top', styles: ['Ranger', 'Peasant', 'Knight plate', 'Knight tunic', 'Noble', 'Wizard'], colors: [0, 1, 2, 3, 4], kitColors: 1 },
+    { tab: 'Clothes', kit: 1, key: 'kTop', label: 'Top', styles: ['Ranger', 'Peasant', 'Knight plate', 'Knight tunic', 'Noble', 'Wizard', 'T-shirt', 'Long sleeve', 'Tank top', 'Hoodie', 'Button-up'], colors: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], kitColors: 1 },
     { tab: 'Clothes', kit: 1, key: 'kSleeves', label: 'Sleeves', styles: ['Ranger', 'Peasant', 'Knight', 'Noble', 'Wizard'], colors: [0, 1, 2, 3, 4], kitColors: 1 },
     { tab: 'Clothes', kit: 1, key: 'kShoulder', label: 'Shoulder', styles: ['None', 'Ranger', 'Knight round', 'Knight spiked', 'Noble', 'Noble lion'], colors: [0, 1, 2, 3, 4], kitColors: 1 },
-    { tab: 'Clothes', kit: 1, key: 'kPants', label: 'Pants', styles: ['Ranger', 'Peasant', 'Knight', 'Noble', 'Wizard'], colors: [0, 1, 2, 3, 4], kitColors: 1 },
-    { tab: 'Clothes', kit: 1, key: 'kBoots', label: 'Boots', styles: ['Ranger', 'Peasant', 'Knight', 'Noble', 'Wizard'], colors: [0, 1, 2, 3, 4], kitColors: 1 },
+    { tab: 'Clothes', kit: 1, key: 'kPants', label: 'Pants', styles: ['Ranger', 'Peasant', 'Knight', 'Noble', 'Wizard', 'Jeans', 'Shorts', 'Sweatpants'], colors: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], kitColors: 1 },
+    { tab: 'Clothes', kit: 1, key: 'kBoots', label: 'Boots', styles: ['Ranger', 'Peasant', 'Knight', 'Noble', 'Wizard', 'Sneakers', 'Work boots'], colors: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], kitColors: 1 },
     { tab: 'Clothes', hand: 1, key: 'head', label: 'Head', styles: ['None', 'Wide-brim hat', 'Helmet', 'Beanie', 'Cap', 'Hood', 'Horned helm', 'Headband'], colors: PAL },
     { tab: 'Clothes', hand: 1, key: 'neck', label: 'Face/neck', styles: ['None', 'Bandana mask', 'Neckerchief', 'Scarf'], colors: PAL },
     { tab: 'Clothes', hand: 1, key: 'shirt', label: 'Shirt', styles: ['T-shirt', 'Long sleeve', 'Tank top', 'Striped'], colors: PAL },
@@ -5488,10 +5488,17 @@
   var KIT = { ready: false, on: false, s: 0.72, bones: {}, cat: {}, hair: {}, acts: {}, over: {}, cur: '', tex: {}, attached: [] };
   var KIT_OUTFITS = ['ranger', 'peasant', 'knight', 'noble', 'wizard'];
   var KIT_SW = { ranger: [0x3a6a2a, 0x2a2a2a, 0xc8bca0, 0x2a5a8a, 0x7a2a8a], peasant: [0x5a3a1a, 0x3a3328, 0x3e5f7a, 0x1e2a5a, 0x5a1e6a],
+    modern: [0xf2f2ee, 0x1c1c1e, 0x8a8a8c, 0x1f2b4d, 0x9c2a2a, 0x2f5d3a, 0xc2a77c, 0x5a3d2b, 0x3e5f8f, 0x8aa4c4],
     knight: [0xb03030, 0xc8962e, 0x3a5a8a, 0x2f9a5a, 0x2a3fa0], noble: [0x8b2a22, 0x2a4f8a, 0x2f7a3a, 0x2a9aa0, 0x8a2aa0], wizard: [0x2a4a8a, 0x6a2a8a, 0x9a1a1a, 0x4a3a8a, 0x2a6a5a] };
   var KIT_HAIR = [null, 'long', 'simpleparted', 'slickback', 'buzzed', 'balding', 'mohawk', 'ponytail', 'ponytail_2', 'dreads', 'longdreads', 'bob', 'buns'];
   var KIT_BEARD = [[], ['beard'], ['moustache'], ['muttonchops'], ['muttonchops', 'moustache']];
-  function kitOutfitOf(label) { var w = label.toLowerCase(); if (/crown|gorget|lion/.test(w)) return 'noble'; if (/helm|scarf|plate|tunic|round|spiked/.test(w)) return 'knight'; return w.split(' ')[0]; }
+  // modern clothes are shells of the base body (see m_modern): label -> meshes, texture
+  var MOD_PIECES = { 'T-shirt': [['Mod_Top_TShirt', 'knit']], 'Long sleeve': [['Mod_Top_LongSleeve', 'knit']], 'Tank top': [['Mod_Top_Tank', 'knit']], 'Hoodie': [['Mod_Top_Hoodie', 'knit'], ['Mod_HoodDown', 'knit']],
+    'Button-up': [['Mod_Top_ButtonUp', 'canvas'], ['Mod_Collar', 'canvas']], 'Jeans': [['Mod_Legs_Jeans', 'denim']], 'Shorts': [['Mod_Legs_Shorts', 'canvas']], 'Sweatpants': [['Mod_Legs_Sweatpants', 'knit']],
+    'Sneakers': [['Mod_Feet_Sneakers', 'canvas'], ['Mod_Feet_SneakerSole', 'sole', 1]], 'Work boots': [['Mod_Feet_Boots', 'leather'], ['Mod_Feet_BootSole', 'sole', 1]], 'Beanie': [['Mod_Head_Beanie', 'knit']], 'Cap': [['Mod_Head_Cap', 'canvas'], ['Mod_Head_CapBrim', 'canvas']] };
+  var HAT_LABELS = ['Cowboy hat', 'Hard hat', 'Winter hat', 'Santa hat', 'Clown hat', 'Wizard hat', 'Fedora', 'Trilby'];
+  var MOD_SLOT = { 'T-shirt': 'kTop', 'Long sleeve': 'kTop', 'Tank top': 'kTop', 'Hoodie': 'kTop', 'Button-up': 'kTop', Jeans: 'kPants', Shorts: 'kPants', Sweatpants: 'kPants', Sneakers: 'kBoots', 'Work boots': 'kBoots', Beanie: 'kHead', Cap: 'kHead' };
+  function kitOutfitOf(label) { if (MOD_SLOT[label] || HAT_LABELS.indexOf(label) >= 0) return 'modern'; var w = label.toLowerCase(); if (/crown|gorget|lion/.test(w)) return 'noble'; if (/helm|scarf|plate|tunic|round|spiked/.test(w)) return 'knight'; return w.split(' ')[0]; }
   function kitMode() { return sty('model') === 0; }
   function kitTex(name, color) {
     if (KIT.tex[name]) return KIT.tex[name];
@@ -5503,9 +5510,24 @@
       roughness: 1, metalness: orm && orm.indexOf('orm') >= 0 ? 0.35 : 0, side: side || THREE.FrontSide });
     m.envMapIntensity = 0; m.color.setScalar(1.25); return m;
   }
+  function L0() { return new THREE.GLTFLoader(); }
+  // hats (from Michael's Sketchfab downloads, CC-BY; see credits) ride on the head bone like hair
+  function kitLoadHats(L) {
+    fetch(KDIR + 'hats.json').then(function (r) { return r.json(); }).then(function (pack) {
+      Object.keys(pack).forEach(function (label) {
+        var bin = atob(pack[label]), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+        L.parse(u.buffer, KDIR, function (g) {
+          var grp = new THREE.Group(); grp.matrixAutoUpdate = false; grp.matrix.copy(KIT.headInv); KIT.bones.Head.add(grp); grp.visible = false;
+          g.scene.traverse(function (o) { if (!o.isMesh) return; var m = new THREE.MeshStandardMaterial({ map: o.material.map || null, color: 0xffffff, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }); if (!o.material.map) m.userData.base = o.material.color.clone(); m.envMapIntensity = 0; if (m.map) m.map.encoding = THREE.LinearEncoding; var c = new THREE.Mesh(o.geometry, m); c.castShadow = true; grp.add(c); });
+          if (!g.scene.children.length) return;
+          KIT.hats[label] = grp; if (KIT.on && SLOT.kHead.styles[sty('kHead')] === label) buildHero();
+        }, function (e) { console.warn('hat failed', label, e); });
+      });
+    }).catch(function (e) { console.warn('hats failed', e); });
+  }
   function kitLoad() {
     if (!THREE.GLTFLoader) return;
-    var L = new THREE.GLTFLoader(), names = KIT_OUTFITS.map(function (o) { return 'o_' + o; }).concat(['o_knightcloth', 'head', 'anims', 'h_browsthick', 'h_beard', 'h_moustache', 'h_muttonchops']).concat(KIT_HAIR.filter(Boolean).map(function (h) { return 'h_' + h; }));
+    var L = new THREE.GLTFLoader(), names = KIT_OUTFITS.map(function (o) { return 'o_' + o; }).concat(['o_knightcloth', 'm_modern', 'head', 'anims', 'h_browsthick', 'h_beard', 'h_moustache', 'h_muttonchops']).concat(KIT_HAIR.filter(Boolean).map(function (h) { return 'h_' + h; }));
     var got = {}, n = 0, failed = false;
     names.forEach(function (nm) {
       function bad(e) { failed = true; console.warn('kit load failed: ' + nm, e); }
@@ -5589,6 +5611,16 @@
         else if (/Legs/.test(n)) add('kPants', title(o), m, tex); else if (/Feet/.test(n)) add('kBoots', title(o), m, tex);
       });
     });
+    // modern clothes and the bare-skin pieces that show under them
+    var mods = {}; got.m_modern.scene.traverse(function (x) { if (x.isSkinnedMesh) mods[x.name] = x; });
+    Object.keys(mods).forEach(function (nm) { var m = mods[nm]; rebind(m); base.add(m); m.castShadow = true; m.frustumCulled = false; m.visible = false; });
+    Object.keys(MOD_PIECES).forEach(function (label) {
+      MOD_PIECES[label].forEach(function (pc) {
+        var m = mods[pc[0]]; if (!m) return; m.material = kitMat('mod_' + pc[1] + '.jpg', null, null, THREE.DoubleSide); m.material.skinning = true; m.material.roughness = pc[1] === 'leather' ? 0.6 : 0.95;
+        var t = m.material.map; t.wrapS = t.wrapT = THREE.RepeatWrapping; add(MOD_SLOT[label], label, m, 'modern'); m.userData.fixed = !!pc[2];
+      });
+    });
+    KIT.modSkin = {}; ['Torso', 'Arms', 'Legs', 'Feet'].forEach(function (k) { var m = mods['Mod_Skin_' + k]; if (!m) return; m.material = kitMat('skin_light.jpg', 'skin_n.jpg', 'skin_r.jpg'); m.material.skinning = true; KIT.modSkin[k] = m; });
     // the head (Regular male, made for these outfits), its eyes and regular brows
     var hl = []; got.head.scene.traverse(function (o) { if (o.isSkinnedMesh) hl.push(o); });
     var headInv = null;
@@ -5615,6 +5647,7 @@
       });
       KIT.hair[key] = grp;
     });
+    KIT.headInv = headInv; KIT.hats = {}; kitLoadHats(L0());
     var root = new THREE.Group(); root.add(base); root.scale.setScalar(KIT.s); root.position.y = -LIFT; KIT.root = root; KIT.base = base;
     var clips = {}; got.anims.animations.forEach(function (c) { clips[c.name] = c; });
     KIT.clips = clips; KIT.mixer = new THREE.AnimationMixer(base); KIT.overMixer = new THREE.AnimationMixer(base);
@@ -5645,19 +5678,25 @@
       Object.keys(KIT.cat[slot]).forEach(function (lb) {
         KIT.cat[slot][lb].forEach(function (p) {
           var on = lb === label; p.mesh.visible = on; if (!on) return;
+          if (p.outfit === 'modern') { var pal = KIT_SW.modern; if (p.mesh.userData.fixed) p.mesh.material.color.set(sty('kBoots') >= 0 && /Boot/.test(p.mesh.name) ? 0x2a2420 : 0xeeeeea); else p.mesh.material.color.set(pal[look[slot][1] % pal.length]).multiplyScalar(1.15); return; }
           var t = p.mesh.userData.skin ? skinT : kitTex(p.outfit + '_' + v + '.jpg');
           if (p.mesh.material.map !== t) { p.mesh.material.map = t; p.mesh.material.needsUpdate = true; }
         });
       });
     });
+    // modern pieces: bare skin under them, and sleeves follow a modern top
+    var modTop = !!MOD_SLOT[SLOT.kTop.styles[sty('kTop')]], modLegs = !!MOD_SLOT[SLOT.kPants.styles[sty('kPants')]], modFeet = !!MOD_SLOT[SLOT.kBoots.styles[sty('kBoots')]];
+    if (modTop && KIT.cat.kSleeves) Object.keys(KIT.cat.kSleeves).forEach(function (lb) { KIT.cat.kSleeves[lb].forEach(function (p) { p.mesh.visible = false; }); });
+    var ms = KIT.modSkin || {}; [['Torso', modTop], ['Arms', modTop], ['Legs', modLegs], ['Feet', modFeet]].forEach(function (q) { var m = ms[q[0]]; if (!m) return; m.visible = q[1]; if (m.material.map !== skinT) { m.material.map = skinT; m.material.needsUpdate = true; } });
     if (KIT.headMesh.material.map !== skinT) { KIT.headMesh.material.map = skinT; KIT.headMesh.material.needsUpdate = true; }
     kitReshape();
-    var helm = /helm|hood/i.test(SLOT.kHead.styles[sty('kHead')]), closed = SLOT.kHead.styles[sty('kHead')] === 'Knight helm';
+    var hl0 = SLOT.kHead.styles[sty('kHead')], knit = /^(Beanie|Cap)$/.test(hl0) || HAT_LABELS.indexOf(hl0) >= 0, helm = /helm|hood/i.test(hl0), closed = hl0 === 'Knight helm';
     var hc = new THREE.Color(col('kHair')).multiplyScalar(1.75), hs = KIT_HAIR[sty('kHair')], beards = KIT_BEARD[sty('kBeard')];
     Object.keys(KIT.hair).forEach(function (nm) {
-      var on = nm === 'browsthick' ? sty('kBrows') === 1 : (/^(beard|moustache|muttonchops)$/.test(nm) ? beards.indexOf(nm) >= 0 && !closed : (nm === hs && !helm));
+      var on = nm === 'browsthick' ? sty('kBrows') === 1 : (/^(beard|moustache|muttonchops)$/.test(nm) ? beards.indexOf(nm) >= 0 && !closed : (knit ? (nm === 'buzzed' && hs) : (nm === hs && !helm)));
       KIT.hair[nm].visible = on; KIT.hair[nm].traverse(function (o) { if (o.material) o.material.color.copy(hc); });
     });
+    Object.keys(KIT.hats || {}).forEach(function (lb) { var on = lb === hl0; KIT.hats[lb].visible = on; if (on) { var c = new THREE.Color(KIT_SW.modern[look.kHead[1] % 10]); if (look.kHead[1] % 10 === 0) c.set(0xffffff); KIT.hats[lb].traverse(function (o) { if (o.material) o.material.color.copy(o.material.userData.base || new THREE.Color(1, 1, 1)).multiply(c).multiplyScalar(1.1); }); } });
     KIT.browsReg.visible = sty('kBrows') === 0; KIT.browsReg.material.color.copy(hc);
     KIT.eyes.material.color.set(col('kEyes')).lerp(new THREE.Color(0xffffff), 0.25).multiplyScalar(1.15);
     // held gear into the hands, back gear onto the spine
@@ -6518,7 +6557,7 @@
       '<h3>Class</h3><p>Not chosen yet. Unlocks deeper in the crawl.</p>' +
       (party.length ? '<h3>Party</h3><ul>' + party.map(function (p) { return '<li>' + esc(p.name || p.username) + (p.name ? ' <small>(' + esc(p.username) + ')</small>' : ' <small>(no character yet)</small>') + ' · ' + (p.xp || 0) + ' XP</li>'; }).join('') + '</ul>' : '') +
       '<p><button type="button" class="ccBtn" onclick="window.__crawl.newChar()">' + (CHAR ? 'Make a new character' : 'Create your character') + '</button></p>' +
-      (NET.user ? '<div id="dmBox"></div><p>Signed in as ' + esc(NET.user.username) + (NET.user.role === 'dm' ? ' (DM)' : '') + ' <button type="button" class="ccBtn" onclick="window.__crawl.logOut()">Log out</button></p>' : '') + '</div>';
+      creditsHTML() + (NET.user ? '<div id="dmBox"></div><p>Signed in as ' + esc(NET.user.username) + (NET.user.role === 'dm' ? ' (DM)' : '') + ' <button type="button" class="ccBtn" onclick="window.__crawl.logOut()">Log out</button></p>' : '') + '</div>';
   }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]; }); }
 
@@ -6623,7 +6662,7 @@
       : head + '\n\nBuild their level-1 human sheet from real-life evidence. Ability scores use the 5e 27-point buy exactly (each score 8-15; costs 8=0,9=1,10=2,11=3,12=4,13=5,14=7,15=9; total exactly 27). Skills come only from this list: ' + SKILLS.map(function (s) { return s[0]; }).join(', ') +
         '. Give 4 to 6 skills, levels 1-3, total points at most ' + SKILL_BUDGET + '. Invent one personal trait and one personal flaw drawn from their real life (funny, specific, consequential). Each must use one game effect: trait effect from ' + TRAITS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') + '. Flaw effect from ' + FLAWS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') +
         '. Starting gear: 3 to 6 everyday items they would really have had on them or within reach (from their job, habits and answer about what was on them), no fantasy gear. Categories: weapon, tool, consumable, valuable, misc. Improvised weapons get small damage dice (1d3 to 1d6).' +
-        ' Outfit: dress them in what they said they are wearing, using the closest available pieces and colors from this catalog (slot: options with color indexes):\n' + outfitCatalog() + '\nEveryday clothes map best to Peasant (shirt, tee, jeans, trousers, sneakers), Ranger (hoodies, work jackets, boots) and Noble (suits, dress shoes). Give each piece the real name of what they wear (e.g. "Faded black hoodie").' +
+        ' Outfit: dress them in what they said they are wearing, using the closest available pieces and colors from this catalog (slot: options with color indexes):\n' + outfitCatalog() + '\nPrefer the modern pieces (T-shirt, Long sleeve, Tank top, Hoodie, Button-up, Jeans, Shorts, Sweatpants, Sneakers, Work boots, Beanie, Cap); use the fantasy ones only for things like suits (Noble), jackets or coats (Ranger) or a hood that is up. Give each piece the real name of what they wear (e.g. "Faded black hoodie").' +
         ' Reply with JSON only: {"outfit":[{"slot":"kTop","style":"exact option name","color":index,"name":"what it really is","desc":"one dry sentence"}],"stats":{"STR":n,"DEX":n,"CON":n,"INT":n,"WIS":n,"CHA":n},"skills":{"Name":level},"trait":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed trait effect"},"flaw":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed flaw effect"},"gear":[{"name":"...","cat":"...","desc":"one dry sentence","dmg":"1d4 or empty"}],"comment": two dry sentences from the System explaining the numbers, mentioning specific things they said}';
     var call = NET.sample.json ? NET.sample.json(prompt, { modelTier: 'default', cache: false }) : NET.sample(prompt, { cache: false }).then(function (r) { return JSON.parse((r.text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); });
     return Promise.resolve(call);
@@ -6987,7 +7026,7 @@
   // the outfit options described for the AI (and the keyword fallback), with each colour variant
   function outfitCatalog() {
     var DESC = { Ranger: 'leather jerkin / hooded work jacket look', Peasant: 'plain cloth shirt and trousers, the closest to everyday modern clothes', 'Knight plate': 'full metal armor', 'Knight tunic': 'padded quilted jacket', Noble: 'fancy vest or doublet, the closest to a suit or dressy outfit', Wizard: 'long robe or coat',
-      'Ranger hood': 'a hood (hoodie hood up)', 'Knight helm': 'metal helmet', 'Horned helm': 'horned helmet', Crown: 'crown', Scarf: 'scarf', Gorget: 'metal neck guard', 'Knight round': 'round metal pauldrons', 'Knight spiked': 'spiked pauldrons', 'Noble lion': 'lion pauldrons' };
+      'Ranger hood': 'a hood (hood up)', 'T-shirt': 'short-sleeve tee', 'Long sleeve': 'long-sleeve tee or thermal', 'Tank top': 'sleeveless tank', 'Hoodie': 'hooded sweatshirt (hood down)', 'Button-up': 'collared button-up, dress or flannel shirt', Jeans: 'jeans', Shorts: 'shorts', Sweatpants: 'sweatpants or joggers', Sneakers: 'sneakers or running shoes', 'Work boots': 'work boots, hiking or dress boots', Beanie: 'knit beanie', Cap: 'baseball cap', 'Cowboy hat': 'cowboy hat', 'Hard hat': 'construction hard hat', 'Winter hat': 'winter hat with pom', 'Santa hat': 'Santa hat', 'Clown hat': 'clown hat', 'Wizard hat': 'wizard hat', Fedora: 'fedora', Trilby: 'trilby or short-brim hat', 'Knight helm': 'metal helmet', 'Horned helm': 'horned helmet', Crown: 'crown', Scarf: 'scarf', Gorget: 'metal neck guard', 'Knight round': 'round metal pauldrons', 'Knight spiked': 'spiked pauldrons', 'Noble lion': 'lion pauldrons' };
     return CLOTH_SLOTS.map(function (k) {
       var s = slotDef(k);
       return k + ' (' + s.label + '): ' + s.styles.map(function (st) { if (st === 'None') return 'None'; var o = kitOutfitOf(st), sw = KIT_SW[o] || []; return '"' + st + '"' + (DESC[st] ? ' [' + DESC[st] + ']' : '') + ' colors ' + sw.map(function (c, i) { return i + '=#' + ('00000' + c.toString(16)).slice(-6); }).join(' '); }).join('; ');
@@ -7002,22 +7041,22 @@
     var out = [], seen = {};
     (Array.isArray(list) ? list : []).forEach(function (o) {
       if (!o || CLOTH_SLOTS.indexOf(o.slot) < 0 || seen[o.slot]) return; var s = slotDef(o.slot), ix = s.styles.indexOf(o.style); if (ix < 0 || (ix === 0 && s.styles[0] === 'None')) return;
-      seen[o.slot] = 1; out.push({ name: String(o.name || o.style).slice(0, 40), cat: 'clothing', slot: o.slot, style: o.style, color: Math.max(0, Math.min(4, o.color | 0)), desc: String(o.desc || 'What you were wearing when they took you.').slice(0, 160), worn: true, from: 'home' });
+      seen[o.slot] = 1; out.push({ name: String(o.name || o.style).slice(0, 40), cat: 'clothing', slot: o.slot, style: o.style, color: Math.max(0, Math.min(9, o.color | 0)), desc: String(o.desc || 'What you were wearing when they took you.').slice(0, 160), worn: true, from: 'home' });
     });
-    ['kTop', 'kPants', 'kBoots'].forEach(function (k) { if (!seen[k]) out.push({ name: { kTop: 'Plain shirt', kPants: 'Trousers', kBoots: 'Shoes' }[k], cat: 'clothing', slot: k, style: 'Peasant', color: 1, desc: 'What you were wearing when they took you.', worn: true, from: 'home' }); });
+    ['kTop', 'kPants', 'kBoots'].forEach(function (k) { if (!seen[k]) out.push({ name: { kTop: 'Plain white tee', kPants: 'Blue jeans', kBoots: 'Sneakers' }[k], cat: 'clothing', slot: k, style: { kTop: 'T-shirt', kPants: 'Jeans', kBoots: 'Sneakers' }[k], color: { kTop: 0, kPants: 8, kBoots: 0 }[k], desc: 'What you were wearing when they took you.', worn: true, from: 'home' }); });
     return out;
   }
   function outfitLocal(text) {
     var t = (text || '').toLowerCase(); function pick(words, def) { for (var i = 0; i < words.length; i++) if (t.indexOf(words[i]) >= 0) return words[i]; return def; }
     var COL = { black: 0x1a1a1a, white: 0xdddddd, grey: 0x777777, gray: 0x777777, blue: 0x2a4a9a, navy: 0x1e2a5a, denim: 0x3e5f7a, jean: 0x3e5f7a, red: 0x9a2a2a, green: 0x2f6a3a, brown: 0x5a3a1a, tan: 0xc8bca0, khaki: 0xc8bca0, purple: 0x6a2a8a };
     function col(def) { for (var w in COL) if (t.indexOf(w) >= 0) return COL[w]; return def; }
-    var top = /suit|blazer|dress shirt|vest/.test(t) ? 'Noble' : (/hoodie|jacket|flannel|work shirt/.test(t) ? 'Ranger' : (/robe|coat|trench/.test(t) ? 'Wizard' : 'Peasant'));
+    var top = /hoodie|sweatshirt/.test(t) ? 'Hoodie' : /button|flannel|dress shirt|oxford|polo|collar/.test(t) ? 'Button-up' : /tank|sleeveless/.test(t) ? 'Tank top' : /long sleeve|long-sleeve|thermal|sweater/.test(t) ? 'Long sleeve' : /suit|blazer|vest/.test(t) ? 'Noble' : /jacket|coat/.test(t) ? 'Ranger' : 'T-shirt';
     var items = [{ slot: 'kTop', style: top, name: pick(['hoodie', 't-shirt', 'flannel', 'polo', 'sweater', 'button-up', 'suit jacket', 'blazer', 'jacket', 'tee', 'shirt'], 'shirt') }];
-    items.push({ slot: 'kPants', style: /suit|slacks|dress pants/.test(t) ? 'Noble' : 'Peasant', name: pick(['jeans', 'cargo pants', 'sweatpants', 'khakis', 'slacks', 'shorts', 'trousers', 'pants'], 'pants') });
-    items.push({ slot: 'kBoots', style: /boot/.test(t) ? 'Ranger' : (/dress shoe|loafer/.test(t) ? 'Noble' : 'Peasant'), name: pick(['work boots', 'sneakers', 'boots', 'loafers', 'dress shoes', 'sandals', 'shoes'], 'shoes') });
-    if (/hood up|beanie|hat\b|cap\b/.test(t)) items.push({ slot: 'kHead', style: 'Ranger hood', name: pick(['beanie', 'baseball cap', 'cap', 'hat', 'hood'], 'hood') });
+    items.push({ slot: 'kPants', style: /shorts/.test(t) ? 'Shorts' : /sweat|jogger/.test(t) ? 'Sweatpants' : /suit|slacks|dress pants/.test(t) ? 'Noble' : 'Jeans', name: pick(['jeans', 'cargo pants', 'sweatpants', 'khakis', 'slacks', 'shorts', 'trousers', 'pants'], 'pants') });
+    items.push({ slot: 'kBoots', style: /boot/.test(t) ? 'Work boots' : (/dress shoe|loafer/.test(t) ? 'Noble' : 'Sneakers'), name: pick(['work boots', 'sneakers', 'boots', 'loafers', 'dress shoes', 'sandals', 'shoes'], 'shoes') });
+    if (/hood up|beanie|hat\b|cap\b/.test(t)) items.push({ slot: 'kHead', style: /beanie|knit hat/.test(t) ? 'Beanie' : /cap\b/.test(t) ? 'Cap' : 'Ranger hood', name: pick(['beanie', 'baseball cap', 'cap', 'hat', 'hood'], 'hood') });
     if (/scarf/.test(t)) items.push({ slot: 'kNeck', style: 'Scarf', name: 'scarf' });
-    return outfitFrom(items.map(function (o) { var c = o.slot === 'kPants' && /jean|denim/.test(t) ? 0x3e5f7a : col(0x3a3328); var m = new RegExp('((?:faded |old |dark |light |bright )?(?:black|white|grey|gray|blue|navy|red|green|brown|tan|khaki|purple) )' + o.name).exec(t), nm = m ? m[0] : o.name; return { slot: o.slot, style: o.style, color: closestColor(o.style, c), name: nm.charAt(0).toUpperCase() + nm.slice(1) }; }));
+    return outfitFrom(items.map(function (o) { var near = new RegExp('(black|white|grey|gray|blue|navy|denim|red|green|brown|tan|khaki|purple)\\s+(?:\\w+\\s+)?' + o.name).exec(t), c = near ? COL[near[1]] : (o.name === 'jeans' ? 0x3e5f8f : (o.slot === 'kTop' ? 0xf2f2ee : o.slot === 'kBoots' && /sneaker/.test(o.name) ? 0xf2f2ee : 0x3a3328)); var m = new RegExp('((?:faded |old |dark |light |bright )?(?:black|white|grey|gray|blue|navy|red|green|brown|tan|khaki|purple) )' + o.name).exec(t), nm = m ? m[0] : o.name; return { slot: o.slot, style: o.style, color: closestColor(o.style, c), name: nm.charAt(0).toUpperCase() + nm.slice(1) }; }));
   }
 
   // ---------- speech bubbles (what you say out loud shows over your head) ----------
@@ -7053,6 +7092,14 @@
     say('Looted · ' + e.name, (L.items.length ? 'You found: ' + L.items.map(function (i) { return i.name; }).join(', ') + '. ' : 'Nothing useful. ') + (L.gold ? '+' + L.gold + ' gold.' : ''), 5000);
     if (!CHAR) say('Looted · ' + e.name, 'Create a character first; your pockets are not registered with the System yet.', 4000);
   }
+
+  // ---------- credits (CC-BY assets must credit their authors) ----------
+  var CREDITS = [
+    ['Characters, outfits, animations, props, nature, monsters', 'Quaternius (quaternius.com)', 'CC0'],
+    ['Cowboy Hat (Free)', 'wolfgar74 on Sketchfab', 'CC-BY 4.0'], ['Hard hat', 'naira001 on Sketchfab', 'CC-BY 4.0'], ['Winter Hat', 'StubbornFunkyDonkey on Sketchfab', 'CC-BY 4.0'],
+    ['Santa Hat', '3d-Pauer on Sketchfab', 'CC-BY 4.0'], ['Clown Hat', 'PatelDev on Sketchfab', 'CC-BY 4.0'], ['Stylized wizard hat', 'Enkarra on Sketchfab', 'CC-BY 4.0'], ['Gangster hats', 'Michal Cavrnoch on Sketchfab', 'CC-BY 4.0']
+  ];
+  function creditsHTML() { return '<h3>Credits</h3><ul class="credits">' + CREDITS.map(function (c) { return '<li>' + esc(c[0]) + ' · ' + esc(c[1]) + ' · ' + esc(c[2]) + '</li>'; }).join('') + '</ul>'; }
 
   // ---------- state ----------
   var P = { x: start.x, z: start.z, px: start.x, pz: start.z, speed: 0 };
@@ -7334,7 +7381,7 @@
       row.appendChild(prev); row.appendChild(val); row.appendChild(next);
       var sw = document.createElement('button'); sw.type = 'button'; sw.className = 'sw'; sw.setAttribute('aria-label', s.label + ' color');
       var noCol = s.kitColors && /^None$/.test(s.styles[look[s.key][0]]);
-      if (s.colors && !noCol) { sw.style.background = hexs(s.kitColors ? KIT_SW[kitOutfitOf(s.styles[look[s.key][0]])][look[s.key][1] % 5] : s.colors[look[s.key][1] % s.colors.length]); sw.onclick = function () { look[s.key][1] = (look[s.key][1] + 1) % s.colors.length; finish(); }; }
+      if (s.colors && !noCol) { var pal = s.kitColors ? KIT_SW[kitOutfitOf(s.styles[look[s.key][0]])] : s.colors; sw.style.background = hexs(s.kitColors ? pal[look[s.key][1] % pal.length] : s.colors[look[s.key][1] % s.colors.length]); sw.onclick = function () { look[s.key][1] = (look[s.key][1] + 1) % pal.length; finish(); }; }
       else sw.style.visibility = 'hidden';
       row.appendChild(sw); rowsEl.appendChild(row);
     });

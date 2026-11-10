@@ -7,10 +7,17 @@
   var KIT = { ready: false, on: false, s: 0.72, bones: {}, cat: {}, hair: {}, acts: {}, over: {}, cur: '', tex: {}, attached: [] };
   var KIT_OUTFITS = ['ranger', 'peasant', 'knight', 'noble', 'wizard'];
   var KIT_SW = { ranger: [0x3a6a2a, 0x2a2a2a, 0xc8bca0, 0x2a5a8a, 0x7a2a8a], peasant: [0x5a3a1a, 0x3a3328, 0x3e5f7a, 0x1e2a5a, 0x5a1e6a],
+    modern: [0xf2f2ee, 0x1c1c1e, 0x8a8a8c, 0x1f2b4d, 0x9c2a2a, 0x2f5d3a, 0xc2a77c, 0x5a3d2b, 0x3e5f8f, 0x8aa4c4],
     knight: [0xb03030, 0xc8962e, 0x3a5a8a, 0x2f9a5a, 0x2a3fa0], noble: [0x8b2a22, 0x2a4f8a, 0x2f7a3a, 0x2a9aa0, 0x8a2aa0], wizard: [0x2a4a8a, 0x6a2a8a, 0x9a1a1a, 0x4a3a8a, 0x2a6a5a] };
   var KIT_HAIR = [null, 'long', 'simpleparted', 'slickback', 'buzzed', 'balding', 'mohawk', 'ponytail', 'ponytail_2', 'dreads', 'longdreads', 'bob', 'buns'];
   var KIT_BEARD = [[], ['beard'], ['moustache'], ['muttonchops'], ['muttonchops', 'moustache']];
-  function kitOutfitOf(label) { var w = label.toLowerCase(); if (/crown|gorget|lion/.test(w)) return 'noble'; if (/helm|scarf|plate|tunic|round|spiked/.test(w)) return 'knight'; return w.split(' ')[0]; }
+  // modern clothes are shells of the base body (see m_modern): label -> meshes, texture
+  var MOD_PIECES = { 'T-shirt': [['Mod_Top_TShirt', 'knit']], 'Long sleeve': [['Mod_Top_LongSleeve', 'knit']], 'Tank top': [['Mod_Top_Tank', 'knit']], 'Hoodie': [['Mod_Top_Hoodie', 'knit'], ['Mod_HoodDown', 'knit']],
+    'Button-up': [['Mod_Top_ButtonUp', 'canvas'], ['Mod_Collar', 'canvas']], 'Jeans': [['Mod_Legs_Jeans', 'denim']], 'Shorts': [['Mod_Legs_Shorts', 'canvas']], 'Sweatpants': [['Mod_Legs_Sweatpants', 'knit']],
+    'Sneakers': [['Mod_Feet_Sneakers', 'canvas'], ['Mod_Feet_SneakerSole', 'sole', 1]], 'Work boots': [['Mod_Feet_Boots', 'leather'], ['Mod_Feet_BootSole', 'sole', 1]], 'Beanie': [['Mod_Head_Beanie', 'knit']], 'Cap': [['Mod_Head_Cap', 'canvas'], ['Mod_Head_CapBrim', 'canvas']] };
+  var HAT_LABELS = ['Cowboy hat', 'Hard hat', 'Winter hat', 'Santa hat', 'Clown hat', 'Wizard hat', 'Fedora', 'Trilby'];
+  var MOD_SLOT = { 'T-shirt': 'kTop', 'Long sleeve': 'kTop', 'Tank top': 'kTop', 'Hoodie': 'kTop', 'Button-up': 'kTop', Jeans: 'kPants', Shorts: 'kPants', Sweatpants: 'kPants', Sneakers: 'kBoots', 'Work boots': 'kBoots', Beanie: 'kHead', Cap: 'kHead' };
+  function kitOutfitOf(label) { if (MOD_SLOT[label] || HAT_LABELS.indexOf(label) >= 0) return 'modern'; var w = label.toLowerCase(); if (/crown|gorget|lion/.test(w)) return 'noble'; if (/helm|scarf|plate|tunic|round|spiked/.test(w)) return 'knight'; return w.split(' ')[0]; }
   function kitMode() { return sty('model') === 0; }
   function kitTex(name, color) {
     if (KIT.tex[name]) return KIT.tex[name];
@@ -22,9 +29,24 @@
       roughness: 1, metalness: orm && orm.indexOf('orm') >= 0 ? 0.35 : 0, side: side || THREE.FrontSide });
     m.envMapIntensity = 0; m.color.setScalar(1.25); return m;
   }
+  function L0() { return new THREE.GLTFLoader(); }
+  // hats (from Michael's Sketchfab downloads, CC-BY; see credits) ride on the head bone like hair
+  function kitLoadHats(L) {
+    fetch(KDIR + 'hats.json').then(function (r) { return r.json(); }).then(function (pack) {
+      Object.keys(pack).forEach(function (label) {
+        var bin = atob(pack[label]), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+        L.parse(u.buffer, KDIR, function (g) {
+          var grp = new THREE.Group(); grp.matrixAutoUpdate = false; grp.matrix.copy(KIT.headInv); KIT.bones.Head.add(grp); grp.visible = false;
+          g.scene.traverse(function (o) { if (!o.isMesh) return; var m = new THREE.MeshStandardMaterial({ map: o.material.map || null, color: 0xffffff, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }); if (!o.material.map) m.userData.base = o.material.color.clone(); m.envMapIntensity = 0; if (m.map) m.map.encoding = THREE.LinearEncoding; var c = new THREE.Mesh(o.geometry, m); c.castShadow = true; grp.add(c); });
+          if (!g.scene.children.length) return;
+          KIT.hats[label] = grp; if (KIT.on && SLOT.kHead.styles[sty('kHead')] === label) buildHero();
+        }, function (e) { console.warn('hat failed', label, e); });
+      });
+    }).catch(function (e) { console.warn('hats failed', e); });
+  }
   function kitLoad() {
     if (!THREE.GLTFLoader) return;
-    var L = new THREE.GLTFLoader(), names = KIT_OUTFITS.map(function (o) { return 'o_' + o; }).concat(['o_knightcloth', 'head', 'anims', 'h_browsthick', 'h_beard', 'h_moustache', 'h_muttonchops']).concat(KIT_HAIR.filter(Boolean).map(function (h) { return 'h_' + h; }));
+    var L = new THREE.GLTFLoader(), names = KIT_OUTFITS.map(function (o) { return 'o_' + o; }).concat(['o_knightcloth', 'm_modern', 'head', 'anims', 'h_browsthick', 'h_beard', 'h_moustache', 'h_muttonchops']).concat(KIT_HAIR.filter(Boolean).map(function (h) { return 'h_' + h; }));
     var got = {}, n = 0, failed = false;
     names.forEach(function (nm) {
       function bad(e) { failed = true; console.warn('kit load failed: ' + nm, e); }
@@ -108,6 +130,16 @@
         else if (/Legs/.test(n)) add('kPants', title(o), m, tex); else if (/Feet/.test(n)) add('kBoots', title(o), m, tex);
       });
     });
+    // modern clothes and the bare-skin pieces that show under them
+    var mods = {}; got.m_modern.scene.traverse(function (x) { if (x.isSkinnedMesh) mods[x.name] = x; });
+    Object.keys(mods).forEach(function (nm) { var m = mods[nm]; rebind(m); base.add(m); m.castShadow = true; m.frustumCulled = false; m.visible = false; });
+    Object.keys(MOD_PIECES).forEach(function (label) {
+      MOD_PIECES[label].forEach(function (pc) {
+        var m = mods[pc[0]]; if (!m) return; m.material = kitMat('mod_' + pc[1] + '.jpg', null, null, THREE.DoubleSide); m.material.skinning = true; m.material.roughness = pc[1] === 'leather' ? 0.6 : 0.95;
+        var t = m.material.map; t.wrapS = t.wrapT = THREE.RepeatWrapping; add(MOD_SLOT[label], label, m, 'modern'); m.userData.fixed = !!pc[2];
+      });
+    });
+    KIT.modSkin = {}; ['Torso', 'Arms', 'Legs', 'Feet'].forEach(function (k) { var m = mods['Mod_Skin_' + k]; if (!m) return; m.material = kitMat('skin_light.jpg', 'skin_n.jpg', 'skin_r.jpg'); m.material.skinning = true; KIT.modSkin[k] = m; });
     // the head (Regular male, made for these outfits), its eyes and regular brows
     var hl = []; got.head.scene.traverse(function (o) { if (o.isSkinnedMesh) hl.push(o); });
     var headInv = null;
@@ -134,6 +166,7 @@
       });
       KIT.hair[key] = grp;
     });
+    KIT.headInv = headInv; KIT.hats = {}; kitLoadHats(L0());
     var root = new THREE.Group(); root.add(base); root.scale.setScalar(KIT.s); root.position.y = -LIFT; KIT.root = root; KIT.base = base;
     var clips = {}; got.anims.animations.forEach(function (c) { clips[c.name] = c; });
     KIT.clips = clips; KIT.mixer = new THREE.AnimationMixer(base); KIT.overMixer = new THREE.AnimationMixer(base);
@@ -164,19 +197,25 @@
       Object.keys(KIT.cat[slot]).forEach(function (lb) {
         KIT.cat[slot][lb].forEach(function (p) {
           var on = lb === label; p.mesh.visible = on; if (!on) return;
+          if (p.outfit === 'modern') { var pal = KIT_SW.modern; if (p.mesh.userData.fixed) p.mesh.material.color.set(sty('kBoots') >= 0 && /Boot/.test(p.mesh.name) ? 0x2a2420 : 0xeeeeea); else p.mesh.material.color.set(pal[look[slot][1] % pal.length]).multiplyScalar(1.15); return; }
           var t = p.mesh.userData.skin ? skinT : kitTex(p.outfit + '_' + v + '.jpg');
           if (p.mesh.material.map !== t) { p.mesh.material.map = t; p.mesh.material.needsUpdate = true; }
         });
       });
     });
+    // modern pieces: bare skin under them, and sleeves follow a modern top
+    var modTop = !!MOD_SLOT[SLOT.kTop.styles[sty('kTop')]], modLegs = !!MOD_SLOT[SLOT.kPants.styles[sty('kPants')]], modFeet = !!MOD_SLOT[SLOT.kBoots.styles[sty('kBoots')]];
+    if (modTop && KIT.cat.kSleeves) Object.keys(KIT.cat.kSleeves).forEach(function (lb) { KIT.cat.kSleeves[lb].forEach(function (p) { p.mesh.visible = false; }); });
+    var ms = KIT.modSkin || {}; [['Torso', modTop], ['Arms', modTop], ['Legs', modLegs], ['Feet', modFeet]].forEach(function (q) { var m = ms[q[0]]; if (!m) return; m.visible = q[1]; if (m.material.map !== skinT) { m.material.map = skinT; m.material.needsUpdate = true; } });
     if (KIT.headMesh.material.map !== skinT) { KIT.headMesh.material.map = skinT; KIT.headMesh.material.needsUpdate = true; }
     kitReshape();
-    var helm = /helm|hood/i.test(SLOT.kHead.styles[sty('kHead')]), closed = SLOT.kHead.styles[sty('kHead')] === 'Knight helm';
+    var hl0 = SLOT.kHead.styles[sty('kHead')], knit = /^(Beanie|Cap)$/.test(hl0) || HAT_LABELS.indexOf(hl0) >= 0, helm = /helm|hood/i.test(hl0), closed = hl0 === 'Knight helm';
     var hc = new THREE.Color(col('kHair')).multiplyScalar(1.75), hs = KIT_HAIR[sty('kHair')], beards = KIT_BEARD[sty('kBeard')];
     Object.keys(KIT.hair).forEach(function (nm) {
-      var on = nm === 'browsthick' ? sty('kBrows') === 1 : (/^(beard|moustache|muttonchops)$/.test(nm) ? beards.indexOf(nm) >= 0 && !closed : (nm === hs && !helm));
+      var on = nm === 'browsthick' ? sty('kBrows') === 1 : (/^(beard|moustache|muttonchops)$/.test(nm) ? beards.indexOf(nm) >= 0 && !closed : (knit ? (nm === 'buzzed' && hs) : (nm === hs && !helm)));
       KIT.hair[nm].visible = on; KIT.hair[nm].traverse(function (o) { if (o.material) o.material.color.copy(hc); });
     });
+    Object.keys(KIT.hats || {}).forEach(function (lb) { var on = lb === hl0; KIT.hats[lb].visible = on; if (on) { var c = new THREE.Color(KIT_SW.modern[look.kHead[1] % 10]); if (look.kHead[1] % 10 === 0) c.set(0xffffff); KIT.hats[lb].traverse(function (o) { if (o.material) o.material.color.copy(o.material.userData.base || new THREE.Color(1, 1, 1)).multiply(c).multiplyScalar(1.1); }); } });
     KIT.browsReg.visible = sty('kBrows') === 0; KIT.browsReg.material.color.copy(hc);
     KIT.eyes.material.color.set(col('kEyes')).lerp(new THREE.Color(0xffffff), 0.25).multiplyScalar(1.15);
     // held gear into the hands, back gear onto the spine
