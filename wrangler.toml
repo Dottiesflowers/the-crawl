@@ -1,0 +1,24 @@
+name = "the-crawl"
+main = "src/worker.js"
+compatibility_date = "2026-06-01"
+workers_dev = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[durable_objects.bindings]]
+name = "CAMPAIGN"
+class_name = "Campaign"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Campaign"]
+
+[vars]
+AI_MODEL = "claude-haiku-5-5"
+AI_MODEL_BIG = "claude-sonnet-5-5"
+
+# Secrets (set in the Cloudflare dashboard, never in this file):
+#   ANTHROPIC_API_KEY  your Anthropic API key
+#   DM_INVITE          the one invite code that creates the DM (game master) account

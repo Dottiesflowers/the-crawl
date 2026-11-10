@@ -1,0 +1,13 @@
+{
+  "name": "the-crawl",
+  "version": "1.0.0",
+  "description": "The Crawl: a DCC-style dungeon crawl for five friends",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.160.0"
+  },
+  "private": true
+}
