@@ -24,7 +24,8 @@
     'Big life moments: emergencies, fights, disasters, wins, things that changed you. What happened and what did you do?',
     'Interests, hobbies and practical skills. What can you actually do with your hands or your mouth?',
     'How do you define yourself? And be honest: what are your worst habits or weaknesses?',
-    'You were grabbed without warning in the middle of a normal day. What is on you or within reach? (tools, keys, bag, work gear)'
+    'You were grabbed without warning in the middle of a normal day. What is on you or within reach? (tools, keys, bag, work gear)',
+    'What are you wearing right now? Head to toe, colors included. That is what you will be wearing in the dungeon.'
   ];
   var MICHAEL = { name: 'Michael', stats: { STR: 10, DEX: 12, CON: 13, INT: 12, WIS: 14, CHA: 13 }, skills: { Pathfinding: 3, Performance: 3, 'Jury-Rig': 2, 'De-escalation': 2, 'Road-Worn': 2, Getaway: 1 },
     trait: 'Living Map', flaw: 'Curse of Knowledge', interview: [], xp: 0, preset: true };
@@ -41,7 +42,7 @@
   function cbSaveChar() { if (!CHAR) return; CHAR.xp = PC.xp || 0; saveChar(CHAR); }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
@@ -132,7 +133,9 @@
         '<p><button type="button" class="ccBtn" id="dmNew">Make an invite code</button></p>' +
         (open.length ? '<ul>' + open.map(function (i) { return '<li><b style="user-select:all">' + esc(i.code) + '</b>' + (i.note ? ' · ' + esc(i.note) : '') + '</li>'; }).join('') + '</ul>' : '') +
         (used.length ? '<p>Used: ' + used.map(function (i) { return esc(i.used_by); }).join(', ') + '</p>' : '') +
-        '<p><button type="button" class="ccBtn" id="dmTalk">Read recent NPC conversations</button></p><div id="dmLogs"></div>';
+        '<p><button type="button" class="ccBtn" id="dmTalk">Read recent NPC conversations</button></p><div id="dmLogs"></div>' +
+        (CHAR ? '<p><button type="button" class="ccBtn" id="dmWard">' + (CHAR.freeWardrobe ? 'Lock my wardrobe again' : 'Unlock all clothes for me (DM testing)') + '</button></p>' : '');
+      if (document.getElementById('dmWard')) document.getElementById('dmWard').onclick = function () { CHAR.freeWardrobe = !CHAR.freeWardrobe; saveChar(CHAR); drawRows(); };
       document.getElementById('dmNew').onclick = function () { var note = prompt('Who is this invite for? (optional)') || ''; api('dm/invites', { method: 'POST', body: { note: note } }).then(sheetAfter, function (e) { say('Invite failed', e.message); }); };
       document.getElementById('dmTalk').onclick = function () {
         api('dm/talk').then(function (t) {
@@ -177,7 +180,7 @@
     var el = document.createElement('div'); el.id = 'cc'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Character creation'); document.body.appendChild(el);
   })();
   function ccOpen() {
-    CC = { step: 0, name: (CHAR && CHAR.name) || '', answers: QUESTIONS.map(function () { return ''; }), follow: [], followA: [], stats: { STR: 8, DEX: 8, CON: 8, INT: 8, WIS: 8, CHA: 8 }, skills: {}, gear: [], cTrait: null, cFlaw: null, trait: null, flaw: null, note: '' };
+    CC = { step: 0, name: (CHAR && CHAR.name) || '', answers: QUESTIONS.map(function () { return ''; }), follow: [], followA: [], stats: { STR: 8, DEX: 8, CON: 8, INT: 8, WIS: 8, CHA: 8 }, skills: {}, gear: [], outfit: [], cTrait: null, cFlaw: null, trait: null, flaw: null, note: '' };
     document.getElementById('cc').classList.add('on'); ccDraw();
   }
   function ccClose() { document.getElementById('cc').classList.remove('on'); CC = null; }
@@ -210,7 +213,7 @@
         (CC.cTrait ? [CC.cTrait] : []).concat(TRAITS).map(function (t) { return '<div class="st pick' + (CC.trait === t[0] ? ' on' : '') + '" data-tr="' + esc(t[0]) + '" role="button" tabindex="0"><span>' + esc(t[0]) + (CC.sugTrait === t[0] ? ' · suggested' : '') + '<small>' + esc(t[1]) + '</small></span></div>'; }).join('') +
         '</div><h2 style="margin-top:12px">Flaw</h2><div class="grid">' +
         (CC.cFlaw ? [CC.cFlaw] : []).concat(FLAWS).map(function (t) { return '<div class="st pick' + (CC.flaw === t[0] ? ' on' : '') + '" data-fl="' + esc(t[0]) + '" role="button" tabindex="0"><span>' + esc(t[0]) + (CC.sugFlaw === t[0] ? ' · suggested' : '') + '<small>' + t[1] + '</small></span></div>'; }).join('') +
-        '</div>' + (CC.gear.length ? '<h2 style="margin-top:12px">What you had on you</h2><div class="grid">' + CC.gear.map(function (g) { return '<div class="st"><span>' + esc(g.name) + (g.dmg ? ' · ' + esc(g.dmg) : '') + '<small>' + esc(g.desc || '') + '</small></span></div>'; }).join('') + '</div>' : '') +
+        '</div>' + (CC.outfit.length ? '<h2 style="margin-top:12px">What you are wearing</h2><div class="grid">' + CC.outfit.map(function (g) { return '<div class="st"><span>' + esc(g.name) + '<small>' + esc(slotLabel(g.slot)) + ' · shown as ' + esc(g.style) + '</small></span></div>'; }).join('') + '</div>' : '') + (CC.gear.length ? '<h2 style="margin-top:12px">What you had on you</h2><div class="grid">' + CC.gear.map(function (g) { return '<div class="st"><span>' + esc(g.name) + (g.dmg ? ' · ' + esc(g.dmg) : '') + '<small>' + esc(g.desc || '') + '</small></span></div>'; }).join('') + '</div>' : '') +
         '<div class="nav"><button type="button" id="ccGo"' + (CC.trait && CC.flaw ? '' : ' disabled') + '>Finish and choose your look</button><button type="button" class="alt" id="ccBack">Back</button></div>';
     }
     el.innerHTML = h; el.scrollTop = 0;
@@ -248,9 +251,9 @@
     if (s === 4) { CC.step = 5; ccDraw(); return; }
     if (s === 5) {
       var tp = (CC.cTrait && CC.cTrait[0] === CC.trait) ? CC.cTrait : (TRAITS.filter(function (t) { return t[0] === CC.trait; })[0] || [CC.trait, '', CC.trait]), fp = (CC.cFlaw && CC.cFlaw[0] === CC.flaw) ? CC.cFlaw : (FLAWS.filter(function (t) { return t[0] === CC.flaw; })[0] || [CC.flaw, '', CC.flaw]);
-      var c = { name: CC.name, stats: CC.stats, skills: CC.skills, trait: tp[0], traitDesc: tp[1], traitFx: tp[2] || tp[0], flaw: fp[0], flawDesc: fp[1], flawFx: fp[2] || fp[0], gear: CC.gear, xp: 0, interview: QUESTIONS.map(function (q, i) { return { q: q, a: CC.answers[i] }; }).concat(CC.follow.map(function (q, i) { return { q: q, a: CC.followA[i] || '' }; })) };
-      applyChar(c); saveChar(c); ccClose(); if (!gearOpen) toggleGear(); tab = 'Body'; drawTabs(); drawRows();
-      say('Crawler registered · ' + c.name, 'Now choose your look. Your sheet is on the Sheet tab.', 5000);
+      var c = { name: CC.name, stats: CC.stats, skills: CC.skills, trait: tp[0], traitDesc: tp[1], traitFx: tp[2] || tp[0], flaw: fp[0], flawDesc: fp[1], flawFx: fp[2] || fp[0], gear: CC.gear.concat(CC.outfit), gold: 0, xp: 0, interview: QUESTIONS.map(function (q, i) { return { q: q, a: CC.answers[i] }; }).concat(CC.follow.map(function (q, i) { return { q: q, a: CC.followA[i] || '' }; })) };
+      applyChar(c); c.gear.forEach(function (g) { if (g.cat === 'clothing' && g.worn) wear(g); }); saveChar(c); ccClose(); if (!gearOpen) toggleGear(); tab = 'Body'; drawTabs(); drawRows();
+      say('Crawler registered · ' + c.name, 'Now set your body, face and hair. Your clothes are what you walked in with; check the Bag for your gear.', 6000);
     }
   }
   // ask Claude (through the page's sample capability) to play the System for the interview
@@ -262,7 +265,8 @@
       : head + '\n\nBuild their level-1 human sheet from real-life evidence. Ability scores use the 5e 27-point buy exactly (each score 8-15; costs 8=0,9=1,10=2,11=3,12=4,13=5,14=7,15=9; total exactly 27). Skills come only from this list: ' + SKILLS.map(function (s) { return s[0]; }).join(', ') +
         '. Give 4 to 6 skills, levels 1-3, total points at most ' + SKILL_BUDGET + '. Invent one personal trait and one personal flaw drawn from their real life (funny, specific, consequential). Each must use one game effect: trait effect from ' + TRAITS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') + '. Flaw effect from ' + FLAWS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') +
         '. Starting gear: 3 to 6 everyday items they would really have had on them or within reach (from their job, habits and answer about what was on them), no fantasy gear. Categories: weapon, tool, consumable, valuable, misc. Improvised weapons get small damage dice (1d3 to 1d6).' +
-        ' Reply with JSON only: {"stats":{"STR":n,"DEX":n,"CON":n,"INT":n,"WIS":n,"CHA":n},"skills":{"Name":level},"trait":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed trait effect"},"flaw":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed flaw effect"},"gear":[{"name":"...","cat":"...","desc":"one dry sentence","dmg":"1d4 or empty"}],"comment": two dry sentences from the System explaining the numbers, mentioning specific things they said}';
+        ' Outfit: dress them in what they said they are wearing, using the closest available pieces and colors from this catalog (slot: options with color indexes):\n' + outfitCatalog() + '\nEveryday clothes map best to Peasant (shirt, tee, jeans, trousers, sneakers), Ranger (hoodies, work jackets, boots) and Noble (suits, dress shoes). Give each piece the real name of what they wear (e.g. "Faded black hoodie").' +
+        ' Reply with JSON only: {"outfit":[{"slot":"kTop","style":"exact option name","color":index,"name":"what it really is","desc":"one dry sentence"}],"stats":{"STR":n,"DEX":n,"CON":n,"INT":n,"WIS":n,"CHA":n},"skills":{"Name":level},"trait":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed trait effect"},"flaw":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed flaw effect"},"gear":[{"name":"...","cat":"...","desc":"one dry sentence","dmg":"1d4 or empty"}],"comment": two dry sentences from the System explaining the numbers, mentioning specific things they said}';
     var call = NET.sample.json ? NET.sample.json(prompt, { modelTier: 'default', cache: false }) : NET.sample(prompt, { cache: false }).then(function (r) { return JSON.parse((r.text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); });
     return Promise.resolve(call);
   }
@@ -283,6 +287,7 @@
     CC.sugFlaw = CC.cFlaw ? CC.cFlaw[0] : (FLAWS.some(function (t) { return t[0] === (r && r.flaw); }) ? r.flaw : null);
     CC.gear = (r && Array.isArray(r.gear) ? r.gear : []).slice(0, 6).map(function (g) { return { name: String(g.name || 'Something').slice(0, 40), cat: /^(weapon|tool|consumable|valuable|misc)$/.test(g.cat) ? g.cat : 'misc', desc: String(g.desc || '').slice(0, 160), dmg: /^\d+d\d+$/.test(g.dmg || '') ? g.dmg : '' }; });
     if (!CC.gear.length) ccGearLocal();
+    CC.outfit = outfitFrom(r && r.outfit); if (!(r && r.outfit && r.outfit.length)) CC.outfit = outfitLocal(CC.answers[CC.answers.length - 1]);
     CC.trait = CC.sugTrait; CC.flaw = CC.sugFlaw; CC.note = (r && r.comment) || 'Your numbers.';
     if (!Object.keys(CC.skills).length) ccSuggestLocal(true);
   }
@@ -313,6 +318,7 @@
       ['Pathfinding', /direction|map|navigat|lost|hike/], ['Haggling', /sales|deal|negotiat|business|owner|shop|store/], ['Athletics', /gym|lift|sport|climb|swim/], ['Getaway', /ran away|outran|run|escape/], ['First Aid', /nurse|medic|first aid|emt|parent/],
       ['Cooking', /cook|chef|kitchen|bake/], ['Stealth', /sneak|quiet|hunt/], ['Investigation', /research|investigat|detail|puzzle/]];
     if (!CC.gear.length) ccGearLocal();
+    if (!CC.outfit.length) CC.outfit = outfitLocal(CC.answers[CC.answers.length - 1]);
     CC.skills = {}; var used = 0;
     SK.forEach(function (p) { if (p[1].test(t) && used < SKILL_BUDGET) { var v = Math.min(2, SKILL_BUDGET - used); CC.skills[p[0]] = v; used += v; } });
   }

@@ -34,7 +34,7 @@
     document.head.appendChild(css);
     var el = document.createElement('div'); el.id = 'talk'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Conversation');
     el.innerHTML = '<header><b id="tName"></b><small id="tMood"></small><button type="button" id="tBye">Leave</button></header><div id="tlog" aria-live="polite"></div>' +
-      '<form id="tForm"><input id="tIn" type="text" maxlength="280" autocomplete="off" placeholder="Say anything…" aria-label="What you say"><button type="submit" id="tSend">Say</button></form>';
+      '<form id="tForm"><label id="tWh"><input type="checkbox" id="tWhis"> Whisper</label><input id="tIn" type="text" maxlength="280" autocomplete="off" placeholder="Say anything…" aria-label="What you say"><button type="submit" id="tSend">Say</button></form>';
     document.body.appendChild(el);
     document.getElementById('tBye').onclick = talkClose;
     document.getElementById('tForm').onsubmit = function (ev) { ev.preventDefault(); var v = document.getElementById('tIn').value.trim(); if (v) talkSay(v); };
@@ -87,7 +87,8 @@
   }
   function talkSay(text) {
     var e = TALK.e, p = personaOf(e); if (!e || TALK.busy) return;
-    if (text) { e.talk.lines.push({ who: 'me', text: text }); document.getElementById('tIn').value = ''; }
+    var whisper = document.getElementById('tWhis').checked; TALK.whisper = whisper;
+    if (text) { e.talk.lines.push({ who: 'me', text: text, wh: whisper }); document.getElementById('tIn').value = ''; bubble('pc', text, whisper); }
     var roll = talkRoll();
     TALK.busy = true; talkDraw('');
     if (!NET.sample) { setTimeout(function () { talkReply(e, talkCanned(e, text), roll); }, 350); return; }
@@ -96,7 +97,7 @@
       'CHARACTER: ' + p.name + (e.npc ? '' : ' (' + e.name + ')') + '\nWho: ' + p.who + '\nWants: ' + p.wants + '\nKnows: ' + p.knows + '\nLimits: ' + p.limits + '\nVoice: ' + p.voice +
       '\nCurrent mood toward the player: ' + e.talk.mood + (e.calm ? ' (has agreed not to fight)' : '') + '. HP ' + e.hp + '/' + e.max + '.' + (e.talk.facts.length ? '\nThings you have learned about this player: ' + e.talk.facts.join('; ') : '') +
       '\n\nTHE PLAYER: ' + (c.name || 'a crawler') + ', human, level 1, one of humanity\'s five representatives. Charisma ' + c.stats.CHA + '. Notable skills: ' + Object.keys(c.skills).join(', ') + '. Trait: ' + c.trait + '. Flaw: ' + c.flaw + '. Carrying: ' + ((c.gear || []).map(function (g) { return g.name; }).join(', ') || 'nothing much') + '. HP ' + PC.hp + '/' + PC.max + '. Holding: ' + ((typeof pcWeapon === 'function') ? pcWeapon().name : 'nothing') + '.' +
-      (CB.on ? '\nA fight is happening right now.' : '') +
+      (CB.on ? '\nA fight is happening right now.' : '') + (whisper ? '\nThe player is WHISPERING this line so only you can hear; answer quietly.' : '\nThe player is speaking out loud; anyone nearby can hear.') +
       '\n\nThis line the player rolled ' + roll.skill + ': d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total + '. If the player is trying to persuade, trick, scare, bribe or charm you, judge the attempt against DC 10 (easy ask) / 13 (real favor) / 16 (against your interests) and let the roll decide whether it works, but a clever or funny line can lower the DC by 2 and an insult raises it. A natural 1 backfires; a natural 20 works if at all possible. If they are just chatting, ignore the roll.' +
       '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree not to fight them),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or ""}';
     var msgs = [{ role: 'user', content: sys + '\n\n[Conversation begins.' + (text ? '' : ' The player has just walked up. Greet them in character.') + ']' }];
@@ -124,6 +125,7 @@
     if (j.fact) e.talk.facts.push(String(j.fact).slice(0, 120));
     var note = j.used_roll ? roll.skill + ' d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total : '';
     e.talk.lines.push({ who: 'them', text: String(j.say || '…').slice(0, 400), note: note });
+    bubble(e, String(j.say || '…').replace(/\*[^*]*\*/g, '').trim().slice(0, 220) || '…', TALK.whisper);
     if (j.outcome === 'calm' && !e.calm) { e.calm = true; e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : e.name) + ' will not fight you.' }); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
     if (j.outcome === 'fight' && !e.npc) { e.calm = false; e.talk.mood = 'hostile'; talkDraw(); talkStore(e); setTimeout(function () { talkClose(); if (!CB.on) cbStart('Words failed. Steel next.', e); }, 1400); return; }
     talkStore(e); if (TALK.e === e) talkDraw();

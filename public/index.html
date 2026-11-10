@@ -5840,6 +5840,7 @@
     return { ac: ac, why: why };
   }
   function pcWeapon() {
+    var gw = gearWeapon(); if (gw) return gw;
     var m = sty('main');
     var W = [{ name: 'fists', n: 1, s: 1, b: 1 + MOD.STR, stat: 'STR', clip: 'Punch_Jab' }, { name: 'sword', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' }, { name: 'axe', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' },
       { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'The crowd loves it, so it hits with Charisma.' }][m];
@@ -6342,6 +6343,7 @@
   });
   // Interact options when you stand next to a monster
   function enemyActs(e) {
+    if (e.dead) return [{ label: 'Search the body', loot: true }, { label: 'Examine', text: 'Very dead. ' + (e.looted ? 'Already picked clean.' : 'Its pockets look promising.') }];
     var talk = { label: NET.sample ? 'Talk (say anything)' : 'Talk', talk: true };
     if (e.npc) return [talk,
       { label: 'Examine', text: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile. Not a threat to anyone, least of all you.' },
@@ -6380,7 +6382,8 @@
     'Big life moments: emergencies, fights, disasters, wins, things that changed you. What happened and what did you do?',
     'Interests, hobbies and practical skills. What can you actually do with your hands or your mouth?',
     'How do you define yourself? And be honest: what are your worst habits or weaknesses?',
-    'You were grabbed without warning in the middle of a normal day. What is on you or within reach? (tools, keys, bag, work gear)'
+    'You were grabbed without warning in the middle of a normal day. What is on you or within reach? (tools, keys, bag, work gear)',
+    'What are you wearing right now? Head to toe, colors included. That is what you will be wearing in the dungeon.'
   ];
   var MICHAEL = { name: 'Michael', stats: { STR: 10, DEX: 12, CON: 13, INT: 12, WIS: 14, CHA: 13 }, skills: { Pathfinding: 3, Performance: 3, 'Jury-Rig': 2, 'De-escalation': 2, 'Road-Worn': 2, Getaway: 1 },
     trait: 'Living Map', flaw: 'Curse of Knowledge', interview: [], xp: 0, preset: true };
@@ -6397,7 +6400,7 @@
   function cbSaveChar() { if (!CHAR) return; CHAR.xp = PC.xp || 0; saveChar(CHAR); }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
@@ -6488,7 +6491,9 @@
         '<p><button type="button" class="ccBtn" id="dmNew">Make an invite code</button></p>' +
         (open.length ? '<ul>' + open.map(function (i) { return '<li><b style="user-select:all">' + esc(i.code) + '</b>' + (i.note ? ' · ' + esc(i.note) : '') + '</li>'; }).join('') + '</ul>' : '') +
         (used.length ? '<p>Used: ' + used.map(function (i) { return esc(i.used_by); }).join(', ') + '</p>' : '') +
-        '<p><button type="button" class="ccBtn" id="dmTalk">Read recent NPC conversations</button></p><div id="dmLogs"></div>';
+        '<p><button type="button" class="ccBtn" id="dmTalk">Read recent NPC conversations</button></p><div id="dmLogs"></div>' +
+        (CHAR ? '<p><button type="button" class="ccBtn" id="dmWard">' + (CHAR.freeWardrobe ? 'Lock my wardrobe again' : 'Unlock all clothes for me (DM testing)') + '</button></p>' : '');
+      if (document.getElementById('dmWard')) document.getElementById('dmWard').onclick = function () { CHAR.freeWardrobe = !CHAR.freeWardrobe; saveChar(CHAR); drawRows(); };
       document.getElementById('dmNew').onclick = function () { var note = prompt('Who is this invite for? (optional)') || ''; api('dm/invites', { method: 'POST', body: { note: note } }).then(sheetAfter, function (e) { say('Invite failed', e.message); }); };
       document.getElementById('dmTalk').onclick = function () {
         api('dm/talk').then(function (t) {
@@ -6533,7 +6538,7 @@
     var el = document.createElement('div'); el.id = 'cc'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Character creation'); document.body.appendChild(el);
   })();
   function ccOpen() {
-    CC = { step: 0, name: (CHAR && CHAR.name) || '', answers: QUESTIONS.map(function () { return ''; }), follow: [], followA: [], stats: { STR: 8, DEX: 8, CON: 8, INT: 8, WIS: 8, CHA: 8 }, skills: {}, gear: [], cTrait: null, cFlaw: null, trait: null, flaw: null, note: '' };
+    CC = { step: 0, name: (CHAR && CHAR.name) || '', answers: QUESTIONS.map(function () { return ''; }), follow: [], followA: [], stats: { STR: 8, DEX: 8, CON: 8, INT: 8, WIS: 8, CHA: 8 }, skills: {}, gear: [], outfit: [], cTrait: null, cFlaw: null, trait: null, flaw: null, note: '' };
     document.getElementById('cc').classList.add('on'); ccDraw();
   }
   function ccClose() { document.getElementById('cc').classList.remove('on'); CC = null; }
@@ -6566,7 +6571,7 @@
         (CC.cTrait ? [CC.cTrait] : []).concat(TRAITS).map(function (t) { return '<div class="st pick' + (CC.trait === t[0] ? ' on' : '') + '" data-tr="' + esc(t[0]) + '" role="button" tabindex="0"><span>' + esc(t[0]) + (CC.sugTrait === t[0] ? ' · suggested' : '') + '<small>' + esc(t[1]) + '</small></span></div>'; }).join('') +
         '</div><h2 style="margin-top:12px">Flaw</h2><div class="grid">' +
         (CC.cFlaw ? [CC.cFlaw] : []).concat(FLAWS).map(function (t) { return '<div class="st pick' + (CC.flaw === t[0] ? ' on' : '') + '" data-fl="' + esc(t[0]) + '" role="button" tabindex="0"><span>' + esc(t[0]) + (CC.sugFlaw === t[0] ? ' · suggested' : '') + '<small>' + t[1] + '</small></span></div>'; }).join('') +
-        '</div>' + (CC.gear.length ? '<h2 style="margin-top:12px">What you had on you</h2><div class="grid">' + CC.gear.map(function (g) { return '<div class="st"><span>' + esc(g.name) + (g.dmg ? ' · ' + esc(g.dmg) : '') + '<small>' + esc(g.desc || '') + '</small></span></div>'; }).join('') + '</div>' : '') +
+        '</div>' + (CC.outfit.length ? '<h2 style="margin-top:12px">What you are wearing</h2><div class="grid">' + CC.outfit.map(function (g) { return '<div class="st"><span>' + esc(g.name) + '<small>' + esc(slotLabel(g.slot)) + ' · shown as ' + esc(g.style) + '</small></span></div>'; }).join('') + '</div>' : '') + (CC.gear.length ? '<h2 style="margin-top:12px">What you had on you</h2><div class="grid">' + CC.gear.map(function (g) { return '<div class="st"><span>' + esc(g.name) + (g.dmg ? ' · ' + esc(g.dmg) : '') + '<small>' + esc(g.desc || '') + '</small></span></div>'; }).join('') + '</div>' : '') +
         '<div class="nav"><button type="button" id="ccGo"' + (CC.trait && CC.flaw ? '' : ' disabled') + '>Finish and choose your look</button><button type="button" class="alt" id="ccBack">Back</button></div>';
     }
     el.innerHTML = h; el.scrollTop = 0;
@@ -6604,9 +6609,9 @@
     if (s === 4) { CC.step = 5; ccDraw(); return; }
     if (s === 5) {
       var tp = (CC.cTrait && CC.cTrait[0] === CC.trait) ? CC.cTrait : (TRAITS.filter(function (t) { return t[0] === CC.trait; })[0] || [CC.trait, '', CC.trait]), fp = (CC.cFlaw && CC.cFlaw[0] === CC.flaw) ? CC.cFlaw : (FLAWS.filter(function (t) { return t[0] === CC.flaw; })[0] || [CC.flaw, '', CC.flaw]);
-      var c = { name: CC.name, stats: CC.stats, skills: CC.skills, trait: tp[0], traitDesc: tp[1], traitFx: tp[2] || tp[0], flaw: fp[0], flawDesc: fp[1], flawFx: fp[2] || fp[0], gear: CC.gear, xp: 0, interview: QUESTIONS.map(function (q, i) { return { q: q, a: CC.answers[i] }; }).concat(CC.follow.map(function (q, i) { return { q: q, a: CC.followA[i] || '' }; })) };
-      applyChar(c); saveChar(c); ccClose(); if (!gearOpen) toggleGear(); tab = 'Body'; drawTabs(); drawRows();
-      say('Crawler registered · ' + c.name, 'Now choose your look. Your sheet is on the Sheet tab.', 5000);
+      var c = { name: CC.name, stats: CC.stats, skills: CC.skills, trait: tp[0], traitDesc: tp[1], traitFx: tp[2] || tp[0], flaw: fp[0], flawDesc: fp[1], flawFx: fp[2] || fp[0], gear: CC.gear.concat(CC.outfit), gold: 0, xp: 0, interview: QUESTIONS.map(function (q, i) { return { q: q, a: CC.answers[i] }; }).concat(CC.follow.map(function (q, i) { return { q: q, a: CC.followA[i] || '' }; })) };
+      applyChar(c); c.gear.forEach(function (g) { if (g.cat === 'clothing' && g.worn) wear(g); }); saveChar(c); ccClose(); if (!gearOpen) toggleGear(); tab = 'Body'; drawTabs(); drawRows();
+      say('Crawler registered · ' + c.name, 'Now set your body, face and hair. Your clothes are what you walked in with; check the Bag for your gear.', 6000);
     }
   }
   // ask Claude (through the page's sample capability) to play the System for the interview
@@ -6618,7 +6623,8 @@
       : head + '\n\nBuild their level-1 human sheet from real-life evidence. Ability scores use the 5e 27-point buy exactly (each score 8-15; costs 8=0,9=1,10=2,11=3,12=4,13=5,14=7,15=9; total exactly 27). Skills come only from this list: ' + SKILLS.map(function (s) { return s[0]; }).join(', ') +
         '. Give 4 to 6 skills, levels 1-3, total points at most ' + SKILL_BUDGET + '. Invent one personal trait and one personal flaw drawn from their real life (funny, specific, consequential). Each must use one game effect: trait effect from ' + TRAITS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') + '. Flaw effect from ' + FLAWS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') +
         '. Starting gear: 3 to 6 everyday items they would really have had on them or within reach (from their job, habits and answer about what was on them), no fantasy gear. Categories: weapon, tool, consumable, valuable, misc. Improvised weapons get small damage dice (1d3 to 1d6).' +
-        ' Reply with JSON only: {"stats":{"STR":n,"DEX":n,"CON":n,"INT":n,"WIS":n,"CHA":n},"skills":{"Name":level},"trait":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed trait effect"},"flaw":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed flaw effect"},"gear":[{"name":"...","cat":"...","desc":"one dry sentence","dmg":"1d4 or empty"}],"comment": two dry sentences from the System explaining the numbers, mentioning specific things they said}';
+        ' Outfit: dress them in what they said they are wearing, using the closest available pieces and colors from this catalog (slot: options with color indexes):\n' + outfitCatalog() + '\nEveryday clothes map best to Peasant (shirt, tee, jeans, trousers, sneakers), Ranger (hoodies, work jackets, boots) and Noble (suits, dress shoes). Give each piece the real name of what they wear (e.g. "Faded black hoodie").' +
+        ' Reply with JSON only: {"outfit":[{"slot":"kTop","style":"exact option name","color":index,"name":"what it really is","desc":"one dry sentence"}],"stats":{"STR":n,"DEX":n,"CON":n,"INT":n,"WIS":n,"CHA":n},"skills":{"Name":level},"trait":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed trait effect"},"flaw":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed flaw effect"},"gear":[{"name":"...","cat":"...","desc":"one dry sentence","dmg":"1d4 or empty"}],"comment": two dry sentences from the System explaining the numbers, mentioning specific things they said}';
     var call = NET.sample.json ? NET.sample.json(prompt, { modelTier: 'default', cache: false }) : NET.sample(prompt, { cache: false }).then(function (r) { return JSON.parse((r.text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); });
     return Promise.resolve(call);
   }
@@ -6639,6 +6645,7 @@
     CC.sugFlaw = CC.cFlaw ? CC.cFlaw[0] : (FLAWS.some(function (t) { return t[0] === (r && r.flaw); }) ? r.flaw : null);
     CC.gear = (r && Array.isArray(r.gear) ? r.gear : []).slice(0, 6).map(function (g) { return { name: String(g.name || 'Something').slice(0, 40), cat: /^(weapon|tool|consumable|valuable|misc)$/.test(g.cat) ? g.cat : 'misc', desc: String(g.desc || '').slice(0, 160), dmg: /^\d+d\d+$/.test(g.dmg || '') ? g.dmg : '' }; });
     if (!CC.gear.length) ccGearLocal();
+    CC.outfit = outfitFrom(r && r.outfit); if (!(r && r.outfit && r.outfit.length)) CC.outfit = outfitLocal(CC.answers[CC.answers.length - 1]);
     CC.trait = CC.sugTrait; CC.flaw = CC.sugFlaw; CC.note = (r && r.comment) || 'Your numbers.';
     if (!Object.keys(CC.skills).length) ccSuggestLocal(true);
   }
@@ -6669,6 +6676,7 @@
       ['Pathfinding', /direction|map|navigat|lost|hike/], ['Haggling', /sales|deal|negotiat|business|owner|shop|store/], ['Athletics', /gym|lift|sport|climb|swim/], ['Getaway', /ran away|outran|run|escape/], ['First Aid', /nurse|medic|first aid|emt|parent/],
       ['Cooking', /cook|chef|kitchen|bake/], ['Stealth', /sneak|quiet|hunt/], ['Investigation', /research|investigat|detail|puzzle/]];
     if (!CC.gear.length) ccGearLocal();
+    if (!CC.outfit.length) CC.outfit = outfitLocal(CC.answers[CC.answers.length - 1]);
     CC.skills = {}; var used = 0;
     SK.forEach(function (p) { if (p[1].test(t) && used < SKILL_BUDGET) { var v = Math.min(2, SKILL_BUDGET - used); CC.skills[p[0]] = v; used += v; } });
   }
@@ -6708,7 +6716,7 @@
     document.head.appendChild(css);
     var el = document.createElement('div'); el.id = 'talk'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Conversation');
     el.innerHTML = '<header><b id="tName"></b><small id="tMood"></small><button type="button" id="tBye">Leave</button></header><div id="tlog" aria-live="polite"></div>' +
-      '<form id="tForm"><input id="tIn" type="text" maxlength="280" autocomplete="off" placeholder="Say anything…" aria-label="What you say"><button type="submit" id="tSend">Say</button></form>';
+      '<form id="tForm"><label id="tWh"><input type="checkbox" id="tWhis"> Whisper</label><input id="tIn" type="text" maxlength="280" autocomplete="off" placeholder="Say anything…" aria-label="What you say"><button type="submit" id="tSend">Say</button></form>';
     document.body.appendChild(el);
     document.getElementById('tBye').onclick = talkClose;
     document.getElementById('tForm').onsubmit = function (ev) { ev.preventDefault(); var v = document.getElementById('tIn').value.trim(); if (v) talkSay(v); };
@@ -6761,7 +6769,8 @@
   }
   function talkSay(text) {
     var e = TALK.e, p = personaOf(e); if (!e || TALK.busy) return;
-    if (text) { e.talk.lines.push({ who: 'me', text: text }); document.getElementById('tIn').value = ''; }
+    var whisper = document.getElementById('tWhis').checked; TALK.whisper = whisper;
+    if (text) { e.talk.lines.push({ who: 'me', text: text, wh: whisper }); document.getElementById('tIn').value = ''; bubble('pc', text, whisper); }
     var roll = talkRoll();
     TALK.busy = true; talkDraw('');
     if (!NET.sample) { setTimeout(function () { talkReply(e, talkCanned(e, text), roll); }, 350); return; }
@@ -6770,7 +6779,7 @@
       'CHARACTER: ' + p.name + (e.npc ? '' : ' (' + e.name + ')') + '\nWho: ' + p.who + '\nWants: ' + p.wants + '\nKnows: ' + p.knows + '\nLimits: ' + p.limits + '\nVoice: ' + p.voice +
       '\nCurrent mood toward the player: ' + e.talk.mood + (e.calm ? ' (has agreed not to fight)' : '') + '. HP ' + e.hp + '/' + e.max + '.' + (e.talk.facts.length ? '\nThings you have learned about this player: ' + e.talk.facts.join('; ') : '') +
       '\n\nTHE PLAYER: ' + (c.name || 'a crawler') + ', human, level 1, one of humanity\'s five representatives. Charisma ' + c.stats.CHA + '. Notable skills: ' + Object.keys(c.skills).join(', ') + '. Trait: ' + c.trait + '. Flaw: ' + c.flaw + '. Carrying: ' + ((c.gear || []).map(function (g) { return g.name; }).join(', ') || 'nothing much') + '. HP ' + PC.hp + '/' + PC.max + '. Holding: ' + ((typeof pcWeapon === 'function') ? pcWeapon().name : 'nothing') + '.' +
-      (CB.on ? '\nA fight is happening right now.' : '') +
+      (CB.on ? '\nA fight is happening right now.' : '') + (whisper ? '\nThe player is WHISPERING this line so only you can hear; answer quietly.' : '\nThe player is speaking out loud; anyone nearby can hear.') +
       '\n\nThis line the player rolled ' + roll.skill + ': d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total + '. If the player is trying to persuade, trick, scare, bribe or charm you, judge the attempt against DC 10 (easy ask) / 13 (real favor) / 16 (against your interests) and let the roll decide whether it works, but a clever or funny line can lower the DC by 2 and an insult raises it. A natural 1 backfires; a natural 20 works if at all possible. If they are just chatting, ignore the roll.' +
       '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree not to fight them),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or ""}';
     var msgs = [{ role: 'user', content: sys + '\n\n[Conversation begins.' + (text ? '' : ' The player has just walked up. Greet them in character.') + ']' }];
@@ -6798,6 +6807,7 @@
     if (j.fact) e.talk.facts.push(String(j.fact).slice(0, 120));
     var note = j.used_roll ? roll.skill + ' d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total : '';
     e.talk.lines.push({ who: 'them', text: String(j.say || '…').slice(0, 400), note: note });
+    bubble(e, String(j.say || '…').replace(/\*[^*]*\*/g, '').trim().slice(0, 220) || '…', TALK.whisper);
     if (j.outcome === 'calm' && !e.calm) { e.calm = true; e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : e.name) + ' will not fight you.' }); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
     if (j.outcome === 'fight' && !e.npc) { e.calm = false; e.talk.mood = 'hostile'; talkDraw(); talkStore(e); setTimeout(function () { talkClose(); if (!CB.on) cbStart('Words failed. Steel next.', e); }, 1400); return; }
     talkStore(e); if (TALK.e === e) talkDraw();
@@ -6809,6 +6819,239 @@
     if (!text) return { say: e.kind === 'imp' ? 'Keep walking, pal. Or don\'t. I get paid either way.' : 'Grik see you. Grik hungry.', mood: e.talk.mood, outcome: 'none' };
     if (/stupid|ugly|idiot|die/.test(t)) return { say: '*bristles* Wrong thing to say.', mood: 'hostile', outcome: 'fight' };
     return win ? { say: e.kind === 'imp' ? 'Fine. I\'m on break. You never saw me.' : 'Grik... okay. Grik sit.', mood: 'neutral', outcome: 'calm', used_roll: true } : { say: e.kind === 'imp' ? 'Nice try, pal.' : 'Grik not trust soap-man.', mood: 'wary', outcome: 'none', used_roll: true };
+  }
+
+  // ===================== inventory, map, speech bubbles, wardrobe and looting =====================
+  var UI = { bag: false, map: false, cat: 'all', q: '', sel: null };
+  (function uiCSS() {
+    var css = document.createElement('style');
+    css.textContent =
+      '.hbtn{padding:6px 10px;background:var(--panel);border:1px solid var(--neon);border-radius:4px;color:var(--neon);font:inherit;font-size:11px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer}' +
+      '#mini{position:fixed;top:44px;right:10px;width:124px;height:124px;z-index:6;border:1px solid rgba(61,242,224,.35);border-radius:8px;background:rgba(8,9,15,.72);cursor:pointer}' +
+      '#mapFull,#bag{position:fixed;inset:10px;z-index:30;display:none;background:#0b0c13;border:1px solid rgba(61,242,224,.4);border-radius:12px;color:#e8f4f4;font-size:13px}' +
+      '#mapFull.on,#bag.on{display:flex}#mapFull{flex-direction:column;align-items:center}#mapFull header,#bag header{display:flex;align-items:center;gap:8px;padding:9px 12px;width:100%;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.08)}' +
+      '#mapFull header b,#bag header b{flex:1;color:var(--hot);font-size:12px;letter-spacing:.14em;text-transform:uppercase}.xbtn{background:none;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:6px;padding:4px 10px;font:inherit;cursor:pointer}' +
+      '#mapC{flex:1;max-width:100%;min-height:0}#mapLeg{padding:6px 12px 10px;color:#9ab;font-size:11.5px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center}#mapLeg i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}' +
+      '#bag{flex-direction:column}#bagTools{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06)}#bagQ{flex:1;min-width:140px;background:rgba(255,255,255,.06);border:1px solid rgba(61,242,224,.35);border-radius:8px;color:#fff;padding:7px 9px;font:inherit}' +
+      '#bagTools .chip2{padding:6px 9px;border-radius:14px;border:1px solid rgba(255,255,255,.2);background:none;color:#cde;font:inherit;font-size:11.5px;cursor:pointer}#bagTools .chip2.on{border-color:var(--hot);color:#fff;background:rgba(255,62,165,.14)}' +
+      '#bagBody{flex:1;display:flex;min-height:0}#bagList{flex:1.2;overflow-y:auto;padding:6px}#bagList button{display:flex;width:100%;gap:8px;align-items:center;text-align:left;background:none;border:1px solid transparent;border-radius:8px;color:#e8f4f4;padding:7px 8px;font:inherit;cursor:pointer}' +
+      '#bagList button.on{border-color:var(--neon);background:rgba(61,242,224,.08)}#bagList small{color:#8ab}#bagList .tag{margin-left:auto;font-size:10px;color:var(--hot);text-transform:uppercase;letter-spacing:.08em}' +
+      '#bagInfo{flex:1;overflow-y:auto;padding:10px 14px;border-left:1px solid rgba(255,255,255,.06)}#bagInfo h3{margin:0 0 4px;color:var(--hot);font-size:13px}#bagInfo p{margin:4px 0 10px;line-height:1.45;color:#cde}#bagInfo .acts{display:flex;gap:6px;flex-wrap:wrap}' +
+      '.bub{position:fixed;z-index:7;transform:translate(-50%,-100%);max-width:220px;padding:6px 9px;border-radius:10px;background:rgba(255,255,255,.94);color:#14151c;font-size:12px;line-height:1.35;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.5)}' +
+      '.bub:after{content:"";position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:rgba(255,255,255,.94)}.bub.npc{background:rgba(255,236,250,.95)}.bub.npc:after{border-top-color:rgba(255,236,250,.95)}' +
+      '.bub.lt{transform:translate(-88%,-100%)}.bub.lt:after{left:88%}.bub.wh{background:rgba(30,32,44,.92);color:#bcd;font-style:italic;border:1px dashed rgba(255,255,255,.3)}.bub.wh:after{border-top-color:rgba(30,32,44,.92)}' +
+      '#tWh{display:flex;align-items:center;gap:4px;color:#9ab;font-size:11.5px;white-space:nowrap}';
+    document.head.appendChild(css);
+    var stats = document.getElementById('stats'), gb = document.getElementById('gearBtn');
+    [['bagBtn', 'Bag', function () { bagToggle(); }], ['mapBtn', 'Map', function () { mapToggle(); }]].forEach(function (b) {
+      var el = document.createElement('button'); el.type = 'button'; el.id = b[0]; el.className = 'hbtn'; el.textContent = b[1]; el.onclick = b[2]; stats.insertBefore(el, gb);
+    });
+    var mini = document.createElement('canvas'); mini.id = 'mini'; mini.setAttribute('aria-label', 'Minimap: tap for the full map'); mini.onclick = function () { mapToggle(); }; document.body.appendChild(mini);
+    var mf = document.createElement('div'); mf.id = 'mapFull'; mf.setAttribute('role', 'dialog'); mf.setAttribute('aria-label', 'Floor map');
+    mf.innerHTML = '<header><b>Floor 1 map</b><button type="button" class="xbtn" id="mapX">Close</button></header><canvas id="mapC"></canvas>' +
+      '<div id="mapLeg"><span><i style="background:#3df2e0"></i>You</span><span><i style="background:#ff4a6a"></i>Hostile</span><span><i style="background:#5f6"></i>Friendly</span><span><i style="background:#ffd34a"></i>Stairs</span><span><i style="background:#c98a4a"></i>Door</span><span><i style="background:#3a6ea8"></i>Water</span></div>';
+    document.body.appendChild(mf); document.getElementById('mapX').onclick = mapToggle;
+    var bag = document.createElement('div'); bag.id = 'bag'; bag.setAttribute('role', 'dialog'); bag.setAttribute('aria-label', 'Inventory');
+    document.body.appendChild(bag);
+    var bubs = document.createElement('div'); bubs.id = 'bubs'; document.body.appendChild(bubs);
+  })();
+
+  // ---------- map ----------
+  function mapDraw(cv, full) {
+    var dpr = window.devicePixelRatio || 1, cw = cv.clientWidth, ch = cv.clientHeight; if (!cw || !ch) return;
+    if (cv.width !== Math.round(cw * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
+    var g = cv.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+    // rotate 45 degrees so the map matches the isometric camera (map +x+z is screen down)
+    var span = (W + H) / Math.SQRT2, s = Math.min(cw, ch) / span * (full ? 0.96 : 2.6), k = s / Math.SQRT2 * dpr;
+    var cx = full ? (W + H) / 2 : P.px, cz = full ? (H - W) / 2 * 0 : P.pz;
+    var ox = cv.width / 2, oy = cv.height / 2;
+    function tr(x, z) { var dx = x - (full ? W / 2 : cx), dz = z - (full ? H / 2 : cz); return [ox + (dx - dz) * k, oy + (dx + dz) * k]; }
+    function cell(x, z, col) { var a = tr(x - .5, z - .5), b = tr(x + .5, z - .5), c = tr(x + .5, z + .5), d = tr(x - .5, z + .5); g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill(); }
+    var liv = hasTrait('Living Map');
+    for (var z = 0; z < H; z++) for (var x = 0; x < W; x++) {
+      if (!tileState[z * W + x]) continue; var c = MAP[z].charAt(x), lit = visNow[x + ',' + z] !== undefined || liv;
+      var col = c === '#' ? '#2a2c38' : c === '~' ? '#3a6ea8' : c === 'D' ? '#c98a4a' : c === 'S' ? '#ffd34a' : (roomAt(x, z) === 'crypt' ? '#4f6a5c' : '#5d5a54');
+      g.globalAlpha = lit ? 1 : .55; cell(x, z, col);
+    }
+    g.globalAlpha = 1;
+    function dot(x, z, col, r) { var p = tr(x, z); g.fillStyle = col; g.beginPath(); g.arc(p[0], p[1], r * dpr, 0, 7); g.fill(); }
+    CB.enemies.forEach(function (e) { if (e.dead || visNow[e.x + ',' + e.z] === undefined) return; dot(e.px, e.pz, e.calm ? '#5f6' : '#ff4a6a', full ? 4 : 2.6); });
+    dot(P.px, P.pz, '#3df2e0', full ? 5 : 3.2);
+    if (full) { g.fillStyle = '#cde'; g.font = (11 * dpr) + 'px ui-monospace,monospace'; g.textAlign = 'center';
+      var seen = {}; for (var zz = 1; zz < H - 1; zz++) for (var xx = 1; xx < W - 1; xx++) { var id = roomAt(xx, zz); if (!id || !tileState[zz * W + xx]) continue; (seen[id] = seen[id] || []).push([xx, zz]); }
+      Object.keys(seen).forEach(function (id) { var a = seen[id], mx = 0, mz = 0; a.forEach(function (q) { mx += q[0]; mz += q[1]; }); var p = tr(mx / a.length, mz / a.length); g.fillText(ROOMS[id].name, p[0], p[1]); }); }
+  }
+  function mapToggle() {
+    UI.map = !UI.map; if (UI.map && UI.bag) bagToggle(); document.getElementById('mapFull').classList.toggle('on', UI.map);
+    if (UI.map) mapDraw(document.getElementById('mapC'), true);
+  }
+  setInterval(function () { if (typeof P === 'undefined') return; var m = document.getElementById('mini'); m.style.display = gearOpen || CC || AUTH.open ? 'none' : ''; if (m.style.display !== 'none') mapDraw(m, false); if (UI.map) mapDraw(document.getElementById('mapC'), true); }, 250);
+
+  // ---------- inventory ----------
+  var CATS = [['all', 'All'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['valuable', 'Valuables'], ['misc', 'Misc']];
+  function bagItems() { return CHAR && CHAR.gear ? CHAR.gear : []; }
+  function bagToggle() {
+    UI.bag = !UI.bag; if (UI.bag && UI.map) mapToggle(); document.getElementById('bag').classList.toggle('on', UI.bag);
+    if (UI.bag) bagDraw();
+  }
+  function bagDraw() {
+    var el = document.getElementById('bag'), items = bagItems(), q = UI.q.toLowerCase();
+    var list = items.map(function (it, i) { return { it: it, i: i }; }).filter(function (o) { return (UI.cat === 'all' || o.it.cat === UI.cat) && (!q || (o.it.name + ' ' + (o.it.desc || '')).toLowerCase().indexOf(q) >= 0); });
+    if (UI.sel !== null && !items[UI.sel]) UI.sel = null;
+    var sel = UI.sel !== null ? items[UI.sel] : null;
+    el.innerHTML = '<header><b>Inventory · ' + items.length + ' items · ' + (CHAR && CHAR.gold || 0) + ' gold</b><button type="button" class="xbtn" id="bagX">Close</button></header>' +
+      '<div id="bagTools"><input id="bagQ" type="search" placeholder="Search items" aria-label="Search items" value="' + esc(UI.q) + '">' +
+      CATS.map(function (c) { return '<button type="button" class="chip2' + (UI.cat === c[0] ? ' on' : '') + '" data-cat="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>' +
+      '<div id="bagBody"><div id="bagList">' + (list.length ? list.map(function (o) {
+        var t = o.it.worn ? 'worn' : (CHAR.wield === o.it.name ? 'in hand' : '');
+        return '<button type="button" data-i="' + o.i + '" class="' + (UI.sel === o.i ? 'on' : '') + '"><span>' + esc(o.it.name) + (o.it.qty > 1 ? ' ×' + o.it.qty : '') + '<br><small>' + esc(catName(o.it.cat)) + (o.it.dmg ? ' · ' + esc(o.it.dmg) : '') + '</small></span>' + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
+      }).join('') : '<p style="padding:10px;color:#9ab">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
+      '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div>';
+    document.getElementById('bagX').onclick = bagToggle;
+    var qi = document.getElementById('bagQ'); qi.oninput = function () { UI.q = qi.value; var pos = qi.selectionStart; bagDraw(); var n = document.getElementById('bagQ'); n.focus(); n.setSelectionRange(pos, pos); };
+    qi.addEventListener('keydown', function (ev) { ev.stopPropagation(); });
+    el.querySelectorAll('[data-cat]').forEach(function (b) { b.onclick = function () { UI.cat = b.dataset.cat; bagDraw(); }; });
+    el.querySelectorAll('[data-i]').forEach(function (b) { b.onclick = function () { UI.sel = +b.dataset.i; bagDraw(); }; });
+    el.querySelectorAll('[data-act]').forEach(function (b) { b.onclick = function () { bagAct(b.dataset.act, sel); }; });
+  }
+  function catName(c) { var f = CATS.filter(function (x) { return x[0] === c; })[0]; return f ? f[1].replace(/s$/, '') : 'Misc'; }
+  function bagInfo(it) {
+    var acts = [];
+    if (it.cat === 'weapon' && it.dmg) acts.push(CHAR.wield === it.name ? ['unwield', 'Put away'] : ['wield', 'Hold in hand']);
+    if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
+    if (it.cat === 'consumable' && it.heal) acts.push(['use', 'Use (' + it.heal + ' HP)']);
+    return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
+      '<p><small>' + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + '</small></p>' +
+      '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
+  }
+  function bagAct(a, it) {
+    if (!it) return;
+    if (a === 'wield') { CHAR.wield = it.name; say('In hand · ' + it.name, 'You will fight with it: ' + it.dmg + ' damage.', 3000); }
+    if (a === 'unwield') { CHAR.wield = null; }
+    if (a === 'wear') wear(it);
+    if (a === 'unwear') { it.worn = false; look[it.slot] = [0, 0]; buildHero(); saveLook(); }
+    if (a === 'use') {
+      if (CB.on && (!cbMyTurn() || !CB.res.bonus)) { say('Not now', 'Using an item in a fight takes your bonus action.', 2500); return; }
+      if (CB.on) CB.res.bonus = 0;
+      var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal), h = m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1, before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h);
+      say('Used · ' + it.name, '+' + (PC.hp - before) + ' HP.', 2600); it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; } cbHUD();
+    }
+    saveChar(CHAR); bagDraw();
+  }
+  function invAdd(item, quiet) {
+    if (!CHAR) return; CHAR.gear = CHAR.gear || [];
+    var same = item.cat === 'consumable' || item.cat === 'misc' ? CHAR.gear.filter(function (g) { return g.name === item.name; })[0] : null;
+    if (same) same.qty = (same.qty || 1) + (item.qty || 1); else CHAR.gear.push(item);
+    if (!quiet) saveChar(CHAR);
+    if (UI.bag) bagDraw();
+  }
+  // a wielded item from the inventory overrides the builder's weapon slot
+  function gearWeapon() {
+    if (!CHAR || !CHAR.wield) return null; var it = (CHAR.gear || []).filter(function (g) { return g.name === CHAR.wield && g.dmg; })[0]; if (!it) return null;
+    var m = /(\d+)d(\d+)/.exec(it.dmg), light = /knife|dagger|shear|scissor|blade|pick|opener|pen/i.test(it.name);
+    var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: 2 + MOD[stat], dmgB: MOD[stat] };
+  }
+
+  // ---------- wardrobe: you only wear what you own ----------
+  var CLOTH_SLOTS = ['kHead', 'kNeck', 'kTop', 'kShoulder', 'kPants', 'kBoots'];
+  function slotDef(k) { return SLOTS.filter(function (s) { return s.key === k; })[0]; }
+  function slotLabel(k) { var s = slotDef(k); return s ? s.label : k; }
+  function clothNone(k) { var s = slotDef(k); return !!s && s.styles[0] === 'None'; }
+  function sleeveFor(top) { return /^Knight/.test(top) ? 'Knight' : top; }
+  function wear(it) {
+    var s = slotDef(it.slot); if (!s) return; var idx = s.styles.indexOf(it.style); if (idx < 0) return;
+    (CHAR.gear || []).forEach(function (g) { if (g.cat === 'clothing' && g.slot === it.slot) g.worn = false; }); it.worn = true;
+    look[it.slot] = [idx, it.color | 0];
+    if (it.slot === 'kTop') { var sv = slotDef('kSleeves'), si = sv.styles.indexOf(sleeveFor(it.style)); if (si >= 0) look.kSleeves = [si, it.color | 0]; }
+    buildHero(); saveLook();
+  }
+  function clothesLocked() { return !!(CHAR && CHAR.gear && CHAR.gear.some(function (g) { return g.cat === 'clothing'; })) && !CHAR.freeWardrobe; }
+  function wardrobeRows(rowsEl) {
+    var n = document.createElement('div'); n.className = 'row dim'; n.innerHTML = '<span class="slot">Wardrobe</span><span class="val">You can only wear clothes you own. Loot or find more to unlock options.</span>'; rowsEl.appendChild(n);
+    CLOTH_SLOTS.forEach(function (k) {
+      var s = slotDef(k), owned = CHAR.gear.filter(function (g) { return g.cat === 'clothing' && g.slot === k; }), opts = (clothNone(k) ? [null] : []).concat(owned);
+      if (!owned.length && !clothNone(k)) return;
+      var cur = owned.filter(function (g) { return g.worn; })[0] || null, ci = Math.max(0, opts.indexOf(cur));
+      var row = document.createElement('div'); row.className = 'row';
+      row.innerHTML = '<span class="slot">' + esc(s.label) + '</span>';
+      var prev = document.createElement('button'), next = document.createElement('button'), val = document.createElement('span');
+      prev.type = next.type = 'button'; prev.textContent = '‹'; next.textContent = '›'; prev.setAttribute('aria-label', 'Previous ' + s.label); next.setAttribute('aria-label', 'Next ' + s.label);
+      val.className = 'val'; val.textContent = cur ? cur.name : 'Nothing';
+      function step(dd) { var o = opts[(ci + dd + opts.length) % opts.length]; if (o) wear(o); else { owned.forEach(function (g) { g.worn = false; }); look[k] = [0, 0]; buildHero(); saveLook(); } saveChar(CHAR); drawRows(); }
+      prev.onclick = function () { step(-1); }; next.onclick = function () { step(1); };
+      if (opts.length < 2) { prev.style.visibility = 'hidden'; next.style.visibility = 'hidden'; }
+      row.appendChild(prev); row.appendChild(val); row.appendChild(next); rowsEl.appendChild(row);
+    });
+  }
+  // the outfit options described for the AI (and the keyword fallback), with each colour variant
+  function outfitCatalog() {
+    var DESC = { Ranger: 'leather jerkin / hooded work jacket look', Peasant: 'plain cloth shirt and trousers, the closest to everyday modern clothes', 'Knight plate': 'full metal armor', 'Knight tunic': 'padded quilted jacket', Noble: 'fancy vest or doublet, the closest to a suit or dressy outfit', Wizard: 'long robe or coat',
+      'Ranger hood': 'a hood (hoodie hood up)', 'Knight helm': 'metal helmet', 'Horned helm': 'horned helmet', Crown: 'crown', Scarf: 'scarf', Gorget: 'metal neck guard', 'Knight round': 'round metal pauldrons', 'Knight spiked': 'spiked pauldrons', 'Noble lion': 'lion pauldrons' };
+    return CLOTH_SLOTS.map(function (k) {
+      var s = slotDef(k);
+      return k + ' (' + s.label + '): ' + s.styles.map(function (st) { if (st === 'None') return 'None'; var o = kitOutfitOf(st), sw = KIT_SW[o] || []; return '"' + st + '"' + (DESC[st] ? ' [' + DESC[st] + ']' : '') + ' colors ' + sw.map(function (c, i) { return i + '=#' + ('00000' + c.toString(16)).slice(-6); }).join(' '); }).join('; ');
+    }).join('\n');
+  }
+  function closestColor(style, hex) {
+    var sw = KIT_SW[kitOutfitOf(style)] || [], best = 0, bd = 1e9;
+    sw.forEach(function (c, i) { var dr = (c >> 16 & 255) - (hex >> 16 & 255), dg = (c >> 8 & 255) - (hex >> 8 & 255), db = (c & 255) - (hex & 255), dd = dr * dr * 2 + dg * dg * 3 + db * db; if (dd < bd) { bd = dd; best = i; } });
+    return best;
+  }
+  function outfitFrom(list) { // validate AI output into clothing items
+    var out = [], seen = {};
+    (Array.isArray(list) ? list : []).forEach(function (o) {
+      if (!o || CLOTH_SLOTS.indexOf(o.slot) < 0 || seen[o.slot]) return; var s = slotDef(o.slot), ix = s.styles.indexOf(o.style); if (ix < 0 || (ix === 0 && s.styles[0] === 'None')) return;
+      seen[o.slot] = 1; out.push({ name: String(o.name || o.style).slice(0, 40), cat: 'clothing', slot: o.slot, style: o.style, color: Math.max(0, Math.min(4, o.color | 0)), desc: String(o.desc || 'What you were wearing when they took you.').slice(0, 160), worn: true, from: 'home' });
+    });
+    ['kTop', 'kPants', 'kBoots'].forEach(function (k) { if (!seen[k]) out.push({ name: { kTop: 'Plain shirt', kPants: 'Trousers', kBoots: 'Shoes' }[k], cat: 'clothing', slot: k, style: 'Peasant', color: 1, desc: 'What you were wearing when they took you.', worn: true, from: 'home' }); });
+    return out;
+  }
+  function outfitLocal(text) {
+    var t = (text || '').toLowerCase(); function pick(words, def) { for (var i = 0; i < words.length; i++) if (t.indexOf(words[i]) >= 0) return words[i]; return def; }
+    var COL = { black: 0x1a1a1a, white: 0xdddddd, grey: 0x777777, gray: 0x777777, blue: 0x2a4a9a, navy: 0x1e2a5a, denim: 0x3e5f7a, jean: 0x3e5f7a, red: 0x9a2a2a, green: 0x2f6a3a, brown: 0x5a3a1a, tan: 0xc8bca0, khaki: 0xc8bca0, purple: 0x6a2a8a };
+    function col(def) { for (var w in COL) if (t.indexOf(w) >= 0) return COL[w]; return def; }
+    var top = /suit|blazer|dress shirt|vest/.test(t) ? 'Noble' : (/hoodie|jacket|flannel|work shirt/.test(t) ? 'Ranger' : (/robe|coat|trench/.test(t) ? 'Wizard' : 'Peasant'));
+    var items = [{ slot: 'kTop', style: top, name: pick(['hoodie', 't-shirt', 'flannel', 'polo', 'sweater', 'button-up', 'suit jacket', 'blazer', 'jacket', 'tee', 'shirt'], 'shirt') }];
+    items.push({ slot: 'kPants', style: /suit|slacks|dress pants/.test(t) ? 'Noble' : 'Peasant', name: pick(['jeans', 'cargo pants', 'sweatpants', 'khakis', 'slacks', 'shorts', 'trousers', 'pants'], 'pants') });
+    items.push({ slot: 'kBoots', style: /boot/.test(t) ? 'Ranger' : (/dress shoe|loafer/.test(t) ? 'Noble' : 'Peasant'), name: pick(['work boots', 'sneakers', 'boots', 'loafers', 'dress shoes', 'sandals', 'shoes'], 'shoes') });
+    if (/hood up|beanie|hat\b|cap\b/.test(t)) items.push({ slot: 'kHead', style: 'Ranger hood', name: pick(['beanie', 'baseball cap', 'cap', 'hat', 'hood'], 'hood') });
+    if (/scarf/.test(t)) items.push({ slot: 'kNeck', style: 'Scarf', name: 'scarf' });
+    return outfitFrom(items.map(function (o) { var c = o.slot === 'kPants' && /jean|denim/.test(t) ? 0x3e5f7a : col(0x3a3328); var m = new RegExp('((?:faded |old |dark |light |bright )?(?:black|white|grey|gray|blue|navy|red|green|brown|tan|khaki|purple) )' + o.name).exec(t), nm = m ? m[0] : o.name; return { slot: o.slot, style: o.style, color: closestColor(o.style, c), name: nm.charAt(0).toUpperCase() + nm.slice(1) }; }));
+  }
+
+  // ---------- speech bubbles (what you say out loud shows over your head) ----------
+  var BUBS = [];
+  function bubble(who, text, whisper) {
+    var el = document.createElement('div'); el.className = 'bub' + (who === 'pc' ? '' : ' npc') + (whisper ? ' wh' : '');
+    el.textContent = whisper ? (who === 'pc' ? '(whispering) ' : '') + text : text; document.getElementById('bubs').appendChild(el);
+    BUBS = BUBS.filter(function (b) { if (b.who === who) { b.el.remove(); return false; } return true; });
+    BUBS.push({ el: el, who: who, until: performance.now() + Math.min(12000, 3500 + text.length * 70) });
+    // later: broadcast to other players in the room unless whispering
+  }
+  (function bubLoop() {
+    var now = performance.now();
+    BUBS = BUBS.filter(function (b) {
+      if (now > b.until) { b.el.remove(); return false; }
+      var x, y, z; if (b.who === 'pc') { x = P.px; z = P.pz; y = 2.25; } else { x = b.who.px; z = b.who.pz; y = (b.who.def.h || 1) * (b.who.npc ? 0.7 : 1) + 0.6; }
+      var s = toScreen(x, y, z), lim = TALK.open ? document.getElementById('talk').getBoundingClientRect().left - 12 : 1e9; b.el.classList.toggle('lt', s.x + 110 > lim); b.el.style.display = s.ok && !gearOpen ? '' : 'none'; b.el.style.left = Math.min(s.x, lim - 4) + 'px'; b.el.style.top = s.y + 'px';
+      return true;
+    });
+    requestAnimationFrame(bubLoop);
+  })();
+
+  // ---------- looting bodies ----------
+  var LOOT = {
+    puglin: function () { var l = [{ name: 'Puglin stick', cat: 'weapon', dmg: '1d4', desc: 'Chewed at one end. Still works.' }]; if (Math.random() < 0.5) l.push({ name: 'Half-eaten snack', cat: 'consumable', heal: '1d2', desc: 'You do not want to know what it was. Restores 1d2 HP.' }); if (Math.random() < 0.3) l.push({ name: 'Shiny button', cat: 'misc', desc: 'The puglin was very proud of this.' }); return { gold: d(1, 6), items: l }; },
+    imp: function () { return { gold: d(2, 6) + 2, items: [{ name: 'Imp mace', cat: 'weapon', dmg: '1d6', desc: 'Company property. Heavy, spiky, and badly maintained.' }, { name: 'Security badge', cat: 'valuable', desc: 'FLOOR 1 · STAIRWELL · NIGHT SHIFT. The photo is unflattering.' }, { name: 'Union card', cat: 'misc', desc: 'Local 666. Dues paid through next season.' }] }; }
+  };
+  function lootBody(e) {
+    if (e.looted) return; e.looted = true;
+    var L = (LOOT[e.kind] || function () { return { gold: 0, items: [] }; })();
+    L.items.forEach(function (it) { it.from = e.name; invAdd(it, true); });
+    if (CHAR) { CHAR.gold = (CHAR.gold || 0) + L.gold; saveChar(CHAR); }
+    say('Looted · ' + e.name, (L.items.length ? 'You found: ' + L.items.map(function (i) { return i.name; }).join(', ') + '. ' : 'Nothing useful. ') + (L.gold ? '+' + L.gold + ' gold.' : ''), 5000);
+    if (!CHAR) say('Looted · ' + e.name, 'Create a character first; your pockets are not registered with the System yet.', 4000);
   }
 
   // ---------- state ----------
@@ -6942,7 +7185,7 @@
   function findTarget() {
     var fx = Math.sin(hero.rotation.y), fz = Math.cos(hero.rotation.y);
     var ax = Math.round(P.px + fx * 0.85), az = Math.round(P.pz + fz * 0.85), c = ch(ax, az);
-    var ne = null; CB.enemies.forEach(function (q) { if (!q.dead && cheb(q.x, q.z, P.x, P.z) <= 1 && (!ne || (q.x === ax && q.z === az))) ne = q; });
+    var ne = null; CB.enemies.forEach(function (q) { if ((!q.dead || !q.looted) && cheb(q.x, q.z, P.x, P.z) <= 1 && (!ne || (q.x === ax && q.z === az))) ne = q; });
     if (ne && visNow[ne.x + ',' + ne.z] !== undefined) return { c: 'E', e: ne, key: 'e' + CB.enemies.indexOf(ne), x: ne.x, z: ne.z };
     if (visNow[ax + ',' + az] !== undefined && ACTS[c]) return { c: c, key: ax + ',' + az, x: ax, z: az };
     if (ch(P.x, P.z) === 'D') return { c: 'D', key: P.x + ',' + P.z, x: P.x, z: P.z };
@@ -6952,7 +7195,7 @@
   function openMenu() {
     if (gearOpen) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen) { closeMenu(); return; }
     var t = findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
-    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · HP ' + t.e.hp + '/' + t.e.max + (t.e.calm ? ' · friendly' : '') : NAMES[t.c]; menuEl.appendChild(hd);
+    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · HP ' + t.e.hp + '/' + t.e.max + (t.e.calm ? ' · friendly' : '') : NAMES[t.c]; menuEl.appendChild(hd);
     (t.e ? enemyActs(t.e) : ACTS[t.c]).forEach(function (a, i) {
       var b = document.createElement('button'); b.type = 'button';
       var spent = a.flag && done[t.key + a.flag];
@@ -6969,6 +7212,7 @@
     kitOneShot(a.stat ? 'Interact' : 'PickUp_Table');
     if (a.auto === 'map') { say('Living Map', stairsHint()); return; }
     if (a.talk) { talkOpen(t.e); return; }
+    if (a.loot) { lootBody(t.e); return; }
     if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); t.e.calm = false; cbStart(t.e.calm ? '' : 'You started it.', t.e); return; }
     if (a.rest) { PC.hp = PC.max; cbHUD(); }
     if (a.auto === 'torch') { sightI = 1; document.getElementById('sight').textContent = 'Sight: Torch'; look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say(a.label, a.text); return; }
@@ -7045,6 +7289,8 @@
   var KEYS = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R', w: 'U', s: 'D', a: 'L', d: 'R', W: 'U', S: 'D', A: 'L', D: 'R' };
   window.addEventListener('keydown', function (e) {
     if (TALK.open || CC || AUTH.open) return;
+    if (e.key === 'i' || e.key === 'I') { bagToggle(); return; } if (e.key === 'm' || e.key === 'M') { mapToggle(); return; }
+    if (e.key === 'Escape' && (UI.bag || UI.map)) { if (UI.bag) bagToggle(); if (UI.map) mapToggle(); return; }
     if (CB.on && !gearOpen) { var ck = cbMenuOpen() && e.key >= '1' && e.key <= '9' ? function () { cbMenuPick(+e.key); } : { '1': function () { cbAttackButton(false); }, '2': function () { cbMenuToggle('acts'); }, '3': function () { cbMenuToggle('bonus'); }, e: cbEndTurn, Enter: cbEndTurn, Escape: cbMenuClose }[e.key]; if (ck) { e.preventDefault(); ck(); } if (KEYS[e.key] || e.key === ' ') e.preventDefault(); return; }
     if (KEYS[e.key]) { e.preventDefault(); keys[KEYS[e.key]] = true; }
     else if (e.key === ' ') { e.preventDefault(); jump(); }
@@ -7073,6 +7319,7 @@
   function drawRows() {
     rowsEl.innerHTML = '';
     if (tab === 'Sheet') { rowsEl.innerHTML = sheetHTML(); sheetAfter(); return; }
+    if (tab === 'Clothes' && kitMode() && clothesLocked()) { wardrobeRows(rowsEl); return; }
     SLOTS.filter(function (s) { return s.tab === tab && !(s.hand && kitMode()) && !(s.kit && !kitMode()); }).forEach(function (s) {
       var row = document.createElement('div'); row.className = 'row';
       var lab = document.createElement('span'); lab.className = 'slot'; lab.textContent = s.label; row.appendChild(lab);
@@ -7179,7 +7426,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

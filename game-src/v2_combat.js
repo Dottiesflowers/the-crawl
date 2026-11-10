@@ -40,6 +40,7 @@
     return { ac: ac, why: why };
   }
   function pcWeapon() {
+    var gw = gearWeapon(); if (gw) return gw;
     var m = sty('main');
     var W = [{ name: 'fists', n: 1, s: 1, b: 1 + MOD.STR, stat: 'STR', clip: 'Punch_Jab' }, { name: 'sword', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' }, { name: 'axe', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' },
       { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'The crowd loves it, so it hits with Charisma.' }][m];
@@ -542,6 +543,7 @@
   });
   // Interact options when you stand next to a monster
   function enemyActs(e) {
+    if (e.dead) return [{ label: 'Search the body', loot: true }, { label: 'Examine', text: 'Very dead. ' + (e.looted ? 'Already picked clean.' : 'Its pockets look promising.') }];
     var talk = { label: NET.sample ? 'Talk (say anything)' : 'Talk', talk: true };
     if (e.npc) return [talk,
       { label: 'Examine', text: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile. Not a threat to anyone, least of all you.' },

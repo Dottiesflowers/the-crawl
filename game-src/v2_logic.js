@@ -130,7 +130,7 @@
   function findTarget() {
     var fx = Math.sin(hero.rotation.y), fz = Math.cos(hero.rotation.y);
     var ax = Math.round(P.px + fx * 0.85), az = Math.round(P.pz + fz * 0.85), c = ch(ax, az);
-    var ne = null; CB.enemies.forEach(function (q) { if (!q.dead && cheb(q.x, q.z, P.x, P.z) <= 1 && (!ne || (q.x === ax && q.z === az))) ne = q; });
+    var ne = null; CB.enemies.forEach(function (q) { if ((!q.dead || !q.looted) && cheb(q.x, q.z, P.x, P.z) <= 1 && (!ne || (q.x === ax && q.z === az))) ne = q; });
     if (ne && visNow[ne.x + ',' + ne.z] !== undefined) return { c: 'E', e: ne, key: 'e' + CB.enemies.indexOf(ne), x: ne.x, z: ne.z };
     if (visNow[ax + ',' + az] !== undefined && ACTS[c]) return { c: c, key: ax + ',' + az, x: ax, z: az };
     if (ch(P.x, P.z) === 'D') return { c: 'D', key: P.x + ',' + P.z, x: P.x, z: P.z };
@@ -140,7 +140,7 @@
   function openMenu() {
     if (gearOpen) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen) { closeMenu(); return; }
     var t = findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
-    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · HP ' + t.e.hp + '/' + t.e.max + (t.e.calm ? ' · friendly' : '') : NAMES[t.c]; menuEl.appendChild(hd);
+    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · HP ' + t.e.hp + '/' + t.e.max + (t.e.calm ? ' · friendly' : '') : NAMES[t.c]; menuEl.appendChild(hd);
     (t.e ? enemyActs(t.e) : ACTS[t.c]).forEach(function (a, i) {
       var b = document.createElement('button'); b.type = 'button';
       var spent = a.flag && done[t.key + a.flag];
@@ -157,6 +157,7 @@
     kitOneShot(a.stat ? 'Interact' : 'PickUp_Table');
     if (a.auto === 'map') { say('Living Map', stairsHint()); return; }
     if (a.talk) { talkOpen(t.e); return; }
+    if (a.loot) { lootBody(t.e); return; }
     if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); t.e.calm = false; cbStart(t.e.calm ? '' : 'You started it.', t.e); return; }
     if (a.rest) { PC.hp = PC.max; cbHUD(); }
     if (a.auto === 'torch') { sightI = 1; document.getElementById('sight').textContent = 'Sight: Torch'; look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say(a.label, a.text); return; }
@@ -233,6 +234,8 @@
   var KEYS = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R', w: 'U', s: 'D', a: 'L', d: 'R', W: 'U', S: 'D', A: 'L', D: 'R' };
   window.addEventListener('keydown', function (e) {
     if (TALK.open || CC || AUTH.open) return;
+    if (e.key === 'i' || e.key === 'I') { bagToggle(); return; } if (e.key === 'm' || e.key === 'M') { mapToggle(); return; }
+    if (e.key === 'Escape' && (UI.bag || UI.map)) { if (UI.bag) bagToggle(); if (UI.map) mapToggle(); return; }
     if (CB.on && !gearOpen) { var ck = cbMenuOpen() && e.key >= '1' && e.key <= '9' ? function () { cbMenuPick(+e.key); } : { '1': function () { cbAttackButton(false); }, '2': function () { cbMenuToggle('acts'); }, '3': function () { cbMenuToggle('bonus'); }, e: cbEndTurn, Enter: cbEndTurn, Escape: cbMenuClose }[e.key]; if (ck) { e.preventDefault(); ck(); } if (KEYS[e.key] || e.key === ' ') e.preventDefault(); return; }
     if (KEYS[e.key]) { e.preventDefault(); keys[KEYS[e.key]] = true; }
     else if (e.key === ' ') { e.preventDefault(); jump(); }
@@ -261,6 +264,7 @@
   function drawRows() {
     rowsEl.innerHTML = '';
     if (tab === 'Sheet') { rowsEl.innerHTML = sheetHTML(); sheetAfter(); return; }
+    if (tab === 'Clothes' && kitMode() && clothesLocked()) { wardrobeRows(rowsEl); return; }
     SLOTS.filter(function (s) { return s.tab === tab && !(s.hand && kitMode()) && !(s.kit && !kitMode()); }).forEach(function (s) {
       var row = document.createElement('div'); row.className = 'row';
       var lab = document.createElement('span'); lab.className = 'slot'; lab.textContent = s.label; row.appendChild(lab);
@@ -367,7 +371,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();
