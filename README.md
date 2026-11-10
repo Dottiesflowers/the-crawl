@@ -37,3 +37,4 @@ Without an API key the game still runs; the System falls back to keyword guesses
 - Passwords are hashed with PBKDF2-SHA256 and a per-user salt. Sessions are random tokens in an HttpOnly, Secure cookie.
 - The API key stays in the Worker and never reaches the browser. Only signed-in players can use the AI relay.
 - The DM can reset a player's password (`POST /api/dm/reset-password`) and read NPC conversation logs.
+
