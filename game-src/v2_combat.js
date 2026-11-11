@@ -637,7 +637,7 @@
     say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. The monsters lose interest, and the System drags you to the nearest safe room.' :
       'In the full game, death in the crawl is permanent. For this test, the System drags you to the nearest safe room. The monsters you killed stay dead.', 6500);
     setTimeout(function () {
-      cbEnd(false); PC.down = false; PC.hp = PC.max; if (CHAR && !(CHAR.gear || []).some(function (g) { return /potion/i.test(g.name); })) invAdd({ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' }, true);
+      cbEnd(false); PC.down = false; PC.hp = PC.max; if (CHAR && !(CHAR.gear || []).some(function (g) { return /potion/i.test(g.name); })) invAdd(item(DROPS.sources.respawn), true);
       if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
       var home = nearestSafe(P.x, P.z) || start; P.x = home.x; P.z = home.z; P.px = home.x; P.pz = home.z; if (KIT) { KIT.shot = null; }
       // the monsters that beat you keep their wounds (they patch up a little) and wander back toward their posts

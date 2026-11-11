@@ -6365,6 +6365,83 @@
   }
   propLoad();
 
+  // ===================== items: every item in the game lives here =====================
+  // OWNED BY THE ITEM CATALOG CHAT (see claude/the-crawl-overview.md in The Crawl project). Systems code must not
+  // define items inline: look them up with item('Name') and roll drops with rollDrops(). Fields:
+  //   cat: weapon | clothing | tool | consumable | valuable | misc   (bodies and boss trophies are made by the engine)
+  //   dmg: '1d6' for weapons · heal: '2d4+2' or a number for consumables · slot/style/color for clothing
+  //   desc: flavour text shown in the bag · effects: [] reserved for the item effect system (coming)
+  var ITEMS = {
+    // ---- consumables ----
+    'Healing potion': { cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' },
+    'Energy bar': { cat: 'consumable', heal: '1d4', desc: 'Chocolate peanut. Restores 1d4 HP.' },
+    'Bottle of water': { cat: 'consumable', heal: '1', desc: 'Lukewarm. Restores 1 HP and some dignity.' },
+    'Half-eaten snack': { cat: 'consumable', heal: '1d2', desc: 'You do not want to know what it was. Restores 1d2 HP.' },
+    'Craft services sandwich': { cat: 'consumable', heal: 4, desc: 'Free, wrapped, and surprisingly good. Heals 4 HP.' },
+    // ---- weapons ----
+    'Puglin stick': { cat: 'weapon', dmg: '1d4', desc: 'Chewed at one end. Still works.' },
+    'Imp mace': { cat: 'weapon', dmg: '1d6', desc: 'Company property. Heavy, spiky, and badly maintained.' },
+    'Crowbar': { cat: 'weapon', dmg: '1d6', desc: 'Opens crates, doors and arguments.' },
+    // ---- tools ----
+    'Roll of duct tape': { cat: 'tool', desc: 'The universal fix. The System has rules about it, but no one has read them.' },
+    'Flashlight': { cat: 'tool', desc: 'Works. For now.' },
+    'Lighter': { cat: 'tool', desc: 'Three clicks to light. Always three.' },
+    'Ball of twine': { cat: 'tool', desc: 'Long enough to find your way back. Maybe.' },
+    // ---- valuables and oddities ----
+    'Security badge': { cat: 'valuable', desc: 'FLOOR 1 · STAIRWELL · NIGHT SHIFT. The photo is unflattering.' },
+    'Bronze loot box coupon': { cat: 'valuable', desc: 'Redeemable at any sponsor booth. There are no sponsor booths.' },
+    'Shiny button': { cat: 'misc', desc: 'The puglin was very proud of this.' },
+    'Union card': { cat: 'misc', desc: 'Local 666. Dues paid through next season.' },
+    'Rusty key': { cat: 'misc', desc: 'Opens something, somewhere, probably.' },
+    // ---- clothing (style must be a wardrobe style; color is a palette index 0-9) ----
+    'Hard hat': { cat: 'clothing', slot: 'kHead', style: 'Hard hat', color: 0, desc: 'OSHA approved, in another galaxy.' },
+    'Cowboy hat': { cat: 'clothing', slot: 'kHead', style: 'Cowboy hat', color: 0, desc: 'Yeehaw is now a valid battle cry.' },
+    'Plain white tee': { cat: 'clothing', slot: 'kTop', style: 'T-shirt', color: 0, desc: 'Clean. Suspiciously clean.' },
+    'Grey hoodie': { cat: 'clothing', slot: 'kTop', style: 'Hoodie', color: 2, desc: 'Somebody\'s. Not anymore.' },
+    'Black jeans': { cat: 'clothing', slot: 'kPants', style: 'Jeans', color: 1, desc: 'Slim fit. You will make it work.' },
+    'Work boots': { cat: 'clothing', slot: 'kBoots', style: 'Work boots', color: 7, desc: 'Steel toe. Good for kicking.' }
+  };
+
+  // ---------- where items come from ----------
+  // monsters: keyed by monster kind, falling back to its family (puglin, imp, bog, clerk, shrub...)
+  //   gold: dice · always: dropped every time · chance: [name, probability]
+  // containers: loot boxes ('chest') and searches ('small'): gold dice, how many picks, and the pool to pick from
+  // sources: one-off places the engine hands out items
+  var DROPS = {
+    monsters: {
+      puglin: { gold: '1d6', always: ['Puglin stick'], chance: [['Half-eaten snack', 0.5], ['Shiny button', 0.3]] },
+      imp: { gold: '2d6+2', always: ['Imp mace', 'Security badge', 'Union card'] }
+    },
+    containers: {
+      chest: { gold: '3d6', picks: [2, 3], from: 'a loot box', pool: ['Healing potion', 'Crowbar', 'Roll of duct tape', 'Flashlight', 'Energy bar', 'Bronze loot box coupon', 'Hard hat', 'Plain white tee', 'Grey hoodie', 'Black jeans', 'Cowboy hat', 'Work boots'] },
+      small: { gold: '1d4', picks: [1, 1], from: 'a search', pool: ['Energy bar', 'Bottle of water', 'Rusty key', 'Lighter', 'Ball of twine'] }
+    },
+    sources: {
+      starting: [['Healing potion', 3]],      // every new crawler gets these
+      catering: 'Craft services sandwich',      // "Pocket a snack" at a free-food table
+      respawn: 'Healing potion'                 // testing mode: dying refills you to at least one
+    }
+  };
+
+  // ---------- lookups ----------
+  function item(name, extra) {
+    var b = ITEMS[name]; if (!b) { console.warn('unknown item', name); return null; }
+    var o = JSON.parse(JSON.stringify(b)); o.name = name; if (extra) for (var k in extra) o[k] = extra[k]; return o;
+  }
+  function diceRoll(s) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(String(s || '')); if (!m) return +s || 0; var t = +m[3] || 0; for (var i = 0; i < +m[1]; i++) t += 1 + Math.floor(Math.random() * +m[2]); return t; }
+  function rollDrops(kind, family) { // a monster's pockets
+    var R = DROPS.monsters[kind] || DROPS.monsters[family]; if (!R) return { gold: 0, items: [] };
+    var items = (R.always || []).map(function (n) { return item(n); });
+    (R.chance || []).forEach(function (c) { if (Math.random() < c[1]) items.push(item(c[0])); });
+    return { gold: diceRoll(R.gold), items: items.filter(Boolean) };
+  }
+  function rollContainer(kind) { // a loot box or a search
+    var R = DROPS.containers[kind]; if (!R) return { gold: 0, items: [] };
+    var n = R.picks[0] + Math.floor(Math.random() * (R.picks[1] - R.picks[0] + 1)), items = [];
+    for (var i = 0; i < n; i++) { var it = item(R.pool[Math.floor(Math.random() * R.pool.length)], { from: R.from }); if (it) items.push(it); }
+    return { gold: diceRoll(R.gold), items: items };
+  }
+
   // ===================== combat: turn-based, Baldur's Gate 3 style =====================
   // Initiative order; on your turn you get movement (6 tiles = 30 ft), one action and one bonus action.
   // Monsters: Quaternius "Bestiary: Dungeon Monsters" (CC0), animated with the same animation library as the hero.
@@ -7003,7 +7080,7 @@
     say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. The monsters lose interest, and the System drags you to the nearest safe room.' :
       'In the full game, death in the crawl is permanent. For this test, the System drags you to the nearest safe room. The monsters you killed stay dead.', 6500);
     setTimeout(function () {
-      cbEnd(false); PC.down = false; PC.hp = PC.max; if (CHAR && !(CHAR.gear || []).some(function (g) { return /potion/i.test(g.name); })) invAdd({ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' }, true);
+      cbEnd(false); PC.down = false; PC.hp = PC.max; if (CHAR && !(CHAR.gear || []).some(function (g) { return /potion/i.test(g.name); })) invAdd(item(DROPS.sources.respawn), true);
       if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
       var home = nearestSafe(P.x, P.z) || start; P.x = home.x; P.z = home.z; P.px = home.x; P.pz = home.z; if (KIT) { KIT.shot = null; }
       // the monsters that beat you keep their wounds (they patch up a little) and wander back toward their posts
@@ -7211,7 +7288,7 @@
     if (typeof cbHUD === 'function') cbHUD();
     if (typeof posRestore === 'function' && typeof P !== 'undefined' && P) setTimeout(posRestore, 0);
     setTimeout(handsFromGear, 0); setTimeout(deadCheck, 300);
-    if (!c.potionsGiven && !c.preset) { c.potionsGiven = true; c.gear = c.gear || []; c.gear.push({ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', qty: 3, desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP. Every crawler starts with three.', from: 'the System' }); }
+    if (!c.potionsGiven && !c.preset) { c.potionsGiven = true; c.gear = c.gear || []; DROPS.sources.starting.forEach(function (s) { var it = item(s[0], { qty: s[1], from: 'the System' }); if (it) c.gear.push(it); }); }
     setTimeout(function () { if (typeof hotAuto === 'function') { hotAuto(); hotDraw(); } }, 50);
   }
   // your hands and back only show what you actually own: no free swords, shields or bass guitars
@@ -7855,7 +7932,7 @@
   // ---------- whole bodies: DCC-style, you can carry a corpse. Keeps it from the shrubs; drop it later as bait, or sell it ----------
   function stashBody(e) {
     if (!CHAR || !e || !e.dead || e.eaten || e.npc) return;
-    var L = e.lootStore ? e.lootStore : (LOOT[e.kind] || LOOT[e.def.base] || function () { return { gold: 0, items: [] }; })();
+    var L = e.lootStore ? e.lootStore : rollDrops(e.kind, e.def.base);
     e.eaten = true; e.claimed = false; e.obj.visible = false; e.bar.style.display = 'none'; e.looted = true;
     (L.items || []).forEach(function (it) { it.from = it.from || e.name; invAdd(it, true); }); CHAR.gold = (CHAR.gold || 0) + (L.gold || 0);
     CHAR.gear.push({ name: e.name + ' (body)', cat: 'body', body: e.n, desc: 'A whole ' + e.name.toLowerCase() + ', folded to fit. Shrubs would kill for it. Someone in the Underbazaar might pay for it. Drop it to use it as bait.' });
@@ -8013,13 +8090,10 @@
   })();
 
   // ---------- looting bodies ----------
-  var LOOT = {
-    puglin: function () { var l = [{ name: 'Puglin stick', cat: 'weapon', dmg: '1d4', desc: 'Chewed at one end. Still works.' }]; if (Math.random() < 0.5) l.push({ name: 'Half-eaten snack', cat: 'consumable', heal: '1d2', desc: 'You do not want to know what it was. Restores 1d2 HP.' }); if (Math.random() < 0.3) l.push({ name: 'Shiny button', cat: 'misc', desc: 'The puglin was very proud of this.' }); return { gold: d(1, 6), items: l }; },
-    imp: function () { return { gold: d(2, 6) + 2, items: [{ name: 'Imp mace', cat: 'weapon', dmg: '1d6', desc: 'Company property. Heavy, spiky, and badly maintained.' }, { name: 'Security badge', cat: 'valuable', desc: 'FLOOR 1 · STAIRWELL · NIGHT SHIFT. The photo is unflattering.' }, { name: 'Union card', cat: 'misc', desc: 'Local 666. Dues paid through next season.' }] }; }
-  };
+  // monster drops live in items.js (DROPS.monsters); rollDrops() reads them
   function lootBody(e) {
     if (!e.lootStore) {
-      var L = (LOOT[e.kind] || LOOT[e.def.base] || function () { return { gold: 0, items: [] }; })();
+      var L = rollDrops(e.kind, e.def.base);
       if (e.boss) { L.gold += d(10, 6); L.items.push({ name: e.name.split(',')[0] + '\'s trophy', cat: 'valuable', desc: 'Proof you beat a zone boss. Heavier than it looks.' }); }
       L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true;
     }
@@ -8096,22 +8170,12 @@
   }
 
   // ---------- loot from containers and secret doors ----------
-  var LOOT_TABLE = {
-    chest: [{ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' }, { name: 'Crowbar', cat: 'weapon', dmg: '1d6', desc: 'Opens crates, doors and arguments.' },
-      { name: 'Roll of duct tape', cat: 'tool', desc: 'The universal fix. The System has rules about it, but no one has read them.' }, { name: 'Flashlight', cat: 'tool', desc: 'Works. For now.' },
-      { name: 'Energy bar', cat: 'consumable', heal: '1d4', desc: 'Chocolate peanut. Restores 1d4 HP.' }, { name: 'Bronze loot box coupon', cat: 'valuable', desc: 'Redeemable at any sponsor booth. There are no sponsor booths.' },
-      { name: 'Hard hat', cat: 'clothing', slot: 'kHead', style: 'Hard hat', color: 0, desc: 'OSHA approved, in another galaxy.' }, { name: 'Plain white tee', cat: 'clothing', slot: 'kTop', style: 'T-shirt', color: 0, desc: 'Clean. Suspiciously clean.' },
-      { name: 'Grey hoodie', cat: 'clothing', slot: 'kTop', style: 'Hoodie', color: 2, desc: 'Somebody\'s. Not anymore.' }, { name: 'Black jeans', cat: 'clothing', slot: 'kPants', style: 'Jeans', color: 1, desc: 'Slim fit. You will make it work.' },
-      { name: 'Cowboy hat', cat: 'clothing', slot: 'kHead', style: 'Cowboy hat', color: 0, desc: 'Yeehaw is now a valid battle cry.' }, { name: 'Work boots', cat: 'clothing', slot: 'kBoots', style: 'Work boots', color: 7, desc: 'Steel toe. Good for kicking.' }],
-    small: [{ name: 'Energy bar', cat: 'consumable', heal: '1d4', desc: 'Chocolate peanut. Restores 1d4 HP.' }, { name: 'Bottle of water', cat: 'consumable', heal: '1', desc: 'Lukewarm. Restores 1 HP and some dignity.' },
-      { name: 'Rusty key', cat: 'misc', desc: 'Opens something, somewhere, probably.' }, { name: 'Lighter', cat: 'tool', desc: 'Three clicks to light. Always three.' }, { name: 'Ball of twine', cat: 'tool', desc: 'Long enough to find your way back. Maybe.' }]
-  };
+  // container pools live in items.js (DROPS.containers); rollContainer() reads them
   function lootSpot(x, z, kind) {
     var key = 'loot' + x + ',' + z, st = lootSpot.done[key];
     if (!st) {
-      var tbl = LOOT_TABLE[kind], n = kind === 'chest' ? 2 + Math.floor(Math.random() * 2) : 1, items = [];
-      for (var i = 0; i < n; i++) { var it = JSON.parse(JSON.stringify(tbl[Math.floor(Math.random() * tbl.length)])); it.from = kind === 'chest' ? 'a loot box' : 'a search'; items.push(it); }
-      st = lootSpot.done[key] = { title: kind === 'chest' ? 'Loot box' : 'You found', items: items, gold: kind === 'chest' ? d(3, 6) : d(1, 4) };
+      var R = rollContainer(kind);
+      st = lootSpot.done[key] = { title: kind === 'chest' ? 'Loot box' : 'You found', items: R.items, gold: R.gold };
     }
     lootWindow(st);
   }
@@ -8655,7 +8719,7 @@
     if (a.auto === 'eat') { eatFood(); return; }
     if (a.auto === 'snack') {
       if (done[t.key + 'snack']) { say('Pocket a snack', 'You already took one from this table. The caterer is watching you now.', 3500); return; }
-      done[t.key + 'snack'] = true; invAdd({ name: 'Craft services sandwich', cat: 'consumable', heal: 4, desc: 'Free, wrapped, and surprisingly good. Heals 4 HP.', from: 'a catering table' });
+      done[t.key + 'snack'] = true; invAdd(item(DROPS.sources.catering, { from: 'a catering table' }));
       say('Pocket a snack', 'One sandwich for the road. It heals 4 HP when you eat it from your bag.', 3500); return;
     }
     if (a.auto === 'torch') { if (CHAR) { CHAR.torch = true; cbSaveChar(); } look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say(a.label, a.text + ' Use the Torch button to raise or lower it.'); return; }

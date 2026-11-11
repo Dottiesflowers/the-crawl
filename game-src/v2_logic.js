@@ -245,7 +245,7 @@
     if (a.auto === 'eat') { eatFood(); return; }
     if (a.auto === 'snack') {
       if (done[t.key + 'snack']) { say('Pocket a snack', 'You already took one from this table. The caterer is watching you now.', 3500); return; }
-      done[t.key + 'snack'] = true; invAdd({ name: 'Craft services sandwich', cat: 'consumable', heal: 4, desc: 'Free, wrapped, and surprisingly good. Heals 4 HP.', from: 'a catering table' });
+      done[t.key + 'snack'] = true; invAdd(item(DROPS.sources.catering, { from: 'a catering table' }));
       say('Pocket a snack', 'One sandwich for the road. It heals 4 HP when you eat it from your bag.', 3500); return;
     }
     if (a.auto === 'torch') { if (CHAR) { CHAR.torch = true; cbSaveChar(); } look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say(a.label, a.text + ' Use the Torch button to raise or lower it.'); return; }

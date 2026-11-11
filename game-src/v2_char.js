@@ -41,7 +41,7 @@
     if (typeof cbHUD === 'function') cbHUD();
     if (typeof posRestore === 'function' && typeof P !== 'undefined' && P) setTimeout(posRestore, 0);
     setTimeout(handsFromGear, 0); setTimeout(deadCheck, 300);
-    if (!c.potionsGiven && !c.preset) { c.potionsGiven = true; c.gear = c.gear || []; c.gear.push({ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', qty: 3, desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP. Every crawler starts with three.', from: 'the System' }); }
+    if (!c.potionsGiven && !c.preset) { c.potionsGiven = true; c.gear = c.gear || []; DROPS.sources.starting.forEach(function (s) { var it = item(s[0], { qty: s[1], from: 'the System' }); if (it) c.gear.push(it); }); }
     setTimeout(function () { if (typeof hotAuto === 'function') { hotAuto(); hotDraw(); } }, 50);
   }
   // your hands and back only show what you actually own: no free swords, shields or bass guitars
