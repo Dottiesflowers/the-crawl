@@ -40,10 +40,11 @@
     document.getElementById('tForm').onsubmit = function (ev) { ev.preventDefault(); var v = document.getElementById('tIn').value.trim(); if (v) talkSay(v); };
     document.getElementById('tIn').addEventListener('keydown', function (ev) { ev.stopPropagation(); });
   })();
-  function personaOf(e) { return PERSONA[e.npc || e.kind] || (e.def && PERSONA[e.def.base]); }
+  function personaOf(e) { return e.npc ? PERSONA[e.npc] : mindPersona(e); }
   function talkId(e) { return e.npc || (e.kind + '-' + (e.n !== undefined ? e.n : CB.enemies.indexOf(e))); } // one conversation per individual, not per kind of monster
   function talkKey(e) { return 'crawl-talk-' + (NET.uid ? NET.uid + '-' : '') + talkId(e); }
   function talkOpen(e) {
+    if (!speaks(e)) { say('It does not understand words', 'You try. It stares at you with the total incomprehension of something that only wants to eat.', 3200); return; }
     var p = personaOf(e); if (!p) return;
     TALK.open = true; TALK.e = e;
     if (!e.talk && NET.mode === 'server' && !e.talkFetched) {
@@ -53,7 +54,7 @@
     }
     if (!e.talk && NET.mode !== 'server') { try { e.talk = JSON.parse(localStorage.getItem(talkKey(e)) || 'null'); } catch (x) {} }
     if (!e.talk) e.talk = { lines: [], mood: e.calm ? 'friendly' : p.start, facts: [] };
-    document.getElementById('tName').textContent = e.npc ? p.name : e.name;
+    document.getElementById('tName').textContent = e.npc ? p.name : (e.mind && e.mind.known ? e.mind.name : 'The ' + String(e.tag || e.name).toLowerCase());
     document.getElementById('talk').classList.add('on'); talkDraw();
     if (!e.talk.lines.length) talkSay(null);
     setTimeout(function () { document.getElementById('tIn').focus(); }, 50);
@@ -92,15 +93,15 @@
     if (text) { e.talk.lines.push({ who: 'me', text: text, wh: whisper }); document.getElementById('tIn').value = ''; bubble('pc', text, whisper); }
     var roll = talkRoll();
     TALK.busy = true; talkDraw('');
-    if (!NET.sample) { setTimeout(function () { talkReply(e, talkCanned(e, text), roll); }, 350); return; }
+    if (!NET.sample) { setTimeout(function () { talkReply(e, talkCanned(e, text, roll), roll); }, 350); return; }
     var c = CHAR || MICHAEL;
     var sys = 'You are voicing one character in a browser dungeon crawl run on D&D 5e rules, styled after the novel series Dungeon Crawler Carl: an alien reality show where human crawlers fight through a dungeon for viewers. Stay fully in character. Never mention being an AI, a model, or a game.\n\n' +
-      'CHARACTER: ' + p.name + (e.npc ? '' : ' (' + e.name + ')') + '\nWho: ' + p.who + '\nWants: ' + p.wants + '\nKnows: ' + p.knows + '\nLimits: ' + p.limits + '\nVoice: ' + p.voice +
+      'CHARACTER: ' + p.name + '\nWho: ' + p.who + '\nWants: ' + p.wants + '\nKnows: ' + p.knows + '\nLimits: ' + p.limits + '\nVoice: ' + p.voice +
       '\nCurrent mood toward the player: ' + e.talk.mood + (e.calm ? ' (has agreed not to fight)' : '') + '. HP ' + e.hp + '/' + e.max + '.' + (e.talk.facts.length ? '\nThings you have learned about this player: ' + e.talk.facts.join('; ') : '') +
       '\n\nTHE PLAYER: ' + (c.name || 'a crawler') + ', human, level 1, one of humanity\'s five representatives. Charisma ' + c.stats.CHA + '. Notable skills: ' + Object.keys(c.skills).join(', ') + '. Trait: ' + c.trait + '. Flaw: ' + c.flaw + '. Carrying: ' + ((c.gear || []).map(function (g) { return g.name; }).join(', ') || 'nothing much') + '. HP ' + PC.hp + '/' + PC.max + '. Holding: ' + ((typeof pcWeapon === 'function') ? pcWeapon().name : 'nothing') + '.' +
-      (CB.on ? '\nA fight is happening right now.' : '') + (whisper ? '\nThe player is WHISPERING this line so only you can hear; answer quietly.' : '\nThe player is speaking out loud; anyone nearby can hear.') +
-      '\n\nThis line the player rolled ' + roll.skill + ': d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total + '. If the player is trying to persuade, trick, scare, bribe or charm you, judge the attempt against DC 10 (easy ask) / 13 (real favor) / 16 (against your interests) and let the roll decide whether it works, but a clever or funny line can lower the DC by 2 and an insult raises it. A natural 1 backfires; a natural 20 works if at all possible. If they are just chatting, ignore the roll.' +
-      '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree to stop fighting or not to fight them: any truce, deal, bribe accepted, surrender or promise to leave them alone counts as calm, and you must then honor it),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or ""}' + ' ' + CREW_LORE + ' Monsters do not know any of this unless they work for the System (clerks, registrars, imps on the payroll), in which case they may have heard the joke.';
+      (e.npc ? (CB.on ? '\nA fight is happening right now.' : '') : '\nSCENE: ' + mindScene(e)) + (whisper ? '\nThe player is WHISPERING this line so only you can hear; answer quietly.' : '\nThe player is speaking out loud; anyone nearby can hear.') +
+      '\n\nThis line the player rolled ' + roll.skill + ': d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total + '. If the player is trying to persuade, trick, scare, bribe or charm you, judge the attempt against ' + (e.npc ? 'DC 10 (easy ask) / 13 (real favor) / 16 (against your interests)' : 'DC ' + mindDC(e) + ' to make you stop fighting (lower for small asks)') + ' and let the roll decide whether it works, but a clever or funny line can lower the DC by 2 and an insult raises it. A natural 1 backfires; a natural 20 works if at all possible. If they are just chatting, ignore the roll.' +
+      '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree to stop fighting or not to fight them: any truce, deal, bribe accepted, surrender or promise to leave them alone counts as calm, and you must then honor it),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or "", "told_name": true only if you said your own name this line}' + ' ' + CREW_LORE + ' Monsters do not know any of this unless they work for the System (clerks, registrars, imps on the payroll), in which case they may have heard the joke.';
     var msgs = [{ role: 'user', content: sys + '\n\n[Conversation begins.' + (text ? '' : ' The player has just walked up. Greet them in character.') + ']' }];
     e.talk.lines.slice(-14).forEach(function (l) { msgs.push({ role: l.who === 'me' ? 'user' : 'assistant', content: l.who === 'me' ? 'Player says: ' + l.text : JSON.stringify({ say: l.text }) }); });
     if (msgs[msgs.length - 1].role !== 'user') msgs.push({ role: 'user', content: 'Player says nothing and waits.' });
@@ -115,7 +116,7 @@
           if (err && (err.code === 'not_granted' || err.code === 'ai_not_configured')) NET.sample = null;
           if (err && err.status === 401) authOpen();
           e.talk.lines.push({ who: 'sys', text: why }); TALK.busy = false;
-          if (!NET.sample) { talkReply(e, talkCanned(e, text), roll); return; }
+          if (!NET.sample) { talkReply(e, talkCanned(e, text, roll), roll); return; }
           talkDraw();
         });
   }
@@ -124,17 +125,19 @@
     var moods = ['friendly', 'neutral', 'wary', 'hostile'];
     if (moods.indexOf(j.mood) >= 0) e.talk.mood = j.mood;
     if (j.fact) e.talk.facts.push(String(j.fact).slice(0, 120));
+    if (j.told_name && !e.npc) { mindReveal(e); var hn = document.getElementById('tName'); if (hn && TALK.e === e) hn.textContent = e.name; }
     var note = j.used_roll ? roll.skill + ' d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total : '';
     e.talk.lines.push({ who: 'them', text: String(j.say || '…').slice(0, 400), note: note });
     bubble(e, String(j.say || '…').replace(/\*[^*]*\*/g, '').trim().slice(0, 220) || '…', TALK.whisper);
     if (j.used_roll && roll && roll.total >= 13) skillUse(roll.skill);
-    if (j.outcome === 'calm' && !e.calm) { setTimeout(function () { overcome(e); }, 1500); e.calm = true; e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : e.name) + ' will not fight you.' }); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
+    if (j.outcome === 'calm' && !e.calm) { setTimeout(function () { overcome(e); }, 1500); e.calm = true; e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : mindName(e).replace(/^the/, 'The')) + ' will not fight you.' }); if (!e.npc) mindGroup(e); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
     if (j.outcome === 'fight' && !e.npc) { e.calm = false; e.talk.mood = 'hostile'; talkDraw(); talkStore(e); setTimeout(function () { talkClose(); if (!CB.on) cbStart('Words failed. Steel next.', e); }, 1400); return; }
     talkStore(e); if (TALK.e === e) talkDraw();
   }
   // no Claude available: stock lines so the option still works
-  function talkCanned(e, text) {
-    var t = (text || '').toLowerCase(), roll = talkRoll(), win = roll.total >= (e.kind === 'imp' && !e.npc ? 15 : 12);
+  function talkCanned(e, text, roll0) {
+    if (!e.npc) return mindCanned(e, text, roll0 || talkRoll());
+    var t = (text || '').toLowerCase(), roll = roll0 || talkRoll(), win = roll.total >= (e.kind === 'imp' && !e.npc ? 15 : 12);
     if (e.npc) return { say: !text ? 'Oh! Talent! Hi! Welcome to the Safe Room. I\'m Pip, production. No hitting in here, please. Please don\'t die before the break.' : (/stairs|exit|down/.test(t) ? 'Stairs are far east, past the grotto, behind security. Don\'t tell him I said "behind."' : (/monster|puglin|imp|guard/.test(t) ? 'Two puglins and one very tired security imp. The imp takes bribes. You did not hear that from me.' : 'Uh huh, totally, love that. Great energy. Keep doing that on camera.')), mood: 'friendly', outcome: 'hint' };
     if (!text) return { say: e.kind === 'imp' ? 'Keep walking, pal. Or don\'t. I get paid either way.' : 'Grik see you. Grik hungry.', mood: e.talk.mood, outcome: 'none' };
     if (/stupid|ugly|idiot|die/.test(t)) return { say: '*bristles* Wrong thing to say.', mood: 'hostile', outcome: 'fight' };

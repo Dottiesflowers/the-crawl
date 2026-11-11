@@ -19,7 +19,7 @@
   }
 
   // ---------- the Combine screen ----------
-  var CRAFT = { open: false, sel: [], busy: false, shared: [] };
+  var CRAFT = { open: false, sel: [], busy: false, shared: [], q: '', cat: 'all', idea: '' };
   function craftLoadShared() { if (NET.mode === 'server' && NET.uid) api('recipes').then(function (j) { CRAFT.shared = j.value || []; if (CRAFT.open) craftDraw(); }).catch(function () {}); }
   function craftToggle() {
     CRAFT.open = !CRAFT.open; var el = document.getElementById('craft');
@@ -37,18 +37,37 @@
     return { mine: !!mine, skillOk: mine || lv >= r.level, have: have };
   }
   function craftDraw() {
-    var el = document.getElementById('craft'); if (!el || !CRAFT.open) return; var items = craftItems();
+    var el = document.getElementById('craft'); if (!el || !CRAFT.open) return; var items = craftItems(), q = CRAFT.q.toLowerCase();
+    var ideaEl = document.getElementById('crIdea'); if (ideaEl) CRAFT.idea = ideaEl.value;
+    CRAFT.sel = CRAFT.sel.filter(function (g) { return items.indexOf(g) >= 0; });
+    // same as the inventory: search, filter by kind, identical things stack
+    var groups = {}, glist = [];
+    items.forEach(function (g) { if ((CRAFT.cat !== 'all' && g.cat !== CRAFT.cat) || (q && (g.name + ' ' + (g.desc || '') + ' ' + (g.tags || []).join(' ')).toLowerCase().indexOf(q) < 0)) return;
+      var k = g.name; if (!groups[k]) { groups[k] = { it: g, all: [] }; glist.push(groups[k]); } groups[k].all.push(g); });
+    var cats = CATS.filter(function (c) { return c[0] === 'all' || items.some(function (g) { return g.cat === c[0]; }); });
     var recs = allRecipes().map(function (r) { var s = recipeState(r); return '<div class="rc' + (s.skillOk && s.have ? '' : ' off') + '"><div><b>' + esc(r.name) + '</b> <small>' + esc(trackSkill(r.track)) + ' ' + r.level + (s.mine ? ' · yours' : r.by ? ' · by ' + esc(r.by) : '') + '</small><span>' + esc((r.inputs || []).join(' + ')) + '</span></div>' +
       '<button type="button" class="ccBtn" data-make="' + esc(r.name) + '"' + (s.skillOk && s.have ? '' : ' disabled') + '>' + (!s.skillOk ? 'Needs ' + trackSkill(r.track) + ' ' + r.level : !s.have ? 'Missing items' : 'Make') + '</button></div>'; }).join('');
-    el.innerHTML = '<header><b>Jury-rig</b><span>Jury-Rig ' + skillLv('Jury-Rig') + ' · Alchemy ' + skillLv('Alchemy') + '</span><button type="button" class="xbtn" id="crX">Close</button></header>' +
-      '<div class="cb"><div class="cpick"><h3>Pick up to three things</h3><div class="cgrid">' + items.map(function (g, i) { var on = CRAFT.sel.indexOf(g) >= 0; return '<button type="button" class="' + (on ? 'on' : '') + '" data-ci="' + i + '">' + itemIcon(g) + '<span>' + esc(g.name) + '</span>' + ((g.tags || []).length ? '<i>' + esc(g.tags.slice(0, 2).join(', ')) + '</i>' : '') + '</button>'; }).join('') + '</div>' +
-      '<label for="crIdea">What are you trying to make?</label><input id="crIdea" type="text" maxlength="160" placeholder="e.g. a sticky firebomb, a spear, something that heals">' +
-      '<button type="button" class="go" id="crGo"' + (CRAFT.sel.length >= 2 && !CRAFT.busy ? '' : ' disabled') + '>' + (CRAFT.busy ? 'The System is thinking…' : 'Jury-rig it') + '</button><p class="hint">Takes two or three items. The System decides if it works, what roll it takes and what you get. Inventions become recipes the whole SGC can see.</p></div>' +
+    el.innerHTML = '<header><b>Jury-rig</b><span>Jury-Rig ' + skillLv('Jury-Rig') + ' · Alchemy ' + skillLv('Alchemy') + '</span><button type="button" class="xbtn" id="crBag">Inventory</button><button type="button" class="xbtn" id="crX">Close</button></header>' +
+      '<div class="cb"><div class="cpick">' +
+        '<div class="ctools"><input id="crQ" type="search" placeholder="Search your bag (name, or a tag like flammable)" aria-label="Search items" value="' + esc(CRAFT.q) + '">' +
+        cats.map(function (c) { return '<button type="button" class="chip2' + (CRAFT.cat === c[0] ? ' on' : '') + '" data-ccat="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>' +
+        '<div class="cgrid">' + (glist.length ? glist.map(function (o, i) { var n = o.all.filter(function (g) { return CRAFT.sel.indexOf(g) >= 0; }).length, left = o.all.length - n;
+          return '<button type="button" class="' + (n ? 'on' : '') + '" data-cg="' + i + '"' + (left ? '' : ' disabled') + '>' + itemIcon(o.it) + '<span>' + esc(o.it.name) + '</span>' + ((o.it.tags || []).length ? '<i>' + esc(o.it.tags.slice(0, 2).join(', ')) + '</i>' : '') + (o.all.length > 1 ? '<b class="qn">×' + left + '</b>' : '') + '</button>'; }).join('') : '<p class="hint">Nothing matches.</p>') + '</div>' +
+        '<div class="cbottom"><label for="crIdea">What are you trying to make?</label><input id="crIdea" type="text" maxlength="160" placeholder="e.g. a sticky firebomb, a spear, something that heals" value="' + esc(CRAFT.idea) + '">' +
+        '<div class="csel"><h3>Selected items <small>' + CRAFT.sel.length + '</small></h3>' + (CRAFT.sel.length ? CRAFT.sel.map(function (g, i) { return '<button type="button" class="cs" data-un="' + i + '" aria-label="Remove ' + esc(g.name) + '">' + itemIcon(g) + '<span>' + esc(g.name) + '</span><b aria-hidden="true">×</b></button>'; }).join('') : '<p class="hint">Tap items above to add them. Use as many as your idea needs.</p>') + '</div>' +
+        '<button type="button" class="go" id="crGo"' + (CRAFT.sel.length >= 2 && !CRAFT.busy ? '' : ' disabled') + '>' + (CRAFT.busy ? 'The System is thinking…' : 'Jury-rig it') + '</button><p class="hint">The System decides if it works, what roll it takes and what you get. Piling on junk does not help; the right parts do. Inventions become recipes the whole SGC can see.</p></div></div>' +
       '<div class="crec"><h3>Recipes</h3>' + (recs || '<p class="hint">None yet. Invent something.</p>') + '</div></div>';
     document.getElementById('crX').onclick = craftToggle;
-    el.querySelectorAll('[data-ci]').forEach(function (b) { b.onclick = function () { var g = items[+b.dataset.ci], k = CRAFT.sel.indexOf(g); if (k >= 0) CRAFT.sel.splice(k, 1); else if (CRAFT.sel.length < 3) CRAFT.sel.push(g); var idea = document.getElementById('crIdea').value; craftDraw(); document.getElementById('crIdea').value = idea; }; });
+    document.getElementById('crBag').onclick = function () { craftToggle(); bagToggle(); };
+    var qi = document.getElementById('crQ');
+    qi.oninput = function () { CRAFT.q = qi.value; var pos = qi.selectionStart; craftDraw(); var n = document.getElementById('crQ'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (x) {} };
+    qi.addEventListener('keydown', function (ev) { ev.stopPropagation(); }); document.getElementById('crIdea').addEventListener('keydown', function (ev) { ev.stopPropagation(); });
+    el.querySelectorAll('[data-ccat]').forEach(function (b) { b.onclick = function () { CRAFT.cat = b.dataset.ccat; craftDraw(); }; });
+    el.querySelectorAll('[data-cg]').forEach(function (b) { b.onclick = function () { var o = glist[+b.dataset.cg], g = o.all.filter(function (x) { return CRAFT.sel.indexOf(x) < 0; })[0];
+      if (!g) return; CRAFT.sel.push(g); craftDraw(); }; });
+    el.querySelectorAll('[data-un]').forEach(function (b) { b.onclick = function () { CRAFT.sel.splice(+b.dataset.un, 1); craftDraw(); }; });
     el.querySelectorAll('[data-make]').forEach(function (b) { b.onclick = function () { craftMake(b.dataset.make); }; });
-    document.getElementById('crGo').onclick = function () { craftInvent(document.getElementById('crIdea').value.trim()); };
+    document.getElementById('crGo').onclick = function () { CRAFT.idea = document.getElementById('crIdea').value.trim(); craftInvent(CRAFT.idea); };
   }
 
   // ---------- inventing ----------
@@ -60,7 +79,7 @@
     var prompt = 'You are the System, the AI running a Dungeon Crawler Carl style dungeon on D&D 5e rules. ' + CREW_LORE + '\n\nA crawler wants to jury-rig something from items in their bag. Judge it like a fair, funny DM. Physical builds use the Jury-Rig track (INT); mixtures, potions, poisons and chemistry use the Alchemy track (WIS). ' +
       'Crawler skills: Jury-Rig ' + skillLv('Jury-Rig') + ', Alchemy ' + skillLv('Alchemy') + ', INT mod ' + MOD.INT + ', WIS mod ' + MOD.WIS + '.\n\nItems:\n' + desc + '\n\nWhat they want to make: ' + (idea || '(they did not say; make the most sensible thing)') +
       '\n\nRules: if the combination cannot plausibly make anything, ok=false and say why in comment. Otherwise design ONE item using only these fields. Recipe level 1-3 by complexity and power. Power limits: level 1 = up to 2d6 damage or 1d8 weapon or 2d4 healing; level 2 = up to 3d6, 1d10 weapon, 3d4+2 healing; level 3 = up to 4d6 area 2. ' +
-      'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. DC 8-18.' +
+      'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. They may hand you any number of items, duplicates included (two of the same item means they want to use both). Use the parts that make sense, put only those in consumes, and judge the whole idea: more parts can make a sturdier or stronger build, but junk that does not belong adds nothing. DC 8-18.' +
       '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"dc":10,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"comment":"one short System line"}';
     serverSample([{ role: 'user', content: prompt }], { modelTier: 'complex', maxTokens: 600 }).then(function (r) {
       var j = null; try { j = JSON.parse(r.text.replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {}

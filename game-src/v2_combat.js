@@ -188,7 +188,7 @@
   function worldState() {
     var dead = [], eaten = [], calm = [], hp = {};
     var rats = []; CB.enemies.forEach(function (e) { if (e.npc) return; if (e.def.base === 'rat') { if (e.dead) rats.push([e.n, e.diedAt || Date.now()]); return; } if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
-    return { dead: dead, eaten: eaten, calm: calm, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, at: Date.now() };
+    return { dead: dead, eaten: eaten, calm: calm, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
   }
   function worldSave() {
     if (!CB.ready || !WORLD.loaded) return; var st = worldState();
@@ -214,6 +214,7 @@
     (st.shrubs || []).forEach(function (s) { var e = byN[s[0]]; if (e && !e.dead) { e.def = BEAST['shrub' + s[1]]; e.kind = 'shrub' + s[1]; e.lvl = s[1]; e.name = e.def.name; e.max = e.def.hp; e.hp = Math.min(e.hp, e.max); } });
     (st.rats || []).forEach(function (r) { var e = byN[r[0]]; if (e && Date.now() - r[1] < RAT_BACK) { e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; e.diedAt = r[1]; } });
     if (st.reserve) WORLD.reserve = st.reserve;
+    mindApplyNames(st.names);
   }
   function worldLoad() {
     if (!CB.ready || !CHAR) return; var k = worldKey(); if (WORLD.key === k) return; WORLD.key = k; WORLD.loaded = false;
@@ -340,7 +341,7 @@
     ].concat([0, 1, 2, 3].map(function (i) { var it = hotItem(i); return it ? { label: 'Use ' + it.name, tag: it.heal + ' HP · ×' + (it.qty || 1), ok: r.bonus, fn: function () { useItem(it); } } : null; }).filter(Boolean)).concat([
       { label: 'Off-hand dagger attack', tag: '1d4, no modifier', ok: r.bonus && sty('off') === 3 && sty('main') > 0 && adj.length > 0, fn: function () { cbAttackButton(true); } }
     ]);
-    var near = CB.enemies.filter(function (e) { return !e.dead && !e.calm && !e.npc && cheb(P.x, P.z, e.x, e.z) <= 6; }).sort(function (a, b) { return cheb(P.x, P.z, a.x, a.z) - cheb(P.x, P.z, b.x, b.z); })[0];
+    var near = CB.enemies.filter(function (e) { return !e.dead && !e.calm && !e.npc && speaks(e) && cheb(P.x, P.z, e.x, e.z) <= 6; }).sort(function (a, b) { return cheb(P.x, P.z, a.x, a.z) - cheb(P.x, P.z, b.x, b.z); })[0];
     return [
       { label: tryLabel(), tag: 'describe anything · action', ok: r.action && triesLeft() > 0, fn: function () { trySomething(near); } },
     ].concat(CB.enemies.filter(function (q) { return q.boss && !q.dead && CB.order.indexOf(q) >= 0; }).reduce(function (a, q) { return a.concat(weakOptions(q, true).map(function (o) { o.ok = o.ok && r.action; return o; })); }, [])).concat([
@@ -850,12 +851,14 @@
     if (e.npc) return [talk,
       { label: 'Examine', text: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile. Not a threat to anyone, least of all you.' },
       { label: 'Read their mood', stat: 'WIS', dc: 8, win: 'Overworked, underpaid, and quietly rooting for you.', lose: 'Hard to tell under all that sweating.' }];
-    return [talk].concat(weakOptions(e, false).map(function (o) { return { label: o.label, fnx: o.fn, okx: o.ok }; })).concat([{ label: tryLabel(), auto: 'try' },
-      { label: 'Examine', text: examineText(e) },
+    var dc = mindDC(e), talks = speaks(e);
+    return (talks ? [talk] : []).concat(weakOptions(e, false).map(function (o) { return { label: o.label, fnx: o.fn, okx: o.ok }; })).concat([{ label: tryLabel(), auto: 'try' },
+      { label: 'Examine', text: mindExamine(e) + examineText(e) },
       { label: 'Study its fighting style', stat: 'INT', skill: ['Lore', 0], dc: 12, win: (WEAK[e.kind] ? WEAK[e.kind].hint + ' ' : '') + 'Armor about AC ' + acOf(e) + '. It fights with a ' + e.def.weapon + ' and hits roughly ' + e.def.dmg[0] + 'd' + e.def.dmg[1] + '+' + e.def.dmg[2] + '.', lose: 'It fights like something that wants you dead. That is all you learn.' },
-      { label: 'Read its mood', stat: 'WIS', dc: 10, win: e.kind === 'imp' ? 'Bored and paid by the hour. It wants an excuse not to fight.' : 'Hungry, nervous, and showing off for the other one.', lose: 'It stares back. You learn nothing.' },
-      { label: 'Talk it down', stat: 'CHA', skill: ['De-escalation', 2], dc: e.kind === 'imp' ? 15 : 12, flag: 'calm', win: 'You tell it "no, man" until it gives up. It sits down and watches you go by.', lose: 'It is not in the mood to be talked to.' },
-      { label: 'Perform for it', stat: 'CHA', skill: ['Performance', 0], dc: e.kind === 'imp' ? 14 : 11, flag: 'calm', win: 'It is charmed in spite of itself. It will not fight you now.', lose: 'It is not a fan.' },
+      { label: 'Read its mood', stat: 'WIS', dc: 10, win: mindRead(e), lose: 'It stares back. You learn nothing.' },
+    ].concat(talks ? [
+      { label: 'Talk it down', stat: 'CHA', skill: ['De-escalation', 2], dc: intOf(e) === 'smart' ? dc + 3 : dc, flag: 'calm', win: 'You tell it "no, man" until it gives up. It sits down and watches you go by.', lose: intOf(e) === 'smart' ? 'It wants to know what is in it for it. Try actually talking.' : 'It is not in the mood to be talked to.' },
+      { label: 'Perform for it', stat: 'CHA', skill: ['Performance', 0], dc: factionOf(e) === 'arena' || factionOf(e) === 'reject' ? dc - 2 : dc + 1, flag: 'calm', win: 'It is charmed in spite of itself. It will not fight you now.', lose: 'It is not a fan.' }] : []).concat([
       { label: 'Attack', fight: true }
-    ]);
+    ]));
   }
