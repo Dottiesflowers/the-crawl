@@ -380,6 +380,47 @@
       theater: function (r) { for (var zz = r.z0 + 3; zz < r.z1; zz += 2) for (var xx = r.x0 + 2; xx < r.x1 - 1; xx += 2) obj(xx, zz, 'Bench', { fit: 1.05, rot: Math.PI }, 'Seat'); obj(center(r)[0], r.z0 + 1, 'BookStand', { h: 1.0 }, 'Lectern'); },
       cells: function (r) { alongWall(r, 4, function (x, z, w) { return obj(x, z, 'Cage_Small', hug(w, { fit: 0.75 }), 'Cage'); }); alongWall(r, 2, function (x, z, w) { dec(x, z, 'Bag', { fit: 0.45, rot: rnd() * 6 }); return true; }); },
       cave: function (r) { alongWall(r, ri(2, 4), function (x, z, w) { var m = pick(['Vase_Rubble_Medium', 'Barrel', 'Bag', 'Bucket_Wooden_1', 'Rope_2', 'Crate_Wooden']); if (/Barrel|Crate/.test(m)) return stack(x, z, w); dec(x, z, m, { fit: 0.42, rot: rnd() * 6, dx: w[0] * 0.25, dz: w[1] * 0.25 }); return true; }); },
+      // safe rooms: a real break room. Kitchen along the wall by the catering table, bunks opposite, a table with chairs,
+      // and a TV corner when there is room. Kenney Furniture Kit models are half scale, so s: 2.
+      safehouse: function (r) {
+        var KS = 2, fx = 0, fz = 0, nf = 0, xx, zz;
+        for (zz = r.z0; zz <= r.z1; zz++) for (xx = r.x0; xx <= r.x1; xx++) if (g[zz] && g[zz][xx] === 'F') { fx += xx; fz += zz; nf++; }
+        var sp = wallSpots(r); if (!sp.length) return;
+        var cx = nf ? fx / nf : center(r)[0], cz = nf ? fz / nf : r.z0;
+        sp.sort(function (a, b) { return Math.hypot(a[0] - cx, a[1] - cz) - Math.hypot(b[0] - cx, b[1] - cz); });
+        var kw = wallOf(sp[0][0], sp[0][1]);
+        var row = sp.filter(function (p) { var w = wallOf(p[0], p[1]); return w[0] === kw[0] && w[1] === kw[1]; }).sort(function (a, b) { return kw[1] ? a[0] - b[0] : a[1] - b[1]; });
+        var rot = Math.atan2(-kw[0], -kw[1]);
+        var seq = [['kitchenFridgeLarge', 'Fridge', null, 0.09], ['kitchenStove', 'Stove', null, 0.05], ['kitchenCabinet', 'Coffee machine', 'kitchenCoffeeMachine', 0.05], ['kitchenSink', 'Sink', null, 0.05], ['kitchenCabinet', 'Counter', 'kitchenMicrowave', 0.05], ['kitchenCabinet', 'Counter', 'toaster', 0.05]];
+        var si = 0; row.forEach(function (p) { if (si >= seq.length) return; var q = seq[si]; if (!freeT(p[0], p[1], r)) return;
+          obj(p[0], p[1], q[0], { s: KS, rot: rot, dx: kw[0] * q[3], dz: kw[1] * q[3] }, q[1]);
+          if (q[2]) dec(p[0], p[1], q[2], { s: KS, rot: rot, y: 0.9, dx: kw[0] * 0.18, dz: kw[1] * 0.18 }); si++; });
+        // bunks on the opposite wall: two tiles deep, head against the wall
+        var ow = [-kw[0], -kw[1]], orot = Math.atan2(-ow[0], -ow[1]), bunks = 0;
+        sp.filter(function (p) { var w = wallOf(p[0], p[1]); return w[0] === ow[0] && w[1] === ow[1]; }).forEach(function (p) {
+          if (bunks >= 2) return; var ix = p[0] - ow[0], iz = p[1] - ow[1];
+          if (!freeT(p[0], p[1], r) || !freeT(ix, iz, r)) return;
+          obj(p[0], p[1], 'bedBunk', { s: KS, rot: orot, dx: -ow[0] * 0.6, dz: -ow[1] * 0.6 }, 'Bunk bed'); g[iz][ix] = 'o'; dname[ix + ',' + iz] = 'Bunk bed'; bunks++;
+          // skip the neighbour so bunks don't touch
+          taken[(p[0] + Math.abs(ow[1])) + ',' + (p[1] + Math.abs(ow[0]))] = 1;
+        });
+        // a table for four in the middle
+        var c = center(r); if (freeT(c[0], c[1], r) && freeT(c[0] + 1, c[1], r)) {
+          rug(r, 0x3a4a5a);
+          obj(c[0], c[1], 'table', { s: KS, rot: 0, dx: 0.5 }, 'Table'); g[c[1]][c[0] + 1] = 'o'; dname[(c[0] + 1) + ',' + c[1]] = 'Table';
+          dec(c[0], c[1], 'kitchenBlender', { s: KS, y: 0.66, dx: 0.2, dz: 0.05, rot: 0.4 });
+          [[0, -1, 0, 0.28], [1, -1, 0, 0.28], [0, 1, Math.PI, -0.28], [1, 1, Math.PI, -0.28]].forEach(function (q) { if (freeT(c[0] + q[0], c[1] + q[1], r)) dec(c[0] + q[0], c[1] + q[1], 'chair', { s: KS, rot: q[2], dz: q[3] }); });
+        }
+        // TV corner and a couch along a side wall, if the room has space
+        var side = sp.filter(function (p) { var w = wallOf(p[0], p[1]); return w[0] !== kw[0] || w[1] !== kw[1]; }).filter(function (p) { var w = wallOf(p[0], p[1]); return !(w[0] === ow[0] && w[1] === ow[1]); });
+        var tvDone = false, sofaDone = false;
+        side.forEach(function (p) { if (!freeT(p[0], p[1], r)) return; var w = wallOf(p[0], p[1]), rt = Math.atan2(-w[0], -w[1]);
+          if (!tvDone) { obj(p[0], p[1], 'cabinetTelevision', { s: KS, rot: rt, dx: w[0] * 0.25, dz: w[1] * 0.25 }, 'TV'); dec(p[0], p[1], 'televisionModern', { s: KS, rot: rt, y: 0.62, dx: w[0] * 0.3, dz: w[1] * 0.3 }); tvDone = true; return; }
+          if (!sofaDone) { obj(p[0], p[1], 'loungeSofa', { s: KS, rot: rt, dx: w[0] * 0.08, dz: w[1] * 0.08 }, 'Couch'); sofaDone = true; return; }
+        });
+        alongWall(r, 2, function (x, z, w) { dec(x, z, rnd() < 0.6 ? 'pottedPlant' : 'lampRoundFloor', { s: KS, rot: rnd() * 6, dx: w[0] * 0.3, dz: w[1] * 0.3 }); return true; });
+        alongWall(r, 1, function (x, z, w) { dec(x, z, 'trashcan', { s: KS, dx: w[0] * 0.3, dz: w[1] * 0.3 }); return true; });
+      },
       snack: function (r) { rug(r, 0x2a5a4a); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Bench'); }); },
       trophy: function (r) { alongWall(r, 4, function (x, z, w) { banner(x, z, w); return true; }); rug(r, 0x5a1a1a); },
       archive: function (r) { var c = center(r); if (freeT(c[0], r.z0 + 1, r)) obj(c[0], r.z0 + 1, 'BookStand', { h: 1.0 }, 'Reading stand'); dec(c[0] + 1, r.z0 + 1, 'CandleStick_Stand', { h: 1.0 }); alongWall(r, 3, function (x, z, w) { dec(x, z, pick(['Book_Stack_1', 'Book_Stack_2', 'BookGroup_Medium_1', 'Scroll_1']), { fit: 0.35, rot: rnd() * 6 }); return true; }); }
@@ -388,9 +429,9 @@
       'Orientation Theater': 'theater', 'Medical (Closed)': 'bunk', 'Holding Pen B': 'cells', 'Craft Services Annex': 'break', 'Stage 3': 'lounge',
       'Break Room': 'break', 'Water Cooler': 'break', 'Vending Hall': 'break', 'Night Shift Lounge': 'lounge', 'Seniority Lounge': 'lounge', 'Quiet Room': 'lounge', 'Wellness Room': 'lounge', 'Locker Room': 'wardrobe',
       'Supply Closet': 'storage', 'Mailroom': 'storage', 'Copy Room': 'storage', 'Records': 'storage', 'Union Archive': 'storage', 'Strike Fund': 'storage', 'Picket Sign Shop': 'workshop', 'Shop Floor': 'workshop', 'Training Room': 'workshop',
-      'Conference Room B': 'meeting', 'Grievance Office': 'meeting', 'Dispute Office': 'meeting', 'Minutes Office': 'meeting', 'Snack Larder': 'storage', 'Mud Nursery': 'cells', 'The Trophy Room': 'trophy', 'Last Chance Lounge': 'snack', 'The Green Room': 'lounge', 'The Steward\'s Office': 'meeting' };
+      'Conference Room B': 'meeting', 'Grievance Office': 'meeting', 'Dispute Office': 'meeting', 'Minutes Office': 'meeting', 'Snack Larder': 'storage', 'Mud Nursery': 'cells', 'The Trophy Room': 'trophy', 'Last Chance Lounge': 'safehouse', 'The Green Room': 'safehouse', 'The Steward\'s Office': 'meeting' };
     rooms.forEach(function (r) {
-      var st = BYNAME[r.name] || (r.type === 'safe' && r.theme === 'crypt' ? 'snack' : r.hood === WRZ.idx && r.type !== 'corridor' ? 'cave' : r.hood === UHZ.idx && r.type === 'room' ? 'office' : r.hood === PCZ.idx && r.type === 'room' ? 'office' : r.hood === ARZ.idx && r.type === 'room' ? 'archive' : null);
+      var st = BYNAME[r.name] || (r.type === 'safe' && r.theme === 'crypt' ? 'safehouse' : r.hood === WRZ.idx && r.type !== 'corridor' ? 'cave' : r.hood === UHZ.idx && r.type === 'room' ? 'office' : r.hood === PCZ.idx && r.type === 'room' ? 'office' : r.hood === ARZ.idx && r.type === 'room' ? 'archive' : null);
       if (st && STYLE[st]) STYLE[st](r);
     });
     // the Underbazaar: proper market stalls with goods, carts, a wagon and benches round the fountain

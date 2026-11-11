@@ -7,14 +7,16 @@
   var PTEX = [[/WoodTrim/, 'v_woodtrim.jpg'], [/MI_Vine/, 'v_vine.png'], [/MetalOrnaments/, 'trim_metal.jpg'], [/Bark_NormalTree/, 'n_bark.jpg'], [/Bark_Twisted|Bark_Dead/, 'n_bark2.jpg'], [/Leaves_NormalTree/, 'n_treeleaves.png'], [/Leaves_TwistedTree/, 'n_twleaves.png'], [/Leaves_Pine/, 'n_pine.png'], [/^Flowers/, 'n_flowers.png'], [/Trim_Furniture/, 'trim_furniture.jpg'], [/Trim_Metal/, 'trim_metal.jpg'], [/Trim_Props/, 'trim_props.jpg'], [/Trim_Cloth|Banner/, 'trim_cloth.jpg'],
     [/Page/, 'page.jpg'], [/Mushrooms/, 'n_mushrooms.jpg'], [/Rocks|Bark/, 'n_rocks.jpg'], [/Grass/, 'n_grass.jpg'], [/Leaves|Flowers/, 'n_leaves.png']];
   function propMat(name, fade) {
+    var kn = /^KN_(\d+)_(\d+)_(\d+)/.exec(name); // Kenney furniture: flat colours, no texture
+    if (kn) return new THREE.MeshLambertMaterial({ color: new THREE.Color(+kn[1] / 255, +kn[2] / 255, +kn[3] / 255).convertSRGBToLinear().multiplyScalar(0.85), transparent: !!fade });
     var file = 'trim_furniture.jpg', leafy = /Leaves|Flowers/.test(name);
     PTEX.some(function (p) { if (p[0].test(name)) { file = p[1]; return true; } return false; });
     var m = new THREE.MeshLambertMaterial({ map: kitTex(file), side: THREE.DoubleSide, alphaTest: leafy || /Vine/.test(name) ? 0.35 : 0, transparent: !!fade });
     return m;
   }
   function propLoad() {
-    var L = new THREE.GLTFLoader(), left = 2;
-    ['props', 'nature'].forEach(function (nm) {
+    var L = new THREE.GLTFLoader(), left = 3;
+    ['props', 'nature', 'furn'].forEach(function (nm) {
       fetch(KDIR + nm + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         var bin = atob(j.glb), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
         L.parse(u.buffer, KDIR, function (g) {
@@ -48,7 +50,7 @@
       if (!m.isMesh) return;
       var mesh = new THREE.Mesh(m.geometry, propMat(m.material.name || '', o.fade));
       _pm.multiplyMatrices(M, m.matrixWorld); _pm.decompose(mesh.position, mesh.quaternion, mesh.scale);
-      var t = reg(mesh, tx, tz, { fade: o.fade, hang: o.hang, noShadow: o.noShadow, mob: o.mob });
+      var t = reg(mesh, tx, tz, { fade: o.fade, hang: o.hang, noShadow: o.noShadow, mob: o.mob, tint: /^KN_/.test(m.material.name || '') });
       if (o.lid && /lid|top/i.test(m.name + ' ' + (m.parent ? m.parent.name : ''))) t.lid = true;
     });
     if (o.block) PROPBLOCK[tx + ',' + tz] = 1;

@@ -42,7 +42,7 @@
     if (typeof posRestore === 'function' && typeof P !== 'undefined' && P) setTimeout(posRestore, 0);
     setTimeout(handsFromGear, 0); setTimeout(deadCheck, 300);
     if (!c.potionsGiven && !c.preset) { c.potionsGiven = true; c.gear = c.gear || []; DROPS.sources.starting.forEach(function (s) { var it = item(s[0], { qty: s[1], from: 'the System' }); if (it) c.gear.push(it); }); }
-    setTimeout(function () { if (typeof hotAuto === 'function') { hotAuto(); if (typeof wsetDraw === "function") setTimeout(wsetDraw, 0); hotDraw(); } }, 50);
+    setTimeout(function () { if (typeof hotAuto === 'function') { hotAuto(); if (typeof wsetDraw === "function") setTimeout(wsetDraw, 0); if (typeof buffDraw === "function") setTimeout(buffDraw, 0); hotDraw(); } }, 50);
   }
   // your hands and back only show what you actually own: no free swords, shields or bass guitars
   function handsFromGear() {
@@ -64,7 +64,7 @@
   function PROF() { return (PC.level || 1) >= 5 ? 3 : 2; }
   function maxHPFor(c, lvl) { return 16 + MOD.CON + (c.trait === 'Tough' || c.traitFx === 'Tough' ? 3 : 0) + (lvl - 1) * Math.max(1, 5 + MOD.CON); }
   function grantXP(n) {
-    if (!n) return; PC.xp = (PC.xp || 0) + n;
+    if (!n) return; n = buffXP(n); PC.xp = (PC.xp || 0) + n;
     if (typeof floater === 'function' && typeof P !== 'undefined') floater(P.px, 2.0, P.pz, '+' + n + ' XP', 'xp');
     var nl = levelFor(PC.xp), ups = 0; while ((PC.level || 1) < nl) { levelUp(++ups); }
     cbSaveChar(); if (typeof cbHUD === 'function') cbHUD();
@@ -72,7 +72,7 @@
   function levelUp(k) {
     var c = CHAR || MICHAEL, was = PC.max; PC.level = (PC.level || 1) + 1; c.level = PC.level; logEvent('Reached level ' + PC.level, 'level');
     PC.max = maxHPFor(c, PC.level); PC.hp = Math.min(PC.max, PC.hp + (PC.max - was));
-    c.skillPts = (c.skillPts || 0) + 1; var stat = PC.level % 2 === 0; if (stat) c.statPts = (c.statPts || 0) + 1; c.gold = (c.gold || 0) + 10 * PC.level;
+    c.skillPts = (c.skillPts || 0) + 1; c.swUsed = false; var stat = PC.level % 2 === 0; if (stat) c.statPts = (c.statPts || 0) + 1; c.gold = (c.gold || 0) + 10 * PC.level;
     var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon).' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : '';
     setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'Level up. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
   }
@@ -124,7 +124,7 @@
   }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, born: c.born || null, updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, buffs: c.buffs || {}, swUsed: !!c.swUsed, cool: c.cool || {}, cups: c.cups || [], counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, born: c.born || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }

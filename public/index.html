@@ -507,6 +507,47 @@
       theater: function (r) { for (var zz = r.z0 + 3; zz < r.z1; zz += 2) for (var xx = r.x0 + 2; xx < r.x1 - 1; xx += 2) obj(xx, zz, 'Bench', { fit: 1.05, rot: Math.PI }, 'Seat'); obj(center(r)[0], r.z0 + 1, 'BookStand', { h: 1.0 }, 'Lectern'); },
       cells: function (r) { alongWall(r, 4, function (x, z, w) { return obj(x, z, 'Cage_Small', hug(w, { fit: 0.75 }), 'Cage'); }); alongWall(r, 2, function (x, z, w) { dec(x, z, 'Bag', { fit: 0.45, rot: rnd() * 6 }); return true; }); },
       cave: function (r) { alongWall(r, ri(2, 4), function (x, z, w) { var m = pick(['Vase_Rubble_Medium', 'Barrel', 'Bag', 'Bucket_Wooden_1', 'Rope_2', 'Crate_Wooden']); if (/Barrel|Crate/.test(m)) return stack(x, z, w); dec(x, z, m, { fit: 0.42, rot: rnd() * 6, dx: w[0] * 0.25, dz: w[1] * 0.25 }); return true; }); },
+      // safe rooms: a real break room. Kitchen along the wall by the catering table, bunks opposite, a table with chairs,
+      // and a TV corner when there is room. Kenney Furniture Kit models are half scale, so s: 2.
+      safehouse: function (r) {
+        var KS = 2, fx = 0, fz = 0, nf = 0, xx, zz;
+        for (zz = r.z0; zz <= r.z1; zz++) for (xx = r.x0; xx <= r.x1; xx++) if (g[zz] && g[zz][xx] === 'F') { fx += xx; fz += zz; nf++; }
+        var sp = wallSpots(r); if (!sp.length) return;
+        var cx = nf ? fx / nf : center(r)[0], cz = nf ? fz / nf : r.z0;
+        sp.sort(function (a, b) { return Math.hypot(a[0] - cx, a[1] - cz) - Math.hypot(b[0] - cx, b[1] - cz); });
+        var kw = wallOf(sp[0][0], sp[0][1]);
+        var row = sp.filter(function (p) { var w = wallOf(p[0], p[1]); return w[0] === kw[0] && w[1] === kw[1]; }).sort(function (a, b) { return kw[1] ? a[0] - b[0] : a[1] - b[1]; });
+        var rot = Math.atan2(-kw[0], -kw[1]);
+        var seq = [['kitchenFridgeLarge', 'Fridge', null, 0.09], ['kitchenStove', 'Stove', null, 0.05], ['kitchenCabinet', 'Coffee machine', 'kitchenCoffeeMachine', 0.05], ['kitchenSink', 'Sink', null, 0.05], ['kitchenCabinet', 'Counter', 'kitchenMicrowave', 0.05], ['kitchenCabinet', 'Counter', 'toaster', 0.05]];
+        var si = 0; row.forEach(function (p) { if (si >= seq.length) return; var q = seq[si]; if (!freeT(p[0], p[1], r)) return;
+          obj(p[0], p[1], q[0], { s: KS, rot: rot, dx: kw[0] * q[3], dz: kw[1] * q[3] }, q[1]);
+          if (q[2]) dec(p[0], p[1], q[2], { s: KS, rot: rot, y: 0.9, dx: kw[0] * 0.18, dz: kw[1] * 0.18 }); si++; });
+        // bunks on the opposite wall: two tiles deep, head against the wall
+        var ow = [-kw[0], -kw[1]], orot = Math.atan2(-ow[0], -ow[1]), bunks = 0;
+        sp.filter(function (p) { var w = wallOf(p[0], p[1]); return w[0] === ow[0] && w[1] === ow[1]; }).forEach(function (p) {
+          if (bunks >= 2) return; var ix = p[0] - ow[0], iz = p[1] - ow[1];
+          if (!freeT(p[0], p[1], r) || !freeT(ix, iz, r)) return;
+          obj(p[0], p[1], 'bedBunk', { s: KS, rot: orot, dx: -ow[0] * 0.6, dz: -ow[1] * 0.6 }, 'Bunk bed'); g[iz][ix] = 'o'; dname[ix + ',' + iz] = 'Bunk bed'; bunks++;
+          // skip the neighbour so bunks don't touch
+          taken[(p[0] + Math.abs(ow[1])) + ',' + (p[1] + Math.abs(ow[0]))] = 1;
+        });
+        // a table for four in the middle
+        var c = center(r); if (freeT(c[0], c[1], r) && freeT(c[0] + 1, c[1], r)) {
+          rug(r, 0x3a4a5a);
+          obj(c[0], c[1], 'table', { s: KS, rot: 0, dx: 0.5 }, 'Table'); g[c[1]][c[0] + 1] = 'o'; dname[(c[0] + 1) + ',' + c[1]] = 'Table';
+          dec(c[0], c[1], 'kitchenBlender', { s: KS, y: 0.66, dx: 0.2, dz: 0.05, rot: 0.4 });
+          [[0, -1, 0, 0.28], [1, -1, 0, 0.28], [0, 1, Math.PI, -0.28], [1, 1, Math.PI, -0.28]].forEach(function (q) { if (freeT(c[0] + q[0], c[1] + q[1], r)) dec(c[0] + q[0], c[1] + q[1], 'chair', { s: KS, rot: q[2], dz: q[3] }); });
+        }
+        // TV corner and a couch along a side wall, if the room has space
+        var side = sp.filter(function (p) { var w = wallOf(p[0], p[1]); return w[0] !== kw[0] || w[1] !== kw[1]; }).filter(function (p) { var w = wallOf(p[0], p[1]); return !(w[0] === ow[0] && w[1] === ow[1]); });
+        var tvDone = false, sofaDone = false;
+        side.forEach(function (p) { if (!freeT(p[0], p[1], r)) return; var w = wallOf(p[0], p[1]), rt = Math.atan2(-w[0], -w[1]);
+          if (!tvDone) { obj(p[0], p[1], 'cabinetTelevision', { s: KS, rot: rt, dx: w[0] * 0.25, dz: w[1] * 0.25 }, 'TV'); dec(p[0], p[1], 'televisionModern', { s: KS, rot: rt, y: 0.62, dx: w[0] * 0.3, dz: w[1] * 0.3 }); tvDone = true; return; }
+          if (!sofaDone) { obj(p[0], p[1], 'loungeSofa', { s: KS, rot: rt, dx: w[0] * 0.08, dz: w[1] * 0.08 }, 'Couch'); sofaDone = true; return; }
+        });
+        alongWall(r, 2, function (x, z, w) { dec(x, z, rnd() < 0.6 ? 'pottedPlant' : 'lampRoundFloor', { s: KS, rot: rnd() * 6, dx: w[0] * 0.3, dz: w[1] * 0.3 }); return true; });
+        alongWall(r, 1, function (x, z, w) { dec(x, z, 'trashcan', { s: KS, dx: w[0] * 0.3, dz: w[1] * 0.3 }); return true; });
+      },
       snack: function (r) { rug(r, 0x2a5a4a); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Bench'); }); },
       trophy: function (r) { alongWall(r, 4, function (x, z, w) { banner(x, z, w); return true; }); rug(r, 0x5a1a1a); },
       archive: function (r) { var c = center(r); if (freeT(c[0], r.z0 + 1, r)) obj(c[0], r.z0 + 1, 'BookStand', { h: 1.0 }, 'Reading stand'); dec(c[0] + 1, r.z0 + 1, 'CandleStick_Stand', { h: 1.0 }); alongWall(r, 3, function (x, z, w) { dec(x, z, pick(['Book_Stack_1', 'Book_Stack_2', 'BookGroup_Medium_1', 'Scroll_1']), { fit: 0.35, rot: rnd() * 6 }); return true; }); }
@@ -515,9 +556,9 @@
       'Orientation Theater': 'theater', 'Medical (Closed)': 'bunk', 'Holding Pen B': 'cells', 'Craft Services Annex': 'break', 'Stage 3': 'lounge',
       'Break Room': 'break', 'Water Cooler': 'break', 'Vending Hall': 'break', 'Night Shift Lounge': 'lounge', 'Seniority Lounge': 'lounge', 'Quiet Room': 'lounge', 'Wellness Room': 'lounge', 'Locker Room': 'wardrobe',
       'Supply Closet': 'storage', 'Mailroom': 'storage', 'Copy Room': 'storage', 'Records': 'storage', 'Union Archive': 'storage', 'Strike Fund': 'storage', 'Picket Sign Shop': 'workshop', 'Shop Floor': 'workshop', 'Training Room': 'workshop',
-      'Conference Room B': 'meeting', 'Grievance Office': 'meeting', 'Dispute Office': 'meeting', 'Minutes Office': 'meeting', 'Snack Larder': 'storage', 'Mud Nursery': 'cells', 'The Trophy Room': 'trophy', 'Last Chance Lounge': 'snack', 'The Green Room': 'lounge', 'The Steward\'s Office': 'meeting' };
+      'Conference Room B': 'meeting', 'Grievance Office': 'meeting', 'Dispute Office': 'meeting', 'Minutes Office': 'meeting', 'Snack Larder': 'storage', 'Mud Nursery': 'cells', 'The Trophy Room': 'trophy', 'Last Chance Lounge': 'safehouse', 'The Green Room': 'safehouse', 'The Steward\'s Office': 'meeting' };
     rooms.forEach(function (r) {
-      var st = BYNAME[r.name] || (r.type === 'safe' && r.theme === 'crypt' ? 'snack' : r.hood === WRZ.idx && r.type !== 'corridor' ? 'cave' : r.hood === UHZ.idx && r.type === 'room' ? 'office' : r.hood === PCZ.idx && r.type === 'room' ? 'office' : r.hood === ARZ.idx && r.type === 'room' ? 'archive' : null);
+      var st = BYNAME[r.name] || (r.type === 'safe' && r.theme === 'crypt' ? 'safehouse' : r.hood === WRZ.idx && r.type !== 'corridor' ? 'cave' : r.hood === UHZ.idx && r.type === 'room' ? 'office' : r.hood === PCZ.idx && r.type === 'room' ? 'office' : r.hood === ARZ.idx && r.type === 'room' ? 'archive' : null);
       if (st && STYLE[st]) STYLE[st](r);
     });
     // the Underbazaar: proper market stalls with goods, carts, a wagon and benches round the fountain
@@ -826,7 +867,7 @@
 
   function reg(mesh, x, z, opt) {
     opt = opt || {};
-    var t = { mesh: mesh, x: x, z: z, base: opt.glow ? mesh.material.color.clone() : WHITE, wall: !!opt.wall, fade: !!opt.fade, mob: !!opt.mob, glow: !!opt.glow, hang: !!opt.hang };
+    var t = { mesh: mesh, x: x, z: z, base: opt.glow || opt.tint ? mesh.material.color.clone() : WHITE, wall: !!opt.wall, fade: !!opt.fade, mob: !!opt.mob, glow: !!opt.glow, hang: !!opt.hang, tint: !!opt.tint };
     mesh.visible = false; mesh.castShadow = !opt.glow && !opt.noShadow; mesh.receiveShadow = !opt.glow; scene.add(mesh);
     if (curChunk) curChunk.push(t); else { var ck = chunks[Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK)]; if (ck) ck.push(t); tiles.push(t); }
     return t;
@@ -6274,14 +6315,16 @@
   var PTEX = [[/WoodTrim/, 'v_woodtrim.jpg'], [/MI_Vine/, 'v_vine.png'], [/MetalOrnaments/, 'trim_metal.jpg'], [/Bark_NormalTree/, 'n_bark.jpg'], [/Bark_Twisted|Bark_Dead/, 'n_bark2.jpg'], [/Leaves_NormalTree/, 'n_treeleaves.png'], [/Leaves_TwistedTree/, 'n_twleaves.png'], [/Leaves_Pine/, 'n_pine.png'], [/^Flowers/, 'n_flowers.png'], [/Trim_Furniture/, 'trim_furniture.jpg'], [/Trim_Metal/, 'trim_metal.jpg'], [/Trim_Props/, 'trim_props.jpg'], [/Trim_Cloth|Banner/, 'trim_cloth.jpg'],
     [/Page/, 'page.jpg'], [/Mushrooms/, 'n_mushrooms.jpg'], [/Rocks|Bark/, 'n_rocks.jpg'], [/Grass/, 'n_grass.jpg'], [/Leaves|Flowers/, 'n_leaves.png']];
   function propMat(name, fade) {
+    var kn = /^KN_(\d+)_(\d+)_(\d+)/.exec(name); // Kenney furniture: flat colours, no texture
+    if (kn) return new THREE.MeshLambertMaterial({ color: new THREE.Color(+kn[1] / 255, +kn[2] / 255, +kn[3] / 255).convertSRGBToLinear().multiplyScalar(0.85), transparent: !!fade });
     var file = 'trim_furniture.jpg', leafy = /Leaves|Flowers/.test(name);
     PTEX.some(function (p) { if (p[0].test(name)) { file = p[1]; return true; } return false; });
     var m = new THREE.MeshLambertMaterial({ map: kitTex(file), side: THREE.DoubleSide, alphaTest: leafy || /Vine/.test(name) ? 0.35 : 0, transparent: !!fade });
     return m;
   }
   function propLoad() {
-    var L = new THREE.GLTFLoader(), left = 2;
-    ['props', 'nature'].forEach(function (nm) {
+    var L = new THREE.GLTFLoader(), left = 3;
+    ['props', 'nature', 'furn'].forEach(function (nm) {
       fetch(KDIR + nm + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         var bin = atob(j.glb), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
         L.parse(u.buffer, KDIR, function (g) {
@@ -6315,7 +6358,7 @@
       if (!m.isMesh) return;
       var mesh = new THREE.Mesh(m.geometry, propMat(m.material.name || '', o.fade));
       _pm.multiplyMatrices(M, m.matrixWorld); _pm.decompose(mesh.position, mesh.quaternion, mesh.scale);
-      var t = reg(mesh, tx, tz, { fade: o.fade, hang: o.hang, noShadow: o.noShadow, mob: o.mob });
+      var t = reg(mesh, tx, tz, { fade: o.fade, hang: o.hang, noShadow: o.noShadow, mob: o.mob, tint: /^KN_/.test(m.material.name || '') });
       if (o.lid && /lid|top/i.test(m.name + ' ' + (m.parent ? m.parent.name : ''))) t.lid = true;
     });
     if (o.block) PROPBLOCK[tx + ',' + tz] = 1;
@@ -6697,7 +6740,7 @@
       { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'It is a performance as much as a weapon, so it hits with Charisma.' }][m];
     if (!m && sty('off') === 3) W = { name: 'dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', clip: 'Punch_Jab' };
     W.skey = W.name === 'fists' ? 'wpn:fist' : W.name === 'dagger' ? 'wpn:blade' : 'wpn:blunt';
-    W.hit = PROF() + MOD[W.stat] + weaponSkillBonus(W.skey); W.dmgB = W.b !== undefined ? W.b : MOD[W.stat]; return W;
+    W.hit = PROF() + MOD[W.stat] + weaponSkillBonus(W.skey) + buffHit(); W.dmgB = W.b !== undefined ? W.b : MOD[W.stat]; return W;
   }
 
   // ---------- monsters ----------
@@ -6900,6 +6943,7 @@
   function cbOptions(which) {
     var r = CB.res, adj = cbAdjacent(), Wt = cbThrowable();
     if (which === 'bonus') return [
+      { label: 'Second Wind', tag: CHAR && CHAR.swUsed ? 'used · nap to recharge' : '1d10 + level HP', ok: r.bonus && CHAR && !CHAR.swUsed && PC.hp < PC.max, fn: secondWind },
     ].concat([0, 1, 2, 3].map(function (i) { var it = hotItem(i); return it ? { label: 'Use ' + it.name, tag: it.heal + ' HP · ×' + (it.qty || 1), ok: r.bonus, fn: function () { useItem(it); } } : null; }).filter(Boolean)).concat([
       { label: 'Off-hand dagger attack', tag: '1d4, no modifier', ok: r.bonus && sty('off') === 3 && sty('main') > 0 && adj.length > 0, fn: function () { cbAttackButton(true); } }
     ]);
@@ -6975,7 +7019,7 @@
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
     CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
     foes.forEach(function (e) { e.react = true; e.prone = false; e.grappled = false; e.fought = true; });
-    var pcInit = d20() + MOD.DEX - (hasTrait('Distractible') ? 2 : 0); CB.order = [{ init: pcInit, who: 'pc' }].concat(foes.map(function (e) { e.init = d20() + e.def.init; return { init: e.init, who: e }; }))
+    var pcInit = d20() + MOD.DEX - (hasTrait('Distractible') ? 2 : 0) + buffInit(); CB.order = [{ init: pcInit, who: 'pc' }].concat(foes.map(function (e) { e.init = d20() + e.def.init; return { init: e.init, who: e }; }))
       .sort(function (a, b) { return b.init - a.init; }).map(function (o) { return o.who; });
     PC.init = pcInit;
     var names = CB.order.map(function (c) { return (c === 'pc' ? 'You ' + pcInit : c.name + ' ' + c.init); }).join(', ');
@@ -7014,7 +7058,7 @@
   }
   function cbEnd(win) {
     setTimeout(worldSave, 500);
-    CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; cbShowMoves(); cbRingsUpdate(); cbHUD();
+    CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
     CB.enemies.forEach(function (e) { e.grappled = false; if (e.prone && !e.dead) { e.prone = false; } if (!e.dead) cbPlay(e, 'Idle_Loop'); });
     // XP for every monster beaten in this fight: killed, or talked into giving up
@@ -7464,7 +7508,7 @@
     if (typeof posRestore === 'function' && typeof P !== 'undefined' && P) setTimeout(posRestore, 0);
     setTimeout(handsFromGear, 0); setTimeout(deadCheck, 300);
     if (!c.potionsGiven && !c.preset) { c.potionsGiven = true; c.gear = c.gear || []; DROPS.sources.starting.forEach(function (s) { var it = item(s[0], { qty: s[1], from: 'the System' }); if (it) c.gear.push(it); }); }
-    setTimeout(function () { if (typeof hotAuto === 'function') { hotAuto(); if (typeof wsetDraw === "function") setTimeout(wsetDraw, 0); hotDraw(); } }, 50);
+    setTimeout(function () { if (typeof hotAuto === 'function') { hotAuto(); if (typeof wsetDraw === "function") setTimeout(wsetDraw, 0); if (typeof buffDraw === "function") setTimeout(buffDraw, 0); hotDraw(); } }, 50);
   }
   // your hands and back only show what you actually own: no free swords, shields or bass guitars
   function handsFromGear() {
@@ -7486,7 +7530,7 @@
   function PROF() { return (PC.level || 1) >= 5 ? 3 : 2; }
   function maxHPFor(c, lvl) { return 16 + MOD.CON + (c.trait === 'Tough' || c.traitFx === 'Tough' ? 3 : 0) + (lvl - 1) * Math.max(1, 5 + MOD.CON); }
   function grantXP(n) {
-    if (!n) return; PC.xp = (PC.xp || 0) + n;
+    if (!n) return; n = buffXP(n); PC.xp = (PC.xp || 0) + n;
     if (typeof floater === 'function' && typeof P !== 'undefined') floater(P.px, 2.0, P.pz, '+' + n + ' XP', 'xp');
     var nl = levelFor(PC.xp), ups = 0; while ((PC.level || 1) < nl) { levelUp(++ups); }
     cbSaveChar(); if (typeof cbHUD === 'function') cbHUD();
@@ -7494,7 +7538,7 @@
   function levelUp(k) {
     var c = CHAR || MICHAEL, was = PC.max; PC.level = (PC.level || 1) + 1; c.level = PC.level; logEvent('Reached level ' + PC.level, 'level');
     PC.max = maxHPFor(c, PC.level); PC.hp = Math.min(PC.max, PC.hp + (PC.max - was));
-    c.skillPts = (c.skillPts || 0) + 1; var stat = PC.level % 2 === 0; if (stat) c.statPts = (c.statPts || 0) + 1; c.gold = (c.gold || 0) + 10 * PC.level;
+    c.skillPts = (c.skillPts || 0) + 1; c.swUsed = false; var stat = PC.level % 2 === 0; if (stat) c.statPts = (c.statPts || 0) + 1; c.gold = (c.gold || 0) + 10 * PC.level;
     var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon).' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : '';
     setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'Level up. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
   }
@@ -7546,7 +7590,7 @@
   }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, born: c.born || null, updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, buffs: c.buffs || {}, swUsed: !!c.swUsed, cool: c.cool || {}, cups: c.cups || [], counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, born: c.born || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
@@ -8245,7 +8289,7 @@
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
     var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
     var bon = +it.bonus || 0, sk = weaponSkillKey(it); // enchanted: +1 weapons add to hit and damage, 5e style; weapon skills add to hit
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + weaponSkillBonus(sk), dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk };
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + weaponSkillBonus(sk) + buffHit(), dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk };
   }
 
   // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------
@@ -8375,7 +8419,7 @@
     lootWindow(e.lootStore);
   }
   // ---------- credits (CC-BY assets must credit their authors) ----------
-  var CREDITS = [
+  var CREDITS = [['Furniture Kit (kitchens, bunks, lounges)', 'Kenney (kenney.nl)', 'CC0'], 
     ['Characters, outfits, animations, props, nature, monsters', 'Quaternius (quaternius.com)', 'CC0'],
     ['Cowboy Hat (Free)', 'wolfgar74 on Sketchfab', 'CC-BY 4.0'], ['Hard hat', 'naira001 on Sketchfab', 'CC-BY 4.0'], ['Winter Hat', 'StubbornFunkyDonkey on Sketchfab', 'CC-BY 4.0'],
     ['Santa Hat', '3d-Pauer on Sketchfab', 'CC-BY 4.0'], ['Clown Hat', 'PatelDev on Sketchfab', 'CC-BY 4.0'], ['Stylized wizard hat', 'Enkarra on Sketchfab', 'CC-BY 4.0'], ['Gangster hats', 'Michal Cavrnoch on Sketchfab', 'CC-BY 4.0']
@@ -8750,6 +8794,114 @@
     if (e) afterTrick(e); else if (CB.on) cbAfterMyMove();
   }
 
+  // ===================== life in the dungeon: buffs, Second Wind, slow healing, and the safe-room kitchen =====================
+  // Buffs live on the character with an expiry time, so a reload keeps them.
+  var BUFFS = {
+    caffeine: { name: 'Caffeinated', icon: '☕', desc: '+10% XP and +2 initiative.' },
+    jitters: { name: 'Jittery', icon: '〰', desc: 'Three coffees. Your hands shake: -1 to hit.' },
+    fed: { name: 'Well Fed', icon: '🍲', desc: 'A hot meal: you heal 1 HP every 5 seconds outside fights.' },
+    rested: { name: 'Rested', icon: '☾', desc: 'A real nap: +1 to hit.' },
+    sugar: { name: 'Sugar Rush', icon: '✦', desc: '+1 to hit, then a crash.' }
+  };
+  function buffs() { var c = CHAR; if (!c) return {}; c.buffs = c.buffs || {}; var now = Date.now(); Object.keys(c.buffs).forEach(function (k) { if (c.buffs[k] <= now) delete c.buffs[k]; }); return c.buffs; }
+  function buffHas(k) { return !!buffs()[k]; }
+  function buffOn(k, ms) { var b = buffs(); b[k] = Math.max(b[k] || 0, Date.now() + ms); cbSaveChar(); buffDraw(); }
+  function buffHit() { return (buffHas('rested') ? 1 : 0) + (buffHas('sugar') ? 1 : 0) - (buffHas('jitters') ? 1 : 0); }
+  function buffInit() { return buffHas('caffeine') ? 2 : 0; }
+  function buffXP(n) { return buffHas('caffeine') ? Math.round(n * 1.1) : n; }
+  function buffDraw() {
+    var el = document.getElementById('buffs'); if (!el) return; var b = buffs(), now = Date.now(), c = CHAR;
+    var sw = c && !c.swUsed && !c.dead ? '<button type="button" class="bf sw" id="bfSW" title="Second Wind: heal 1d10 + your level. Once, then rest to recharge."><b>✚</b>Second Wind</button>' : '';
+    el.innerHTML = Object.keys(b).map(function (k) { var d = BUFFS[k] || { name: k, icon: '•', desc: '' }, m = Math.max(1, Math.ceil((b[k] - now) / 60000)); return '<span class="bf' + (k === 'jitters' ? ' bad' : '') + '" title="' + esc(d.name + ': ' + d.desc) + '"><b>' + d.icon + '</b>' + esc(d.name) + ' <i>' + m + 'm</i></span>'; }).join('') + sw;
+    var s = document.getElementById('bfSW'); if (s) s.onclick = secondWind;
+    el.style.display = !CHAR || gearOpen || CC || AUTH.open ? 'none' : '';
+  }
+  // Second Wind: a System-issued freebie every crawler gets. Heal 1d10 + level; in a fight it is your bonus action.
+  function secondWind() {
+    var c = CHAR; if (!c || c.dead || PC.down) return;
+    if (c.swUsed) { say('Second Wind', 'Used up. A nap in a safe room recharges it.', 3000); return; }
+    if (PC.hp >= PC.max) { say('Second Wind', 'You are not hurt. Save it.', 2500); return; }
+    if (CB.on) { if (!cbMyTurn() || CB.busy || !CB.res.bonus) { say('Not now', 'In a fight Second Wind is your bonus action, on your turn.', 2600); return; } CB.res.bonus = 0; }
+    var h = d(1, 10) + (PC.level || 1), was = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h); c.swUsed = true;
+    floater(P.px, 1.6, P.pz, '+' + (PC.hp - was), 'heal'); kitOneShot('Interact');
+    say('Second Wind', 'You dig deep: +' + (PC.hp - was) + ' HP. Recharges when you nap in a safe room.', 4000);
+    cbSaveChar(); cbHUD(); buffDraw();
+  }
+  // slow healing outside fights: 1 HP every 15 s (every 5 s when Well Fed), after 8 s without a fight
+  setInterval(function () {
+    if (!CHAR || CHAR.dead || PC.down || CB.on || typeof P === 'undefined') return;
+    var now = performance.now(); if (CB.lastFight && now - CB.lastFight < 8000) return;
+    var every = buffHas('fed') ? 5000 : 15000; if (!PC.regenT || now - PC.regenT >= every) { PC.regenT = now; if (PC.hp < PC.max) { PC.hp++; cbHUD(); } }
+  }, 1000);
+  setInterval(buffDraw, 15000);
+
+  // ---------- the safe-room kitchen: things you can actually use ----------
+  var SAFE_ACTS = {
+    'Coffee machine': [{ label: 'Drink a coffee', auto: 'coffee' }, { label: 'Examine', text: 'A sponsored espresso machine. It is the cleanest thing on this floor. A sticker says ONE PER CRAWLER PER BREAK. Nobody enforces it.' }],
+    'Stove': [{ label: 'Cook a hot meal', auto: 'cook' }, { label: 'Examine', text: 'Four burners, one of them works. There are ingredients in the cupboard and a laminated recipe card in the System\'s handwriting.' }],
+    'Fridge': [{ label: 'Raid the fridge', auto: 'fridge' }, { label: 'Examine', text: 'A humming fridge covered in magnets from places that no longer exist.' }],
+    'Bunk bed': [{ label: 'Take a nap', auto: 'nap' }, { label: 'Examine', text: 'A narrow bunk with a scratchy blanket. Someone carved a tally into the frame. They stopped at 41.' }],
+    'Sink': [{ label: 'Splash your face', auto: 'sink' }],
+    'TV': [{ label: 'Watch the replay', auto: 'tv' }]
+  };
+  function actsOf(t) { if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; } return ACTS[t.c]; }
+  function safeAct(a, t) {
+    var c = CHAR, now = Date.now(); if (!c) { say('Not yet', 'Create a character first.', 2500); return true; }
+    c.cool = c.cool || {};
+    if (a.auto === 'coffee') {
+      c.cups = (c.cups || []).filter(function (x) { return now - x < 15 * 60000; }); c.cups.push(now);
+      buffOn('caffeine', 15 * 60000); kitOneShot('Interact');
+      if (c.cups.length >= 3) { buffOn('jitters', 5 * 60000); say('Coffee #' + c.cups.length, 'Your eyelid is twitching. Caffeinated (+10% XP, +2 initiative) and now Jittery (-1 to hit) for five minutes. The System recommends water.', 6000); }
+      else say('Coffee', lpick(['Bitter, hot and free. Caffeinated: +10% XP and +2 initiative for 15 minutes.', 'The machine dispenses a perfect espresso and a coupon you cannot use. Caffeinated for 15 minutes: +10% XP, +2 initiative.', 'It tastes like a sponsor. You feel sharper anyway: +10% XP, +2 initiative for 15 minutes.']), 5000);
+      if (c.cups.length === 1) setTimeout(function () { achieve('coffee', 'Productive Member of the Crawl', 'You found the coffee machine. The System notes that coffee increases output.', 10); }, 5200);
+      return true;
+    }
+    if (a.auto === 'cook') {
+      if (c.cool.cook && now < c.cool.cook) { say('Still full', 'You cooked recently. Try again in ' + Math.ceil((c.cool.cook - now) / 60000) + ' minutes.', 3000); return true; }
+      c.cool.cook = now + 10 * 60000; var got = PC.max - PC.hp; PC.hp = PC.max; buffOn('fed', 20 * 60000); kitOneShot('Interact'); skillCount('eat'); skillUse('Cooking');
+      say('Hot meal', lpick(['You fry up something from the cupboard. It might have been spam. ', 'Instant noodles, an egg and a heroic amount of hot sauce. ', 'Grilled cheese, slightly burned, perfect. ']) + (got ? '+' + got + ' HP. ' : '') + 'Well Fed for 20 minutes: you heal 1 HP every 5 seconds outside fights.', 6000);
+      cbHUD(); return true;
+    }
+    if (a.auto === 'fridge') {
+      var k = 'fridge' + t.key; if (c.cool[k] && now < c.cool[k]) { say('Empty', 'You already raided this one. It restocks in ' + Math.ceil((c.cool[k] - now) / 60000) + ' minutes.', 3000); return true; }
+      c.cool[k] = now + 15 * 60000; var nm = lpick(['Energy bar', 'Bottle of water', 'Craft services sandwich', 'Energy bar']), it = item(nm, { from: 'a safe-room fridge' });
+      if (it) { invAdd(it); if (/bar/i.test(nm) && Math.random() < 0.5) { buffOn('sugar', 3 * 60000); say('Fridge', 'You take ' + nm.toLowerCase() + ' and eat a second one standing at the open door. Sugar Rush: +1 to hit for 3 minutes.', 5000); } else say('Fridge', 'You take ' + nm.toLowerCase() + '. Someone labelled it "DO NOT TOUCH - KEVIN". Kevin is not here.', 4500); }
+      return true;
+    }
+    if (a.auto === 'nap') {
+      if (c.cool.nap && now < c.cool.nap) { say('Not tired', 'You just napped. You can sleep again in ' + Math.ceil((c.cool.nap - now) / 60000) + ' minutes.', 3000); return true; }
+      c.cool.nap = now + 5 * 60000; var gn = PC.max - PC.hp; PC.hp = PC.max; c.swUsed = false; buffOn('rested', 30 * 60000); delete buffs().jitters; kitOneShot('Interact');
+      say('Nap', 'You sleep for twenty minutes and dream about the surface. ' + (gn ? '+' + gn + ' HP. ' : '') + 'Second Wind recharged. Rested for 30 minutes: +1 to hit.', 6000);
+      cbHUD(); buffDraw(); return true;
+    }
+    if (a.auto === 'sink') { if (buffHas('jitters')) { delete buffs().jitters; buffDraw(); say('Cold water', 'The shaking stops. Jittery is gone.', 3500); } else say('Cold water', 'Refreshing. Your reflection looks like it has been through a lot.', 3000); return true; }
+    if (a.auto === 'tv') { say('Replay', lpick(['Highlights from another floor: a crawler fights a goose. The goose wins. The audience loved it.', 'An ad for a potion that "may cause tentacles". The jingle is very catchy.', 'A replay of your last fight, in slow motion, with commentary. The commentator is not kind.']), 6000); return true; }
+    return false;
+  }
+  function lpick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+  // ---------- tools you carry open up options: a crowbar pries, keys unlock, a tape measure finds rooms that don't add up ----------
+  var TOOL_ACTS = [
+    { tool: /crowbar/i, on: 'C', a: { label: 'Pry it open with the crowbar', stat: 'STR', skill: ['Athletics', 0], dc: 7, flag: 'open', win: 'The crowbar does what crowbars were born to do. The lid pops.', lose: 'The crowbar slips. Try again, with feeling.' } },
+    { tool: /crowbar/i, on: 'K', a: { label: 'Pry the lid off with the crowbar', stat: 'STR', dc: 8, flag: 'loot', win: 'Nails shriek, the lid comes up.', lose: 'One nail holds out. It is mocking you.' } },
+    { tool: /crowbar/i, on: 'H', a: { label: 'Pry at the seams with the crowbar', stat: 'STR', skill: ['Perception', 0], dc: 11, flag: 'found', win: 'The crowbar finds a gap that should not be there. The wall swings inward.', lose: 'Solid stone. The crowbar rings.' } },
+    { tool: /crowbar|hammer/i, on: 'o', a: { label: 'Pry it apart', stat: 'STR', dc: 10, flag: 'loot', win: 'Something was wedged inside.', lose: 'It is sturdier than it looks.' } },
+    { tool: /hammer/i, on: 'C', a: { label: 'Knock the hinges out with the hammer', stat: 'STR', skill: ['Jury-Rig', 0], dc: 9, flag: 'open', win: 'Two good whacks and the hinge pins pop out.', lose: 'You hit your thumb. The box is fine.' } },
+    { tool: /hammer/i, on: 'K', a: { label: 'Smash it with the hammer', stat: 'STR', dc: 9, flag: 'loot', win: 'Planks fly. Something rolls out.', lose: 'The crate absorbs the blow like a pro.' } },
+    { tool: /key/i, on: 'C', a: { label: 'Try your keys on the lock', stat: 'DEX', skill: ['Lockpicking', 0], dc: 11, flag: 'open', win: 'The third key almost fits, and almost is enough. Click.', lose: 'None of them fit. Of course they don\'t.' } },
+    { tool: /shear|knife|scissor/i, on: 'K', a: { label: 'Cut through the straps', stat: 'DEX', dc: 9, flag: 'loot', win: 'The straps part and the crate sighs open.', lose: 'These straps were made by someone who hated you specifically.' } },
+    { tool: /flashlight|phone/i, on: 'H', a: { label: 'Shine a light along the wall', stat: 'WIS', skill: ['Perception', 0], dc: 10, flag: 'found', win: 'The light catches a hairline seam. A push, and the wall swings inward.', lose: 'Just shadows.' } },
+    { tool: /tape measure/i, on: 'H', a: { label: 'Measure the wall', stat: 'INT', skill: ['Investigation', 0], dc: 9, flag: 'found', win: 'The numbers don\'t add up: there are four feet missing. You find the seam.', lose: 'The numbers add up. Annoyingly.' } },
+    { tool: /duct tape|floral tape/i, on: 'R', a: { label: 'Tape a funnel and tap it', stat: 'DEX', skill: ['Jury-Rig', 0], dc: 9, win: 'A neat little spout. Purple drizzle. You still decide not to drink it.', lose: 'The tape will not stick to the wet wood.' } }
+  ];
+  var _actsOf = actsOf;
+  actsOf = function (t) {
+    var base = _actsOf(t) || [], c = CHAR; if (!c || !c.gear) return base;
+    var names = c.gear.map(function (g) { return g.name; }).join(' | ');
+    var extra = TOOL_ACTS.filter(function (x) { return x.on === t.c && x.tool.test(names); }).map(function (x) { return x.a; });
+    return extra.length ? extra.concat(base) : base;
+  };
+
   // ===================== theme: Iron & Parchment (classic D&D chrome; the System keeps its own voice in the text) =====================
   (function () {
     var fl = document.createElement('link'); fl.rel = 'stylesheet';
@@ -8801,6 +8953,10 @@
       '#hotbar button{' + parch + 'border:1px solid #1e130a !important;border-radius:4px !important}#hotbar button.ready{border-color:#E0B868 !important;box-shadow:0 0 0 1px #E0B868}',
       '#hotbar b{color:' + INK + ';text-shadow:none;font-family:"EB Garamond",serif;font-size:13px}#hotbar i{color:#6b5a3a}',
       '@media (max-width:620px){#hotbar{left:12px !important;transform:none}}',
+      '#buffs{position:fixed;z-index:5;left:10px;top:96px;display:flex;flex-wrap:wrap;gap:4px;max-width:240px}',
+      '#buffs .bf{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;' + iron + 'border:1px solid ' + BR + ';border-radius:12px;font-family:"EB Garamond",serif;font-size:12.5px}#buffs .bf b{font-size:12px}#buffs .bf i{font-style:normal;color:#C9B48A;font-size:11px}#buffs .bf.bad{border-color:#8a3a32;color:#f0b0a0}',
+      '#buffs .bf.sw{' + parch + 'border:1px solid #2e2116;height:28px;font-weight:700;cursor:pointer}#buffs .bf.sw b{color:#7A1F1A}',
+      'body.cb #buffs{top:96px}',
       // weapon set
       '#wset{position:fixed;z-index:6;right:16px;bottom:92px;width:150px;height:92px;pointer-events:none}',
       'body.cb #wset{right:auto;left:12px;bottom:96px}',
@@ -8811,18 +8967,19 @@
       '#wset .wh b{display:block;font-size:13px}#wset .wh span{font-size:11.5px;color:#5a4430}#wset i{color:#9a8a6a}',
       '#wSwap{pointer-events:auto;position:absolute;right:0;bottom:0;width:44px;height:44px;border-radius:50%;' + iron + 'border:2px solid #E0B868;display:flex;align-items:center;justify-content:center}#wSwap:disabled{opacity:.4;border-color:#6b5a3a}',
       // combat: initiative bar
-      '#turns{left:50% !important;top:0 !important;transform:translateX(-50%);flex-direction:row !important;align-items:center !important;gap:4px !important;padding:5px 12px 6px;' + iron + 'border:1px solid ' + BR + ';border-top:0;border-radius:0 0 8px 8px;box-shadow:0 4px 14px rgba(0,0,0,.6);text-transform:none !important;letter-spacing:0 !important;max-width:calc(100vw - 470px);overflow-x:auto}',
-      '#turns .rnd{text-align:center;padding-right:9px;margin-right:2px;border-right:1px solid #5A4A30;font-family:Cinzel,serif}#turns .rnd small{display:block;font-size:8.5px;letter-spacing:.2em;color:#C9B48A;text-transform:uppercase}#turns .rnd b{font-size:19px;line-height:1;color:' + LT + '}',
-      '#turns .ini{display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 5px;border-radius:4px;border:1px solid transparent;min-width:46px}',
-      '#turns .ini .pf{width:32px;height:32px;border-radius:50%;border:2px solid #8a3a32;background:#2a1614;display:flex;align-items:center;justify-content:center;color:#e08a78;font-family:Cinzel,serif;font-weight:800;font-size:14px}',
+      '#turns{left:50% !important;top:0 !important;transform:translateX(-50%);flex-direction:row !important;align-items:center !important;gap:2px !important;padding:3px 8px;' + iron + 'border:1px solid ' + BR + ';border-top:0;border-radius:0 0 6px 6px;box-shadow:0 3px 8px rgba(0,0,0,.5);text-transform:none !important;letter-spacing:0 !important;max-width:calc(100vw - 480px);overflow-x:auto;height:34px}',
+      '#turns .rnd{display:flex;align-items:baseline;gap:3px;padding-right:6px;margin-right:2px;border-right:1px solid #5A4A30;font-family:Cinzel,serif}#turns .rnd small{font-size:8px;letter-spacing:.12em;color:#C9B48A;text-transform:uppercase}#turns .rnd b{font-size:14px;line-height:1;color:' + LT + '}',
+      '#turns .ini{position:relative;display:flex;align-items:center;padding:1px;border-radius:50%;border:1px solid transparent}',
+      '#turns .ini .pf{width:24px;height:24px;border-radius:50%;border:2px solid #8a3a32;background:#2a1614;display:flex;align-items:center;justify-content:center;color:#e08a78;font-family:Cinzel,serif;font-weight:800;font-size:11px}#turns .ini .pf svg{width:13px;height:13px}',
       '#turns .ini.me .pf{border-color:#E0B868;background:#3a3238;color:#F3E6CC}',
-      '#turns .ini.cur{background:rgba(160,122,62,.22);border-color:#E0B868}#turns .ini.cur .pf{box-shadow:0 0 10px rgba(224,184,104,.75)}',
-      '#turns .ini .hp{width:38px;height:3px;background:#3a1410}#turns .ini .hp i{display:block;height:100%;background:#c0392b}',
-      '#turns .ini small{font-family:Cinzel,serif;font-size:8.5px;color:#C9B48A;white-space:nowrap;max-width:76px;overflow:hidden;text-overflow:ellipsis}#turns .ini.cur small{color:#E0B868}',
+      '#turns .ini.cur{border-color:#E0B868;background:rgba(160,122,62,.3)}#turns .ini.cur .pf{box-shadow:0 0 8px rgba(224,184,104,.8)}',
+      '#turns .ini .hp{position:absolute;left:4px;right:4px;bottom:-1px;height:2px;background:#3a1410}#turns .ini .hp i{display:block;height:100%;background:#c0392b}',
+      '#turns .ini small{display:none}#turns .ini.cur small{display:block;margin-left:4px;font-family:Cinzel,serif;font-size:9px;color:#E0B868;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis}',
+      '#turns .ini.cur{border-radius:14px;padding-right:6px}',
       '#turns .ini.dead{opacity:.35}#turns .ini.dead .pf{filter:grayscale(1)}#turns .ini.calm .pf{border-color:#5a8a5a;color:#9ad09a}',
       '#turns .ini.join{opacity:.7}#turns .ini.join .pf{border-style:dashed;border-color:#6b5a3a;color:#C9B48A}',
-      '#turns span.arr{color:#6b5a3a;font-size:14px;padding:0;background:none;border:0}',
-      '#res{left:50% !important;right:auto !important;top:66px !important;bottom:auto !important;transform:translateX(-50%);display:none;gap:12px;' + iron + 'border:1px solid #5A4A30 !important;border-radius:12px !important;padding:3px 12px !important;font-family:Cinzel,serif;font-size:10px !important;letter-spacing:.06em !important;text-transform:none !important;color:#6b5a3a !important}',
+      '#turns span.arr{color:#6b5a3a;font-size:11px;padding:0;background:none;border:0}',
+      '#res{left:50% !important;right:auto !important;top:36px !important;bottom:auto !important;transform:translateX(-50%);display:none;gap:12px;' + iron + 'border:1px solid #5A4A30 !important;border-radius:12px !important;padding:1px 10px !important;font-family:Cinzel,serif;font-size:9.5px !important;letter-spacing:.06em !important;text-transform:none !important;color:#6b5a3a !important}',
       '#res.on{display:flex !important}#res span{display:flex;align-items:center;gap:5px}#res span.on{color:#E9DCC0}',
       '#res i{width:9px;height:9px;display:inline-block;opacity:.3}#res span.on i{opacity:1}#res .pa{border-radius:50%;background:#c0392b}#res .pb{transform:rotate(45deg);background:#c9952e}#res .pm{border-radius:2px;background:#8a8a90}#res .ps{border-radius:50%;background:none;border:2px solid #E0B868;width:8px;height:8px}',
       // combat action bar
@@ -8834,13 +8991,14 @@
       '#cbAtk small{font-family:"EB Garamond",serif;font-weight:700;font-size:12.5px !important;color:#f0c8b8;opacity:1 !important}',
       '#cbEnd{' + iron + 'border:1px solid #8a7a5a !important;font-family:Cinzel,serif !important;font-size:11px !important;letter-spacing:.1em !important}',
       // dice panel
-      '#dice{position:fixed;z-index:9;left:50%;top:92px;transform:translate(-50%,-6px);display:flex;align-items:center;gap:12px;padding:8px 16px 8px 12px;' + parch + 'border:2px solid #2e2116;box-shadow:0 6px 18px rgba(0,0,0,.7);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap}',
-      '#dice.on{opacity:1;transform:translate(-50%,0)}#dice.foe{border-color:#5e1410}',
+      '#dice{position:fixed;z-index:9;left:50%;top:60px;transform:translate(-50%,-6px) scale(.86);transform-origin:top center;display:flex;align-items:center;gap:10px;padding:6px 12px 6px 9px;cursor:pointer;' + parch + 'border:2px solid #2e2116;box-shadow:0 6px 18px rgba(0,0,0,.7);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap}',
+      '#dice.on{pointer-events:auto}',
+      '#dice.on{opacity:1;transform:translate(-50%,0) scale(.86)}#dice.foe{border-color:#5e1410}',
       '#dice .dl{font-family:Cinzel,serif;font-size:9.5px;letter-spacing:.16em;color:#6b5a3a;text-transform:uppercase}',
       '#dice .dt{font-family:Cinzel,serif;font-weight:800;font-size:18px;line-height:1.05}#dice .dt em{font-style:normal;color:' + OX + '}#dice .dt em.miss{color:#5a4430}',
       '#dice .ds{font-size:12.5px;color:#4a3826}#dice .sep{width:1px;align-self:stretch;background:#b8a070}',
       '#dice svg.roll{animation:dRoll .45s ease-out}@keyframes dRoll{0%{transform:rotate(-200deg) scale(.6)}100%{transform:rotate(0) scale(1)}}',
-      'body.cb #dice{top:92px}',
+      'body.cb #dice{top:58px}','#sys.on{pointer-events:auto;cursor:pointer}',
       // menus and panels
       '#menu,#cbMenu{' + parch + 'border:2px solid #2e2116 !important;border-radius:3px !important;box-shadow:0 6px 18px rgba(0,0,0,.7) !important}',
       '#menu .mh,#cbMenu .mh{font-family:Cinzel,serif;color:' + OX + ' !important;letter-spacing:.08em !important}',
@@ -8885,7 +9043,10 @@
     ].join('\n');
     document.head.appendChild(css);
     var ws = document.createElement('div'); ws.id = 'wset'; document.body.appendChild(ws);
+    var bf = document.createElement('div'); bf.id = 'buffs'; document.body.appendChild(bf); setTimeout(buffDraw, 500);
     var dc = document.createElement('div'); dc.id = 'dice'; dc.setAttribute('role', 'status'); dc.setAttribute('aria-live', 'polite'); document.body.appendChild(dc);
+    dc.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); dc.classList.remove('on'); });
+    var sy = document.getElementById('sys'); if (sy) sy.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); sy.classList.remove('on'); });
     setInterval(function () { var el = document.getElementById('wset'); if (el) el.style.display = !CHAR || gearOpen || CC || AUTH.open || UI.bag || UI.map || (typeof CS !== 'undefined' && CS.open) ? 'none' : ''; }, 300);
     setInterval(function () { if (typeof CB !== 'undefined' && !CB.on && typeof cbHUD === 'function') try { cbHUD(); } catch (e) {} }, 1000);
     setTimeout(wsetDraw, 0);
@@ -9099,12 +9260,13 @@
       var ax = t.x - P.x, az = t.z - P.z, sum = ax * CAMV.cx + az * CAMV.cz, dif = Math.abs(ax * CAMV.cz - az * CAMV.cx), cut = sum >= 1 && sum <= 8 && dif <= 5;
       if (d2 === undefined) {
         t.mesh.visible = !!explored && !t.mob && !(t.glow && t.hang);
-        if (t.mesh.visible) { if (t.glow) t.mesh.material.color.copy(t.base).multiplyScalar(0.3); else t.mesh.material.color.setScalar(0.17); }
+        if (t.mesh.visible) { if (t.glow) t.mesh.material.color.copy(t.base).multiplyScalar(0.3); else if (t.tint) t.mesh.material.color.copy(t.base).multiplyScalar(0.17); else t.mesh.material.color.setScalar(0.17); }
       } else {
         t.mesh.visible = true;
         var b = t.glow ? 1 : Math.max(0.4, 1.1 - d2 / (R + 1.5));
         if (t.glow) t.mesh.material.color.copy(t.base);
-        else if (S.dark) t.mesh.material.color.setRGB(0.62 * b, 0.78 * b, 1.15 * b);
+        else if (S.dark) { t.mesh.material.color.setRGB(0.62 * b, 0.78 * b, 1.15 * b); if (t.tint) t.mesh.material.color.multiply(t.base); }
+        else if (t.tint) t.mesh.material.color.copy(t.base).multiplyScalar(b);
         else t.mesh.material.color.setScalar(b);
       }
       if (t.hang && cut) t.mesh.visible = false;
@@ -9248,7 +9410,7 @@
     if (gearOpen || (CHAR && CHAR.dead)) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
     var t = t0 || findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
     menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : nameOf(t); menuEl.appendChild(hd);
-    (t.e ? enemyActs(t.e) : ACTS[t.c]).forEach(function (a, i) {
+    (t.e ? enemyActs(t.e) : actsOf(t)).forEach(function (a, i) {
       if (a.auto === 'try') a = { label: tryLabel(), auto: 'try' };
       var b = document.createElement('button'); b.type = 'button';
       var spent = a.flag && done[t.key + a.flag] && a.flag !== 'open' && a.flag !== 'loot';
@@ -9265,6 +9427,7 @@
     if ((a.flag === 'open' || a.flag === 'loot') && done[t.key + a.flag]) { lootSpot(t.x, t.z, a.flag === 'open' ? 'chest' : 'small'); return; }
     kitOneShot(a.stat ? 'Interact' : 'PickUp_Table');
     if (a.auto === 'map') { say('Living Map', stairsHint()); return; }
+    if (a.auto && safeAct(a, t)) { closeMenu(); return; }
     if (a.auto === 'mirror') { GMODE = 'mirror'; tab = 'Face'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); } return; }
     if (a.auto === 'board' || a.auto === 'write') { boardOpen(roomInfo(t.x, t.z), a.auto === 'write'); return; }
     if (a.talk) { talkOpen(t.e); return; }
@@ -9569,7 +9732,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { fog: function () { return tileState; }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { fog: function () { return tileState; }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

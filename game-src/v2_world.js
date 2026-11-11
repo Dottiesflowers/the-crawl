@@ -258,7 +258,7 @@
 
   function reg(mesh, x, z, opt) {
     opt = opt || {};
-    var t = { mesh: mesh, x: x, z: z, base: opt.glow ? mesh.material.color.clone() : WHITE, wall: !!opt.wall, fade: !!opt.fade, mob: !!opt.mob, glow: !!opt.glow, hang: !!opt.hang };
+    var t = { mesh: mesh, x: x, z: z, base: opt.glow || opt.tint ? mesh.material.color.clone() : WHITE, wall: !!opt.wall, fade: !!opt.fade, mob: !!opt.mob, glow: !!opt.glow, hang: !!opt.hang, tint: !!opt.tint };
     mesh.visible = false; mesh.castShadow = !opt.glow && !opt.noShadow; mesh.receiveShadow = !opt.glow; scene.add(mesh);
     if (curChunk) curChunk.push(t); else { var ck = chunks[Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK)]; if (ck) ck.push(t); tiles.push(t); }
     return t;

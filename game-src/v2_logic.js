@@ -67,12 +67,13 @@
       var ax = t.x - P.x, az = t.z - P.z, sum = ax * CAMV.cx + az * CAMV.cz, dif = Math.abs(ax * CAMV.cz - az * CAMV.cx), cut = sum >= 1 && sum <= 8 && dif <= 5;
       if (d2 === undefined) {
         t.mesh.visible = !!explored && !t.mob && !(t.glow && t.hang);
-        if (t.mesh.visible) { if (t.glow) t.mesh.material.color.copy(t.base).multiplyScalar(0.3); else t.mesh.material.color.setScalar(0.17); }
+        if (t.mesh.visible) { if (t.glow) t.mesh.material.color.copy(t.base).multiplyScalar(0.3); else if (t.tint) t.mesh.material.color.copy(t.base).multiplyScalar(0.17); else t.mesh.material.color.setScalar(0.17); }
       } else {
         t.mesh.visible = true;
         var b = t.glow ? 1 : Math.max(0.4, 1.1 - d2 / (R + 1.5));
         if (t.glow) t.mesh.material.color.copy(t.base);
-        else if (S.dark) t.mesh.material.color.setRGB(0.62 * b, 0.78 * b, 1.15 * b);
+        else if (S.dark) { t.mesh.material.color.setRGB(0.62 * b, 0.78 * b, 1.15 * b); if (t.tint) t.mesh.material.color.multiply(t.base); }
+        else if (t.tint) t.mesh.material.color.copy(t.base).multiplyScalar(b);
         else t.mesh.material.color.setScalar(b);
       }
       if (t.hang && cut) t.mesh.visible = false;
@@ -216,7 +217,7 @@
     if (gearOpen || (CHAR && CHAR.dead)) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
     var t = t0 || findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
     menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : nameOf(t); menuEl.appendChild(hd);
-    (t.e ? enemyActs(t.e) : ACTS[t.c]).forEach(function (a, i) {
+    (t.e ? enemyActs(t.e) : actsOf(t)).forEach(function (a, i) {
       if (a.auto === 'try') a = { label: tryLabel(), auto: 'try' };
       var b = document.createElement('button'); b.type = 'button';
       var spent = a.flag && done[t.key + a.flag] && a.flag !== 'open' && a.flag !== 'loot';
@@ -233,6 +234,7 @@
     if ((a.flag === 'open' || a.flag === 'loot') && done[t.key + a.flag]) { lootSpot(t.x, t.z, a.flag === 'open' ? 'chest' : 'small'); return; }
     kitOneShot(a.stat ? 'Interact' : 'PickUp_Table');
     if (a.auto === 'map') { say('Living Map', stairsHint()); return; }
+    if (a.auto && safeAct(a, t)) { closeMenu(); return; }
     if (a.auto === 'mirror') { GMODE = 'mirror'; tab = 'Face'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); } return; }
     if (a.auto === 'board' || a.auto === 'write') { boardOpen(roomInfo(t.x, t.z), a.auto === 'write'); return; }
     if (a.talk) { talkOpen(t.e); return; }
@@ -537,7 +539,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { fog: function () { return tileState; }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { fog: function () { return tileState; }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

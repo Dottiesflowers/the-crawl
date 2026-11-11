@@ -94,7 +94,7 @@
       { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'It is a performance as much as a weapon, so it hits with Charisma.' }][m];
     if (!m && sty('off') === 3) W = { name: 'dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', clip: 'Punch_Jab' };
     W.skey = W.name === 'fists' ? 'wpn:fist' : W.name === 'dagger' ? 'wpn:blade' : 'wpn:blunt';
-    W.hit = PROF() + MOD[W.stat] + weaponSkillBonus(W.skey); W.dmgB = W.b !== undefined ? W.b : MOD[W.stat]; return W;
+    W.hit = PROF() + MOD[W.stat] + weaponSkillBonus(W.skey) + buffHit(); W.dmgB = W.b !== undefined ? W.b : MOD[W.stat]; return W;
   }
 
   // ---------- monsters ----------
@@ -297,6 +297,7 @@
   function cbOptions(which) {
     var r = CB.res, adj = cbAdjacent(), Wt = cbThrowable();
     if (which === 'bonus') return [
+      { label: 'Second Wind', tag: CHAR && CHAR.swUsed ? 'used · nap to recharge' : '1d10 + level HP', ok: r.bonus && CHAR && !CHAR.swUsed && PC.hp < PC.max, fn: secondWind },
     ].concat([0, 1, 2, 3].map(function (i) { var it = hotItem(i); return it ? { label: 'Use ' + it.name, tag: it.heal + ' HP · ×' + (it.qty || 1), ok: r.bonus, fn: function () { useItem(it); } } : null; }).filter(Boolean)).concat([
       { label: 'Off-hand dagger attack', tag: '1d4, no modifier', ok: r.bonus && sty('off') === 3 && sty('main') > 0 && adj.length > 0, fn: function () { cbAttackButton(true); } }
     ]);
@@ -372,7 +373,7 @@
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
     CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
     foes.forEach(function (e) { e.react = true; e.prone = false; e.grappled = false; e.fought = true; });
-    var pcInit = d20() + MOD.DEX - (hasTrait('Distractible') ? 2 : 0); CB.order = [{ init: pcInit, who: 'pc' }].concat(foes.map(function (e) { e.init = d20() + e.def.init; return { init: e.init, who: e }; }))
+    var pcInit = d20() + MOD.DEX - (hasTrait('Distractible') ? 2 : 0) + buffInit(); CB.order = [{ init: pcInit, who: 'pc' }].concat(foes.map(function (e) { e.init = d20() + e.def.init; return { init: e.init, who: e }; }))
       .sort(function (a, b) { return b.init - a.init; }).map(function (o) { return o.who; });
     PC.init = pcInit;
     var names = CB.order.map(function (c) { return (c === 'pc' ? 'You ' + pcInit : c.name + ' ' + c.init); }).join(', ');
@@ -411,7 +412,7 @@
   }
   function cbEnd(win) {
     setTimeout(worldSave, 500);
-    CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; cbShowMoves(); cbRingsUpdate(); cbHUD();
+    CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
     CB.enemies.forEach(function (e) { e.grappled = false; if (e.prone && !e.dead) { e.prone = false; } if (!e.dead) cbPlay(e, 'Idle_Loop'); });
     // XP for every monster beaten in this fight: killed, or talked into giving up

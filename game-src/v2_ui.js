@@ -260,7 +260,7 @@
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
     var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
     var bon = +it.bonus || 0, sk = weaponSkillKey(it); // enchanted: +1 weapons add to hit and damage, 5e style; weapon skills add to hit
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + weaponSkillBonus(sk), dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk };
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + weaponSkillBonus(sk) + buffHit(), dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk };
   }
 
   // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------
@@ -390,7 +390,7 @@
     lootWindow(e.lootStore);
   }
   // ---------- credits (CC-BY assets must credit their authors) ----------
-  var CREDITS = [
+  var CREDITS = [['Furniture Kit (kitchens, bunks, lounges)', 'Kenney (kenney.nl)', 'CC0'], 
     ['Characters, outfits, animations, props, nature, monsters', 'Quaternius (quaternius.com)', 'CC0'],
     ['Cowboy Hat (Free)', 'wolfgar74 on Sketchfab', 'CC-BY 4.0'], ['Hard hat', 'naira001 on Sketchfab', 'CC-BY 4.0'], ['Winter Hat', 'StubbornFunkyDonkey on Sketchfab', 'CC-BY 4.0'],
     ['Santa Hat', '3d-Pauer on Sketchfab', 'CC-BY 4.0'], ['Clown Hat', 'PatelDev on Sketchfab', 'CC-BY 4.0'], ['Stylized wizard hat', 'Enkarra on Sketchfab', 'CC-BY 4.0'], ['Gangster hats', 'Michal Cavrnoch on Sketchfab', 'CC-BY 4.0']
