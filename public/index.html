@@ -6648,7 +6648,7 @@
 
   function cbHUD() {
     var a = pcAC();
-    document.getElementById('hpTxt').textContent = (PC.down ? 'DOWN · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : 'HP ' + PC.hp + ' / ' + PC.max) + ' · AC ' + a.ac + ' · Lv ' + (PC.level || 1) + ' · ' + (PC.xp || 0) + '/' + nextLevelXP() + ' XP' + (PC.hidden ? ' · hidden' : '');
+    document.getElementById('hpTxt').textContent = (PC.down ? 'DOWN · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : 'HP ' + PC.hp + '/' + PC.max) + ' · AC ' + a.ac + ' · Lv ' + (PC.level || 1) + ' (' + (PC.xp || 0) + '/' + nextLevelXP() + ')' + (PC.hidden ? ' · hidden' : '');
     document.getElementById('hpFill').style.width = Math.max(0, 100 * PC.hp / PC.max) + '%';
     document.getElementById('cbBar').classList.toggle('on', CB.on);
     document.getElementById('bar').style.display = CB.on ? 'none' : '';
@@ -7162,6 +7162,31 @@
     c.skillXP[name] = (c.skillXP[name] || 0) + 1;
     if (c.skillXP[name] >= (lv + 1) * 3) { c.skillXP[name] = 0; c.skills[name] = lv + 1; cbSaveChar(); setTimeout(function () { say('Skill up · ' + name + ' ' + (lv + 1), 'Practice pays. ' + name + ' now adds +' + (lv + 1) + ' to the rolls that use it.', 4500); }, 2600); }
   }
+  // re-dress an existing character from what they said they were wearing, without making a new one
+  function redress() {
+    var c = CHAR; if (!c) { say('No character', 'Create a character first.', 3000); return; }
+    var qa = (c.interview || []).filter(function (x) { return /wearing/i.test(x.q || ''); })[0];
+    var txt = window.prompt('What were you wearing when they took you? Head to toe, colors included.', qa && qa.a ? qa.a : '');
+    if (txt === null || !txt.trim()) return; txt = txt.trim().slice(0, 600);
+    if (qa) qa.a = txt; else (c.interview = c.interview || []).push({ q: QUESTIONS[QUESTIONS.length - 1], a: txt });
+    say('The System is dressing you', 'Matching what you described to the wardrobe department\'s stock...', 6000);
+    function apply(outfit, how) {
+      if (!outfit.length) outfit = outfitLocal(txt); c.gear = c.gear || [];
+      c.gear.forEach(function (g) { if (g.cat === 'clothing') g.worn = false; });
+      CLOTH_SLOTS.forEach(function (k) { var s = slotDef(k); if (s && s.styles[0] === 'None') look[k] = [0, look[k] ? look[k][1] : 0]; });
+      outfit.forEach(function (it) { it.from = 'home'; c.gear.push(it); wear(it); });
+      saveChar(c); if (gearOpen) drawRows();
+      say('Dressed by the System', 'You are wearing: ' + outfit.map(function (o) { return o.name; }).join(', ') + '. Your old clothes are in your bag.' + (how ? ' ' + how : ''), 7000);
+    }
+    if (!NET.sample) { apply(outfitLocal(txt), '(Picked by keywords; with the AI connected it reads your description properly.)'); return; }
+    var prompt = 'Dress a crawler in a dungeon game from what they said they were wearing in real life. Pick the closest item for each slot from this catalog (use exact style names and a color index from that style\'s list; skip slots they did not mention):\n' + outfitCatalog() +
+      '\n\nThey said: "' + txt + '"\nTheir name: ' + (c.name || '') + '. About them: ' + (c.interview || []).slice(0, 3).map(function (x) { return x.a; }).join(' / ').slice(0, 500) +
+      '\n\nReply with JSON only: {"outfit":[{"slot":"kTop","style":"exact style","color":index,"name":"what it really is, in their words","desc":"one dry sentence from the System"}]}';
+    serverSample([{ role: 'user', content: prompt }], { modelTier: 'quick', maxTokens: 700 }).then(function (r) {
+      var j = null; try { j = JSON.parse((r.text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {}
+      apply(outfitFrom(j && j.outfit), '');
+    }, function () { apply(outfitLocal(txt), '(The AI did not answer, so this was picked by keywords.)'); });
+  }
   function spendPoint(kind, key) {
     var c = CHAR; if (!c) return;
     if (kind === 'stat' && (c.statPts || 0) > 0 && c.stats[key] < 20) { c.stats[key]++; c.statPts--; MOD[key] = Math.floor((c.stats[key] - 10) / 2); if (key === 'CON') { var was = PC.max; PC.max = maxHPFor(c, PC.level); PC.hp += PC.max - was; } }
@@ -7288,6 +7313,7 @@
       '<h3>Skills</h3>' + (kp ? '<p class="pts">' + kp + ' skill point' + (kp > 1 ? 's' : '') + ' to spend: tap + on any skill.</p>' : '') + '<ul>' + (kp ? SKILLS.map(function (s) { return s[0]; }) : sk).map(function (k) { var lv = c.skills[k] || 0, prog = (c.skillXP || {})[k] || 0; return '<li>' + esc(k) + ' ' + lv + (prog ? ' <small>(' + prog + '/' + (lv + 1) * 3 + ' practice)</small>' : '') + (kp && lv < 3 + (PC.level || 1) ? ' <button type="button" class="plus" onclick="window.__crawl.spend(\'skill\',\'' + k + '\')" aria-label="Raise ' + esc(k) + '">+</button>' : '') + '</li>'; }).join('') + '</ul>' +
       '<h3>Trait: ' + esc(c.trait) + '</h3><p>' + esc(c.traitDesc || tr[1]) + '</p><h3>Flaw: ' + esc(c.flaw) + '</h3><p>' + esc(c.flawDesc || fl[1]) + '</p>' +
       (gear ? '<h3>Brought from home</h3><ul class="gear">' + gear + '</ul>' : '') +
+      '<p><button type="button" class="ccBtn" onclick="window.__crawl.redress()">Get dressed by the System</button> <small>Re-picks your outfit from what you say you were wearing. Keeps your character.</small></p>' +
       '<h3>Class</h3><p>' + ((PC.level || 1) >= 3 ? 'Unlocked. The class choice is coming soon; the System is watching what you train.' : 'Unlocks at level 3, offered from the weapons and skills you actually use.') + '</p>' +
       (party.length ? '<h3>Party</h3><ul>' + party.map(function (p) { return '<li>' + esc(p.name || p.username) + (p.name ? ' <small>(' + esc(p.username) + ')</small>' : ' <small>(no character yet)</small>') + ' · ' + (p.xp || 0) + ' XP</li>'; }).join('') + '</ul>' : '') +
       '<p><button type="button" class="ccBtn" onclick="window.__crawl.newChar()">' + (CHAR ? 'Make a new character' : 'Create your character') + '</button></p>' +
@@ -8582,7 +8608,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, spend: spendPoint, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

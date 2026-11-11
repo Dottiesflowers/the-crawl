@@ -283,7 +283,7 @@
 
   function cbHUD() {
     var a = pcAC();
-    document.getElementById('hpTxt').textContent = (PC.down ? 'DOWN · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : 'HP ' + PC.hp + ' / ' + PC.max) + ' · AC ' + a.ac + ' · Lv ' + (PC.level || 1) + ' · ' + (PC.xp || 0) + '/' + nextLevelXP() + ' XP' + (PC.hidden ? ' · hidden' : '');
+    document.getElementById('hpTxt').textContent = (PC.down ? 'DOWN · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : 'HP ' + PC.hp + '/' + PC.max) + ' · AC ' + a.ac + ' · Lv ' + (PC.level || 1) + ' (' + (PC.xp || 0) + '/' + nextLevelXP() + ')' + (PC.hidden ? ' · hidden' : '');
     document.getElementById('hpFill').style.width = Math.max(0, 100 * PC.hp / PC.max) + '%';
     document.getElementById('cbBar').classList.toggle('on', CB.on);
     document.getElementById('bar').style.display = CB.on ? 'none' : '';
