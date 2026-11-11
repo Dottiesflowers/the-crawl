@@ -2,35 +2,42 @@
   // ===================== combat: turn-based, Baldur's Gate 3 style =====================
   // Initiative order; on your turn you get movement (6 tiles = 30 ft), one action and one bonus action.
   // Monsters: Quaternius "Bestiary: Dungeon Monsters" (CC0), animated with the same animation library as the hero.
-  var CB = { on: false, enemies: [], order: [], idx: -1, busy: false, path: null, potions: 2, dodge: false, res: { move: 0, action: 0, bonus: 0 }, defs: {}, ready: false };
+  var CB = { on: false, enemies: [], order: [], idx: -1, busy: false, path: null, potions: 3, dodge: false, res: { move: 0, action: 0, bonus: 0 }, defs: {}, ready: false };
   var PC = { hp: 11, max: 11 };
   var BEAST = {
-    puglin: { name: 'Puglin', file: 'm_puglin', tex: 'puglin', ac: 11, hp: 7, speed: 5, atk: 3, dmg: [1, 4, 1], weapon: 'club', init: 1, str: 0, dex: 1, pp: 10, xp: 25, scale: 0.72, h: 0.62, attackClip: 'Sword_Attack',
+    puglin: { name: 'Puglin', file: 'm_puglin', tex: 'puglin', ac: 10, hp: 6, speed: 5, atk: 2, dmg: [1, 4, 0], weapon: 'club', init: 1, str: 0, dex: 1, pp: 10, xp: 25, scale: 0.72, h: 0.62, attackClip: 'Sword_Attack',
       lines: ['Puglins hunt in pairs and argue in threes.', 'A pig-faced goblin with a stick and something to prove.'] },
-    imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 12, hp: 16, speed: 6, atk: 3, dmg: [1, 6, 2], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
+    imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 12, hp: 13, speed: 6, atk: 3, dmg: [1, 6, 0], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
       lines: ['Hired muscle for the stairwell. Union rules: it does not leave its post until something walks past it.'] }
   };
   // monster families: tiers share a model and get bigger, tougher and nastier. base: which loaded model to use
   function variant(base, o) { var v = {}; for (var k in BEAST[base]) v[k] = BEAST[base][k]; for (k in o) v[k] = o[k]; v.base = base; return v; }
   BEAST.puglin.base = 'puglin'; BEAST.imp.base = 'imp'; BEAST.imp.name = 'Imp security guard';
-  BEAST.puglin_brute = variant('puglin', { name: 'Puglin brute', ac: 12, hp: 13, atk: 4, dmg: [1, 6, 2], str: 2, xp: 50, scale: 0.86, h: 0.74, tint: 0xd8b0a0, lines: ['Bigger, meaner, and it brought a bigger stick.'] });
-  BEAST.puglin_chief = variant('puglin', { name: 'Puglin war-chief', ac: 13, hp: 22, atk: 5, dmg: [1, 8, 3], str: 3, dex: 1, xp: 120, scale: 1.0, h: 0.86, tint: 0xc08070, lines: ['Wears a bottle cap as a crown. Will fight you over it.'] });
+  BEAST.puglin_brute = variant('puglin', { name: 'Puglin brute', ac: 11, hp: 11, atk: 3, dmg: [1, 6, 0], str: 2, xp: 50, scale: 0.86, h: 0.74, tint: 0xd8b0a0, lines: ['Bigger, meaner, and it brought a bigger stick.'] });
+  BEAST.puglin_chief = variant('puglin', { name: 'Puglin war-chief', ac: 12, hp: 18, atk: 4, dmg: [1, 6, 2], str: 3, dex: 1, xp: 120, scale: 1.0, h: 0.86, tint: 0xc08070, lines: ['Wears a bottle cap as a crown. Will fight you over it.'] });
   BEAST.grik = variant('puglin', { name: 'Grik, the Gristle King', ac: 14, hp: 48, atk: 6, dmg: [2, 6, 3], str: 4, dex: 1, init: 1, pp: 13, xp: 500, scale: 1.45, h: 1.25, tint: 0xb06050, boss: true, lines: ['The king of the Warrens. Fat on snacks, mean on principle. His minions scatter if he falls.'] });
-  BEAST.imp_intern = variant('imp', { name: 'Imp intern', ac: 11, hp: 9, atk: 3, dmg: [1, 4, 1], str: 0, xp: 40, scale: 0.56, h: 0.9, tint: 0xd0c0ff, lines: ['Unpaid. Furious about it.'] });
-  BEAST.imp_foreman = variant('imp', { name: 'Imp foreman', ac: 14, hp: 26, atk: 5, dmg: [1, 8, 3], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0xffa080, lines: ['Clipboard in one hand, mace in the other. Both are for you.'] });
+  BEAST.imp_intern = variant('imp', { name: 'Imp intern', ac: 10, hp: 7, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.56, h: 0.9, tint: 0xd0c0ff, lines: ['Unpaid. Furious about it.'] });
+  BEAST.imp_foreman = variant('imp', { name: 'Imp foreman', ac: 13, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0xffa080, lines: ['Clipboard in one hand, mace in the other. Both are for you.'] });
   BEAST.steward = variant('imp', { name: 'The Shop Steward', ac: 15, hp: 58, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0xff6a5a, boss: true, lines: ['Head of the imp union. Has never lost a negotiation or a fistfight. Will not cross a picket line.'] });
   // placeholder families until their own models are imported: bog puglins in the Gardens, archive clerks (imps) in the Archive
-  BEAST.bog = variant('puglin', { name: 'Bog puglin', hp: 8, xp: 30, tint: 0x8ab070, lines: ['A puglin that went feral in the reeds. Smells like a pond with opinions.'] });
-  BEAST.bog_brute = variant('puglin', { name: 'Reed stalker', ac: 13, hp: 14, atk: 4, dmg: [1, 6, 2], dex: 2, str: 1, xp: 60, scale: 0.86, h: 0.74, tint: 0x6a9a5a, lines: ['Moves through the reeds without a sound. You will hear it when it wants you to.'] });
-  BEAST.bog_chief = variant('puglin', { name: 'Marsh warden', ac: 13, hp: 24, atk: 5, dmg: [1, 8, 3], str: 3, dex: 1, xp: 130, scale: 1.0, h: 0.86, tint: 0x5a8a4a, lines: ['Wears a crown of lily pads. It is not a joke to them.'] });
+  BEAST.bog = variant('puglin', { name: 'Bog puglin', hp: 7, atk: 2, dmg: [1, 4, 0], xp: 30, tint: 0x8ab070, lines: ['A puglin that went feral in the reeds. Smells like a pond with opinions.'] });
+  BEAST.bog_brute = variant('puglin', { name: 'Reed stalker', ac: 12, hp: 12, atk: 3, dmg: [1, 6, 1], dex: 2, str: 1, xp: 60, scale: 0.86, h: 0.74, tint: 0x6a9a5a, lines: ['Moves through the reeds without a sound. You will hear it when it wants you to.'] });
+  BEAST.bog_chief = variant('puglin', { name: 'Marsh warden', ac: 12, hp: 20, atk: 4, dmg: [1, 8, 1], str: 3, dex: 1, xp: 130, scale: 1.0, h: 0.86, tint: 0x5a8a4a, lines: ['Wears a crown of lily pads. It is not a joke to them.'] });
   BEAST.gardener = variant('puglin', { name: 'The Gardener', ac: 14, hp: 52, atk: 6, dmg: [2, 6, 3], str: 4, dex: 1, init: 1, pp: 13, xp: 550, scale: 1.5, h: 1.3, tint: 0x4a7a3a, boss: true, lines: ['Boss of the Drowned Gardens. It has been composting crawlers, and it is very proud of the results.'] });
-  BEAST.clerk = variant('imp', { name: 'Archive clerk', ac: 11, hp: 10, atk: 3, dmg: [1, 4, 1], str: 0, xp: 40, scale: 0.6, h: 0.95, tint: 0x9ab8e0, lines: ['A soggy imp with a stamp. It will file you under deceased.'] });
-  BEAST.clerk_mid = variant('imp', { name: 'Records keeper', ac: 12, hp: 17, atk: 4, dmg: [1, 6, 2], str: 1, dex: 2, xp: 90, scale: 0.72, h: 1.15, tint: 0x7a9ad0, lines: ['Knows where every file is and resents everyone who asks.'] });
-  BEAST.clerk_head = variant('imp', { name: 'Senior archivist', ac: 14, hp: 26, atk: 5, dmg: [1, 8, 3], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0x5a7ac0, lines: ['Shushes you before it hits you. Both hurt.'] });
+  BEAST.clerk = variant('imp', { name: 'Archive clerk', ac: 10, hp: 8, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.6, h: 0.95, tint: 0x9ab8e0, lines: ['A soggy imp with a stamp. It will file you under deceased.'] });
+  BEAST.clerk_mid = variant('imp', { name: 'Records keeper', ac: 12, hp: 14, atk: 3, dmg: [1, 6, 1], str: 1, dex: 2, xp: 90, scale: 0.72, h: 1.15, tint: 0x7a9ad0, lines: ['Knows where every file is and resents everyone who asks.'] });
+  BEAST.clerk_head = variant('imp', { name: 'Senior archivist', ac: 13, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0x5a7ac0, lines: ['Shushes you before it hits you. Both hurt.'] });
   BEAST.archivist = variant('imp', { name: 'The Head Archivist', ac: 15, hp: 56, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0x4a6ab8, boss: true, lines: ['Boss of the Flooded Archive. It has a file on you, and the file is very thin.'] });
   // stand-ins for the Arena headliner (the ogre bugbear) and the Stairwell Gate's final boss (the dragon) until those models are in
   BEAST.headliner = variant('puglin', { name: 'The Headliner', ac: 15, hp: 70, atk: 7, dmg: [2, 8, 4], str: 5, dex: 0, init: 0, pp: 12, xp: 800, scale: 1.8, h: 1.6, tint: 0x9a6a4a, boss: true, lines: ['The Arena\'s main event. The crowd chants its name. It does not know yours yet.'] });
   BEAST.gatekeeper = variant('imp', { name: 'The Gatekeeper', ac: 16, hp: 90, atk: 7, dmg: [2, 10, 4], str: 5, dex: 2, init: 3, pp: 15, xp: 1200, scale: 1.4, h: 2.2, tint: 0xff4a3a, boss: true, lines: ['Guardian of the stairs down. It has read your file and it is not impressed.'] });
+  // shrubs: tiny, easy to kill, nearly worthless... and they eat the dead. Every body they eat makes them bigger and nastier.
+  var SHRUB = { base: 'shrub', prop: 'Bush_Common', tex: 'puglin', init: 0, pp: 9, attackClip: 'Sword_Attack', weapon: 'thorny twigs', str: 0, dex: 0 };
+  function shrubDef(o) { var v = {}; for (var k in SHRUB) v[k] = SHRUB[k]; for (k in o) v[k] = o[k]; return v; }
+  BEAST.shrub1 = shrubDef({ lvl: 1, name: 'Mulch shrub', ac: 8, hp: 3, speed: 4, atk: 1, dmg: [1, 2, 0], xp: 5, scale: 0.22, h: 0.42, timid: true, lines: ['A little shrub with a mouth. It cleans up after fights. Squash it now and it is worth almost nothing; leave it alone and it grows.'] });
+  BEAST.shrub2 = shrubDef({ lvl: 2, name: 'Hungry shrub', ac: 10, hp: 9, speed: 4, atk: 3, dmg: [1, 4, 1], xp: 20, scale: 0.34, h: 0.6, timid: true, prop: 'Bush_Common_Flowers', lines: ['It has eaten something recently. It has opinions now, and roots like fingers.'] });
+  BEAST.shrub3 = shrubDef({ lvl: 3, name: 'Bramble glutton', ac: 12, hp: 18, speed: 5, atk: 4, dmg: [1, 6, 2], str: 1, xp: 60, scale: 0.52, h: 0.9, prop: 'Bush_Common_Flowers', weapon: 'thorn lash', lines: ['A shrub the size of a dog that has eaten several crawlers\' worth of leftovers. It hunts now.'] });
+  BEAST.shrub4 = shrubDef({ lvl: 4, name: 'Thornmaw', ac: 14, hp: 34, speed: 5, atk: 6, dmg: [2, 6, 3], str: 3, xp: 180, scale: 0.78, h: 1.3, prop: 'Bush_Common_Flowers', weapon: 'crushing roots', lines: ['Somebody should have stepped on this when it was small. Nobody did.'] });
   var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'], bog: [null, 'bog', 'bog_brute', 'bog_chief'], clerk: [null, 'clerk', 'clerk_mid', 'clerk_head'] };
   var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? 'imp' : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
   function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
@@ -126,7 +133,13 @@
   }
   // monsters only get a real model (skinned mesh, materials, animations) once a crawler comes near them
   function cbMaterialize(e) {
-    if (e.mixer) return; var B = e.def, sp = e.sp, root = THREE.SkeletonUtils.clone(CB.defs[B.base || sp.kind]);
+    if (e.mixer) return; var B = e.def, sp = e.sp;
+    if (B.prop) { // a plant: no skeleton, it bobs and lunges in code
+      if (!propsOn()) return; var g2 = new THREE.Group(); propInto(g2, B.prop, { s: B.scale }); e.obj.add(g2); e.body = g2;
+      g2.traverse(function (o) { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set(e.lvl >= 3 ? 0xb0c890 : 0xffffff); } });
+      e.mixer = { update: function () {} }; e.clips = {}; return;
+    }
+    var root = THREE.SkeletonUtils.clone(CB.defs[B.base || sp.kind]);
     root.traverse(function (o) {
       if (!o.isMesh) return;
       var m = kitMat(B.tex + '_' + (e.n % 3) + '.jpg', B.tex + '_n.jpg', B.tex + '_orm.jpg');
@@ -298,7 +311,7 @@
   function cbStart(why, first) {
     if (CB.on || !CB.ready) return;
     if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
-    var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8)); });
+    var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || (!e.def.timid && cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8))); });
     if (!foes.length) return;
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
     CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
@@ -334,7 +347,7 @@
   function cbJoinCheck() {
     if (!CB.on) return; var Z = cbZone();
     CB.enemies.forEach(function (e) {
-      if (e.dead || e.calm || e.npc || CB.order.indexOf(e) >= 0 || inSafeRoom(e.x, e.z)) return;
+      if (e.dead || e.calm || e.npc || e.def.timid || CB.order.indexOf(e) >= 0 || inSafeRoom(e.x, e.z)) return;
       var seesYou = visNow[e.x + ',' + e.z] !== undefined && cheb(e.x, e.z, P.x, P.z) <= CB_ZONE;
       var hears = CB.order.some(function (c) { return c !== 'pc' && !c.dead && cheb(e.x, e.z, c.x, c.z) <= CB_HEAR; }) && Math.max(Math.abs(e.x - Z.x), Math.abs(e.z - Z.z)) <= Z.r;
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
@@ -587,22 +600,65 @@
     setTimeout(function () { cbResolve(e, Wp, { label: 'Your opportunity attack' }); cbHUD(); }, 300);
   }
 
+  // ---------- life between fights: monsters mill about; shrubs go looking for bodies ----------
+  function cbRoam(e, dt) {
+    if (e.dead || e.npc || e.guard || e.boss || CB.busy && CB.on) return;
+    var now = performance.now();
+    if (e.eating) { // munching: the body shrinks away, the shrub grows
+      if (now - e.eating.t < 2600) return; var body = e.eating.body; e.eating = null;
+      if (body.dead && !body.eaten) { body.eaten = true; body.obj.visible = false; body.bar.style.display = 'none'; shrubGrow(e, body); }
+      return;
+    }
+    if (e.path) return;
+    if (e.body) { // shrubs smell the dead from a long way off
+      var best = null, bd = 15;
+      CB.enemies.forEach(function (q) { if (q.dead && !q.eaten && q !== e && !q.claimed) { var d2 = cheb(q.x, q.z, e.x, e.z); if (d2 < bd) { bd = d2; best = q; } } });
+      if (best && bd <= 1) { e.eating = { t: now, body: best }; best.claimed = true; cbFace(e, best.x, best.z); if (visNow[e.x + ',' + e.z] !== undefined) floater(e.px, e.def.h + 0.3, e.pz, 'munch', 'miss'); return; }
+      if (best && now > (e.nextSeek || 0)) {
+        e.nextSeek = now + 1500; var r = bfs(e.x, e.z, e, 24), goal = null;
+        for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { var k = (best.x + dx) + ',' + (best.z + dz); if (r.dist[k] !== undefined && (goal === null || r.dist[k] < r.dist[goal])) goal = k; }
+        if (goal) { var gp = goal.split(','), path = pathTo(r, +gp[0], +gp[1]); if (path && path.length) { e.path = path; e.roaming = true; e.afterWalk = function () { e.roaming = false; }; return; } }
+      }
+    }
+    if (now < (e.nextRoam || (e.nextRoam = now + 2000 + Math.random() * 6000))) return;
+    e.nextRoam = now + 3000 + Math.random() * 6000; if (Math.random() < 0.3) return;
+    var range = e.body ? 7 : 3, ox = e.body ? e.x : e.sx, oz = e.body ? e.z : e.sz;
+    var rr = bfs(e.x, e.z, e, range * 2 + 2), opts = Object.keys(rr.dist).filter(function (k) { var q = k.split(','); return rr.dist[k] > 0 && Math.max(Math.abs(+q[0] - ox), Math.abs(+q[1] - oz)) <= range; });
+    if (!opts.length) return; var pk = opts[Math.floor(Math.random() * opts.length)].split(','), p2 = pathTo(rr, +pk[0], +pk[1]);
+    if (p2 && p2.length) { e.path = p2.slice(0, range * 2); e.roaming = true; if (!e.body) cbPlay(e, 'Walk_Loop'); e.afterWalk = function () { e.roaming = false; if (!e.body) cbPlay(e, 'Idle_Loop'); }; }
+  }
+  function shrubGrow(e, body) {
+    var lv = Math.min(4, (e.def.lvl || 1) + 1), was = e.name; if (lv === e.def.lvl) { e.hp = e.max; return; }
+    e.def = BEAST['shrub' + lv]; e.kind = 'shrub' + lv; e.lvl = lv; e.name = e.def.name; e.max = e.def.hp; e.hp = e.def.hp;
+    if (e.body) { e.obj.remove(e.body); e.body = null; } e.mixer = null; cbMaterialize(e);
+    if (visNow[e.x + ',' + e.z] !== undefined || cheb(e.x, e.z, P.x, P.z) <= 8)
+      say(lv >= 4 ? 'Uh oh' : 'Something grew', 'The ' + was.toLowerCase() + ' ate the ' + body.name.toLowerCase() + '\'s body and grew into a ' + e.name.toLowerCase() + '.' + (lv >= 3 ? ' It looks hungry for something that is still moving.' : ''), 5000);
+  }
+  function cbShrubAnim(e, dt) {
+    var T = performance.now() / 1000, b = e.body;
+    if (e.dead) { b.scale.y += (0.25 - b.scale.y) * Math.min(1, dt * 4); b.position.y = 0; return; }
+    var moving = !!e.path, sq = e.eating ? 1 + 0.18 * Math.abs(Math.sin(T * 9)) : moving ? 1 + 0.12 * Math.abs(Math.sin(T * 10)) : 1 + 0.05 * Math.sin(T * 2 + e.n);
+    b.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq)); b.position.y = moving ? Math.abs(Math.sin(T * 10)) * 0.08 : 0;
+  }
   // ---------- every frame ----------
   function cbUpdate(dt) {
     CB.enemies.forEach(function (e) {
       if (cheb(e.x, e.z, P.x, P.z) > 16 && !e.path) { if (e.obj.visible) { e.obj.visible = false; e.bar.style.display = 'none'; } return; }
       if (!e.mixer) cbMaterialize(e);
+      if (!e.mixer) return;
       e.mixer.update(dt);
+      if (!CB.on || CB.order.indexOf(e) < 0) cbRoam(e, dt);
+      if (e.body) cbShrubAnim(e, dt);
       if (e.path) {
-        var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = 3.2 * dt;
+        var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = (e.roaming ? (e.body ? 1.8 : 1.3) : 3.2) * dt;
         e.obj.rotation.y = Math.atan2(dx, dz);
-        if (dist <= step) { var wasNear = CB.on && cheb(e.x, e.z, P.x, P.z) <= 1; e.px = t[0]; e.pz = t[1]; e.x = t[0]; e.z = t[1]; e.path.shift(); if (wasNear && cheb(e.x, e.z, P.x, P.z) > 1 && !e.prone) cbMyOpportunity(e); }
+        if (dist <= step) { var wasNear = CB.on && cheb(e.x, e.z, P.x, P.z) <= 1; e.px = t[0]; e.pz = t[1]; e.x = t[0]; e.z = t[1]; e.path.shift(); if (wasNear && cheb(e.x, e.z, P.x, P.z) > 1 && !e.prone) cbMyOpportunity(e); if (!CB.on && e.roaming) cbAggro(); }
         else { e.px += dx / dist * step; e.pz += dz / dist * step; }
         e.obj.position.set(e.px, 0, e.pz);
         if (!e.path.length) { e.path = null; var f = e.afterWalk; e.afterWalk = null; if (f) f(); }
       }
       var seen = visNow[e.x + ',' + e.z] !== undefined || visNow[Math.round(e.px) + ',' + Math.round(e.pz)] !== undefined;
-      e.obj.visible = seen || (e.dead && !!tileState[e.z * W + e.x]);
+      e.obj.visible = !e.eaten && (seen || (e.dead && !!tileState[e.z * W + e.x]));
       if (!e.dead && !e.npc && seen && (CB.on || e.hp < e.max)) {
         var s = toScreen(e.px, e.def.h + 0.32, e.pz); e.bar.style.display = 'block'; e.bar.style.left = s.x + 'px'; e.bar.style.top = s.y + 'px';
         var hs = healthState(e); e.bar.firstChild.style.width = '54px'; e.bar.firstChild.style.background = hs[1]; e.bar.lastChild.textContent = e.name + ' · ' + hs[0];
@@ -619,7 +675,7 @@
   function cbAggro() {
     if (CB.on || !CB.ready || inSafeRoom(P.x, P.z)) return;
     for (var i = 0; i < CB.enemies.length; i++) {
-      var e = CB.enemies[i]; if (e.dead || e.calm) continue;
+      var e = CB.enemies[i]; if (e.dead || e.calm || e.def.timid) continue;
       var r = e.guard ? 2 : 3;
       if (visNow[e.x + ',' + e.z] !== undefined && cheb(e.x, e.z, P.x, P.z) <= r) { cbStart('The ' + e.name.replace(/ [ABC]$/, '') + ' spots you.', e); return; }
     }

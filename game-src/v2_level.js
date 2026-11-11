@@ -42,7 +42,7 @@
     }
     var taken = {};
     function spawnIn(r, fam, o) { var p = openSpot(r); if (!p) return; var sp = { kind: fam, x: p[0], z: p[1], room: r.id }; for (var k in o) sp[k] = o[k]; spawns.push(sp); }
-    function tierRoll(z) { var q = rnd(); return q < (z.elite || 0.12) ? 3 : q < 0.5 ? 2 : 1; }
+    function tierRoll(z) { var q = rnd(); return q < (z.elite || 0.08) ? 3 : q < 0.38 ? 2 : 1; } // mostly grunts: a level 1 crawler should beat one alone
     // a straight or L-shaped passage of a given width
     function passage(ax, az, bx, bz, rid, floor, w) {
       var pts = rnd() < 0.5 ? [[ax, az], [bx, az], [bx, bz]] : [[ax, az], [ax, bz], [bx, bz]], h = Math.floor((w - 1) / 2);
@@ -164,16 +164,13 @@
     pc.rooms.forEach(function (r) {
       if (r === green) return; r.name = PCN[pn++] || 'Back Office';
       if (r.name === 'Stage 3') { scatter(r, 'U', 3); scatter(r, 'W', 1); r.line = 'A practice stage with training dummies. Hit them. They are paid to take it.'; }
-      else if (r.name === 'Prop Storage') { scatter(r, 'C', 1); scatter(r, 'KKR', 4); }
-      else if (r.name === 'Wardrobe Department') scatter(r, 'hhb', 3);
-      else if (r.name === 'Orientation Theater') { for (var zz = r.z0 + 2; zz < r.z1; zz += 2) for (var xx = r.x0 + 2; xx < r.x1 - 1; xx += 3) if (!nearDoor(xx, zz)) put(xx, zz, 'T'); }
-      else scatter(r, 'TKhv', ri(1, 3));
+      else if (r.name === 'Prop Storage') scatter(r, 'C', 1);
       if (r.name === 'Holding Pen B' || r.name === 'Loading Dock') { var n = r.name === 'Loading Dock' ? 2 : 1; for (var m = 0; m < n; m++) spawnIn(r, 'puglin', { tier: 1, name: 'Escaped reject' }); r.line = 'Something got out of its holding pen. It is small, angry and in your way. Practice on it.'; }
     });
     for (var k = 0; k < 6; k++) { var hp = [pc.hx0 + ri(0, 3), PCZ.z0 + ri(3, PCZ.z1 - PCZ.z0 - 3)]; if (g[hp[1]][hp[0]] === '.') put(hp[0], hp[1], 'c'); }
 
     // ================= 2. The Puglin Warrens (south middle): caves =================
-    var WRZ = zone({ name: 'The Puglin Warrens', theme: 'moss', fam: 'puglin', line: 'Puglin territory. Tight, twisting tunnels, moss, mud and the smell of snacks gone wrong.', elite: 0.14 }, 1, 2);
+    var WRZ = zone({ name: 'The Puglin Warrens', theme: 'moss', fam: 'puglin', line: 'Puglin territory. Tight, twisting tunnels, moss, mud and the smell of snacks gone wrong.', elite: 0.07 }, 1, 2);
     var wtun = room({ name: 'Warren Tunnels', type: 'corridor', x0: WRZ.x0, z0: WRZ.z0, x1: WRZ.x1, z1: WRZ.z1 }, WRZ);
     var WN = ['Gnawing Pit', 'Moss Den', 'Bone Garden', 'Snack Larder', 'Mud Nursery', 'Sentry Nook', 'Rag Pile', 'Root Cellar', 'The Drip', 'Gristle Hall', 'Puddle Court', 'The Burrows'];
     var caves = [], wboss = room({ name: 'Grik\'s Throne Room', type: 'boss', x0: 112, z0: 218, x1: 132, z1: 232, line: 'A cavern full of stolen snack wrappers and one very large puglin on a throne of bottle caps.' }, WRZ);
@@ -188,7 +185,7 @@
     connectAll(caves, function (a, b) { drunk(a[0], a[1], b[0], b[1], wtun.id, ','); }, 3);
     put(wboss.x0 + 4, wboss.z0 + 3, 'B'); put(wboss.x1 - 4, wboss.z0 + 3, 'B'); put(122, 230, 'C');
     spawnIn(wboss, 'puglin', { boss: true, sub: 'grik' }); spawnIn(wboss, 'puglin', { sub: 'puglin_chief' }); spawnIn(wboss, 'puglin', { tier: 2 });
-    caves.forEach(function (c) { if (c === wboss) return; scatter(c, 'bbRKv', ri(1, 3)); if (rnd() < 0.3) scatter(c, 'C', 1); if (rnd() < 0.35) scatter(c, 'B', 1); var n = ri(1, 3); for (var m = 0; m < n; m++) spawnIn(c, 'puglin', { tier: tierRoll(WRZ) }); });
+    caves.forEach(function (c) { if (c === wboss) return; if (rnd() < 0.3) scatter(c, 'C', 1); if (rnd() < 0.35) scatter(c, 'B', 1); var n = ri(1, 3); for (var m = 0; m < n; m++) spawnIn(c, 'puglin', { tier: tierRoll(WRZ) }); });
 
     // ================= 3. Imp Union Hall (southeast corner): offices =================
     var UHZ = zone({ name: 'Imp Union Hall', theme: 'office', fam: 'imp', line: 'Imp territory. Cubicles, break rooms and endless bureaucracy. Every door has a sign-in sheet.', elite: 0.16 }, 2, 2);
@@ -198,12 +195,10 @@
     uboss.name = 'The Steward\'s Office'; uboss.type = 'boss'; uboss.line = 'A corner office with a view of more office. The Shop Steward has never lost a negotiation or a fistfight.';
     uh.rooms.forEach(function (r) {
       if (r === uboss) return; r.name = UN[un++] || 'Office';
-      if (r.name === 'Cubicle Farm' || r.name === 'Payroll' || r.name === 'Shop Floor') { for (var zz = r.z0 + 1; zz < r.z1; zz += 3) for (var xx = r.x0 + 1; xx < r.x1; xx += 2) if (!nearDoor(xx, zz)) put(xx, zz, 'T'); }
-      else scatter(r, 'ThhKR', ri(1, 4));
       if (rnd() < 0.25) scatter(r, 'C', 1);
       if (rnd() < 0.62) { var n = ri(1, 2); for (var m = 0; m < n; m++) spawnIn(r, 'imp', { tier: tierRoll(UHZ) }); }
     });
-    scatter(uboss, 'hhT', 4); put(uboss.x1 - 1, uboss.z1 - 1, 'C');
+    put(uboss.x1 - 1, uboss.z1 - 1, 'C');
     spawnIn(uboss, 'imp', { boss: true, sub: 'steward' }); spawnIn(uboss, 'imp', { sub: 'imp_foreman' }); spawnIn(uboss, 'imp', { tier: 2 });
 
     // ================= 4. The Flooded Archive (west middle): stacks in water =================
@@ -313,6 +308,13 @@
     spawnIn(troph, 'imp', { tier: 2 });
     spawns.push({ kind: 'imp', boss: true, sub: 'gatekeeper', x: 200, z: 20, room: gh.id }); spawns.push({ kind: 'imp', sub: 'imp_foreman', x: 196, z: 22, room: gh.id }); spawns.push({ kind: 'puglin', sub: 'puglin_chief', x: 205, z: 22, room: gh.id });
 
+    // ---------- shrubs: little scavengers spread across the floor ----------
+    [[PCZ, 3], [WRZ, 6], [UHZ, 4], [ARZ, 4], [GZ, 8], [SGZ, 1]].forEach(function (zn) {
+      var Z = zn[0], list = Z.rooms.filter(function (r) { return r.type === 'room' || r.type === 'corridor'; });
+      for (var k = 0; k < zn[1]; k++) spawnIn(pick(list), 'shrub', { sub: 'shrub1' });
+    });
+    [westway, eastway, upper, lower].forEach(function (b) { for (var k = 0; k < 2; k++) for (var t = 0; t < 30; t++) { var xx = ri(b.x0, b.x1), zz = ri(b.z0, b.z1); if (g[zz][xx] === '.' && !taken[xx + ',' + zz]) { taken[xx + ',' + zz] = 1; spawns.push({ kind: 'shrub', sub: 'shrub1', x: xx, z: zz, room: b.id }); break; } } });
+
     // ---------- gates: zones open onto the boulevards ----------
     gate(PCZ, 'E', pc.hz0 + 1, 'Processing Exit'); gate(PCZ, 'N', pc.hx0 + 1, 'Processing North Doors');
     gate(WRZ, 'W', 205, 'Warren Mouth'); gate(WRZ, 'N', 120, 'Warren Burrow'); gate(WRZ, 'E', 200, 'Warren Back Door');
@@ -336,6 +338,85 @@
       carveRect(hr2); put(okS[2], okS[3], 'H', hr2.id); var hc = center(hr2); put(hc[0], hc[1], 'C'); hidden++;
     }
 
+
+    // ================= set dressing: furniture against walls, tables with things on them, rugs, banners =================
+    // Each room gets a style from what it is (an office, a break room, a cave, a market). Blocking furniture becomes
+    // an 'o' tile with its own name; everything else is decoration drawn on top of the floor.
+    var decor = {}, dname = {};
+    function dec(x, z, m, o) { var d = { m: m }; for (var k in o) d[k] = o[k]; (decor[x + ',' + z] || (decor[x + ',' + z] = [])).push(d); }
+    function freeT(x, z, r) { return inb(x, z) && (!r || reg[z][x] === r.id) && (g[z][x] === '.' || g[z][x] === ',') && !nearDoor(x, z) && !taken[x + ',' + z]; }
+    function obj(x, z, m, o, name) { if (!freeT(x, z)) return false; g[z][x] = 'o'; dname[x + ',' + z] = name || m.replace(/_/g, ' ').replace(/ ?\d+$/, ''); dec(x, z, m, o); return true; }
+    var D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    function wallOf(x, z) { for (var k = 0; k < 4; k++) if (g[z + D4[k][1]] && g[z + D4[k][1]][x + D4[k][0]] === '#') return D4[k]; return null; }
+    function hug(w, o) { var d = { rot: Math.atan2(-w[0], -w[1]), dx: w[0] * 0.24, dz: w[1] * 0.24 }; for (var k in o) d[k] = o[k]; return d; } // back to the wall, facing the room
+    function wallSpots(r) { var out = []; for (var zz = r.z0; zz <= r.z1; zz++) for (var xx = r.x0; xx <= r.x1; xx++) if (freeT(xx, zz, r) && wallOf(xx, zz)) out.push([xx, zz]);
+      for (var i = out.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)), t = out[i]; out[i] = out[j]; out[j] = t; } return out; }
+    function alongWall(r, n, fn) { var sp = wallSpots(r), used = 0; for (var i = 0; i < sp.length && used < n; i++) { var w = wallOf(sp[i][0], sp[i][1]); if (freeT(sp[i][0], sp[i][1], r) && fn(sp[i][0], sp[i][1], w)) used++; } return used; }
+    var TOP = 0.36; // the top of a big table
+    function onTable(x, z, items) { items.forEach(function (it, k) { var a = k / items.length * Math.PI * 2 + rnd(); dec(x, z, it, { y: TOP, dx: Math.cos(a) * 0.28, dz: Math.sin(a) * 0.16, fit: it === 'CandleStick_Triple' ? 0.32 : 0.2, rot: rnd() * 6 }); }); }
+    function rug(r, col) { var w = Math.min(5, r.x1 - r.x0 - 2), d = Math.min(4, r.z1 - r.z0 - 2), c = center(r); if (w < 2 || d < 2) return; dec(c[0], c[1], '#rug', { w: w, d: d, col: col }); }
+    function diningSet(x, z, r, food) {
+      if (!freeT(x, z, r) || !freeT(x - 1, z, r) || !freeT(x + 1, z, r)) return false;
+      obj(x, z, 'Table_Large', { fit: 1.25, rot: 0 }, 'Table');
+      onTable(x, z, food ? ['Table_Plate', 'Mug', 'Chalice', 'CandleStick_Triple', 'Bottle_1'] : ['Mug', 'Book_Stack_1', 'Scroll_2', 'CandleStick_Triple']);
+      dec(x, z - 1, rnd() < 0.5 ? 'Chair_1' : 'Stool', { fit: 0.42, rot: 0, dz: 0.2 }); dec(x, z + 1, rnd() < 0.5 ? 'Chair_1' : 'Stool', { fit: 0.42, rot: Math.PI, dz: -0.2 });
+      if (rnd() < 0.6) dec(x - 1, z, 'Stool', { fit: 0.36, rot: Math.PI / 2 }); if (rnd() < 0.6) dec(x + 1, z, 'Stool', { fit: 0.36, rot: -Math.PI / 2 });
+      return true;
+    }
+    function desk(x, z, r) { if (!freeT(x, z, r) || !freeT(x, z + 1, r)) return false; obj(x, z, 'Table_Large', { fit: 1.0, rot: 0 }, 'Desk'); onTable(x, z, [pick(['Book_Stack_1', 'Book_Stack_2', 'Scroll_1', 'Scroll_2']), pick(['Mug', 'Candle_1', 'BookGroup_Small_1'])]); dec(x, z + 1, 'Chair_1', { fit: 0.42, rot: Math.PI, dz: -0.25 }); return true; }
+    function shelfUnit(x, z, w, kind) { var m = pick(kind || ['Bookcase_2', 'Shelf_Simple', 'Cabinet', 'Shelf_Small_Bottles']); return obj(x, z, m, hug(w, { fit: m === 'Cabinet' ? 0.8 : 0.95 }), m === 'Bookcase_2' ? 'Bookcase' : m === 'Cabinet' ? 'Cabinet' : 'Shelf'); }
+    function banner(x, z, w, m) { dec(x, z, m || pick(['Banner_1', 'Banner_2']), { rot: Math.atan2(-w[0], -w[1]), dx: w[0] * 0.46, dz: w[1] * 0.46, y: 1.48, fit: 0.9, hang: true, ns: true }); }
+    function stack(x, z, w) { var m = pick(['Crate_Wooden', 'Crate_Wooden', 'Crate_Metal', 'Barrel', 'Barrel_Apples', 'FarmCrate_Carrot']); if (!obj(x, z, m, hug(w, { fit: /Barrel/.test(m) ? 0.62 : 0.8, rot: rnd() * 0.4 + Math.atan2(-w[0], -w[1]) }), /Barrel/.test(m) ? 'Barrel' : 'Crate')) return false;
+      if (/Crate_/.test(m) && rnd() < 0.5) dec(x, z, pick(['Crate_Wooden', 'Bag', 'Bucket_Metal']), { y: 0.62, fit: 0.5, rot: rnd() * 6, dx: w[0] * 0.24, dz: w[1] * 0.24 }); return true; }
+    var STYLE = {
+      office: function (r) { for (var zz = r.z0 + 1; zz < r.z1 - 1; zz += 3) for (var xx = r.x0 + 1; xx < r.x1; xx += 3) desk(xx, zz, r); alongWall(r, 3, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Shelf_Simple', 'Bookcase_2']); }); },
+      meeting: function (r) { var c = center(r); rug(r, 0x3a3f5a); for (var xx = c[0] - 1; xx <= c[0] + 1; xx++) if (freeT(xx, c[1], r)) { obj(xx, c[1], 'Table_Large', { fit: 1.1 }, 'Conference table'); onTable(xx, c[1], ['Scroll_1', 'Mug']); dec(xx, c[1] - 1, 'Chair_1', { fit: 0.42, dz: 0.25 }); dec(xx, c[1] + 1, 'Chair_1', { fit: 0.42, rot: Math.PI, dz: -0.25 }); } alongWall(r, 2, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Bookcase_2']); }); },
+      break: function (r) { var c = center(r); diningSet(c[0], c[1], r, true); alongWall(r, 2, function (x, z, w) { return shelfUnit(x, z, w, ['Shelf_Small_Bottles', 'Cabinet']); }); alongWall(r, 2, function (x, z, w) { return stack(x, z, w); }); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Bench'); }); },
+      lounge: function (r) { rug(r, 0x6a2a3a); alongWall(r, 3, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Couch'); }); alongWall(r, 2, function (x, z, w) { banner(x, z, w); return true; }); },
+      storage: function (r) { alongWall(r, Math.max(4, (r.x1 - r.x0 + r.z1 - r.z0) >> 1), function (x, z, w) { return rnd() < 0.75 ? stack(x, z, w) : shelfUnit(x, z, w, ['Shelf_Simple', 'Shelf_Small_Bottles']); }); },
+      workshop: function (r) { var c = center(r); obj(c[0], c[1], 'Workbench', { fit: 1.2 }, 'Workbench'); dec(c[0], c[1], 'Pickaxe_Bronze', { y: 0.5, fit: 0.4, rot: 1 }); alongWall(r, 2, function (x, z, w) { return obj(x, z, pick(['Workbench_Drawers', 'Peg_Rack', 'WeaponStand']), hug(w, { fit: 0.95 }), 'Workbench'); }); alongWall(r, 3, function (x, z, w) { return stack(x, z, w); }); },
+      bunk: function (r) { alongWall(r, 3, function (x, z, w) { if (!obj(x, z, 'Bed_Twin1', hug(w, { fit: 0.9 }), 'Bed')) return false; var sx = w[1] ? 1 : 0, sz = w[0] ? 1 : 0; if (freeT(x + sx, z + sz, r) && wallOf(x + sx, z + sz)) obj(x + sx, z + sz, 'Nightstand_Shelf', hug(w, { fit: 0.5 }), 'Nightstand'); return true; }); alongWall(r, 1, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet']); }); },
+      wardrobe: function (r) { alongWall(r, 5, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Cabinet', 'Shelf_Simple', 'Peg_Rack']); }); var c = center(r); obj(c[0], c[1], 'Bench', { fit: 1.0 }, 'Bench'); },
+      theater: function (r) { for (var zz = r.z0 + 3; zz < r.z1; zz += 2) for (var xx = r.x0 + 2; xx < r.x1 - 1; xx += 2) obj(xx, zz, 'Bench', { fit: 1.05, rot: Math.PI }, 'Seat'); obj(center(r)[0], r.z0 + 1, 'BookStand', { h: 1.0 }, 'Lectern'); },
+      cells: function (r) { alongWall(r, 4, function (x, z, w) { return obj(x, z, 'Cage_Small', hug(w, { fit: 0.75 }), 'Cage'); }); alongWall(r, 2, function (x, z, w) { dec(x, z, 'Bag', { fit: 0.45, rot: rnd() * 6 }); return true; }); },
+      cave: function (r) { alongWall(r, ri(2, 4), function (x, z, w) { var m = pick(['Vase_Rubble_Medium', 'Barrel', 'Bag', 'Bucket_Wooden_1', 'Rope_2', 'Crate_Wooden']); if (/Barrel|Crate/.test(m)) return stack(x, z, w); dec(x, z, m, { fit: 0.42, rot: rnd() * 6, dx: w[0] * 0.25, dz: w[1] * 0.25 }); return true; }); },
+      snack: function (r) { rug(r, 0x2a5a4a); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Bench'); }); },
+      trophy: function (r) { alongWall(r, 4, function (x, z, w) { banner(x, z, w); return true; }); rug(r, 0x5a1a1a); },
+      archive: function (r) { var c = center(r); if (freeT(c[0], r.z0 + 1, r)) obj(c[0], r.z0 + 1, 'BookStand', { h: 1.0 }, 'Reading stand'); dec(c[0] + 1, r.z0 + 1, 'CandleStick_Stand', { h: 1.0 }); alongWall(r, 3, function (x, z, w) { dec(x, z, pick(['Book_Stack_1', 'Book_Stack_2', 'BookGroup_Medium_1', 'Scroll_1']), { fit: 0.35, rot: rnd() * 6 }); return true; }); }
+    };
+    var BYNAME = { 'Intake': 'office', 'Contracts Office': 'office', 'Waiver Signing': 'office', 'Casting Office': 'meeting', 'Control Room': 'office', 'Makeup & Prosthetics': 'wardrobe', 'Wardrobe Department': 'wardrobe', 'Prop Storage': 'storage', 'Loading Dock': 'storage',
+      'Orientation Theater': 'theater', 'Medical (Closed)': 'bunk', 'Holding Pen B': 'cells', 'Craft Services Annex': 'break', 'Stage 3': 'lounge',
+      'Break Room': 'break', 'Water Cooler': 'break', 'Vending Hall': 'break', 'Night Shift Lounge': 'lounge', 'Seniority Lounge': 'lounge', 'Quiet Room': 'lounge', 'Wellness Room': 'lounge', 'Locker Room': 'wardrobe',
+      'Supply Closet': 'storage', 'Mailroom': 'storage', 'Copy Room': 'storage', 'Records': 'storage', 'Union Archive': 'storage', 'Strike Fund': 'storage', 'Picket Sign Shop': 'workshop', 'Shop Floor': 'workshop', 'Training Room': 'workshop',
+      'Conference Room B': 'meeting', 'Grievance Office': 'meeting', 'Dispute Office': 'meeting', 'Minutes Office': 'meeting', 'Snack Larder': 'storage', 'Mud Nursery': 'cells', 'The Trophy Room': 'trophy', 'Last Chance Lounge': 'snack', 'The Green Room': 'lounge', 'The Steward\'s Office': 'meeting' };
+    rooms.forEach(function (r) {
+      var st = BYNAME[r.name] || (r.type === 'safe' && r.theme === 'crypt' ? 'snack' : r.hood === WRZ.idx && r.type !== 'corridor' ? 'cave' : r.hood === UHZ.idx && r.type === 'room' ? 'office' : r.hood === PCZ.idx && r.type === 'room' ? 'office' : r.hood === ARZ.idx && r.type === 'room' ? 'archive' : null);
+      if (st && STYLE[st]) STYLE[st](r);
+    });
+    // the Underbazaar: proper market stalls with goods, carts, a wagon and benches round the fountain
+    for (zz = stalls.z0 + 1; zz <= stalls.z1 - 1; zz++) for (xx = stalls.x0; xx <= stalls.x1; xx++) if (g[zz][xx] === 'T') { g[zz][xx] = '.'; if (g[zz + 1] && 'bRKv'.indexOf(g[zz + 1][xx]) >= 0) g[zz + 1][xx] = '.'; }
+    for (zz = night.z0; zz <= night.z1; zz++) for (xx = night.x0; xx <= night.x1; xx++) if (g[zz][xx] === 'T') g[zz][xx] = '.';
+    for (zz = stalls.z0 + 2; zz <= stalls.z1 - 1; zz += 5) for (xx = stalls.x0 + 2; xx <= stalls.x1 - 3; xx += 4) if (freeT(xx, zz, null) && freeT(xx + 1, zz, null)) {
+      obj(xx, zz, 'Stall_Empty', { fit: 1.8, rot: 0, dx: 0.5 }, 'Market stall'); g[zz][xx + 1] = 'o'; dname[xx + ',' + zz] = dname[(xx + 1) + ',' + zz] = 'Market stall';
+      dec(xx, zz + 1, pick(['FarmCrate_Apple', 'FarmCrate_Carrot', 'Barrel_Apples']), { fit: 0.5, rot: rnd() * 0.5 }); if (rnd() < 0.6) dec(xx + 1, zz + 1, pick(['Bag', 'Pouch_Large', 'Vase_2', 'Bucket_Wooden_1']), { fit: 0.36, rot: rnd() * 6 });
+    }
+    for (zz = night.z0 + 2; zz <= night.z1 - 1; zz += 5) for (xx = night.x0 + 3; xx <= night.x1 - 4; xx += 5) if (freeT(xx, zz, null) && freeT(xx + 1, zz, null) && freeT(xx - 1, zz, null)) {
+      obj(xx, zz, 'Stall_Cart_Empty', { fit: 2.0, rot: 0, dx: -0.3 }, 'Cart stall'); g[zz][xx - 1] = 'o'; dname[(xx - 1) + ',' + zz] = 'Cart stall'; if (rnd() < 0.5) dec(xx + 1, zz, pick(['Cage_Small', 'Potion_2', 'SmallBottles_1']), { fit: 0.4 });
+    }
+    [[-6, 0, Math.PI / 2], [6, 0, -Math.PI / 2], [0, -6, 0], [0, 6, Math.PI]].forEach(function (o) { var x2 = bcx + o[0], z2 = bcz + o[1]; if (freeT(x2, z2, null)) obj(x2, z2, 'Bench', { fit: 1.0, rot: o[2] }, 'Bench'); });
+    if (freeT(bcx - 22, bcz + 4, null)) { obj(bcx - 22, bcz + 4, 'Prop_Wagon', { fit: 2.4, rot: 0.3 }, 'Wagon'); [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(function (o) { if (freeT(bcx - 22 + o[0], bcz + 4 + o[1], null)) { g[bcz + 4 + o[1]][bcx - 22 + o[0]] = 'o'; dname[(bcx - 22 + o[0]) + ',' + (bcz + 4 + o[1])] = 'Wagon'; } }); }
+    for (zz = craft.z0; zz <= craft.z1; zz++) if (freeT(craft.x0, zz, null) && (zz - craft.z0) % 3 !== 1) dec(craft.x0, zz, 'Prop_WoodenFence_Single', { fit: 1.0, rot: Math.PI / 2 });
+    // the gardens: fences round the picnic and the greenhouse, vines on the rock, benches in the clearings
+    glist.forEach(function (cl) {
+      if (cl.name === 'Picnic Lawn') { var c = center(cl); diningSet(c[0], c[1], cl, true); for (var xx = cl.x0; xx <= cl.x1; xx++) { if (freeT(xx, cl.z0, cl) && xx % 3) dec(xx, cl.z0, 'Prop_WoodenFence_Single', { fit: 1.0 }); if (freeT(xx, cl.z1, cl) && xx % 3) dec(xx, cl.z1, 'Prop_WoodenFence_Single', { fit: 1.0 }); } }
+      else if (cl.type === 'room' && cl.name !== 'The Old Greenhouse') { var c2 = center(cl); if (freeT(c2[0] + 2, c2[1], cl)) obj(c2[0] + 2, c2[1], 'Bench', { fit: 1.0, rot: -Math.PI / 2 }, 'Garden bench'); }
+    });
+    for (zz = GZ.z0; zz <= GZ.z1; zz++) for (xx = GZ.x0; xx <= GZ.x1; xx++) { if (g[zz][xx] !== ',' || rnd() > 0.06) continue; var w = wallOf(xx, zz); if (w) dec(xx, zz, pick(['Prop_Vine2', 'Prop_Vine5']), { rot: Math.atan2(-w[0], -w[1]), dx: w[0] * 0.48, dz: w[1] * 0.48, y: 1.4, fit: 0.8, hang: true, ns: true }); }
+    // banners down the boulevards and round the Arena; banners and benches in the Approach
+    [westway, eastway, upper, lower, gateCon].forEach(function (b) { var n = 0; for (var zz = b.z0; zz <= b.z1; zz++) for (var xx = b.x0; xx <= b.x1; xx++) { var w = wallOf(xx, zz); if (!w || g[zz][xx] !== '.' || ((xx + zz) % 11)) continue; banner(xx, zz, w); n++; } });
+    for (zz = afield.z0; zz <= afield.z1; zz++) for (xx = afield.x0; xx <= afield.x1; xx++) { var w2 = wallOf(xx, zz); if (w2 && g[zz][xx] === '.' && (xx * 7 + zz) % 9 === 0) banner(xx, zz, w2, 'Banner_2'); }
+    for (zz = appr.z0 + 4; zz < appr.z1; zz += 8) { var bw = wallOf(appr.x0 + 1, zz); if (g[zz][appr.x0 + 1] === '.') dec(appr.x0 + 1, zz, 'Banner_1', { rot: Math.PI / 2, dx: -0.46, y: 1.48, fit: 0.9, hang: true, ns: true }); }
+
     // ---------- tidy up: anything you cannot walk to becomes rock; spawns must stand on reachable floor ----------
     var seen = new Uint8Array(Wd * Hd), q = [start.x + start.z * Wd]; seen[q[0]] = 1;
     var PASS = { '.': 1, ',': 1, '~': 1, 'D': 1, 'H': 1, 'S': 1, '@': 1 };
@@ -355,5 +436,6 @@
       for (var e = 0; e < extra && list.length > 3; e++) { var a = pick(list), b = pick(list); if (a !== b) link(center(a), center(b)); }
     }
     var map = g.map(function (row) { return row.join(''); });
-    return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start, hoods: zones, stairs: stairs, lost: lost };
+    for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
+    return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start, hoods: zones, stairs: stairs, lost: lost, decor: decor, dname: dname };
   }

@@ -129,7 +129,7 @@
     blvd:   { name: 'Boulevard', floor: [0x8c8577, 0x958e80, 0x837c6e], wall: 0x9a8f7c }
   };
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
-  var SOLID = { 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
+  var SOLID = { 'o': 1, 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
   function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z); }
   function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P' || c === 'H'; }
 
@@ -324,7 +324,8 @@
     var wet = rid === 'water' || c === '~', fid = c === '~' ? 'water' : rid;
     var ft = floorTex(fid, fid === 'hall' ? ((x + z) % 2) + 2 * Math.floor(r * 2) : v);
     if (wet && waterTex.indexOf(ft) < 0) { ft.wrapS = ft.wrapT = THREE.RepeatWrapping; waterTex.push(ft); }
-    box(0.995, 0.1, 0.995, ROOMS[fid].floor[0], x, wet ? -0.09 : -0.05, z, x, z, { tex: ft, noShadow: true });
+    floorQuad(ft, x, wet ? -0.04 : 0, z);
+    var dl = LEVEL.decor[x + ',' + z]; if (dl) dl.forEach(function (d) { if (d.m === '#rug') { box(d.w, 0.02, d.d, d.col, x + (d.w % 2 ? 0 : 0.5), 0.004, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', seed: 7, noShadow: true }); box(d.w + 0.12, 0.012, d.d + 0.12, 0xc9a227, x + (d.w % 2 ? 0 : 0.5), 0.0, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', noShadow: true }); } });
     if (c === 'D') {
       var horiz = ch(x - 1, z) === '#';
       [-0.44, 0.44].forEach(function (o) { box(0.16, 1.5, 0.16, 0x4a3420, x + (horiz ? o : 0), 0.75, z + (horiz ? 0 : o), x, z, { fade: true, kind: 'wood' });
@@ -347,7 +348,7 @@
       box(0.9, 1.25, 0.06, 0x5a6a72, x, 0.625, z - 0.42, x, z, { kind: 'metal' }); box(0.06, 1.25, 0.86, 0x5a6a72, x - 0.42, 0.625, z, x, z, { kind: 'metal' }); box(0.06, 1.25, 0.86, 0x5a6a72, x + 0.42, 0.625, z, x, z, { kind: 'metal' });
       box(0.8, 1.1, 0.04, 0x6f8088, x + 0.02, 0.6, z + 0.4, x, z, { kind: 'metal', fade: true }); box(0.3, 0.16, 0.02, 0x3df2e0, x, 1.32, z + 0.43, x, z, { glow: true });
       box(0.22, 0.3, 0.02, 0xd8e8f0, x - 0.25, 0.95, z + 0.43, x, z, { kind: 'metal' });
-    } else if ('TWUbhcqkgv'.indexOf(c) >= 0) {
+    } else if ('TWUbhcqkgvo'.indexOf(c) >= 0) {
       if (!propsOn()) box(0.5, 0.5, 0.5, 0x6b5a44, x, 0.25, z, x, z, { kind: 'wood' });
     } else if (c === 'F') { // free food: a catering table with a green marker
       if (!propsOn()) { box(0.9, 0.06, 0.6, 0x8a6a44, x, 0.45, z, x, z, { kind: 'wood' }); box(0.5, 0.12, 0.3, 0xd09040, x, 0.54, z, x, z, { kind: 'cloth' }); }
@@ -405,10 +406,39 @@
   var CHUNK = 8, CH_R = 15, chunks = {}, curChunk = null, chunkAt = '';
   var BRAZ = []; for (var bz = 0; bz < H; bz++) for (var bx = 0; bx < W; bx++) if (MAP[bz].charAt(bx) === 'B') BRAZ.push({ x: bx, z: bz });
   for (var fl = 0; fl < 4; fl++) { var plx = new THREE.PointLight(0xff9a40, 0, 5.5, 1.4); scene.add(plx); fireLights.push({ l: plx, ph: fl * 2.3, on: false }); }
+  // floors are merged: one mesh per floor texture per chunk, fogged tile by tile through vertex colours
+  var curFloor = null;
+  function floorQuad(tx, x, y, z) { if (!curFloor) return; var k = tx.uuid; (curFloor[k] || (curFloor[k] = { tex: tx, cells: [] })).cells.push([x, y, z]); }
+  function buildFloors(list) {
+    Object.keys(curFloor).forEach(function (k) {
+      var b = curFloor[k], n = b.cells.length, pos = new Float32Array(n * 12), uv = new Float32Array(n * 8), col = new Float32Array(n * 12), nor = new Float32Array(n * 12), idx = [];
+      b.cells.forEach(function (c, i) {
+        var x = c[0], y = c[1], z = c[2], h = 0.4975, P4 = [[x - h, z - h], [x - h, z + h], [x + h, z + h], [x + h, z - h]], U4 = [[0, 1], [0, 0], [1, 0], [1, 1]];
+        for (var v = 0; v < 4; v++) { pos.set([P4[v][0], y, P4[v][1]], i * 12 + v * 3); nor.set([0, 1, 0], i * 12 + v * 3); uv.set(U4[v], i * 8 + v * 2); }
+        idx.push(i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3);
+      });
+      var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setIndex(idx); geo.userData.own = true;
+      var mat = new THREE.MeshLambertMaterial({ map: b.tex, vertexColors: true }), mesh = new THREE.Mesh(geo, mat);
+      mesh.receiveShadow = true; mesh.castShadow = false; mesh.frustumCulled = false; scene.add(mesh);
+      list.push({ mesh: mesh, x: b.cells[0][0], z: b.cells[0][2], floor: b.cells, base: WHITE });
+    });
+  }
+  // colour every cell of a merged floor for the fog: black when unexplored, dim when remembered, lit when in sight
+  function floorFog(t, R, dark) {
+    var col = t.mesh.geometry.attributes.color, a = col.array;
+    for (var i = 0; i < t.floor.length; i++) {
+      var c = t.floor[i], key = c[0] + ',' + c[2], d2 = visNow[key], r = 0, gg = 0, bb = 0;
+      if (d2 !== undefined) { var b = Math.max(0.4, 1.1 - d2 / (R + 1.5)); if (dark) { r = 0.62 * b; gg = 0.78 * b; bb = 1.15 * b; } else r = gg = bb = b; }
+      else if (tileState[c[2] * W + c[0]]) r = gg = bb = 0.17;
+      for (var v = 0; v < 4; v++) { a[i * 12 + v * 3] = r; a[i * 12 + v * 3 + 1] = gg; a[i * 12 + v * 3 + 2] = bb; }
+    }
+    col.needsUpdate = true;
+  }
   function buildChunk(cx, cz) {
-    var list = []; curChunk = list;
+    var list = []; curChunk = list; curFloor = {};
     for (var z = cz * CHUNK; z < Math.min(H, (cz + 1) * CHUNK); z++) for (var x = cx * CHUNK; x < Math.min(W, (cx + 1) * CHUNK); x++) { buildTile(x, z); if (typeof buildTileProps === 'function') buildTileProps(x, z); }
-    curChunk = null; chunks[cx + ',' + cz] = list;
+    buildFloors(list); curFloor = null; curChunk = null; chunks[cx + ',' + cz] = list;
   }
   function unloadChunk(key) {
     var list = chunks[key]; if (!list) return; delete chunks[key];

@@ -49,7 +49,7 @@
   }
   var visNow = {}, tmp = new THREE.Color();
   var FOG = { total: 0, seen: 0 };
-  var LIT = { bazaar: 6, arena: 6, blvd: 4, studio: 3, office: 2, garden: 2 }; // well-lit places let you see farther
+  var LIT = { bazaar: 4, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1 }; // well-lit places let you see farther
   function refreshFog() {
     streamChunks();
     var S = SIGHTS[sightI], here = roomInfo(P.x, P.z), R = S.r + ((here && LIT[here.theme]) || 0); visNow = {};
@@ -61,7 +61,8 @@
     if (!FOG.total) { for (var i = 0; i < W * H; i++) if (MAP[(i / W) | 0].charAt(i % W) !== '#') { FOG.total++; if (tileState[i]) FOG.seen++; } }
     document.getElementById('explored').textContent = 'Explored ' + (Math.round(1000 * FOG.seen / FOG.total) / 10) + '%';
     for (var j = 0; j < tiles.length; j++) {
-      var t = tiles[j], key = t.x + ',' + t.z, d2 = visNow[key], explored = tileState[t.z * W + t.x];
+      var t = tiles[j]; if (t.floor) { floorFog(t, R, S.dark); continue; }
+      var key = t.x + ',' + t.z, d2 = visNow[key], explored = tileState[t.z * W + t.x];
       var ax = t.x - P.x, az = t.z - P.z, sum = ax * CAMV.cx + az * CAMV.cz, dif = Math.abs(ax * CAMV.cz - az * CAMV.cx), cut = sum >= 1 && sum <= 8 && dif <= 5;
       if (d2 === undefined) {
         t.mesh.visible = !!explored && !t.mob && !(t.glow && t.hang);
@@ -112,8 +113,13 @@
     var v = sys > 2 ? 'down' : (sys < -2 ? 'up' : ''), h = sxs > 2 ? 'right' : (sxs < -2 ? 'left' : '');
     return n < 2 ? 'You are standing next to it.' : 'The stairwell is ' + n + ' tiles away, toward the ' + ((v + ' ' + h).trim() || 'middle') + ' of your screen.';
   }
-  var NAMES = { F: 'Free food', Y: 'Tree', X: 'Bathroom', H: 'Wall', T: 'Table', W: 'Weapon rack', U: 'Training dummy', b: 'Sack', h: 'Shelf', c: 'Candle stand', q: 'Cauldron', k: 'Book stand', g: 'Cage', v: 'Vase', C: 'Loot box (Bronze)', M: 'Cellar Grub, level 1', B: 'Brazier', P: 'Pillar', S: 'Stairwell', D: 'Doorway', K: 'Crate', R: 'Barrel', '#': 'Wall', area: 'Your surroundings' };
+  function nameOf(t) { return t.c === 'o' ? (LEVEL.dname[t.key] || 'Furniture') : NAMES[t.c]; }
+  var NAMES = { o: 'Furniture', F: 'Free food', Y: 'Tree', X: 'Bathroom', H: 'Wall', T: 'Table', W: 'Weapon rack', U: 'Training dummy', b: 'Sack', h: 'Shelf', c: 'Candle stand', q: 'Cauldron', k: 'Book stand', g: 'Cage', v: 'Vase', C: 'Loot box (Bronze)', M: 'Cellar Grub, level 1', B: 'Brazier', P: 'Pillar', S: 'Stairwell', D: 'Doorway', K: 'Crate', R: 'Barrel', '#': 'Wall', area: 'Your surroundings' };
   var ACTS = {
+    o: [
+      { label: 'Search it', stat: 'INT', skill: ['Investigation', 1], dc: 11, flag: 'loot', win: 'Tucked behind it, something the last crawler missed.', lose: 'Dust, a button, and a note that just says "no".' },
+      { label: 'Move it', stat: 'STR', dc: 14, win: 'It shifts an inch. Nothing behind it but more floor.', lose: 'It will not budge. It has seen crawlers come and go.' }
+    ],
     F: [
       { label: 'Eat', auto: 'eat' },
       { label: 'Examine', text: 'A catering table, courtesy of the sponsors. Sandwiches, fruit, something in a pot. It heals you. Eating is free; loitering is filmed.' },
@@ -197,7 +203,7 @@
   function findTarget() {
     var fx = Math.sin(hero.rotation.y), fz = Math.cos(hero.rotation.y);
     var ax = Math.round(P.px + fx * 0.85), az = Math.round(P.pz + fz * 0.85), c = ch(ax, az);
-    var ne = null; CB.enemies.forEach(function (q) { if ((!q.dead || !q.looted) && cheb(q.x, q.z, P.x, P.z) <= 1 && (!ne || (q.x === ax && q.z === az))) ne = q; });
+    var ne = null; CB.enemies.forEach(function (q) { if (!q.eaten && (!q.dead || !q.looted) && cheb(q.x, q.z, P.x, P.z) <= 1 && (!ne || (q.x === ax && q.z === az))) ne = q; });
     if (ne && visNow[ne.x + ',' + ne.z] !== undefined) return { c: 'E', e: ne, key: 'e' + CB.enemies.indexOf(ne), x: ne.x, z: ne.z };
     if (visNow[ax + ',' + az] !== undefined && ACTS[c]) return { c: c, key: ax + ',' + az, x: ax, z: az };
     if (ch(P.x, P.z) === 'D') return { c: 'D', key: P.x + ',' + P.z, x: P.x, z: P.z };
@@ -207,7 +213,7 @@
   function openMenu(t0) {
     if (gearOpen) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
     var t = t0 || findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
-    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : NAMES[t.c]; menuEl.appendChild(hd);
+    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : nameOf(t); menuEl.appendChild(hd);
     (t.e ? enemyActs(t.e) : ACTS[t.c]).forEach(function (a, i) {
       var b = document.createElement('button'); b.type = 'button';
       var spent = a.flag && done[t.key + a.flag] && a.flag !== 'open' && a.flag !== 'loot';

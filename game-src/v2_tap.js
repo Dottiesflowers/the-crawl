@@ -72,10 +72,10 @@
     if (!path.length) { face(); return; }
     P.path = path; P.onArrive = face;
   }
-  function tapName(t) { return t.e ? t.e.name + (t.e.dead ? ' · dead' : t.e.npc ? '' : ' · ' + healthState(t.e)[0]) : (NAMES[t.c] || 'Something'); }
+  function tapName(t) { return t.e ? t.e.name + (t.e.dead ? ' · dead' : t.e.npc ? '' : ' · ' + healthState(t.e)[0]) : (nameOf(t) || 'Something'); }
   function tapMenu(t) {
     var far = cheb(P.x, P.z, t.x, t.z) > 1, opts = [];
-    var exam = t.e ? (t.e.dead ? 'Very dead. ' + (t.e.lootStore && !t.e.lootStore.items.length && !t.e.lootStore.gold ? 'Already picked clean.' : 'Its pockets look promising.') : examineText(t.e)) : ((ACTS[t.c] || []).filter(function (a) { return a.label === 'Examine'; })[0] || {}).text || ('A ' + (NAMES[t.c] || 'thing').toLowerCase() + '.');
+    var exam = t.e ? (t.e.dead ? 'Very dead. ' + (t.e.lootStore && !t.e.lootStore.items.length && !t.e.lootStore.gold ? 'Already picked clean.' : 'Its pockets look promising.') : examineText(t.e)) : ((ACTS[t.c] || []).filter(function (a) { return a.label === 'Examine'; })[0] || {}).text || (t.c === 'o' ? 'A ' + (nameOf(t) || 'thing').toLowerCase() + '. Worth a closer look; people hide things in furniture.' : 'A ' + (NAMES[t.c] || 'thing').toLowerCase() + '.');
     opts.push({ label: 'Examine' + (far ? ' from here' : ''), fn: function () { say(tapName(t), exam, 5000); } });
     if (t.e && !t.e.dead) {
       if (cheb(P.x, P.z, t.x, t.z) <= 6) opts.push({ label: 'Talk' + (far ? ' (call out)' : ''), fn: function () { talkOpen(t.e); } });

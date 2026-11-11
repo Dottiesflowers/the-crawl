@@ -4,12 +4,12 @@
   // arrive (or if they fail) the hand-made blocks stay.
   var PROPS = { ready: false, lib: {}, box: {}, mats: {} };
   var PROPBLOCK = {};
-  var PTEX = [[/Bark_NormalTree/, 'n_bark.jpg'], [/Bark_Twisted|Bark_Dead/, 'n_bark2.jpg'], [/Leaves_NormalTree/, 'n_treeleaves.png'], [/Leaves_TwistedTree/, 'n_twleaves.png'], [/Leaves_Pine/, 'n_pine.png'], [/^Flowers/, 'n_flowers.png'], [/Trim_Furniture/, 'trim_furniture.jpg'], [/Trim_Metal/, 'trim_metal.jpg'], [/Trim_Props/, 'trim_props.jpg'], [/Trim_Cloth|Banner/, 'trim_cloth.jpg'],
+  var PTEX = [[/WoodTrim/, 'v_woodtrim.jpg'], [/MI_Vine/, 'v_vine.png'], [/MetalOrnaments/, 'trim_metal.jpg'], [/Bark_NormalTree/, 'n_bark.jpg'], [/Bark_Twisted|Bark_Dead/, 'n_bark2.jpg'], [/Leaves_NormalTree/, 'n_treeleaves.png'], [/Leaves_TwistedTree/, 'n_twleaves.png'], [/Leaves_Pine/, 'n_pine.png'], [/^Flowers/, 'n_flowers.png'], [/Trim_Furniture/, 'trim_furniture.jpg'], [/Trim_Metal/, 'trim_metal.jpg'], [/Trim_Props/, 'trim_props.jpg'], [/Trim_Cloth|Banner/, 'trim_cloth.jpg'],
     [/Page/, 'page.jpg'], [/Mushrooms/, 'n_mushrooms.jpg'], [/Rocks|Bark/, 'n_rocks.jpg'], [/Grass/, 'n_grass.jpg'], [/Leaves|Flowers/, 'n_leaves.png']];
   function propMat(name, fade) {
     var file = 'trim_furniture.jpg', leafy = /Leaves|Flowers/.test(name);
     PTEX.some(function (p) { if (p[0].test(name)) { file = p[1]; return true; } return false; });
-    var m = new THREE.MeshLambertMaterial({ map: kitTex(file), side: THREE.DoubleSide, alphaTest: leafy ? 0.35 : 0, transparent: !!fade });
+    var m = new THREE.MeshLambertMaterial({ map: kitTex(file), side: THREE.DoubleSide, alphaTest: leafy || /Vine/.test(name) ? 0.35 : 0, transparent: !!fade });
     return m;
   }
   function propLoad() {
@@ -20,8 +20,9 @@
         L.parse(u.buffer, KDIR, function (g) {
           g.scene.traverse(function (o) { // de-quantize positions so bounds and placement work in plain numbers
             if (!o.isMesh) return; var p = o.geometry.attributes.position;
-            if (p.normalized) { var a = p.array, k = a instanceof Int16Array ? 1 / 32767 : a instanceof Uint16Array ? 1 / 65535 : a instanceof Int8Array ? 1 / 127 : 1 / 255, f = new Float32Array(a.length);
-              for (var i = 0; i < a.length; i++) f[i] = a[i] * k; o.geometry.setAttribute('position', new THREE.BufferAttribute(f, 3)); }
+            if (p.normalized || p.isInterleavedBufferAttribute) { // read through the accessor so interleaved (padded) data comes out right
+              var a = p.isInterleavedBufferAttribute ? p.data.array : p.array, k = !p.normalized ? 1 : a instanceof Int16Array ? 1 / 32767 : a instanceof Uint16Array ? 1 / 65535 : a instanceof Int8Array ? 1 / 127 : 1 / 255, f = new Float32Array(p.count * 3);
+              for (var i = 0; i < p.count; i++) { f[i * 3] = p.getX(i) * k; f[i * 3 + 1] = p.getY(i) * k; f[i * 3 + 2] = p.getZ(i) * k; } o.geometry.setAttribute('position', new THREE.BufferAttribute(f, 3)); }
           });
           g.scene.updateMatrixWorld(true);
           g.scene.children.forEach(function (n) { if (n.name.indexOf('P_') === 0) { var key = n.name.slice(2); PROPS.lib[key] = n; PROPS.box[key] = new THREE.Box3().setFromObject(n); } });
@@ -69,6 +70,8 @@
   function buildTileProps(x, z) {
     if (!propsOn()) return;
     var c = ch(x, z), r = hash(x, z), r2 = hash(x + 31, z + 17), th = roomAt(x, z);
+    var dl = LEVEL.decor[x + ',' + z]; // set dressing from the generator
+    if (dl) dl.forEach(function (d) { if (d.m.charAt(0) === '#') return; place(d.m, x + (d.dx || 0), z + (d.dz || 0), { fit: d.fit, h: d.h, s: d.s, rot: d.rot || 0, y: d.y, tx: x, tz: z, hang: d.hang, noShadow: d.ns || !!d.y }); });
     if (c === 'C') place('Chest_Wood', x, z, { fit: 0.78, rot: 0, lid: true });
     else if (c === 'K') place(r > 0.5 ? 'Crate_Wooden' : 'Crate_Metal', x, z, { fit: 0.82, rot: (r2 - 0.5) * 0.5 });
     else if (c === 'R') place(r > 0.6 ? 'Barrel_Apples' : 'Barrel', x, z, { fit: 0.62, rot: r * 6 });

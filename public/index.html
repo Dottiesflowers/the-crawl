@@ -169,7 +169,7 @@
     }
     var taken = {};
     function spawnIn(r, fam, o) { var p = openSpot(r); if (!p) return; var sp = { kind: fam, x: p[0], z: p[1], room: r.id }; for (var k in o) sp[k] = o[k]; spawns.push(sp); }
-    function tierRoll(z) { var q = rnd(); return q < (z.elite || 0.12) ? 3 : q < 0.5 ? 2 : 1; }
+    function tierRoll(z) { var q = rnd(); return q < (z.elite || 0.08) ? 3 : q < 0.38 ? 2 : 1; } // mostly grunts: a level 1 crawler should beat one alone
     // a straight or L-shaped passage of a given width
     function passage(ax, az, bx, bz, rid, floor, w) {
       var pts = rnd() < 0.5 ? [[ax, az], [bx, az], [bx, bz]] : [[ax, az], [ax, bz], [bx, bz]], h = Math.floor((w - 1) / 2);
@@ -291,16 +291,13 @@
     pc.rooms.forEach(function (r) {
       if (r === green) return; r.name = PCN[pn++] || 'Back Office';
       if (r.name === 'Stage 3') { scatter(r, 'U', 3); scatter(r, 'W', 1); r.line = 'A practice stage with training dummies. Hit them. They are paid to take it.'; }
-      else if (r.name === 'Prop Storage') { scatter(r, 'C', 1); scatter(r, 'KKR', 4); }
-      else if (r.name === 'Wardrobe Department') scatter(r, 'hhb', 3);
-      else if (r.name === 'Orientation Theater') { for (var zz = r.z0 + 2; zz < r.z1; zz += 2) for (var xx = r.x0 + 2; xx < r.x1 - 1; xx += 3) if (!nearDoor(xx, zz)) put(xx, zz, 'T'); }
-      else scatter(r, 'TKhv', ri(1, 3));
+      else if (r.name === 'Prop Storage') scatter(r, 'C', 1);
       if (r.name === 'Holding Pen B' || r.name === 'Loading Dock') { var n = r.name === 'Loading Dock' ? 2 : 1; for (var m = 0; m < n; m++) spawnIn(r, 'puglin', { tier: 1, name: 'Escaped reject' }); r.line = 'Something got out of its holding pen. It is small, angry and in your way. Practice on it.'; }
     });
     for (var k = 0; k < 6; k++) { var hp = [pc.hx0 + ri(0, 3), PCZ.z0 + ri(3, PCZ.z1 - PCZ.z0 - 3)]; if (g[hp[1]][hp[0]] === '.') put(hp[0], hp[1], 'c'); }
 
     // ================= 2. The Puglin Warrens (south middle): caves =================
-    var WRZ = zone({ name: 'The Puglin Warrens', theme: 'moss', fam: 'puglin', line: 'Puglin territory. Tight, twisting tunnels, moss, mud and the smell of snacks gone wrong.', elite: 0.14 }, 1, 2);
+    var WRZ = zone({ name: 'The Puglin Warrens', theme: 'moss', fam: 'puglin', line: 'Puglin territory. Tight, twisting tunnels, moss, mud and the smell of snacks gone wrong.', elite: 0.07 }, 1, 2);
     var wtun = room({ name: 'Warren Tunnels', type: 'corridor', x0: WRZ.x0, z0: WRZ.z0, x1: WRZ.x1, z1: WRZ.z1 }, WRZ);
     var WN = ['Gnawing Pit', 'Moss Den', 'Bone Garden', 'Snack Larder', 'Mud Nursery', 'Sentry Nook', 'Rag Pile', 'Root Cellar', 'The Drip', 'Gristle Hall', 'Puddle Court', 'The Burrows'];
     var caves = [], wboss = room({ name: 'Grik\'s Throne Room', type: 'boss', x0: 112, z0: 218, x1: 132, z1: 232, line: 'A cavern full of stolen snack wrappers and one very large puglin on a throne of bottle caps.' }, WRZ);
@@ -315,7 +312,7 @@
     connectAll(caves, function (a, b) { drunk(a[0], a[1], b[0], b[1], wtun.id, ','); }, 3);
     put(wboss.x0 + 4, wboss.z0 + 3, 'B'); put(wboss.x1 - 4, wboss.z0 + 3, 'B'); put(122, 230, 'C');
     spawnIn(wboss, 'puglin', { boss: true, sub: 'grik' }); spawnIn(wboss, 'puglin', { sub: 'puglin_chief' }); spawnIn(wboss, 'puglin', { tier: 2 });
-    caves.forEach(function (c) { if (c === wboss) return; scatter(c, 'bbRKv', ri(1, 3)); if (rnd() < 0.3) scatter(c, 'C', 1); if (rnd() < 0.35) scatter(c, 'B', 1); var n = ri(1, 3); for (var m = 0; m < n; m++) spawnIn(c, 'puglin', { tier: tierRoll(WRZ) }); });
+    caves.forEach(function (c) { if (c === wboss) return; if (rnd() < 0.3) scatter(c, 'C', 1); if (rnd() < 0.35) scatter(c, 'B', 1); var n = ri(1, 3); for (var m = 0; m < n; m++) spawnIn(c, 'puglin', { tier: tierRoll(WRZ) }); });
 
     // ================= 3. Imp Union Hall (southeast corner): offices =================
     var UHZ = zone({ name: 'Imp Union Hall', theme: 'office', fam: 'imp', line: 'Imp territory. Cubicles, break rooms and endless bureaucracy. Every door has a sign-in sheet.', elite: 0.16 }, 2, 2);
@@ -325,12 +322,10 @@
     uboss.name = 'The Steward\'s Office'; uboss.type = 'boss'; uboss.line = 'A corner office with a view of more office. The Shop Steward has never lost a negotiation or a fistfight.';
     uh.rooms.forEach(function (r) {
       if (r === uboss) return; r.name = UN[un++] || 'Office';
-      if (r.name === 'Cubicle Farm' || r.name === 'Payroll' || r.name === 'Shop Floor') { for (var zz = r.z0 + 1; zz < r.z1; zz += 3) for (var xx = r.x0 + 1; xx < r.x1; xx += 2) if (!nearDoor(xx, zz)) put(xx, zz, 'T'); }
-      else scatter(r, 'ThhKR', ri(1, 4));
       if (rnd() < 0.25) scatter(r, 'C', 1);
       if (rnd() < 0.62) { var n = ri(1, 2); for (var m = 0; m < n; m++) spawnIn(r, 'imp', { tier: tierRoll(UHZ) }); }
     });
-    scatter(uboss, 'hhT', 4); put(uboss.x1 - 1, uboss.z1 - 1, 'C');
+    put(uboss.x1 - 1, uboss.z1 - 1, 'C');
     spawnIn(uboss, 'imp', { boss: true, sub: 'steward' }); spawnIn(uboss, 'imp', { sub: 'imp_foreman' }); spawnIn(uboss, 'imp', { tier: 2 });
 
     // ================= 4. The Flooded Archive (west middle): stacks in water =================
@@ -440,6 +435,13 @@
     spawnIn(troph, 'imp', { tier: 2 });
     spawns.push({ kind: 'imp', boss: true, sub: 'gatekeeper', x: 200, z: 20, room: gh.id }); spawns.push({ kind: 'imp', sub: 'imp_foreman', x: 196, z: 22, room: gh.id }); spawns.push({ kind: 'puglin', sub: 'puglin_chief', x: 205, z: 22, room: gh.id });
 
+    // ---------- shrubs: little scavengers spread across the floor ----------
+    [[PCZ, 3], [WRZ, 6], [UHZ, 4], [ARZ, 4], [GZ, 8], [SGZ, 1]].forEach(function (zn) {
+      var Z = zn[0], list = Z.rooms.filter(function (r) { return r.type === 'room' || r.type === 'corridor'; });
+      for (var k = 0; k < zn[1]; k++) spawnIn(pick(list), 'shrub', { sub: 'shrub1' });
+    });
+    [westway, eastway, upper, lower].forEach(function (b) { for (var k = 0; k < 2; k++) for (var t = 0; t < 30; t++) { var xx = ri(b.x0, b.x1), zz = ri(b.z0, b.z1); if (g[zz][xx] === '.' && !taken[xx + ',' + zz]) { taken[xx + ',' + zz] = 1; spawns.push({ kind: 'shrub', sub: 'shrub1', x: xx, z: zz, room: b.id }); break; } } });
+
     // ---------- gates: zones open onto the boulevards ----------
     gate(PCZ, 'E', pc.hz0 + 1, 'Processing Exit'); gate(PCZ, 'N', pc.hx0 + 1, 'Processing North Doors');
     gate(WRZ, 'W', 205, 'Warren Mouth'); gate(WRZ, 'N', 120, 'Warren Burrow'); gate(WRZ, 'E', 200, 'Warren Back Door');
@@ -463,6 +465,85 @@
       carveRect(hr2); put(okS[2], okS[3], 'H', hr2.id); var hc = center(hr2); put(hc[0], hc[1], 'C'); hidden++;
     }
 
+
+    // ================= set dressing: furniture against walls, tables with things on them, rugs, banners =================
+    // Each room gets a style from what it is (an office, a break room, a cave, a market). Blocking furniture becomes
+    // an 'o' tile with its own name; everything else is decoration drawn on top of the floor.
+    var decor = {}, dname = {};
+    function dec(x, z, m, o) { var d = { m: m }; for (var k in o) d[k] = o[k]; (decor[x + ',' + z] || (decor[x + ',' + z] = [])).push(d); }
+    function freeT(x, z, r) { return inb(x, z) && (!r || reg[z][x] === r.id) && (g[z][x] === '.' || g[z][x] === ',') && !nearDoor(x, z) && !taken[x + ',' + z]; }
+    function obj(x, z, m, o, name) { if (!freeT(x, z)) return false; g[z][x] = 'o'; dname[x + ',' + z] = name || m.replace(/_/g, ' ').replace(/ ?\d+$/, ''); dec(x, z, m, o); return true; }
+    var D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    function wallOf(x, z) { for (var k = 0; k < 4; k++) if (g[z + D4[k][1]] && g[z + D4[k][1]][x + D4[k][0]] === '#') return D4[k]; return null; }
+    function hug(w, o) { var d = { rot: Math.atan2(-w[0], -w[1]), dx: w[0] * 0.24, dz: w[1] * 0.24 }; for (var k in o) d[k] = o[k]; return d; } // back to the wall, facing the room
+    function wallSpots(r) { var out = []; for (var zz = r.z0; zz <= r.z1; zz++) for (var xx = r.x0; xx <= r.x1; xx++) if (freeT(xx, zz, r) && wallOf(xx, zz)) out.push([xx, zz]);
+      for (var i = out.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)), t = out[i]; out[i] = out[j]; out[j] = t; } return out; }
+    function alongWall(r, n, fn) { var sp = wallSpots(r), used = 0; for (var i = 0; i < sp.length && used < n; i++) { var w = wallOf(sp[i][0], sp[i][1]); if (freeT(sp[i][0], sp[i][1], r) && fn(sp[i][0], sp[i][1], w)) used++; } return used; }
+    var TOP = 0.36; // the top of a big table
+    function onTable(x, z, items) { items.forEach(function (it, k) { var a = k / items.length * Math.PI * 2 + rnd(); dec(x, z, it, { y: TOP, dx: Math.cos(a) * 0.28, dz: Math.sin(a) * 0.16, fit: it === 'CandleStick_Triple' ? 0.32 : 0.2, rot: rnd() * 6 }); }); }
+    function rug(r, col) { var w = Math.min(5, r.x1 - r.x0 - 2), d = Math.min(4, r.z1 - r.z0 - 2), c = center(r); if (w < 2 || d < 2) return; dec(c[0], c[1], '#rug', { w: w, d: d, col: col }); }
+    function diningSet(x, z, r, food) {
+      if (!freeT(x, z, r) || !freeT(x - 1, z, r) || !freeT(x + 1, z, r)) return false;
+      obj(x, z, 'Table_Large', { fit: 1.25, rot: 0 }, 'Table');
+      onTable(x, z, food ? ['Table_Plate', 'Mug', 'Chalice', 'CandleStick_Triple', 'Bottle_1'] : ['Mug', 'Book_Stack_1', 'Scroll_2', 'CandleStick_Triple']);
+      dec(x, z - 1, rnd() < 0.5 ? 'Chair_1' : 'Stool', { fit: 0.42, rot: 0, dz: 0.2 }); dec(x, z + 1, rnd() < 0.5 ? 'Chair_1' : 'Stool', { fit: 0.42, rot: Math.PI, dz: -0.2 });
+      if (rnd() < 0.6) dec(x - 1, z, 'Stool', { fit: 0.36, rot: Math.PI / 2 }); if (rnd() < 0.6) dec(x + 1, z, 'Stool', { fit: 0.36, rot: -Math.PI / 2 });
+      return true;
+    }
+    function desk(x, z, r) { if (!freeT(x, z, r) || !freeT(x, z + 1, r)) return false; obj(x, z, 'Table_Large', { fit: 1.0, rot: 0 }, 'Desk'); onTable(x, z, [pick(['Book_Stack_1', 'Book_Stack_2', 'Scroll_1', 'Scroll_2']), pick(['Mug', 'Candle_1', 'BookGroup_Small_1'])]); dec(x, z + 1, 'Chair_1', { fit: 0.42, rot: Math.PI, dz: -0.25 }); return true; }
+    function shelfUnit(x, z, w, kind) { var m = pick(kind || ['Bookcase_2', 'Shelf_Simple', 'Cabinet', 'Shelf_Small_Bottles']); return obj(x, z, m, hug(w, { fit: m === 'Cabinet' ? 0.8 : 0.95 }), m === 'Bookcase_2' ? 'Bookcase' : m === 'Cabinet' ? 'Cabinet' : 'Shelf'); }
+    function banner(x, z, w, m) { dec(x, z, m || pick(['Banner_1', 'Banner_2']), { rot: Math.atan2(-w[0], -w[1]), dx: w[0] * 0.46, dz: w[1] * 0.46, y: 1.48, fit: 0.9, hang: true, ns: true }); }
+    function stack(x, z, w) { var m = pick(['Crate_Wooden', 'Crate_Wooden', 'Crate_Metal', 'Barrel', 'Barrel_Apples', 'FarmCrate_Carrot']); if (!obj(x, z, m, hug(w, { fit: /Barrel/.test(m) ? 0.62 : 0.8, rot: rnd() * 0.4 + Math.atan2(-w[0], -w[1]) }), /Barrel/.test(m) ? 'Barrel' : 'Crate')) return false;
+      if (/Crate_/.test(m) && rnd() < 0.5) dec(x, z, pick(['Crate_Wooden', 'Bag', 'Bucket_Metal']), { y: 0.62, fit: 0.5, rot: rnd() * 6, dx: w[0] * 0.24, dz: w[1] * 0.24 }); return true; }
+    var STYLE = {
+      office: function (r) { for (var zz = r.z0 + 1; zz < r.z1 - 1; zz += 3) for (var xx = r.x0 + 1; xx < r.x1; xx += 3) desk(xx, zz, r); alongWall(r, 3, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Shelf_Simple', 'Bookcase_2']); }); },
+      meeting: function (r) { var c = center(r); rug(r, 0x3a3f5a); for (var xx = c[0] - 1; xx <= c[0] + 1; xx++) if (freeT(xx, c[1], r)) { obj(xx, c[1], 'Table_Large', { fit: 1.1 }, 'Conference table'); onTable(xx, c[1], ['Scroll_1', 'Mug']); dec(xx, c[1] - 1, 'Chair_1', { fit: 0.42, dz: 0.25 }); dec(xx, c[1] + 1, 'Chair_1', { fit: 0.42, rot: Math.PI, dz: -0.25 }); } alongWall(r, 2, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Bookcase_2']); }); },
+      break: function (r) { var c = center(r); diningSet(c[0], c[1], r, true); alongWall(r, 2, function (x, z, w) { return shelfUnit(x, z, w, ['Shelf_Small_Bottles', 'Cabinet']); }); alongWall(r, 2, function (x, z, w) { return stack(x, z, w); }); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Bench'); }); },
+      lounge: function (r) { rug(r, 0x6a2a3a); alongWall(r, 3, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Couch'); }); alongWall(r, 2, function (x, z, w) { banner(x, z, w); return true; }); },
+      storage: function (r) { alongWall(r, Math.max(4, (r.x1 - r.x0 + r.z1 - r.z0) >> 1), function (x, z, w) { return rnd() < 0.75 ? stack(x, z, w) : shelfUnit(x, z, w, ['Shelf_Simple', 'Shelf_Small_Bottles']); }); },
+      workshop: function (r) { var c = center(r); obj(c[0], c[1], 'Workbench', { fit: 1.2 }, 'Workbench'); dec(c[0], c[1], 'Pickaxe_Bronze', { y: 0.5, fit: 0.4, rot: 1 }); alongWall(r, 2, function (x, z, w) { return obj(x, z, pick(['Workbench_Drawers', 'Peg_Rack', 'WeaponStand']), hug(w, { fit: 0.95 }), 'Workbench'); }); alongWall(r, 3, function (x, z, w) { return stack(x, z, w); }); },
+      bunk: function (r) { alongWall(r, 3, function (x, z, w) { if (!obj(x, z, 'Bed_Twin1', hug(w, { fit: 0.9 }), 'Bed')) return false; var sx = w[1] ? 1 : 0, sz = w[0] ? 1 : 0; if (freeT(x + sx, z + sz, r) && wallOf(x + sx, z + sz)) obj(x + sx, z + sz, 'Nightstand_Shelf', hug(w, { fit: 0.5 }), 'Nightstand'); return true; }); alongWall(r, 1, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet']); }); },
+      wardrobe: function (r) { alongWall(r, 5, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Cabinet', 'Shelf_Simple', 'Peg_Rack']); }); var c = center(r); obj(c[0], c[1], 'Bench', { fit: 1.0 }, 'Bench'); },
+      theater: function (r) { for (var zz = r.z0 + 3; zz < r.z1; zz += 2) for (var xx = r.x0 + 2; xx < r.x1 - 1; xx += 2) obj(xx, zz, 'Bench', { fit: 1.05, rot: Math.PI }, 'Seat'); obj(center(r)[0], r.z0 + 1, 'BookStand', { h: 1.0 }, 'Lectern'); },
+      cells: function (r) { alongWall(r, 4, function (x, z, w) { return obj(x, z, 'Cage_Small', hug(w, { fit: 0.75 }), 'Cage'); }); alongWall(r, 2, function (x, z, w) { dec(x, z, 'Bag', { fit: 0.45, rot: rnd() * 6 }); return true; }); },
+      cave: function (r) { alongWall(r, ri(2, 4), function (x, z, w) { var m = pick(['Vase_Rubble_Medium', 'Barrel', 'Bag', 'Bucket_Wooden_1', 'Rope_2', 'Crate_Wooden']); if (/Barrel|Crate/.test(m)) return stack(x, z, w); dec(x, z, m, { fit: 0.42, rot: rnd() * 6, dx: w[0] * 0.25, dz: w[1] * 0.25 }); return true; }); },
+      snack: function (r) { rug(r, 0x2a5a4a); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Bench'); }); },
+      trophy: function (r) { alongWall(r, 4, function (x, z, w) { banner(x, z, w); return true; }); rug(r, 0x5a1a1a); },
+      archive: function (r) { var c = center(r); if (freeT(c[0], r.z0 + 1, r)) obj(c[0], r.z0 + 1, 'BookStand', { h: 1.0 }, 'Reading stand'); dec(c[0] + 1, r.z0 + 1, 'CandleStick_Stand', { h: 1.0 }); alongWall(r, 3, function (x, z, w) { dec(x, z, pick(['Book_Stack_1', 'Book_Stack_2', 'BookGroup_Medium_1', 'Scroll_1']), { fit: 0.35, rot: rnd() * 6 }); return true; }); }
+    };
+    var BYNAME = { 'Intake': 'office', 'Contracts Office': 'office', 'Waiver Signing': 'office', 'Casting Office': 'meeting', 'Control Room': 'office', 'Makeup & Prosthetics': 'wardrobe', 'Wardrobe Department': 'wardrobe', 'Prop Storage': 'storage', 'Loading Dock': 'storage',
+      'Orientation Theater': 'theater', 'Medical (Closed)': 'bunk', 'Holding Pen B': 'cells', 'Craft Services Annex': 'break', 'Stage 3': 'lounge',
+      'Break Room': 'break', 'Water Cooler': 'break', 'Vending Hall': 'break', 'Night Shift Lounge': 'lounge', 'Seniority Lounge': 'lounge', 'Quiet Room': 'lounge', 'Wellness Room': 'lounge', 'Locker Room': 'wardrobe',
+      'Supply Closet': 'storage', 'Mailroom': 'storage', 'Copy Room': 'storage', 'Records': 'storage', 'Union Archive': 'storage', 'Strike Fund': 'storage', 'Picket Sign Shop': 'workshop', 'Shop Floor': 'workshop', 'Training Room': 'workshop',
+      'Conference Room B': 'meeting', 'Grievance Office': 'meeting', 'Dispute Office': 'meeting', 'Minutes Office': 'meeting', 'Snack Larder': 'storage', 'Mud Nursery': 'cells', 'The Trophy Room': 'trophy', 'Last Chance Lounge': 'snack', 'The Green Room': 'lounge', 'The Steward\'s Office': 'meeting' };
+    rooms.forEach(function (r) {
+      var st = BYNAME[r.name] || (r.type === 'safe' && r.theme === 'crypt' ? 'snack' : r.hood === WRZ.idx && r.type !== 'corridor' ? 'cave' : r.hood === UHZ.idx && r.type === 'room' ? 'office' : r.hood === PCZ.idx && r.type === 'room' ? 'office' : r.hood === ARZ.idx && r.type === 'room' ? 'archive' : null);
+      if (st && STYLE[st]) STYLE[st](r);
+    });
+    // the Underbazaar: proper market stalls with goods, carts, a wagon and benches round the fountain
+    for (zz = stalls.z0 + 1; zz <= stalls.z1 - 1; zz++) for (xx = stalls.x0; xx <= stalls.x1; xx++) if (g[zz][xx] === 'T') { g[zz][xx] = '.'; if (g[zz + 1] && 'bRKv'.indexOf(g[zz + 1][xx]) >= 0) g[zz + 1][xx] = '.'; }
+    for (zz = night.z0; zz <= night.z1; zz++) for (xx = night.x0; xx <= night.x1; xx++) if (g[zz][xx] === 'T') g[zz][xx] = '.';
+    for (zz = stalls.z0 + 2; zz <= stalls.z1 - 1; zz += 5) for (xx = stalls.x0 + 2; xx <= stalls.x1 - 3; xx += 4) if (freeT(xx, zz, null) && freeT(xx + 1, zz, null)) {
+      obj(xx, zz, 'Stall_Empty', { fit: 1.8, rot: 0, dx: 0.5 }, 'Market stall'); g[zz][xx + 1] = 'o'; dname[xx + ',' + zz] = dname[(xx + 1) + ',' + zz] = 'Market stall';
+      dec(xx, zz + 1, pick(['FarmCrate_Apple', 'FarmCrate_Carrot', 'Barrel_Apples']), { fit: 0.5, rot: rnd() * 0.5 }); if (rnd() < 0.6) dec(xx + 1, zz + 1, pick(['Bag', 'Pouch_Large', 'Vase_2', 'Bucket_Wooden_1']), { fit: 0.36, rot: rnd() * 6 });
+    }
+    for (zz = night.z0 + 2; zz <= night.z1 - 1; zz += 5) for (xx = night.x0 + 3; xx <= night.x1 - 4; xx += 5) if (freeT(xx, zz, null) && freeT(xx + 1, zz, null) && freeT(xx - 1, zz, null)) {
+      obj(xx, zz, 'Stall_Cart_Empty', { fit: 2.0, rot: 0, dx: -0.3 }, 'Cart stall'); g[zz][xx - 1] = 'o'; dname[(xx - 1) + ',' + zz] = 'Cart stall'; if (rnd() < 0.5) dec(xx + 1, zz, pick(['Cage_Small', 'Potion_2', 'SmallBottles_1']), { fit: 0.4 });
+    }
+    [[-6, 0, Math.PI / 2], [6, 0, -Math.PI / 2], [0, -6, 0], [0, 6, Math.PI]].forEach(function (o) { var x2 = bcx + o[0], z2 = bcz + o[1]; if (freeT(x2, z2, null)) obj(x2, z2, 'Bench', { fit: 1.0, rot: o[2] }, 'Bench'); });
+    if (freeT(bcx - 22, bcz + 4, null)) { obj(bcx - 22, bcz + 4, 'Prop_Wagon', { fit: 2.4, rot: 0.3 }, 'Wagon'); [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(function (o) { if (freeT(bcx - 22 + o[0], bcz + 4 + o[1], null)) { g[bcz + 4 + o[1]][bcx - 22 + o[0]] = 'o'; dname[(bcx - 22 + o[0]) + ',' + (bcz + 4 + o[1])] = 'Wagon'; } }); }
+    for (zz = craft.z0; zz <= craft.z1; zz++) if (freeT(craft.x0, zz, null) && (zz - craft.z0) % 3 !== 1) dec(craft.x0, zz, 'Prop_WoodenFence_Single', { fit: 1.0, rot: Math.PI / 2 });
+    // the gardens: fences round the picnic and the greenhouse, vines on the rock, benches in the clearings
+    glist.forEach(function (cl) {
+      if (cl.name === 'Picnic Lawn') { var c = center(cl); diningSet(c[0], c[1], cl, true); for (var xx = cl.x0; xx <= cl.x1; xx++) { if (freeT(xx, cl.z0, cl) && xx % 3) dec(xx, cl.z0, 'Prop_WoodenFence_Single', { fit: 1.0 }); if (freeT(xx, cl.z1, cl) && xx % 3) dec(xx, cl.z1, 'Prop_WoodenFence_Single', { fit: 1.0 }); } }
+      else if (cl.type === 'room' && cl.name !== 'The Old Greenhouse') { var c2 = center(cl); if (freeT(c2[0] + 2, c2[1], cl)) obj(c2[0] + 2, c2[1], 'Bench', { fit: 1.0, rot: -Math.PI / 2 }, 'Garden bench'); }
+    });
+    for (zz = GZ.z0; zz <= GZ.z1; zz++) for (xx = GZ.x0; xx <= GZ.x1; xx++) { if (g[zz][xx] !== ',' || rnd() > 0.06) continue; var w = wallOf(xx, zz); if (w) dec(xx, zz, pick(['Prop_Vine2', 'Prop_Vine5']), { rot: Math.atan2(-w[0], -w[1]), dx: w[0] * 0.48, dz: w[1] * 0.48, y: 1.4, fit: 0.8, hang: true, ns: true }); }
+    // banners down the boulevards and round the Arena; banners and benches in the Approach
+    [westway, eastway, upper, lower, gateCon].forEach(function (b) { var n = 0; for (var zz = b.z0; zz <= b.z1; zz++) for (var xx = b.x0; xx <= b.x1; xx++) { var w = wallOf(xx, zz); if (!w || g[zz][xx] !== '.' || ((xx + zz) % 11)) continue; banner(xx, zz, w); n++; } });
+    for (zz = afield.z0; zz <= afield.z1; zz++) for (xx = afield.x0; xx <= afield.x1; xx++) { var w2 = wallOf(xx, zz); if (w2 && g[zz][xx] === '.' && (xx * 7 + zz) % 9 === 0) banner(xx, zz, w2, 'Banner_2'); }
+    for (zz = appr.z0 + 4; zz < appr.z1; zz += 8) { var bw = wallOf(appr.x0 + 1, zz); if (g[zz][appr.x0 + 1] === '.') dec(appr.x0 + 1, zz, 'Banner_1', { rot: Math.PI / 2, dx: -0.46, y: 1.48, fit: 0.9, hang: true, ns: true }); }
+
     // ---------- tidy up: anything you cannot walk to becomes rock; spawns must stand on reachable floor ----------
     var seen = new Uint8Array(Wd * Hd), q = [start.x + start.z * Wd]; seen[q[0]] = 1;
     var PASS = { '.': 1, ',': 1, '~': 1, 'D': 1, 'H': 1, 'S': 1, '@': 1 };
@@ -482,7 +563,8 @@
       for (var e = 0; e < extra && list.length > 3; e++) { var a = pick(list), b = pick(list); if (a !== b) link(center(a), center(b)); }
     }
     var map = g.map(function (row) { return row.join(''); });
-    return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start, hoods: zones, stairs: stairs, lost: lost };
+    for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
+    return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start, hoods: zones, stairs: stairs, lost: lost, decor: decor, dname: dname };
   }
 
   // ---------- small helpers ----------
@@ -615,7 +697,7 @@
     blvd:   { name: 'Boulevard', floor: [0x8c8577, 0x958e80, 0x837c6e], wall: 0x9a8f7c }
   };
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
-  var SOLID = { 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
+  var SOLID = { 'o': 1, 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
   function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z); }
   function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P' || c === 'H'; }
 
@@ -810,7 +892,8 @@
     var wet = rid === 'water' || c === '~', fid = c === '~' ? 'water' : rid;
     var ft = floorTex(fid, fid === 'hall' ? ((x + z) % 2) + 2 * Math.floor(r * 2) : v);
     if (wet && waterTex.indexOf(ft) < 0) { ft.wrapS = ft.wrapT = THREE.RepeatWrapping; waterTex.push(ft); }
-    box(0.995, 0.1, 0.995, ROOMS[fid].floor[0], x, wet ? -0.09 : -0.05, z, x, z, { tex: ft, noShadow: true });
+    floorQuad(ft, x, wet ? -0.04 : 0, z);
+    var dl = LEVEL.decor[x + ',' + z]; if (dl) dl.forEach(function (d) { if (d.m === '#rug') { box(d.w, 0.02, d.d, d.col, x + (d.w % 2 ? 0 : 0.5), 0.004, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', seed: 7, noShadow: true }); box(d.w + 0.12, 0.012, d.d + 0.12, 0xc9a227, x + (d.w % 2 ? 0 : 0.5), 0.0, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', noShadow: true }); } });
     if (c === 'D') {
       var horiz = ch(x - 1, z) === '#';
       [-0.44, 0.44].forEach(function (o) { box(0.16, 1.5, 0.16, 0x4a3420, x + (horiz ? o : 0), 0.75, z + (horiz ? 0 : o), x, z, { fade: true, kind: 'wood' });
@@ -833,7 +916,7 @@
       box(0.9, 1.25, 0.06, 0x5a6a72, x, 0.625, z - 0.42, x, z, { kind: 'metal' }); box(0.06, 1.25, 0.86, 0x5a6a72, x - 0.42, 0.625, z, x, z, { kind: 'metal' }); box(0.06, 1.25, 0.86, 0x5a6a72, x + 0.42, 0.625, z, x, z, { kind: 'metal' });
       box(0.8, 1.1, 0.04, 0x6f8088, x + 0.02, 0.6, z + 0.4, x, z, { kind: 'metal', fade: true }); box(0.3, 0.16, 0.02, 0x3df2e0, x, 1.32, z + 0.43, x, z, { glow: true });
       box(0.22, 0.3, 0.02, 0xd8e8f0, x - 0.25, 0.95, z + 0.43, x, z, { kind: 'metal' });
-    } else if ('TWUbhcqkgv'.indexOf(c) >= 0) {
+    } else if ('TWUbhcqkgvo'.indexOf(c) >= 0) {
       if (!propsOn()) box(0.5, 0.5, 0.5, 0x6b5a44, x, 0.25, z, x, z, { kind: 'wood' });
     } else if (c === 'F') { // free food: a catering table with a green marker
       if (!propsOn()) { box(0.9, 0.06, 0.6, 0x8a6a44, x, 0.45, z, x, z, { kind: 'wood' }); box(0.5, 0.12, 0.3, 0xd09040, x, 0.54, z, x, z, { kind: 'cloth' }); }
@@ -891,10 +974,39 @@
   var CHUNK = 8, CH_R = 15, chunks = {}, curChunk = null, chunkAt = '';
   var BRAZ = []; for (var bz = 0; bz < H; bz++) for (var bx = 0; bx < W; bx++) if (MAP[bz].charAt(bx) === 'B') BRAZ.push({ x: bx, z: bz });
   for (var fl = 0; fl < 4; fl++) { var plx = new THREE.PointLight(0xff9a40, 0, 5.5, 1.4); scene.add(plx); fireLights.push({ l: plx, ph: fl * 2.3, on: false }); }
+  // floors are merged: one mesh per floor texture per chunk, fogged tile by tile through vertex colours
+  var curFloor = null;
+  function floorQuad(tx, x, y, z) { if (!curFloor) return; var k = tx.uuid; (curFloor[k] || (curFloor[k] = { tex: tx, cells: [] })).cells.push([x, y, z]); }
+  function buildFloors(list) {
+    Object.keys(curFloor).forEach(function (k) {
+      var b = curFloor[k], n = b.cells.length, pos = new Float32Array(n * 12), uv = new Float32Array(n * 8), col = new Float32Array(n * 12), nor = new Float32Array(n * 12), idx = [];
+      b.cells.forEach(function (c, i) {
+        var x = c[0], y = c[1], z = c[2], h = 0.4975, P4 = [[x - h, z - h], [x - h, z + h], [x + h, z + h], [x + h, z - h]], U4 = [[0, 1], [0, 0], [1, 0], [1, 1]];
+        for (var v = 0; v < 4; v++) { pos.set([P4[v][0], y, P4[v][1]], i * 12 + v * 3); nor.set([0, 1, 0], i * 12 + v * 3); uv.set(U4[v], i * 8 + v * 2); }
+        idx.push(i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3);
+      });
+      var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setIndex(idx); geo.userData.own = true;
+      var mat = new THREE.MeshLambertMaterial({ map: b.tex, vertexColors: true }), mesh = new THREE.Mesh(geo, mat);
+      mesh.receiveShadow = true; mesh.castShadow = false; mesh.frustumCulled = false; scene.add(mesh);
+      list.push({ mesh: mesh, x: b.cells[0][0], z: b.cells[0][2], floor: b.cells, base: WHITE });
+    });
+  }
+  // colour every cell of a merged floor for the fog: black when unexplored, dim when remembered, lit when in sight
+  function floorFog(t, R, dark) {
+    var col = t.mesh.geometry.attributes.color, a = col.array;
+    for (var i = 0; i < t.floor.length; i++) {
+      var c = t.floor[i], key = c[0] + ',' + c[2], d2 = visNow[key], r = 0, gg = 0, bb = 0;
+      if (d2 !== undefined) { var b = Math.max(0.4, 1.1 - d2 / (R + 1.5)); if (dark) { r = 0.62 * b; gg = 0.78 * b; bb = 1.15 * b; } else r = gg = bb = b; }
+      else if (tileState[c[2] * W + c[0]]) r = gg = bb = 0.17;
+      for (var v = 0; v < 4; v++) { a[i * 12 + v * 3] = r; a[i * 12 + v * 3 + 1] = gg; a[i * 12 + v * 3 + 2] = bb; }
+    }
+    col.needsUpdate = true;
+  }
   function buildChunk(cx, cz) {
-    var list = []; curChunk = list;
+    var list = []; curChunk = list; curFloor = {};
     for (var z = cz * CHUNK; z < Math.min(H, (cz + 1) * CHUNK); z++) for (var x = cx * CHUNK; x < Math.min(W, (cx + 1) * CHUNK); x++) { buildTile(x, z); if (typeof buildTileProps === 'function') buildTileProps(x, z); }
-    curChunk = null; chunks[cx + ',' + cz] = list;
+    buildFloors(list); curFloor = null; curChunk = null; chunks[cx + ',' + cz] = list;
   }
   function unloadChunk(key) {
     var list = chunks[key]; if (!list) return; delete chunks[key];
@@ -6154,12 +6266,12 @@
   // arrive (or if they fail) the hand-made blocks stay.
   var PROPS = { ready: false, lib: {}, box: {}, mats: {} };
   var PROPBLOCK = {};
-  var PTEX = [[/Bark_NormalTree/, 'n_bark.jpg'], [/Bark_Twisted|Bark_Dead/, 'n_bark2.jpg'], [/Leaves_NormalTree/, 'n_treeleaves.png'], [/Leaves_TwistedTree/, 'n_twleaves.png'], [/Leaves_Pine/, 'n_pine.png'], [/^Flowers/, 'n_flowers.png'], [/Trim_Furniture/, 'trim_furniture.jpg'], [/Trim_Metal/, 'trim_metal.jpg'], [/Trim_Props/, 'trim_props.jpg'], [/Trim_Cloth|Banner/, 'trim_cloth.jpg'],
+  var PTEX = [[/WoodTrim/, 'v_woodtrim.jpg'], [/MI_Vine/, 'v_vine.png'], [/MetalOrnaments/, 'trim_metal.jpg'], [/Bark_NormalTree/, 'n_bark.jpg'], [/Bark_Twisted|Bark_Dead/, 'n_bark2.jpg'], [/Leaves_NormalTree/, 'n_treeleaves.png'], [/Leaves_TwistedTree/, 'n_twleaves.png'], [/Leaves_Pine/, 'n_pine.png'], [/^Flowers/, 'n_flowers.png'], [/Trim_Furniture/, 'trim_furniture.jpg'], [/Trim_Metal/, 'trim_metal.jpg'], [/Trim_Props/, 'trim_props.jpg'], [/Trim_Cloth|Banner/, 'trim_cloth.jpg'],
     [/Page/, 'page.jpg'], [/Mushrooms/, 'n_mushrooms.jpg'], [/Rocks|Bark/, 'n_rocks.jpg'], [/Grass/, 'n_grass.jpg'], [/Leaves|Flowers/, 'n_leaves.png']];
   function propMat(name, fade) {
     var file = 'trim_furniture.jpg', leafy = /Leaves|Flowers/.test(name);
     PTEX.some(function (p) { if (p[0].test(name)) { file = p[1]; return true; } return false; });
-    var m = new THREE.MeshLambertMaterial({ map: kitTex(file), side: THREE.DoubleSide, alphaTest: leafy ? 0.35 : 0, transparent: !!fade });
+    var m = new THREE.MeshLambertMaterial({ map: kitTex(file), side: THREE.DoubleSide, alphaTest: leafy || /Vine/.test(name) ? 0.35 : 0, transparent: !!fade });
     return m;
   }
   function propLoad() {
@@ -6170,8 +6282,9 @@
         L.parse(u.buffer, KDIR, function (g) {
           g.scene.traverse(function (o) { // de-quantize positions so bounds and placement work in plain numbers
             if (!o.isMesh) return; var p = o.geometry.attributes.position;
-            if (p.normalized) { var a = p.array, k = a instanceof Int16Array ? 1 / 32767 : a instanceof Uint16Array ? 1 / 65535 : a instanceof Int8Array ? 1 / 127 : 1 / 255, f = new Float32Array(a.length);
-              for (var i = 0; i < a.length; i++) f[i] = a[i] * k; o.geometry.setAttribute('position', new THREE.BufferAttribute(f, 3)); }
+            if (p.normalized || p.isInterleavedBufferAttribute) { // read through the accessor so interleaved (padded) data comes out right
+              var a = p.isInterleavedBufferAttribute ? p.data.array : p.array, k = !p.normalized ? 1 : a instanceof Int16Array ? 1 / 32767 : a instanceof Uint16Array ? 1 / 65535 : a instanceof Int8Array ? 1 / 127 : 1 / 255, f = new Float32Array(p.count * 3);
+              for (var i = 0; i < p.count; i++) { f[i * 3] = p.getX(i) * k; f[i * 3 + 1] = p.getY(i) * k; f[i * 3 + 2] = p.getZ(i) * k; } o.geometry.setAttribute('position', new THREE.BufferAttribute(f, 3)); }
           });
           g.scene.updateMatrixWorld(true);
           g.scene.children.forEach(function (n) { if (n.name.indexOf('P_') === 0) { var key = n.name.slice(2); PROPS.lib[key] = n; PROPS.box[key] = new THREE.Box3().setFromObject(n); } });
@@ -6219,6 +6332,8 @@
   function buildTileProps(x, z) {
     if (!propsOn()) return;
     var c = ch(x, z), r = hash(x, z), r2 = hash(x + 31, z + 17), th = roomAt(x, z);
+    var dl = LEVEL.decor[x + ',' + z]; // set dressing from the generator
+    if (dl) dl.forEach(function (d) { if (d.m.charAt(0) === '#') return; place(d.m, x + (d.dx || 0), z + (d.dz || 0), { fit: d.fit, h: d.h, s: d.s, rot: d.rot || 0, y: d.y, tx: x, tz: z, hang: d.hang, noShadow: d.ns || !!d.y }); });
     if (c === 'C') place('Chest_Wood', x, z, { fit: 0.78, rot: 0, lid: true });
     else if (c === 'K') place(r > 0.5 ? 'Crate_Wooden' : 'Crate_Metal', x, z, { fit: 0.82, rot: (r2 - 0.5) * 0.5 });
     else if (c === 'R') place(r > 0.6 ? 'Barrel_Apples' : 'Barrel', x, z, { fit: 0.62, rot: r * 6 });
@@ -6252,35 +6367,42 @@
   // ===================== combat: turn-based, Baldur's Gate 3 style =====================
   // Initiative order; on your turn you get movement (6 tiles = 30 ft), one action and one bonus action.
   // Monsters: Quaternius "Bestiary: Dungeon Monsters" (CC0), animated with the same animation library as the hero.
-  var CB = { on: false, enemies: [], order: [], idx: -1, busy: false, path: null, potions: 2, dodge: false, res: { move: 0, action: 0, bonus: 0 }, defs: {}, ready: false };
+  var CB = { on: false, enemies: [], order: [], idx: -1, busy: false, path: null, potions: 3, dodge: false, res: { move: 0, action: 0, bonus: 0 }, defs: {}, ready: false };
   var PC = { hp: 11, max: 11 };
   var BEAST = {
-    puglin: { name: 'Puglin', file: 'm_puglin', tex: 'puglin', ac: 11, hp: 7, speed: 5, atk: 3, dmg: [1, 4, 1], weapon: 'club', init: 1, str: 0, dex: 1, pp: 10, xp: 25, scale: 0.72, h: 0.62, attackClip: 'Sword_Attack',
+    puglin: { name: 'Puglin', file: 'm_puglin', tex: 'puglin', ac: 10, hp: 6, speed: 5, atk: 2, dmg: [1, 4, 0], weapon: 'club', init: 1, str: 0, dex: 1, pp: 10, xp: 25, scale: 0.72, h: 0.62, attackClip: 'Sword_Attack',
       lines: ['Puglins hunt in pairs and argue in threes.', 'A pig-faced goblin with a stick and something to prove.'] },
-    imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 12, hp: 16, speed: 6, atk: 3, dmg: [1, 6, 2], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
+    imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 12, hp: 13, speed: 6, atk: 3, dmg: [1, 6, 0], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
       lines: ['Hired muscle for the stairwell. Union rules: it does not leave its post until something walks past it.'] }
   };
   // monster families: tiers share a model and get bigger, tougher and nastier. base: which loaded model to use
   function variant(base, o) { var v = {}; for (var k in BEAST[base]) v[k] = BEAST[base][k]; for (k in o) v[k] = o[k]; v.base = base; return v; }
   BEAST.puglin.base = 'puglin'; BEAST.imp.base = 'imp'; BEAST.imp.name = 'Imp security guard';
-  BEAST.puglin_brute = variant('puglin', { name: 'Puglin brute', ac: 12, hp: 13, atk: 4, dmg: [1, 6, 2], str: 2, xp: 50, scale: 0.86, h: 0.74, tint: 0xd8b0a0, lines: ['Bigger, meaner, and it brought a bigger stick.'] });
-  BEAST.puglin_chief = variant('puglin', { name: 'Puglin war-chief', ac: 13, hp: 22, atk: 5, dmg: [1, 8, 3], str: 3, dex: 1, xp: 120, scale: 1.0, h: 0.86, tint: 0xc08070, lines: ['Wears a bottle cap as a crown. Will fight you over it.'] });
+  BEAST.puglin_brute = variant('puglin', { name: 'Puglin brute', ac: 11, hp: 11, atk: 3, dmg: [1, 6, 0], str: 2, xp: 50, scale: 0.86, h: 0.74, tint: 0xd8b0a0, lines: ['Bigger, meaner, and it brought a bigger stick.'] });
+  BEAST.puglin_chief = variant('puglin', { name: 'Puglin war-chief', ac: 12, hp: 18, atk: 4, dmg: [1, 6, 2], str: 3, dex: 1, xp: 120, scale: 1.0, h: 0.86, tint: 0xc08070, lines: ['Wears a bottle cap as a crown. Will fight you over it.'] });
   BEAST.grik = variant('puglin', { name: 'Grik, the Gristle King', ac: 14, hp: 48, atk: 6, dmg: [2, 6, 3], str: 4, dex: 1, init: 1, pp: 13, xp: 500, scale: 1.45, h: 1.25, tint: 0xb06050, boss: true, lines: ['The king of the Warrens. Fat on snacks, mean on principle. His minions scatter if he falls.'] });
-  BEAST.imp_intern = variant('imp', { name: 'Imp intern', ac: 11, hp: 9, atk: 3, dmg: [1, 4, 1], str: 0, xp: 40, scale: 0.56, h: 0.9, tint: 0xd0c0ff, lines: ['Unpaid. Furious about it.'] });
-  BEAST.imp_foreman = variant('imp', { name: 'Imp foreman', ac: 14, hp: 26, atk: 5, dmg: [1, 8, 3], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0xffa080, lines: ['Clipboard in one hand, mace in the other. Both are for you.'] });
+  BEAST.imp_intern = variant('imp', { name: 'Imp intern', ac: 10, hp: 7, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.56, h: 0.9, tint: 0xd0c0ff, lines: ['Unpaid. Furious about it.'] });
+  BEAST.imp_foreman = variant('imp', { name: 'Imp foreman', ac: 13, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0xffa080, lines: ['Clipboard in one hand, mace in the other. Both are for you.'] });
   BEAST.steward = variant('imp', { name: 'The Shop Steward', ac: 15, hp: 58, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0xff6a5a, boss: true, lines: ['Head of the imp union. Has never lost a negotiation or a fistfight. Will not cross a picket line.'] });
   // placeholder families until their own models are imported: bog puglins in the Gardens, archive clerks (imps) in the Archive
-  BEAST.bog = variant('puglin', { name: 'Bog puglin', hp: 8, xp: 30, tint: 0x8ab070, lines: ['A puglin that went feral in the reeds. Smells like a pond with opinions.'] });
-  BEAST.bog_brute = variant('puglin', { name: 'Reed stalker', ac: 13, hp: 14, atk: 4, dmg: [1, 6, 2], dex: 2, str: 1, xp: 60, scale: 0.86, h: 0.74, tint: 0x6a9a5a, lines: ['Moves through the reeds without a sound. You will hear it when it wants you to.'] });
-  BEAST.bog_chief = variant('puglin', { name: 'Marsh warden', ac: 13, hp: 24, atk: 5, dmg: [1, 8, 3], str: 3, dex: 1, xp: 130, scale: 1.0, h: 0.86, tint: 0x5a8a4a, lines: ['Wears a crown of lily pads. It is not a joke to them.'] });
+  BEAST.bog = variant('puglin', { name: 'Bog puglin', hp: 7, atk: 2, dmg: [1, 4, 0], xp: 30, tint: 0x8ab070, lines: ['A puglin that went feral in the reeds. Smells like a pond with opinions.'] });
+  BEAST.bog_brute = variant('puglin', { name: 'Reed stalker', ac: 12, hp: 12, atk: 3, dmg: [1, 6, 1], dex: 2, str: 1, xp: 60, scale: 0.86, h: 0.74, tint: 0x6a9a5a, lines: ['Moves through the reeds without a sound. You will hear it when it wants you to.'] });
+  BEAST.bog_chief = variant('puglin', { name: 'Marsh warden', ac: 12, hp: 20, atk: 4, dmg: [1, 8, 1], str: 3, dex: 1, xp: 130, scale: 1.0, h: 0.86, tint: 0x5a8a4a, lines: ['Wears a crown of lily pads. It is not a joke to them.'] });
   BEAST.gardener = variant('puglin', { name: 'The Gardener', ac: 14, hp: 52, atk: 6, dmg: [2, 6, 3], str: 4, dex: 1, init: 1, pp: 13, xp: 550, scale: 1.5, h: 1.3, tint: 0x4a7a3a, boss: true, lines: ['Boss of the Drowned Gardens. It has been composting crawlers, and it is very proud of the results.'] });
-  BEAST.clerk = variant('imp', { name: 'Archive clerk', ac: 11, hp: 10, atk: 3, dmg: [1, 4, 1], str: 0, xp: 40, scale: 0.6, h: 0.95, tint: 0x9ab8e0, lines: ['A soggy imp with a stamp. It will file you under deceased.'] });
-  BEAST.clerk_mid = variant('imp', { name: 'Records keeper', ac: 12, hp: 17, atk: 4, dmg: [1, 6, 2], str: 1, dex: 2, xp: 90, scale: 0.72, h: 1.15, tint: 0x7a9ad0, lines: ['Knows where every file is and resents everyone who asks.'] });
-  BEAST.clerk_head = variant('imp', { name: 'Senior archivist', ac: 14, hp: 26, atk: 5, dmg: [1, 8, 3], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0x5a7ac0, lines: ['Shushes you before it hits you. Both hurt.'] });
+  BEAST.clerk = variant('imp', { name: 'Archive clerk', ac: 10, hp: 8, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.6, h: 0.95, tint: 0x9ab8e0, lines: ['A soggy imp with a stamp. It will file you under deceased.'] });
+  BEAST.clerk_mid = variant('imp', { name: 'Records keeper', ac: 12, hp: 14, atk: 3, dmg: [1, 6, 1], str: 1, dex: 2, xp: 90, scale: 0.72, h: 1.15, tint: 0x7a9ad0, lines: ['Knows where every file is and resents everyone who asks.'] });
+  BEAST.clerk_head = variant('imp', { name: 'Senior archivist', ac: 13, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0x5a7ac0, lines: ['Shushes you before it hits you. Both hurt.'] });
   BEAST.archivist = variant('imp', { name: 'The Head Archivist', ac: 15, hp: 56, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0x4a6ab8, boss: true, lines: ['Boss of the Flooded Archive. It has a file on you, and the file is very thin.'] });
   // stand-ins for the Arena headliner (the ogre bugbear) and the Stairwell Gate's final boss (the dragon) until those models are in
   BEAST.headliner = variant('puglin', { name: 'The Headliner', ac: 15, hp: 70, atk: 7, dmg: [2, 8, 4], str: 5, dex: 0, init: 0, pp: 12, xp: 800, scale: 1.8, h: 1.6, tint: 0x9a6a4a, boss: true, lines: ['The Arena\'s main event. The crowd chants its name. It does not know yours yet.'] });
   BEAST.gatekeeper = variant('imp', { name: 'The Gatekeeper', ac: 16, hp: 90, atk: 7, dmg: [2, 10, 4], str: 5, dex: 2, init: 3, pp: 15, xp: 1200, scale: 1.4, h: 2.2, tint: 0xff4a3a, boss: true, lines: ['Guardian of the stairs down. It has read your file and it is not impressed.'] });
+  // shrubs: tiny, easy to kill, nearly worthless... and they eat the dead. Every body they eat makes them bigger and nastier.
+  var SHRUB = { base: 'shrub', prop: 'Bush_Common', tex: 'puglin', init: 0, pp: 9, attackClip: 'Sword_Attack', weapon: 'thorny twigs', str: 0, dex: 0 };
+  function shrubDef(o) { var v = {}; for (var k in SHRUB) v[k] = SHRUB[k]; for (k in o) v[k] = o[k]; return v; }
+  BEAST.shrub1 = shrubDef({ lvl: 1, name: 'Mulch shrub', ac: 8, hp: 3, speed: 4, atk: 1, dmg: [1, 2, 0], xp: 5, scale: 0.22, h: 0.42, timid: true, lines: ['A little shrub with a mouth. It cleans up after fights. Squash it now and it is worth almost nothing; leave it alone and it grows.'] });
+  BEAST.shrub2 = shrubDef({ lvl: 2, name: 'Hungry shrub', ac: 10, hp: 9, speed: 4, atk: 3, dmg: [1, 4, 1], xp: 20, scale: 0.34, h: 0.6, timid: true, prop: 'Bush_Common_Flowers', lines: ['It has eaten something recently. It has opinions now, and roots like fingers.'] });
+  BEAST.shrub3 = shrubDef({ lvl: 3, name: 'Bramble glutton', ac: 12, hp: 18, speed: 5, atk: 4, dmg: [1, 6, 2], str: 1, xp: 60, scale: 0.52, h: 0.9, prop: 'Bush_Common_Flowers', weapon: 'thorn lash', lines: ['A shrub the size of a dog that has eaten several crawlers\' worth of leftovers. It hunts now.'] });
+  BEAST.shrub4 = shrubDef({ lvl: 4, name: 'Thornmaw', ac: 14, hp: 34, speed: 5, atk: 6, dmg: [2, 6, 3], str: 3, xp: 180, scale: 0.78, h: 1.3, prop: 'Bush_Common_Flowers', weapon: 'crushing roots', lines: ['Somebody should have stepped on this when it was small. Nobody did.'] });
   var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'], bog: [null, 'bog', 'bog_brute', 'bog_chief'], clerk: [null, 'clerk', 'clerk_mid', 'clerk_head'] };
   var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? 'imp' : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
   function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
@@ -6376,7 +6498,13 @@
   }
   // monsters only get a real model (skinned mesh, materials, animations) once a crawler comes near them
   function cbMaterialize(e) {
-    if (e.mixer) return; var B = e.def, sp = e.sp, root = THREE.SkeletonUtils.clone(CB.defs[B.base || sp.kind]);
+    if (e.mixer) return; var B = e.def, sp = e.sp;
+    if (B.prop) { // a plant: no skeleton, it bobs and lunges in code
+      if (!propsOn()) return; var g2 = new THREE.Group(); propInto(g2, B.prop, { s: B.scale }); e.obj.add(g2); e.body = g2;
+      g2.traverse(function (o) { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set(e.lvl >= 3 ? 0xb0c890 : 0xffffff); } });
+      e.mixer = { update: function () {} }; e.clips = {}; return;
+    }
+    var root = THREE.SkeletonUtils.clone(CB.defs[B.base || sp.kind]);
     root.traverse(function (o) {
       if (!o.isMesh) return;
       var m = kitMat(B.tex + '_' + (e.n % 3) + '.jpg', B.tex + '_n.jpg', B.tex + '_orm.jpg');
@@ -6548,7 +6676,7 @@
   function cbStart(why, first) {
     if (CB.on || !CB.ready) return;
     if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
-    var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8)); });
+    var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || (!e.def.timid && cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8))); });
     if (!foes.length) return;
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
     CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
@@ -6584,7 +6712,7 @@
   function cbJoinCheck() {
     if (!CB.on) return; var Z = cbZone();
     CB.enemies.forEach(function (e) {
-      if (e.dead || e.calm || e.npc || CB.order.indexOf(e) >= 0 || inSafeRoom(e.x, e.z)) return;
+      if (e.dead || e.calm || e.npc || e.def.timid || CB.order.indexOf(e) >= 0 || inSafeRoom(e.x, e.z)) return;
       var seesYou = visNow[e.x + ',' + e.z] !== undefined && cheb(e.x, e.z, P.x, P.z) <= CB_ZONE;
       var hears = CB.order.some(function (c) { return c !== 'pc' && !c.dead && cheb(e.x, e.z, c.x, c.z) <= CB_HEAR; }) && Math.max(Math.abs(e.x - Z.x), Math.abs(e.z - Z.z)) <= Z.r;
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
@@ -6837,22 +6965,65 @@
     setTimeout(function () { cbResolve(e, Wp, { label: 'Your opportunity attack' }); cbHUD(); }, 300);
   }
 
+  // ---------- life between fights: monsters mill about; shrubs go looking for bodies ----------
+  function cbRoam(e, dt) {
+    if (e.dead || e.npc || e.guard || e.boss || CB.busy && CB.on) return;
+    var now = performance.now();
+    if (e.eating) { // munching: the body shrinks away, the shrub grows
+      if (now - e.eating.t < 2600) return; var body = e.eating.body; e.eating = null;
+      if (body.dead && !body.eaten) { body.eaten = true; body.obj.visible = false; body.bar.style.display = 'none'; shrubGrow(e, body); }
+      return;
+    }
+    if (e.path) return;
+    if (e.body) { // shrubs smell the dead from a long way off
+      var best = null, bd = 15;
+      CB.enemies.forEach(function (q) { if (q.dead && !q.eaten && q !== e && !q.claimed) { var d2 = cheb(q.x, q.z, e.x, e.z); if (d2 < bd) { bd = d2; best = q; } } });
+      if (best && bd <= 1) { e.eating = { t: now, body: best }; best.claimed = true; cbFace(e, best.x, best.z); if (visNow[e.x + ',' + e.z] !== undefined) floater(e.px, e.def.h + 0.3, e.pz, 'munch', 'miss'); return; }
+      if (best && now > (e.nextSeek || 0)) {
+        e.nextSeek = now + 1500; var r = bfs(e.x, e.z, e, 24), goal = null;
+        for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { var k = (best.x + dx) + ',' + (best.z + dz); if (r.dist[k] !== undefined && (goal === null || r.dist[k] < r.dist[goal])) goal = k; }
+        if (goal) { var gp = goal.split(','), path = pathTo(r, +gp[0], +gp[1]); if (path && path.length) { e.path = path; e.roaming = true; e.afterWalk = function () { e.roaming = false; }; return; } }
+      }
+    }
+    if (now < (e.nextRoam || (e.nextRoam = now + 2000 + Math.random() * 6000))) return;
+    e.nextRoam = now + 3000 + Math.random() * 6000; if (Math.random() < 0.3) return;
+    var range = e.body ? 7 : 3, ox = e.body ? e.x : e.sx, oz = e.body ? e.z : e.sz;
+    var rr = bfs(e.x, e.z, e, range * 2 + 2), opts = Object.keys(rr.dist).filter(function (k) { var q = k.split(','); return rr.dist[k] > 0 && Math.max(Math.abs(+q[0] - ox), Math.abs(+q[1] - oz)) <= range; });
+    if (!opts.length) return; var pk = opts[Math.floor(Math.random() * opts.length)].split(','), p2 = pathTo(rr, +pk[0], +pk[1]);
+    if (p2 && p2.length) { e.path = p2.slice(0, range * 2); e.roaming = true; if (!e.body) cbPlay(e, 'Walk_Loop'); e.afterWalk = function () { e.roaming = false; if (!e.body) cbPlay(e, 'Idle_Loop'); }; }
+  }
+  function shrubGrow(e, body) {
+    var lv = Math.min(4, (e.def.lvl || 1) + 1), was = e.name; if (lv === e.def.lvl) { e.hp = e.max; return; }
+    e.def = BEAST['shrub' + lv]; e.kind = 'shrub' + lv; e.lvl = lv; e.name = e.def.name; e.max = e.def.hp; e.hp = e.def.hp;
+    if (e.body) { e.obj.remove(e.body); e.body = null; } e.mixer = null; cbMaterialize(e);
+    if (visNow[e.x + ',' + e.z] !== undefined || cheb(e.x, e.z, P.x, P.z) <= 8)
+      say(lv >= 4 ? 'Uh oh' : 'Something grew', 'The ' + was.toLowerCase() + ' ate the ' + body.name.toLowerCase() + '\'s body and grew into a ' + e.name.toLowerCase() + '.' + (lv >= 3 ? ' It looks hungry for something that is still moving.' : ''), 5000);
+  }
+  function cbShrubAnim(e, dt) {
+    var T = performance.now() / 1000, b = e.body;
+    if (e.dead) { b.scale.y += (0.25 - b.scale.y) * Math.min(1, dt * 4); b.position.y = 0; return; }
+    var moving = !!e.path, sq = e.eating ? 1 + 0.18 * Math.abs(Math.sin(T * 9)) : moving ? 1 + 0.12 * Math.abs(Math.sin(T * 10)) : 1 + 0.05 * Math.sin(T * 2 + e.n);
+    b.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq)); b.position.y = moving ? Math.abs(Math.sin(T * 10)) * 0.08 : 0;
+  }
   // ---------- every frame ----------
   function cbUpdate(dt) {
     CB.enemies.forEach(function (e) {
       if (cheb(e.x, e.z, P.x, P.z) > 16 && !e.path) { if (e.obj.visible) { e.obj.visible = false; e.bar.style.display = 'none'; } return; }
       if (!e.mixer) cbMaterialize(e);
+      if (!e.mixer) return;
       e.mixer.update(dt);
+      if (!CB.on || CB.order.indexOf(e) < 0) cbRoam(e, dt);
+      if (e.body) cbShrubAnim(e, dt);
       if (e.path) {
-        var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = 3.2 * dt;
+        var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = (e.roaming ? (e.body ? 1.8 : 1.3) : 3.2) * dt;
         e.obj.rotation.y = Math.atan2(dx, dz);
-        if (dist <= step) { var wasNear = CB.on && cheb(e.x, e.z, P.x, P.z) <= 1; e.px = t[0]; e.pz = t[1]; e.x = t[0]; e.z = t[1]; e.path.shift(); if (wasNear && cheb(e.x, e.z, P.x, P.z) > 1 && !e.prone) cbMyOpportunity(e); }
+        if (dist <= step) { var wasNear = CB.on && cheb(e.x, e.z, P.x, P.z) <= 1; e.px = t[0]; e.pz = t[1]; e.x = t[0]; e.z = t[1]; e.path.shift(); if (wasNear && cheb(e.x, e.z, P.x, P.z) > 1 && !e.prone) cbMyOpportunity(e); if (!CB.on && e.roaming) cbAggro(); }
         else { e.px += dx / dist * step; e.pz += dz / dist * step; }
         e.obj.position.set(e.px, 0, e.pz);
         if (!e.path.length) { e.path = null; var f = e.afterWalk; e.afterWalk = null; if (f) f(); }
       }
       var seen = visNow[e.x + ',' + e.z] !== undefined || visNow[Math.round(e.px) + ',' + Math.round(e.pz)] !== undefined;
-      e.obj.visible = seen || (e.dead && !!tileState[e.z * W + e.x]);
+      e.obj.visible = !e.eaten && (seen || (e.dead && !!tileState[e.z * W + e.x]));
       if (!e.dead && !e.npc && seen && (CB.on || e.hp < e.max)) {
         var s = toScreen(e.px, e.def.h + 0.32, e.pz); e.bar.style.display = 'block'; e.bar.style.left = s.x + 'px'; e.bar.style.top = s.y + 'px';
         var hs = healthState(e); e.bar.firstChild.style.width = '54px'; e.bar.firstChild.style.background = hs[1]; e.bar.lastChild.textContent = e.name + ' · ' + hs[0];
@@ -6869,7 +7040,7 @@
   function cbAggro() {
     if (CB.on || !CB.ready || inSafeRoom(P.x, P.z)) return;
     for (var i = 0; i < CB.enemies.length; i++) {
-      var e = CB.enemies[i]; if (e.dead || e.calm) continue;
+      var e = CB.enemies[i]; if (e.dead || e.calm || e.def.timid) continue;
       var r = e.guard ? 2 : 3;
       if (visNow[e.x + ',' + e.z] !== undefined && cheb(e.x, e.z, P.x, P.z) <= r) { cbStart('The ' + e.name.replace(/ [ABC]$/, '') + ' spots you.', e); return; }
     }
@@ -6940,7 +7111,8 @@
   function buyCost(st) { return STATS.reduce(function (s, k) { return s + BUY[st[k]]; }, 0); }
   function applyChar(c) {
     CHAR = c; STATS.forEach(function (k) { MOD[k] = Math.floor((c.stats[k] - 10) / 2); });
-    PC.max = 10 + MOD.CON + (c.trait === 'Tough' || c.traitFx === 'Tough' ? 2 : 0); PC.hp = PC.max; PC.xp = c.xp || 0;
+    // crawlers start tougher than a 5e level 1: the show wants you alive for a while
+    PC.max = 16 + MOD.CON + (c.trait === 'Tough' || c.traitFx === 'Tough' ? 3 : 0); PC.hp = PC.max; PC.xp = c.xp || 0;
     if (typeof cbHUD === 'function') cbHUD();
     if (typeof posRestore === 'function' && typeof P !== 'undefined' && P) setTimeout(posRestore, 0);
   }
@@ -7783,10 +7955,10 @@
     if (!path.length) { face(); return; }
     P.path = path; P.onArrive = face;
   }
-  function tapName(t) { return t.e ? t.e.name + (t.e.dead ? ' · dead' : t.e.npc ? '' : ' · ' + healthState(t.e)[0]) : (NAMES[t.c] || 'Something'); }
+  function tapName(t) { return t.e ? t.e.name + (t.e.dead ? ' · dead' : t.e.npc ? '' : ' · ' + healthState(t.e)[0]) : (nameOf(t) || 'Something'); }
   function tapMenu(t) {
     var far = cheb(P.x, P.z, t.x, t.z) > 1, opts = [];
-    var exam = t.e ? (t.e.dead ? 'Very dead. ' + (t.e.lootStore && !t.e.lootStore.items.length && !t.e.lootStore.gold ? 'Already picked clean.' : 'Its pockets look promising.') : examineText(t.e)) : ((ACTS[t.c] || []).filter(function (a) { return a.label === 'Examine'; })[0] || {}).text || ('A ' + (NAMES[t.c] || 'thing').toLowerCase() + '.');
+    var exam = t.e ? (t.e.dead ? 'Very dead. ' + (t.e.lootStore && !t.e.lootStore.items.length && !t.e.lootStore.gold ? 'Already picked clean.' : 'Its pockets look promising.') : examineText(t.e)) : ((ACTS[t.c] || []).filter(function (a) { return a.label === 'Examine'; })[0] || {}).text || (t.c === 'o' ? 'A ' + (nameOf(t) || 'thing').toLowerCase() + '. Worth a closer look; people hide things in furniture.' : 'A ' + (NAMES[t.c] || 'thing').toLowerCase() + '.');
     opts.push({ label: 'Examine' + (far ? ' from here' : ''), fn: function () { say(tapName(t), exam, 5000); } });
     if (t.e && !t.e.dead) {
       if (cheb(P.x, P.z, t.x, t.z) <= 6) opts.push({ label: 'Talk' + (far ? ' (call out)' : ''), fn: function () { talkOpen(t.e); } });
@@ -7874,7 +8046,7 @@
   }
   var visNow = {}, tmp = new THREE.Color();
   var FOG = { total: 0, seen: 0 };
-  var LIT = { bazaar: 6, arena: 6, blvd: 4, studio: 3, office: 2, garden: 2 }; // well-lit places let you see farther
+  var LIT = { bazaar: 4, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1 }; // well-lit places let you see farther
   function refreshFog() {
     streamChunks();
     var S = SIGHTS[sightI], here = roomInfo(P.x, P.z), R = S.r + ((here && LIT[here.theme]) || 0); visNow = {};
@@ -7886,7 +8058,8 @@
     if (!FOG.total) { for (var i = 0; i < W * H; i++) if (MAP[(i / W) | 0].charAt(i % W) !== '#') { FOG.total++; if (tileState[i]) FOG.seen++; } }
     document.getElementById('explored').textContent = 'Explored ' + (Math.round(1000 * FOG.seen / FOG.total) / 10) + '%';
     for (var j = 0; j < tiles.length; j++) {
-      var t = tiles[j], key = t.x + ',' + t.z, d2 = visNow[key], explored = tileState[t.z * W + t.x];
+      var t = tiles[j]; if (t.floor) { floorFog(t, R, S.dark); continue; }
+      var key = t.x + ',' + t.z, d2 = visNow[key], explored = tileState[t.z * W + t.x];
       var ax = t.x - P.x, az = t.z - P.z, sum = ax * CAMV.cx + az * CAMV.cz, dif = Math.abs(ax * CAMV.cz - az * CAMV.cx), cut = sum >= 1 && sum <= 8 && dif <= 5;
       if (d2 === undefined) {
         t.mesh.visible = !!explored && !t.mob && !(t.glow && t.hang);
@@ -7937,8 +8110,13 @@
     var v = sys > 2 ? 'down' : (sys < -2 ? 'up' : ''), h = sxs > 2 ? 'right' : (sxs < -2 ? 'left' : '');
     return n < 2 ? 'You are standing next to it.' : 'The stairwell is ' + n + ' tiles away, toward the ' + ((v + ' ' + h).trim() || 'middle') + ' of your screen.';
   }
-  var NAMES = { F: 'Free food', Y: 'Tree', X: 'Bathroom', H: 'Wall', T: 'Table', W: 'Weapon rack', U: 'Training dummy', b: 'Sack', h: 'Shelf', c: 'Candle stand', q: 'Cauldron', k: 'Book stand', g: 'Cage', v: 'Vase', C: 'Loot box (Bronze)', M: 'Cellar Grub, level 1', B: 'Brazier', P: 'Pillar', S: 'Stairwell', D: 'Doorway', K: 'Crate', R: 'Barrel', '#': 'Wall', area: 'Your surroundings' };
+  function nameOf(t) { return t.c === 'o' ? (LEVEL.dname[t.key] || 'Furniture') : NAMES[t.c]; }
+  var NAMES = { o: 'Furniture', F: 'Free food', Y: 'Tree', X: 'Bathroom', H: 'Wall', T: 'Table', W: 'Weapon rack', U: 'Training dummy', b: 'Sack', h: 'Shelf', c: 'Candle stand', q: 'Cauldron', k: 'Book stand', g: 'Cage', v: 'Vase', C: 'Loot box (Bronze)', M: 'Cellar Grub, level 1', B: 'Brazier', P: 'Pillar', S: 'Stairwell', D: 'Doorway', K: 'Crate', R: 'Barrel', '#': 'Wall', area: 'Your surroundings' };
   var ACTS = {
+    o: [
+      { label: 'Search it', stat: 'INT', skill: ['Investigation', 1], dc: 11, flag: 'loot', win: 'Tucked behind it, something the last crawler missed.', lose: 'Dust, a button, and a note that just says "no".' },
+      { label: 'Move it', stat: 'STR', dc: 14, win: 'It shifts an inch. Nothing behind it but more floor.', lose: 'It will not budge. It has seen crawlers come and go.' }
+    ],
     F: [
       { label: 'Eat', auto: 'eat' },
       { label: 'Examine', text: 'A catering table, courtesy of the sponsors. Sandwiches, fruit, something in a pot. It heals you. Eating is free; loitering is filmed.' },
@@ -8022,7 +8200,7 @@
   function findTarget() {
     var fx = Math.sin(hero.rotation.y), fz = Math.cos(hero.rotation.y);
     var ax = Math.round(P.px + fx * 0.85), az = Math.round(P.pz + fz * 0.85), c = ch(ax, az);
-    var ne = null; CB.enemies.forEach(function (q) { if ((!q.dead || !q.looted) && cheb(q.x, q.z, P.x, P.z) <= 1 && (!ne || (q.x === ax && q.z === az))) ne = q; });
+    var ne = null; CB.enemies.forEach(function (q) { if (!q.eaten && (!q.dead || !q.looted) && cheb(q.x, q.z, P.x, P.z) <= 1 && (!ne || (q.x === ax && q.z === az))) ne = q; });
     if (ne && visNow[ne.x + ',' + ne.z] !== undefined) return { c: 'E', e: ne, key: 'e' + CB.enemies.indexOf(ne), x: ne.x, z: ne.z };
     if (visNow[ax + ',' + az] !== undefined && ACTS[c]) return { c: c, key: ax + ',' + az, x: ax, z: az };
     if (ch(P.x, P.z) === 'D') return { c: 'D', key: P.x + ',' + P.z, x: P.x, z: P.z };
@@ -8032,7 +8210,7 @@
   function openMenu(t0) {
     if (gearOpen) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
     var t = t0 || findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
-    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : NAMES[t.c]; menuEl.appendChild(hd);
+    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : nameOf(t); menuEl.appendChild(hd);
     (t.e ? enemyActs(t.e) : ACTS[t.c]).forEach(function (a, i) {
       var b = document.createElement('button'); b.type = 'button';
       var spent = a.flag && done[t.key + a.flag] && a.flag !== 'open' && a.flag !== 'loot';

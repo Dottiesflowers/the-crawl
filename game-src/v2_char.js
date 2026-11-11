@@ -36,7 +36,8 @@
   function buyCost(st) { return STATS.reduce(function (s, k) { return s + BUY[st[k]]; }, 0); }
   function applyChar(c) {
     CHAR = c; STATS.forEach(function (k) { MOD[k] = Math.floor((c.stats[k] - 10) / 2); });
-    PC.max = 10 + MOD.CON + (c.trait === 'Tough' || c.traitFx === 'Tough' ? 2 : 0); PC.hp = PC.max; PC.xp = c.xp || 0;
+    // crawlers start tougher than a 5e level 1: the show wants you alive for a while
+    PC.max = 16 + MOD.CON + (c.trait === 'Tough' || c.traitFx === 'Tough' ? 3 : 0); PC.hp = PC.max; PC.xp = c.xp || 0;
     if (typeof cbHUD === 'function') cbHUD();
     if (typeof posRestore === 'function' && typeof P !== 'undefined' && P) setTimeout(posRestore, 0);
   }
