@@ -32,7 +32,7 @@
   var CHAR = null;
   function skillLv(n) { var c = CHAR || MICHAEL; return c.skills && c.skills[n] ? c.skills[n] : 0; }
   function hasTrait(n) { var c = CHAR || MICHAEL; return c.trait === n || c.flaw === n || c.traitFx === n || c.flawFx === n; }
-  function chkBonus(a) { var b = MOD[a.stat] + (a.skill ? skillLv(a.skill[0]) : 0); if (a.stat === 'CHA' && hasTrait('Silver Tongue') && a.skill && /De-escalation|Haggling|Deception/.test(a.skill[0])) b += 2; return b; }
+  function chkBonus(a) { var b = MOD[a.stat] + (a.skill ? skillLv(a.skill[0]) + (typeof itemChecks === 'function' ? itemChecks(a.skill[0]) : 0) : 0) + (a.stat === 'CHA' && typeof buffHas === 'function' && buffHas('minty') ? 2 : 0); if (a.stat === 'CHA' && hasTrait('Silver Tongue') && a.skill && /De-escalation|Haggling|Deception/.test(a.skill[0])) b += 2; return b; }
   function buyCost(st) { return STATS.reduce(function (s, k) { return s + BUY[st[k]]; }, 0); }
   function applyChar(c) {
     CHAR = c; STATS.forEach(function (k) { MOD[k] = Math.floor((c.stats[k] - 10) / 2); });

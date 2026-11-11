@@ -142,6 +142,16 @@ export class Campaign extends DurableObject {
         return json({ ok: true });
       }
       // campaign settings everyone can read; only the DM changes them (live = the campaign has started and testing tools lock)
+      // recipes the SGC has invented, shared by everyone (inventor, level and track ride along)
+      if (p === '/api/recipes' && m === 'GET') { const r = this.one('SELECT v FROM kv WHERE user_id = 0 AND k = ?', 'recipes'); return json({ value: r ? JSON.parse(r.v) : [] }); }
+      if (p === '/api/recipes' && m === 'POST') {
+        const rec = body.recipe; if (!rec || typeof rec.name !== 'string') return json({ error: 'bad_recipe' }, 400);
+        const s0 = JSON.stringify(rec); if (s0.length > 4000) return json({ error: 'too_big' }, 413);
+        const r = this.one('SELECT v FROM kv WHERE user_id = 0 AND k = ?', 'recipes'); let list = r ? JSON.parse(r.v) : [];
+        if (!list.some(x => x.name.toLowerCase() === rec.name.toLowerCase())) { rec.by_user = u.id; rec.t = Date.now(); list.push(rec); if (list.length > 300) list = list.slice(-300); }
+        this.sql.exec('INSERT INTO kv (user_id, k, v, updated) VALUES (0, ?, ?, ?) ON CONFLICT(user_id, k) DO UPDATE SET v = excluded.v, updated = excluded.updated', 'recipes', JSON.stringify(list), Date.now());
+        return json({ ok: true, value: list });
+      }
       if (p === '/api/campaign' && m === 'GET') { const r = this.one('SELECT v FROM kv WHERE user_id = 0 AND k = ?', 'campaign'); return json({ value: r ? JSON.parse(r.v) : { live: false } }); }
       if (p === '/api/dm/campaign' && m === 'PUT') {
         if (u.role !== 'dm') return json({ error: 'dm_only' }, 403);

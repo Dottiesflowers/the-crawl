@@ -38,7 +38,7 @@
   var TAP = { down: null };
   canvas.addEventListener('pointerdown', function (ev) { TAP.down = (CB.on || gearOpen) ? null : { x: ev.clientX, y: ev.clientY, t: performance.now() }; });
   canvas.addEventListener('pointerup', function (ev) {
-    var d0 = TAP.down; TAP.down = null; if (!d0 || CB.on || gearOpen || CC || AUTH.open || TALK.open || LOOTW.open || UI.bag || UI.map || CS.open) return;
+    var d0 = TAP.down; TAP.down = null; if (!d0 || CB.on || gearOpen || CC || AUTH.open || TALK.open || LOOTW.open || UI.bag || UI.map || CS.open || CRAFT.open) return;
     if (Math.abs(ev.clientX - d0.x) + Math.abs(ev.clientY - d0.y) > 14 || performance.now() - d0.t > 600) return;
     exploreTap(ev.clientX, ev.clientY);
   });

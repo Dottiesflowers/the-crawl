@@ -48,6 +48,8 @@
     ['Napping Anywhere', 'CON', 'Asleep in thirty seconds on any surface. Rests do you more good.', ''],
     // --- fixing and figuring ---
     ['Jury-Rig', 'INT', 'Fix or bodge anything with what is lying around.', ''],
+    ['Alchemy', 'WIS', 'Mixing things into potions, poisons and bombs. Used at the alchemy table later; for now, in your bag.', ''],
+    ['Butchery', 'DEX', 'Harvesting useful parts from what you kill.', ''],
     ['Duct Tape Mastery', 'INT', 'The System has rules about duct tape. You found the loopholes.', ''],
     ['Lockpicking', 'DEX', 'Locks, traps, loot boxes.', ''],
     ['Investigation', 'INT', 'Searching, deducing, reading the room.', ''],
@@ -112,7 +114,9 @@
     'wpn:blade': [6, 'Blades', 'you are getting handy with an edge'],
     'wpn:blunt': [6, 'Bludgeons', 'you are getting handy with blunt objects'],
     heal: [4, 'First Aid', 'you keep patching yourself up'],
-    secret: [2, 'Trap Sense', 'you keep finding hidden things']
+    secret: [2, 'Trap Sense', 'you keep finding hidden things'],
+    harvest: [3, 'Butchery', 'you keep cutting useful bits off corpses'],
+    throw: [4, 'Thrown Objects', 'you keep throwing things at problems']
   };
   function skillCount(key) {
     var c = CHAR, t = SKILL_TRIGGERS[key]; if (!c || !t) return; c.counts = c.counts || {}; c.counts[key] = (c.counts[key] || 0) + 1;

@@ -110,6 +110,7 @@
       if (/helm/.test(SLOT.kHead.styles[sty('kHead')])) { ac += 1; why += ', helm'; }
     } else { var o = sty('outer'); if (o === 2) { ac = 16; why = 'plate'; } else if (o === 5) { ac = 12 + MOD.DEX; why = 'leather'; } else if (o === 1 || o === 4) { ac = 11 + MOD.DEX; why = 'coat'; } }
     if (sty('off') === 1) { ac += 2; why += ', shield'; }
+    var ia = itemAC(); if (ia.v) { ac += ia.v; why += ', ' + ia.why; }
     return { ac: ac, why: why };
   }
   function pcWeapon() {
@@ -551,7 +552,7 @@
     if (opt.ranged && dist > Wp.range) { dis = true; why.push('long range'); }
     if (CB.advNext) { adv = true; why.push('opening'); CB.advNext = false; }
     var cover = opt.ranged && hasCover(P.x, P.z, e.x, e.z) ? 2 : 0, ac = acOf(e) + cover;
-    var R = roll20(adv, dis), tot = R.r + Wp.hit, crit = R.r === 20, hit = crit || (R.r !== 1 && tot >= ac);
+    var R = roll20(adv, dis), tot = R.r + Wp.hit, crit = R.r >= (Wp.crit || 20), hit = crit || (R.r !== 1 && tot >= ac);
     var line = R.txt + ' + ' + Wp.hit + ' = ' + tot + ' vs AC ' + ac + (cover ? ' (half cover)' : '') + (why.length ? ' · ' + why.join(', ') : '');
     if (PC.hidden) { PC.hidden = false; }
     if (hit) {
@@ -560,6 +561,7 @@
       floater(e.px, e.def.h + 0.25, e.pz, (crit ? 'CRIT ' : '') + '-' + dm, crit ? 'crit' : 'dmg');
       say((opt.label || (crit ? 'Critical hit' : 'Hit')) + ' · ' + Wp.name + ' · ' + line, e.name + ' takes ' + dm + ' damage' + (e.hp <= 0 ? ' and goes down.' : ' (' + Math.max(0, e.hp) + ' / ' + e.max + ' left).') + (Wp.note ? ' ' + Wp.note : ''), 5200);
       if (Wp.skey && !opt.ranged) skillCount(Wp.skey);
+      if (Wp.onHit && e.hp > 0 && Math.random() < (Wp.onHit.chance || 1)) { var ohn = fxApply([Wp.onHit], e); if (ohn) say('Hit · ' + Wp.name, ohn, 2600); }
       if (e.hp <= 0) cbKill(e); else if (!e.prone) cbPlay(e, 'Hit_Chest', true);
     } else { diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: false, why: why }); floater(e.px, e.def.h + 0.25, e.pz, R.r === 1 ? 'FUMBLE' : 'MISS', 'miss'); say((opt.label || 'Miss') + ' · ' + Wp.name + ' · ' + line, R.r === 1 ? 'A natural 1. The replay will be shown at halftime.' : e.name + ' twists away.', 4200); }
     return hit;
@@ -843,7 +845,7 @@
   });
   // Interact options when you stand next to a monster
   function enemyActs(e) {
-    if (e.dead) return [{ label: 'Search the body', loot: true }, { label: 'Stash the whole body', stash: true }, { label: 'Examine', text: 'Very dead. ' + (e.looted ? 'Already picked clean.' : 'Its pockets look promising.') }];
+    if (e.dead) return [{ label: 'Search the body', loot: true }].concat(harvestOf(e) && !e.harvested && !e.eaten ? [{ label: 'Harvest ' + harvestOf(e).toLowerCase(), harvest: true }] : []).concat([{ label: 'Stash the whole body', stash: true }, { label: 'Examine', text: 'Very dead. ' + (e.looted ? 'Already picked clean.' : 'Its pockets look promising.') }]);
     var talk = { label: NET.sample ? 'Talk (say anything)' : 'Talk', talk: true };
     if (e.npc) return [talk,
       { label: 'Examine', text: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile. Not a threat to anyone, least of all you.' },

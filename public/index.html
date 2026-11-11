@@ -104,6 +104,7 @@
   <button class="act" id="aCrouch" type="button">Crouch</button>
   <button class="act" id="aSight" type="button">Torch</button>
   <button class="act big" id="aJump" type="button">Jump</button>
+  <button class="act" id="aTry" type="button" title="Try something: describe any plan and the System rules on it">Try</button>
 </div>
 <div id="menu"></div>
 
@@ -6512,6 +6513,136 @@
     return { gold: diceRoll(R.gold), items: items };
   }
 
+  // ===================== Level 1 pack (added Nov 11 by the systems chat, from the catalog's proposals; see the project overview) =====================
+  // New engine fields used below (all optional):
+  //   tags: material tags for crafting and Try something (flammable, sticky, wet, conductive, toxic, sharp, long, heavy, glass, paper, slippery, light, loud)
+  //   throw: { fx: [effects as in Try something: damage/burn/stun/distract/prone/push/weaken], area: tiles around the target, vs: 'plant'|'fungus' (only hurts those) }
+  //   uses: N (a tool with charges; gone when used up) · escape: true (ends a fight, no free hits) · leaves: 'Item' (left behind after use)
+  //   crit: 19 (weapon crits on 19-20) · ac: N (+AC while wielded or worn) · onHit: { type, chance } (weapon rider)
+  //   checks: { 'Skill': N } (+N to that skill while carried) · buff: 'key' (a buff when used) · light: true (counts as a light source)
+  //   box: 'silver' (a loot box you open in a safe room) · cat 'material' = crafting material
+  Object.assign(ITEMS, {
+    // ---- materials (Harvest, searches) ----
+    'Bog slime': { cat: 'material', level: 1, tags: ['flammable', 'sticky', 'wet'], desc: 'Green, warm and it burns like a grudge. Keep it away from your lighter. Or don\'t.' },
+    'Rat tail': { cat: 'material', level: 1, tags: ['stringy'], desc: 'Long, pink, still twitching a little. Tough as cord.' },
+    'Puglin grease': { cat: 'material', level: 1, tags: ['flammable', 'slippery'], desc: 'Scraped off a puglin. It is mostly puglin.' },
+    'Shrub sap': { cat: 'material', level: 1, tags: ['sticky'], desc: 'Amber and tacky. The shrubs use it to hold dinner still.' },
+    'Imp horn': { cat: 'material', level: 1, tags: ['sharp', 'hard'], desc: 'A small curved horn. Union-issue.' },
+    'Clerk ink': { cat: 'material', level: 1, tags: ['toxic', 'staining'], desc: 'Black, permanent and faintly ticking.' },
+    'Archive pages': { cat: 'material', level: 1, tags: ['flammable', 'paper'], desc: 'Forms in triplicate. Two copies too many.' },
+    'Empty bottle': { cat: 'material', level: 1, common: true, tags: ['glass', 'container'], desc: 'Holds liquids. Also breaks over heads.' },
+    // ---- healing and consumables ----
+    'Band-aids': { cat: 'consumable', level: 1, common: true, heal: '1d2', desc: 'Cartoon dinosaurs. Morale +0, dignity -1.' },
+    'Ibuprofen': { cat: 'consumable', level: 1, heal: '1d4', desc: 'Take with food. There is no food.' },
+    'Protein bar': { cat: 'consumable', level: 1, heal: '1d4+1', desc: 'Thirty grams. Tastes like sweet drywall.' },
+    'Breath mints': { cat: 'consumable', level: 1, buff: 'minty', desc: 'Curiously strong. +2 to talking for 10 minutes.' },
+    'Sponsor\'s charcoal tonic': { cat: 'consumable', level: 1, heal: '1d4', desc: 'Tastes like a campfire apologizing.' },
+    'Greater healing potion': { cat: 'consumable', level: 2, heal: '4d4+4', rarity: 'Uncommon', desc: 'Orange, thick, and the sponsor logo is embossed on the glass.' },
+    'EpiPen': { cat: 'consumable', level: 1, heal: '2d4', rarity: 'Uncommon', desc: 'Jab, hold for three seconds, apologize.' },
+    'Roll of toilet paper': { cat: 'consumable', level: 1, common: true, heal: '1', tags: ['flammable', 'paper'], desc: 'Two-ply. A luxury down here. Burns nicely.' },
+    // ---- throwables ----
+    'Hot sauce': { cat: 'consumable', level: 1, tags: ['spicy'], throw: { fx: [{ type: 'distract', turns: 1 }] }, desc: 'The label is a skull wearing a sombrero. Throw it in a face.' },
+    'Can of cooking spray': { cat: 'consumable', level: 1, tags: ['flammable', 'slippery'], throw: { fx: [{ type: 'prone' }] }, desc: 'Zero calories per serving. Spray the floor under something.' },
+    'Bug spray': { cat: 'consumable', level: 1, tags: ['flammable', 'toxic'], throw: { fx: [{ type: 'distract', turns: 2 }], area: 1 }, desc: 'DEET concentration: aggressive. Also: aerosol. Also: flammable.' },
+    'Bleach': { cat: 'consumable', level: 1, tags: ['toxic'], throw: { fx: [{ type: 'damage', dice: '2d6' }], vs: 'plant' }, desc: 'Kills 99.9% of germs, and shrubs. Never mix with ammonia.' },
+    'Weed killer': { cat: 'consumable', level: 1, tags: ['toxic'], throw: { fx: [{ type: 'damage', dice: '2d6' }], area: 1, vs: 'plant' }, desc: 'Do not use near the shrubs. Unless.' },
+    'Goblin hob-lobber': { cat: 'consumable', level: 1, rarity: 'Uncommon', tags: ['flammable', 'explosive'], throw: { fx: [{ type: 'damage', dice: '3d6' }, { type: 'burn', dice: '1d4', turns: 2 }], area: 1 }, desc: 'The fuse is shorter than the label claims. The label is also on fire.' },
+    'Smoke bomb': { cat: 'consumable', level: 1, rarity: 'Uncommon', escape: true, desc: 'Smells like burnt popcorn. Leave a fight with no free hits.' },
+    'Fire extinguisher': { cat: 'tool', level: 1, uses: 3, tags: ['heavy'], throw: { fx: [{ type: 'stun', turns: 1 }] }, desc: 'Inspected in 2019. Probably fine. A face full of foam stuns for a moment.' },
+    'Cordless leaf blower': { cat: 'tool', level: 1, uses: 3, throw: { fx: [{ type: 'push', tiles: 2 }] }, desc: 'Battery shows two bars. It has shown two bars since 2019.' },
+    'Bluetooth speaker': { cat: 'tool', level: 1, uses: 5, tags: ['loud'], throw: { fx: [{ type: 'distract', turns: 1 }], area: 2 }, desc: '"The Bluetooth device is ready to pair." Everything nearby turns to look.' },
+    'Floral foam brick': { cat: 'tool', level: 1, tags: ['absorbent'], desc: 'Green, crumbly, and weirdly satisfying to squeeze. Soaks up liquids.' },
+    // ---- weapons ----
+    'Box cutter': { cat: 'weapon', level: 1, dmg: '1d4', tags: ['sharp'], desc: 'Retractable, for safety. Ha.' },
+    'Chef\'s knife': { cat: 'weapon', level: 1, dmg: '1d4', crit: 19, tags: ['sharp'], desc: 'German steel. Still has the price sticker. Crits on 19-20.' },
+    'Letter opener': { cat: 'weapon', level: 1, dmg: '1d4', tags: ['sharp'], desc: 'A retirement gift. The plaque says Tom.' },
+    'Golf club (7 iron)': { cat: 'weapon', level: 1, dmg: '1d6', crit: 19, tags: ['long'], desc: 'From a set no one finished paying for. Crits on 19-20 if you yell "fore".' },
+    'Cast iron skillet': { cat: 'weapon', level: 1, dmg: '1d6', ac: 1, tags: ['heavy'], desc: 'Seasoned for eleven years. +1 AC while you hold it up.' },
+    'Meat tenderizer': { cat: 'weapon', level: 1, dmg: '1d6', onHit: { type: 'weaken', ac: 1, turns: 1, chance: 1 }, desc: 'The waffle pattern leaves a mark. Hits knock 1 off its armor.' },
+    'Rolling pin': { cat: 'weapon', level: 1, dmg: '1d4', onHit: { type: 'prone', chance: 0.25 }, desc: 'Grandma energy. Sometimes knocks them flat.' },
+    'Broom': { cat: 'weapon', level: 1, dmg: '1d4', tags: ['long', 'flammable'], desc: 'Witches have not called dibs.' },
+    'Mop': { cat: 'weapon', level: 1, dmg: '1d4', tags: ['long', 'absorbent'], desc: 'Wet floor sign not included. Cleans up slime.' },
+    'Rake': { cat: 'weapon', level: 1, dmg: '1d6', tags: ['long'], desc: 'Every cartoon warned you.' },
+    'Plunger': { cat: 'weapon', level: 1, dmg: '1d4', desc: 'Unused. Allegedly.' },
+    'Tennis racket': { cat: 'weapon', level: 1, dmg: '1d4', desc: 'Restrung once, in 2012.' },
+    'Ergonomic keyboard': { cat: 'weapon', level: 1, dmg: '1d4', desc: 'Split down the middle, like the office.' },
+    'Stapler': { cat: 'weapon', level: 1, dmg: '1d2', desc: 'Someone wrote their name on it in Sharpie. Mostly insulting.' },
+    'Hedge trimmers': { cat: 'weapon', level: 1, dmg: '1d8', tags: ['sharp', 'long'], desc: 'Long handles. Longer reach. Very satisfying.' },
+    'Bike lock and chain': { cat: 'weapon', level: 1, dmg: '1d6', tags: ['heavy'], desc: 'The key is somewhere. Somewhere.' },
+    'Cordless drill': { cat: 'weapon', level: 1, dmg: '1d6', checks: { 'Lockpicking': 2 }, desc: 'Two batteries, neither charged. +2 to locks.' },
+    'Jumper cables': { cat: 'weapon', level: 1, dmg: '2d4', tags: ['conductive'], rarity: 'Uncommon', desc: 'Red to dead, black to back. Or something.' },
+    'Pallet jack': { cat: 'weapon', level: 1, dmg: '1d10', tags: ['heavy'], rarity: 'Uncommon', desc: 'Requires a forklift certification you do not have.' },
+    // ---- tools ----
+    'Headlamp': { cat: 'tool', level: 1, light: true, desc: 'Light that keeps both hands free. Counts as a torch.' },
+    'Roll of aluminum foil': { cat: 'tool', level: 1, tags: ['conductive'], desc: 'Ari will want this for unrelated reasons.' },
+    'Bungee cords': { cat: 'tool', level: 1, tags: ['elastic'], desc: 'Will absolutely snap back at your face once.' },
+    'Zip ties (10)': { cat: 'tool', level: 1, tags: ['binding'], desc: 'The answer to most problems, and the cause of several.' },
+    'WD-40': { cat: 'tool', level: 1, tags: ['flammable', 'slippery'], checks: { 'Lockpicking': 2, 'Stealth': 1 }, desc: 'If it should move and does not: this. +2 to locks.' },
+    'Lint roller': { cat: 'tool', level: 1, checks: { 'Investigation': 2 }, desc: 'Forensics on a budget. +2 to Investigation.' },
+    'Sticky notes': { cat: 'tool', level: 1, tags: ['paper', 'flammable'], desc: 'Yellow. The good kind.' },
+    'Selfie stick': { cat: 'tool', level: 1, tags: ['long'], desc: 'The ultimate tool of self-regard.' },
+    'Shop vac': { cat: 'tool', level: 1, tags: ['heavy', 'loud'], desc: 'Loud enough to wake the next floor.' },
+    'Yoga mat': { cat: 'tool', level: 1, checks: { 'Stealth': 1 }, desc: 'Smells faintly of lavender and feet.' },
+    'Tide pen': { cat: 'tool', level: 1, desc: 'For stains. Of any kind.' },
+    // ---- valuables ----
+    'Laminated visitor badge': { cat: 'valuable', level: 1, checks: { 'Deception': 2 }, desc: 'VISITOR. ESCORT REQUIRED. The System sometimes believes it.' },
+    '"World\'s Best Boss" mug': { cat: 'valuable', level: 1, tags: ['glass'], desc: 'Self-purchased.' },
+    'Wallet ($14 and a punch card)': { cat: 'valuable', level: 1, desc: 'One more punch for a free sandwich, in another universe.' },
+    'Silver loot box': { cat: 'valuable', level: 1, rarity: 'Uncommon', box: 'silver', desc: 'The System promises this one is better. Opens in a safe room.' },
+    // ---- elite and boss drops (enchanted) ----
+    'Knobbly War Club +1': { cat: 'weapon', level: 1, dmg: '1d6', bonus: 1, rarity: 'Uncommon', desc: 'The war-chief carved notches in it. You do not want to count them.' },
+    'Clipboard of Authority +1': { cat: 'weapon', level: 1, dmg: '1d4', bonus: 1, rarity: 'Uncommon', checks: { 'Intimidation': 2 }, desc: 'Sharpened along one edge. People step aside for a clipboard.' },
+    'Warden\'s Reed Spear +1': { cat: 'weapon', level: 1, dmg: '1d6', bonus: 1, rarity: 'Uncommon', tags: ['long'], desc: 'Swamp-cured, light, and smells of the Gardens.' },
+    'Head Clerk\'s Letter Opener +1': { cat: 'weapon', level: 1, dmg: '1d4', bonus: 1, crit: 19, rarity: 'Uncommon', tags: ['sharp'], desc: 'For opening letters, and other things. Crits on 19-20.' },
+    'Gristle King\'s Cleaver +1': { cat: 'weapon', level: 1, dmg: '1d8', bonus: 1, crit: 19, rarity: 'Rare', tags: ['sharp', 'heavy'], desc: 'Grik\'s pride. Still greasy. Crits on 19-20.' },
+    'Shop Steward\'s Gavel +1': { cat: 'weapon', level: 1, dmg: '1d6', bonus: 1, rarity: 'Rare', onHit: { type: 'stun', turns: 1, chance: 0.15 }, desc: 'Order! Order! Sometimes stuns on a hit.' },
+    'Archivist\'s Lantern': { cat: 'tool', level: 1, rarity: 'Rare', light: true, checks: { 'Investigation': 3, 'Perception': 2 }, desc: 'It shows what was filed away. A light, +3 Investigation, +2 Perception.' },
+    'The Gardener\'s Shears +1': { cat: 'weapon', level: 1, dmg: '1d6', bonus: 1, crit: 19, rarity: 'Rare', tags: ['sharp'], desc: 'They hum near anything green. Crits on 19-20.' },
+    'Headliner\'s Mic Stand +1': { cat: 'weapon', level: 1, dmg: '1d8', bonus: 1, rarity: 'Rare', checks: { 'Performance': 3 }, tags: ['long', 'heavy'], desc: 'The crowd still chants when you lift it. +3 Performance.' },
+    'Gatekeeper\'s Keyring': { cat: 'tool', level: 1, rarity: 'Rare', checks: { 'Lockpicking': 5 }, desc: 'Forty keys, one of them to everything on this floor. +5 to locks.' }
+  });
+  ITEMS['Bottle of water'].leaves = 'Empty bottle';
+  ITEMS['Flashlight'].light = true;
+  ITEMS['Lighter'].tags = ['fire'];
+  ITEMS['Roll of duct tape'].tags = ['sticky', 'binding'];
+  ITEMS['Roll of floral tape'] && (ITEMS['Roll of floral tape'].tags = ['sticky']);
+  ITEMS['Ball of twine'].tags = ['stringy', 'flammable'];
+  ITEMS['Crowbar'].tags = ['heavy', 'lever'];
+
+  // drops: elites, bosses, rats; a fuller loot box; room-themed searches (engine picks small_<theme>, else small)
+  Object.assign(DROPS.monsters, {
+    rat: { gold: '0', chance: [['Rat tail', 0.6]] },
+    bog: { gold: '1d4', chance: [['Bog slime', 0.7], ['Band-aids', 0.15]] },
+    clerk: { gold: '1d6', chance: [['Clerk ink', 0.5], ['Archive pages', 0.5], ['Stapler', 0.2], ['Sticky notes', 0.2]] },
+    shrub1: { gold: '0', chance: [['Shrub sap', 0.6]] }, shrub2: { gold: '0', chance: [['Shrub sap', 0.7]] }, shrub3: { gold: '1d4', chance: [['Shrub sap', 0.8]] }, shrub4: { gold: '1d6', always: ['Shrub sap'] },
+    puglin_brute: { gold: '2d6', always: ['Puglin grease'], chance: [['Healing potion', 0.3], ['Hot sauce', 0.3]] },
+    puglin_chief: { gold: '4d6', always: ['Puglin grease', 'Healing potion'], oneOf: ['Knobbly War Club +1'] },
+    imp_intern: { gold: '2d6', always: ['Union card'], chance: [['Imp horn', 0.4], ['Ibuprofen', 0.3]] },
+    imp_foreman: { gold: '4d6', always: ['Security badge', 'Healing potion'], chance: [['Smoke bomb', 0.4]], oneOf: ['Clipboard of Authority +1'] },
+    bog_brute: { gold: '2d6', always: ['Bog slime'], chance: [['Healing potion', 0.3]] },
+    bog_chief: { gold: '4d6', always: ['Bog slime', 'Healing potion'], oneOf: ['Warden\'s Reed Spear +1'] },
+    clerk_mid: { gold: '2d6', always: ['Archive pages'], chance: [['Laminated visitor badge', 0.3], ['Ibuprofen', 0.3]] },
+    clerk_head: { gold: '4d6', always: ['Archive pages', 'Healing potion'], oneOf: ['Head Clerk\'s Letter Opener +1'] },
+    grik: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Gristle King\'s Cleaver +1'] },
+    steward: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Shop Steward\'s Gavel +1'] },
+    archivist: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Archivist\'s Lantern'] },
+    gardener: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['The Gardener\'s Shears +1'] },
+    headliner: { gold: '8d6', always: ['Silver loot box', 'Goblin hob-lobber'], oneOf: ['Headliner\'s Mic Stand +1'] },
+    gatekeeper: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Gatekeeper\'s Keyring'] }
+  });
+  DROPS.monsters.puglin.chance.push(['Puglin grease', 0.35]);
+  DROPS.monsters.imp.chance = [['Imp horn', 0.4], ['Smoke bomb', 0.1]];
+  DROPS.containers.chest.pool = DROPS.containers.chest.pool.concat(['Healing potion', 'Chef\'s knife', 'Golf club (7 iron)', 'Cast iron skillet', 'Headlamp', 'Fire extinguisher', 'Bluetooth speaker', 'Smoke bomb', 'Goblin hob-lobber', 'Tennis racket', 'WD-40', 'Bungee cords', 'Protein bar', 'Hot sauce', 'Silver loot box', 'EpiPen']);
+  DROPS.containers.silver = { gold: '4d6', picks: [2, 4], from: 'a silver loot box', pool: ['Greater healing potion', 'Healing potion', 'Goblin hob-lobber', 'Smoke bomb', 'Jumper cables', 'Pallet jack', 'Headlamp', 'EpiPen', 'Golf club (7 iron)', 'Chef\'s knife', 'Cast iron skillet', 'Meat tenderizer'] };
+  DROPS.containers.small.pool = DROPS.containers.small.pool.concat(['Band-aids', 'Roll of toilet paper', 'Breath mints', 'Box cutter', 'Bungee cords', 'Zip ties (10)', 'Empty bottle', 'Wallet ($14 and a punch card)', 'Ibuprofen']);
+  DROPS.containers.small_office = { gold: '1d6', picks: [1, 2], from: 'a desk', pool: ['Stapler', 'Letter opener', 'Sticky notes', 'Archive pages', 'Ergonomic keyboard', 'Laminated visitor badge', '"World\'s Best Boss" mug', 'Breath mints', 'Lint roller', 'Ibuprofen', 'Box cutter'] };
+  DROPS.containers.small_store = { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] };
+  DROPS.containers.small_garden = { gold: '1d4', picks: [1, 2], from: 'the potting shed', pool: ['Rake', 'Hedge trimmers', 'Weed killer', 'Bug spray', 'Cordless leaf blower', 'Shrub sap', 'Bog slime', 'Floral foam brick', 'Bottle of water'] };
+  DROPS.containers.small_moss = DROPS.containers.small_garden;
+  DROPS.containers.small_bazaar = { gold: '2d4', picks: [1, 2], from: 'a stall', pool: ['Hot sauce', 'Can of cooking spray', 'Chef\'s knife', 'Rolling pin', 'Meat tenderizer', 'Cast iron skillet', 'Protein bar', 'Energy bar', 'Roll of aluminum foil', 'Bottle of water'] };
+  DROPS.containers.small_arena = { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] };
+  DROPS.containers.small_studio = DROPS.containers.small_arena;
+
   // who the crawlers are, as far as the System is concerned. Goes into every AI prompt that speaks as or for the System.
   var CREW_LORE = 'Background the System knows about this crawl: the crawlers are a real group of friends who call themselves the SGC, the Strong Guys Club. ' +
     'The name is an inside joke from a comedy sketch (someone caught with a screen full of buff bodybuilders pretends not to know what they are: "what are these, like strong guys or something?!") and has nothing to do with strength. ' +
@@ -6561,6 +6692,8 @@
     ['Napping Anywhere', 'CON', 'Asleep in thirty seconds on any surface. Rests do you more good.', ''],
     // --- fixing and figuring ---
     ['Jury-Rig', 'INT', 'Fix or bodge anything with what is lying around.', ''],
+    ['Alchemy', 'WIS', 'Mixing things into potions, poisons and bombs. Used at the alchemy table later; for now, in your bag.', ''],
+    ['Butchery', 'DEX', 'Harvesting useful parts from what you kill.', ''],
     ['Duct Tape Mastery', 'INT', 'The System has rules about duct tape. You found the loopholes.', ''],
     ['Lockpicking', 'DEX', 'Locks, traps, loot boxes.', ''],
     ['Investigation', 'INT', 'Searching, deducing, reading the room.', ''],
@@ -6625,7 +6758,9 @@
     'wpn:blade': [6, 'Blades', 'you are getting handy with an edge'],
     'wpn:blunt': [6, 'Bludgeons', 'you are getting handy with blunt objects'],
     heal: [4, 'First Aid', 'you keep patching yourself up'],
-    secret: [2, 'Trap Sense', 'you keep finding hidden things']
+    secret: [2, 'Trap Sense', 'you keep finding hidden things'],
+    harvest: [3, 'Butchery', 'you keep cutting useful bits off corpses'],
+    throw: [4, 'Thrown Objects', 'you keep throwing things at problems']
   };
   function skillCount(key) {
     var c = CHAR, t = SKILL_TRIGGERS[key]; if (!c || !t) return; c.counts = c.counts || {}; c.counts[key] = (c.counts[key] || 0) + 1;
@@ -6769,6 +6904,7 @@
       if (/helm/.test(SLOT.kHead.styles[sty('kHead')])) { ac += 1; why += ', helm'; }
     } else { var o = sty('outer'); if (o === 2) { ac = 16; why = 'plate'; } else if (o === 5) { ac = 12 + MOD.DEX; why = 'leather'; } else if (o === 1 || o === 4) { ac = 11 + MOD.DEX; why = 'coat'; } }
     if (sty('off') === 1) { ac += 2; why += ', shield'; }
+    var ia = itemAC(); if (ia.v) { ac += ia.v; why += ', ' + ia.why; }
     return { ac: ac, why: why };
   }
   function pcWeapon() {
@@ -7210,7 +7346,7 @@
     if (opt.ranged && dist > Wp.range) { dis = true; why.push('long range'); }
     if (CB.advNext) { adv = true; why.push('opening'); CB.advNext = false; }
     var cover = opt.ranged && hasCover(P.x, P.z, e.x, e.z) ? 2 : 0, ac = acOf(e) + cover;
-    var R = roll20(adv, dis), tot = R.r + Wp.hit, crit = R.r === 20, hit = crit || (R.r !== 1 && tot >= ac);
+    var R = roll20(adv, dis), tot = R.r + Wp.hit, crit = R.r >= (Wp.crit || 20), hit = crit || (R.r !== 1 && tot >= ac);
     var line = R.txt + ' + ' + Wp.hit + ' = ' + tot + ' vs AC ' + ac + (cover ? ' (half cover)' : '') + (why.length ? ' · ' + why.join(', ') : '');
     if (PC.hidden) { PC.hidden = false; }
     if (hit) {
@@ -7219,6 +7355,7 @@
       floater(e.px, e.def.h + 0.25, e.pz, (crit ? 'CRIT ' : '') + '-' + dm, crit ? 'crit' : 'dmg');
       say((opt.label || (crit ? 'Critical hit' : 'Hit')) + ' · ' + Wp.name + ' · ' + line, e.name + ' takes ' + dm + ' damage' + (e.hp <= 0 ? ' and goes down.' : ' (' + Math.max(0, e.hp) + ' / ' + e.max + ' left).') + (Wp.note ? ' ' + Wp.note : ''), 5200);
       if (Wp.skey && !opt.ranged) skillCount(Wp.skey);
+      if (Wp.onHit && e.hp > 0 && Math.random() < (Wp.onHit.chance || 1)) { var ohn = fxApply([Wp.onHit], e); if (ohn) say('Hit · ' + Wp.name, ohn, 2600); }
       if (e.hp <= 0) cbKill(e); else if (!e.prone) cbPlay(e, 'Hit_Chest', true);
     } else { diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: false, why: why }); floater(e.px, e.def.h + 0.25, e.pz, R.r === 1 ? 'FUMBLE' : 'MISS', 'miss'); say((opt.label || 'Miss') + ' · ' + Wp.name + ' · ' + line, R.r === 1 ? 'A natural 1. The replay will be shown at halftime.' : e.name + ' twists away.', 4200); }
     return hit;
@@ -7502,7 +7639,7 @@
   });
   // Interact options when you stand next to a monster
   function enemyActs(e) {
-    if (e.dead) return [{ label: 'Search the body', loot: true }, { label: 'Stash the whole body', stash: true }, { label: 'Examine', text: 'Very dead. ' + (e.looted ? 'Already picked clean.' : 'Its pockets look promising.') }];
+    if (e.dead) return [{ label: 'Search the body', loot: true }].concat(harvestOf(e) && !e.harvested && !e.eaten ? [{ label: 'Harvest ' + harvestOf(e).toLowerCase(), harvest: true }] : []).concat([{ label: 'Stash the whole body', stash: true }, { label: 'Examine', text: 'Very dead. ' + (e.looted ? 'Already picked clean.' : 'Its pockets look promising.') }]);
     var talk = { label: NET.sample ? 'Talk (say anything)' : 'Talk', talk: true };
     if (e.npc) return [talk,
       { label: 'Examine', text: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile. Not a threat to anyone, least of all you.' },
@@ -7550,7 +7687,7 @@
   var CHAR = null;
   function skillLv(n) { var c = CHAR || MICHAEL; return c.skills && c.skills[n] ? c.skills[n] : 0; }
   function hasTrait(n) { var c = CHAR || MICHAEL; return c.trait === n || c.flaw === n || c.traitFx === n || c.flawFx === n; }
-  function chkBonus(a) { var b = MOD[a.stat] + (a.skill ? skillLv(a.skill[0]) : 0); if (a.stat === 'CHA' && hasTrait('Silver Tongue') && a.skill && /De-escalation|Haggling|Deception/.test(a.skill[0])) b += 2; return b; }
+  function chkBonus(a) { var b = MOD[a.stat] + (a.skill ? skillLv(a.skill[0]) + (typeof itemChecks === 'function' ? itemChecks(a.skill[0]) : 0) : 0) + (a.stat === 'CHA' && typeof buffHas === 'function' && buffHas('minty') ? 2 : 0); if (a.stat === 'CHA' && hasTrait('Silver Tongue') && a.skill && /De-escalation|Haggling|Deception/.test(a.skill[0])) b += 2; return b; }
   function buyCost(st) { return STATS.reduce(function (s, k) { return s + BUY[st[k]]; }, 0); }
   function applyChar(c) {
     CHAR = c; STATS.forEach(function (k) { MOD[k] = Math.floor((c.stats[k] - 10) / 2); });
@@ -8205,7 +8342,7 @@
   setInterval(function () { if (typeof P === 'undefined') return; var m = document.getElementById('mini'); m.style.display = gearOpen || CC || AUTH.open ? 'none' : ''; if (m.style.display !== 'none') mapDraw(m, false); if (UI.map) mapDraw(document.getElementById('mapC'), true); }, 250);
 
   // ---------- inventory ----------
-  var CATS = [['all', 'All'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['valuable', 'Valuables'], ['body', 'Bodies'], ['misc', 'Misc']];
+  var CATS = [['all', 'All'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['valuable', 'Valuables'], ['material', 'Materials'], ['body', 'Bodies'], ['misc', 'Misc']];
   function bagItems() { return CHAR && CHAR.gear ? CHAR.gear : []; }
   function bagToggle() {
     UI.bag = !UI.bag; if (UI.bag && UI.map) mapToggle(); document.getElementById('bag').classList.toggle('on', UI.bag);
@@ -8218,7 +8355,7 @@
     var sel = UI.sel !== null ? items[UI.sel] : null;
     var worn = function (slot) { return items.filter(function (g) { return g.worn && g.slot === slot; })[0]; }, w = wieldItem(), bk = backItem();
     var slotBtn = function (lbl, it, cls, empty) { var i = it ? items.indexOf(it) : -1; return '<button type="button" class="eqs ' + (cls || '') + (it ? '' : ' empty') + (i >= 0 && UI.sel === i ? ' on' : '') + '"' + (i >= 0 ? ' data-i="' + i + '"' : ' disabled') + '><small>' + lbl + '</small>' + (it ? esc(it.name) + (it.dmg ? '<em>' + esc(it.dmg) + '</em>' : '') : '<em>' + (empty || 'empty') + '</em>') + '</button>'; };
-    el.innerHTML = '<header><b>Inventory</b><span class="gp">' + (CHAR && CHAR.gold || 0) + ' gp</span><button type="button" class="xbtn" id="bagSheet">Character</button><button type="button" class="xbtn" id="bagX">Close</button></header>' +
+    el.innerHTML = '<header><b>Inventory</b><span class="gp">' + (CHAR && CHAR.gold || 0) + ' gp</span><button type="button" class="xbtn" id="bagCraft">Jury-rig</button><button type="button" class="xbtn" id="bagSheet">Character</button><button type="button" class="xbtn" id="bagX">Close</button></header>' +
       '<div id="bagBody"><div class="eq">' +
         '<div class="eqL">' + slotBtn('Head', worn('kHead')) + slotBtn('Body', worn('kTop')) + slotBtn('Legs', worn('kPants')) + slotBtn('Feet', worn('kBoots')) + '</div>' +
         '<div class="eqC"><canvas id="heroPic" width="180" height="270" role="img" aria-label="Your crawler as they look now"></canvas><span class="eqStat">AC ' + pcAC().ac + ' · HP ' + PC.hp + '/' + PC.max + '</span></div>' +
@@ -8234,6 +8371,7 @@
       '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div></div>';
     document.getElementById('bagSwap').onclick = swapWeapons;
     document.getElementById('bagSheet').onclick = function () { bagToggle(); charToggle(); };
+    document.getElementById('bagCraft').onclick = function () { bagToggle(); craftToggle(); };
     setTimeout(function () { var cv = document.getElementById('heroPic'); if (cv) heroShot(cv); }, 30);
     document.getElementById('bagX').onclick = bagToggle;
     var qi = document.getElementById('bagQ'); qi.oninput = function () { UI.q = qi.value; var pos = qi.selectionStart; bagDraw(); var n = document.getElementById('bagQ'); n.focus(); n.setSelectionRange(pos, pos); };
@@ -8249,6 +8387,7 @@
     if (canBack(it) && CHAR.wield !== it.name) acts.push(CHAR.back === it.name ? ['unback', 'Take off back'] : ['back', 'Wear on back']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
+    if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); if (!it.box) acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
@@ -8295,12 +8434,15 @@
   function heals(it) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal || ''); return (m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1) + healSkillBonus(it); }
   function useItem(it) {
     if (!CHAR || !it || CHAR.dead) return false;
+    if (it.throw || it.escape || it.box || (it.buff && !it.heal)) return itemSpecial(it);
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.bonus)) { say('Not now', 'In a fight, using an item takes your bonus action, on your turn.', 2500); return false; }
     if (CB.on) CB.res.bonus = 0;
     var h = heals(it), before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h); skillCount(/gauze|bandage|potion|kit|salve|medic/i.test(it.name) ? 'heal' : 'eat');
     if (typeof floater === 'function') floater(P.px, 1.6, P.pz, '+' + (PC.hp - before), 'heal'); kitOneShot('PickUp_Table');
     say('Used · ' + it.name, '+' + (PC.hp - before) + ' HP' + (CB.on ? ' (bonus action).' : '.'), 2600);
+    if (it.buff) buffOn(it.buff, 10 * 60000);
     it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; }
+    if (it.leaves) { var lv = item(it.leaves, { from: 'what was left' }); if (lv) invAdd(lv, true); }
     saveChar(CHAR); cbHUD(); hotDraw(); if (UI.bag) bagDraw(); if (CB.on && typeof cbShowMoves === 'function') cbMenuClose();
     return true;
   }
@@ -8341,7 +8483,7 @@
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
     var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
     var bon = +it.bonus || 0, sk = weaponSkillKey(it); // enchanted: +1 weapons add to hit and damage, 5e style; weapon skills add to hit
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + weaponSkillBonus(sk) + buffHit(), dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk };
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + weaponSkillBonus(sk) + buffHit(), dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk, crit: +it.crit || 20, onHit: it.onHit || null };
   }
 
   // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------
@@ -8545,8 +8687,8 @@
   function lootSpot(x, z, kind) {
     var key = 'loot' + x + ',' + z, st = lootSpot.done[key];
     if (!st) {
-      var R = rollContainer(kind);
-      if (kind === 'chest') { skillCount('box'); if (Math.random() < skillLv('Box Cracker') * 0.12) { var ex = rollContainer(kind).items[0]; if (ex) { ex.from = 'a loot box (Box Cracker)'; R.items.push(ex); } } }
+      var R = rollLoot(kind, (roomInfo(x, z) || {}).theme);
+      if (kind === 'chest') { skillCount('box'); if (Math.random() < skillLv('Box Cracker') * 0.12) { var ex = rollLoot(kind).items[0]; if (ex) { ex.from = 'a loot box (Box Cracker)'; R.items.push(ex); } } }
       st = lootSpot.done[key] = { title: kind === 'chest' ? 'Loot box' : 'You found', items: R.items, gold: R.gold };
     }
     lootWindow(st);
@@ -8596,7 +8738,7 @@
   var TAP = { down: null };
   canvas.addEventListener('pointerdown', function (ev) { TAP.down = (CB.on || gearOpen) ? null : { x: ev.clientX, y: ev.clientY, t: performance.now() }; });
   canvas.addEventListener('pointerup', function (ev) {
-    var d0 = TAP.down; TAP.down = null; if (!d0 || CB.on || gearOpen || CC || AUTH.open || TALK.open || LOOTW.open || UI.bag || UI.map || CS.open) return;
+    var d0 = TAP.down; TAP.down = null; if (!d0 || CB.on || gearOpen || CC || AUTH.open || TALK.open || LOOTW.open || UI.bag || UI.map || CS.open || CRAFT.open) return;
     if (Math.abs(ev.clientX - d0.x) + Math.abs(ev.clientY - d0.y) > 14 || performance.now() - d0.t > 600) return;
     exploreTap(ev.clientX, ev.clientY);
   });
@@ -8853,7 +8995,8 @@
     jitters: { name: 'Jittery', icon: '〰', desc: 'Three coffees. Your hands shake: -1 to hit.' },
     fed: { name: 'Well Fed', icon: '🍲', desc: 'A hot meal: you heal 1 HP every 5 seconds outside fights.' },
     rested: { name: 'Rested', icon: '☾', desc: 'A real nap: +1 to hit.' },
-    sugar: { name: 'Sugar Rush', icon: '✦', desc: '+1 to hit, then a crash.' }
+    sugar: { name: 'Sugar Rush', icon: '✦', desc: '+1 to hit, then a crash.' },
+    minty: { name: 'Minty Fresh', icon: '❄', desc: '+2 to talking (Charisma) checks.' }
   };
   function buffs() { var c = CHAR; if (!c) return {}; c.buffs = c.buffs || {}; var now = Date.now(); Object.keys(c.buffs).forEach(function (k) { if (c.buffs[k] <= now) delete c.buffs[k]; }); return c.buffs; }
   function buffHas(k) { return !!buffs()[k]; }
@@ -8955,6 +9098,206 @@
     return extra.length ? extra.concat(base) : base;
   };
 
+  // ===================== item effects: what the fields in items.js actually do =====================
+  // throw / escape / box / buff / uses / leaves on use; ac, checks, light while carried; crit and onHit on weapons
+  // (see gearWeapon); loot rolls weighted by rarity, gated by level, and themed by the room you search.
+  var FLOOR = 1;
+  function gearHas(fn) { return (CHAR && CHAR.gear || []).some(fn); }
+  function itemAC() { // a held skillet, a worn apron...
+    var c = CHAR; if (!c) return { v: 0, why: '' }; var w = wieldItem(), v = 0, why = [];
+    if (w && w.ac) { v += w.ac; why.push(w.name.toLowerCase()); }
+    (c.gear || []).forEach(function (g) { if (g.worn && g.ac) { v += g.ac; why.push(g.name.toLowerCase()); } });
+    return { v: v, why: why.join(', ') };
+  }
+  function itemChecks(skill) { var b = 0; (CHAR && CHAR.gear || []).forEach(function (g) { if (g.checks && g.checks[skill] > b) b = g.checks[skill]; }); return b; }
+  function hasLight() { return gearHas(function (g) { return g.light; }); }
+  function isThrowable(it) { return !!(it && (it.throw || it.escape)); }
+  function isPlant(e) { return /shrub/.test(e.def.base || e.kind || '') || /plant|vine|shrub|fungus|mold/i.test(e.name || ''); }
+
+  // use an item that isn't plain healing: throw it, light the smoke, open the box, take the buff
+  function itemSpecial(it) {
+    var c = CHAR; if (!c) return false;
+    if (it.box) return openBox(it);
+    if (it.escape) {
+      if (!CB.on) { say(it.name, 'Save it for a fight you need to leave.', 2600); return false; }
+      if (!cbMyTurn() || CB.busy || !CB.res.action) { say('Not now', 'That takes your action, on your turn.', 2500); return false; }
+      itemSpend(it); say(it.name, 'Thick smoke fills the room. When it clears, you are somewhere else. The audience boos.', 4500);
+      CB.order = []; cbEnd(false); return true;
+    }
+    if (it.throw) return throwItem(it, pickTarget(it));
+    if (it.buff) { itemSpend(it); buffOn(it.buff, 10 * 60000); var b = BUFFS[it.buff]; say(it.name, b ? b.name + ': ' + b.desc : 'You feel different.', 3500); return true; }
+    return false;
+  }
+  function pickTarget(it) {
+    var best = null, bd = 8; if (CB.on && CB.target && !CB.target.dead) return CB.target;
+    CB.enemies.forEach(function (q) { if (q.dead || q.npc || q.calm) return; if (it.throw && it.throw.vs === 'plant' && !isPlant(q)) return; var dd = cheb(P.x, P.z, q.x, q.z); if (dd < bd && los(P.x, P.z, q.x, q.z)) { bd = dd; best = q; } });
+    return best;
+  }
+  function itemSpend(it) {
+    if (it.uses) { it.usesLeft = (it.usesLeft === undefined ? it.uses : it.usesLeft) - 1; if (it.usesLeft > 0) { saveChar(CHAR); return; } }
+    it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; if ((CHAR.hotbar || []).indexOf(it.name) >= 0 && !CHAR.gear.some(function (g) { return g.name === it.name; })) CHAR.hotbar[CHAR.hotbar.indexOf(it.name)] = null; }
+    if (it.leaves) { var lv = item(it.leaves, { from: 'what was left' }); if (lv) invAdd(lv, true); }
+    saveChar(CHAR); hotDraw(); if (UI.bag) bagDraw();
+  }
+  function throwItem(it, e) {
+    if (!e) { say('No target', 'Nothing in range to throw that at' + (it.throw.vs === 'plant' ? ' (it only works on plants)' : '') + '.', 2600); return false; }
+    if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', 'Throwing takes your action, on your turn.', 2500); return false; }
+    if (cheb(P.x, P.z, e.x, e.z) > 6) { say('Too far', 'You can throw about 30 feet.', 2400); return false; }
+    if (CB.on) CB.res.action = 0;
+    var T = it.throw, area = T.area || 0, notes = [], hit = true, R = null;
+    if (!area) { // single target: a ranged attack roll
+      var bon = PROF() + MOD.DEX + skillLv('Thrown Objects'), ac = acOf(e); R = roll20(false, false); var tot = R.r + bon; hit = R.r === 20 || (R.r !== 1 && tot >= ac);
+      diceShow({ who: 'You', vs: e.name, R: R, bonus: bon, tot: tot, ac: ac, hit: hit, why: ['thrown ' + it.name.toLowerCase()] });
+    }
+    kitOneShot('Punch_Jab'); itemSpend(it); skillCount('throw');
+    if (hit) {
+      var targets = area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && cheb(q.x, q.z, e.x, e.z) <= area && (T.vs !== 'plant' || isPlant(q)); }) : [e];
+      targets.forEach(function (q) { var n = fxApply(T.fx, q); if (n) notes.push(n); });
+    }
+    say('Thrown · ' + it.name, hit ? (notes.join(' ') || 'It lands. Nothing much happens.') : 'Missed. It skitters off into the dark.', 5000);
+    afterTrick(e); return true;
+  }
+  function openBox(it) {
+    var here = roomInfo(P.x, P.z); if (!here || here.type !== 'safe') { say(it.name, 'Loot boxes only open in a safe room. The System is very firm about this.', 3500); return false; }
+    var R = rollContainer(it.box); itemSpend(it);
+    lootWindow({ title: it.name, items: R.items, gold: R.gold }); kitOneShot('Interact'); skillCount('box'); return true;
+  }
+
+  // ---------- loot rolls: rarer things turn up less, nothing above this floor's level, searches match the room ----------
+  function lootWeight(n) { var it = ITEMS[n]; if (!it) return 0; if ((it.level || 1) > FLOOR || (it.until && it.until < FLOOR)) return 0; var r = String(it.rarity || '').toLowerCase(); return it.common ? 1.6 : r === 'uncommon' ? 0.35 : r === 'rare' ? 0.12 : r === 'legendary' ? 0.03 : 1; }
+  function lootPick(pool) { var tot = 0, w = pool.map(function (n) { var v = lootWeight(n); tot += v; return v; }); var r = Math.random() * tot; for (var i = 0; i < pool.length; i++) { r -= w[i]; if (r <= 0) return pool[i]; } return pool[pool.length - 1]; }
+  function rollLoot(kind, theme) {
+    if (kind === 'small' && theme && DROPS.containers['small_' + theme] && Math.random() < 0.75) kind = 'small_' + theme;
+    var R = DROPS.containers[kind]; if (!R) return { gold: 0, items: [] };
+    var n = R.picks[0] + Math.floor(Math.random() * (R.picks[1] - R.picks[0] + 1)), items = [], seen = {};
+    for (var i = 0; i < n * 3 && items.length < n; i++) { var nm = lootPick(R.pool); if (seen[nm] && Math.random() < 0.8) continue; seen[nm] = 1; var x = item(nm, { from: R.from }); if (x) items.push(x); }
+    return { gold: diceRoll(R.gold), items: items };
+  }
+
+  // ===================== Harvest and Jury-rigging: materials from bodies, inventions from your bag =====================
+  // Recipes carry a required level in their track (Jury-Rig for physical builds, Alchemy for mixtures). Inventing one
+  // gives XP in that track. The inventor can always make their own recipe; the rest of the SGC can see it but needs the
+  // level. Recipes are shared through the server (/api/recipes).
+  var HARVEST = { rat: 'Rat tail', puglin: 'Puglin grease', bog: 'Bog slime', shrub: 'Shrub sap', imp: 'Imp horn', clerk: 'Clerk ink' };
+  function harvestOf(e) { var b = e.def.base || e.kind || ''; if (/shrub/.test(b)) b = 'shrub'; return HARVEST[b] || null; }
+  function harvest(e) {
+    var mat = harvestOf(e); if (!e || !e.dead || !mat) return;
+    if (e.harvested) { say('Picked clean', 'There is nothing useful left on it.', 2500); return; }
+    if (e.eaten) { say('Too late', 'The shrubs got there first.', 2500); return; }
+    e.harvested = true; var blade = gearHas(function (g) { return (g.tags || []).indexOf('sharp') >= 0 || /knife|shear|cutter|cleaver/i.test(g.name); });
+    var R = roll20(blade, false), b = MOD.DEX + skillLv('Butchery'), tot = R.r + b, n = tot >= 15 ? 2 : tot >= 8 ? 1 : 0;
+    kitOneShot('PickUp_Table'); skillCount('harvest');
+    if (!n) { say('Harvest · ' + e.name, 'd20 ' + R.r + ' + ' + b + ' = ' + tot + '. You make a mess of it. Nothing worth keeping.' + (blade ? '' : ' A blade would help.'), 4500); worldSave(); return; }
+    for (var i = 0; i < n; i++) { var it = item(mat, { from: 'harvested from ' + e.name }); if (it) invAdd(it, true); }
+    say('Harvest · ' + e.name, 'd20 ' + R.r + ' + ' + b + ' = ' + tot + (blade ? ' (with a blade: advantage)' : '') + '. You get ' + n + ' × ' + mat.toLowerCase() + '. ' + (ITEMS[mat] && ITEMS[mat].desc || ''), 5000);
+    worldSave(); if (UI.bag) bagDraw();
+  }
+
+  // ---------- the Combine screen ----------
+  var CRAFT = { open: false, sel: [], busy: false, shared: [] };
+  function craftLoadShared() { if (NET.mode === 'server' && NET.uid) api('recipes').then(function (j) { CRAFT.shared = j.value || []; if (CRAFT.open) craftDraw(); }).catch(function () {}); }
+  function craftToggle() {
+    CRAFT.open = !CRAFT.open; var el = document.getElementById('craft');
+    if (!el) { el = document.createElement('div'); el.id = 'craft'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Jury-rig'); document.body.appendChild(el); }
+    el.classList.toggle('on', CRAFT.open); if (CRAFT.open) { CRAFT.sel = []; craftLoadShared(); craftDraw(); }
+  }
+  function trackSkill(t) { return t === 'alchemy' ? 'Alchemy' : 'Jury-Rig'; }
+  function craftItems() { return (CHAR && CHAR.gear || []).filter(function (g) { return !g.worn && g.cat !== 'body' && g.name !== CHAR.wield; }); }
+  function allRecipes() {
+    var mine = CHAR && CHAR.recipes || {}, out = {}; CRAFT.shared.forEach(function (r) { out[r.name] = r; }); Object.keys(mine).forEach(function (k) { out[k] = mine[k]; }); return Object.keys(out).map(function (k) { return out[k]; });
+  }
+  function recipeState(r) {
+    var mine = r.by === (CHAR && CHAR.name) && r.byUid === NET.uid || (CHAR && CHAR.recipes && CHAR.recipes[r.name] && CHAR.recipes[r.name].inventor), lv = skillLv(trackSkill(r.track));
+    var have = (r.inputs || []).every(function (n) { return CHAR.gear.some(function (g) { return g.name === n; }); });
+    return { mine: !!mine, skillOk: mine || lv >= r.level, have: have };
+  }
+  function craftDraw() {
+    var el = document.getElementById('craft'); if (!el || !CRAFT.open) return; var items = craftItems();
+    var recs = allRecipes().map(function (r) { var s = recipeState(r); return '<div class="rc' + (s.skillOk && s.have ? '' : ' off') + '"><div><b>' + esc(r.name) + '</b> <small>' + esc(trackSkill(r.track)) + ' ' + r.level + (s.mine ? ' · yours' : r.by ? ' · by ' + esc(r.by) : '') + '</small><span>' + esc((r.inputs || []).join(' + ')) + '</span></div>' +
+      '<button type="button" class="ccBtn" data-make="' + esc(r.name) + '"' + (s.skillOk && s.have ? '' : ' disabled') + '>' + (!s.skillOk ? 'Needs ' + trackSkill(r.track) + ' ' + r.level : !s.have ? 'Missing items' : 'Make') + '</button></div>'; }).join('');
+    el.innerHTML = '<header><b>Jury-rig</b><span>Jury-Rig ' + skillLv('Jury-Rig') + ' · Alchemy ' + skillLv('Alchemy') + '</span><button type="button" class="xbtn" id="crX">Close</button></header>' +
+      '<div class="cb"><div class="cpick"><h3>Pick up to three things</h3><div class="cgrid">' + items.map(function (g, i) { var on = CRAFT.sel.indexOf(g) >= 0; return '<button type="button" class="' + (on ? 'on' : '') + '" data-ci="' + i + '">' + itemIcon(g) + '<span>' + esc(g.name) + '</span>' + ((g.tags || []).length ? '<i>' + esc(g.tags.slice(0, 2).join(', ')) + '</i>' : '') + '</button>'; }).join('') + '</div>' +
+      '<label for="crIdea">What are you trying to make?</label><input id="crIdea" type="text" maxlength="160" placeholder="e.g. a sticky firebomb, a spear, something that heals">' +
+      '<button type="button" class="go" id="crGo"' + (CRAFT.sel.length >= 2 && !CRAFT.busy ? '' : ' disabled') + '>' + (CRAFT.busy ? 'The System is thinking…' : 'Jury-rig it') + '</button><p class="hint">Takes two or three items. The System decides if it works, what roll it takes and what you get. Inventions become recipes the whole SGC can see.</p></div>' +
+      '<div class="crec"><h3>Recipes</h3>' + (recs || '<p class="hint">None yet. Invent something.</p>') + '</div></div>';
+    document.getElementById('crX').onclick = craftToggle;
+    el.querySelectorAll('[data-ci]').forEach(function (b) { b.onclick = function () { var g = items[+b.dataset.ci], k = CRAFT.sel.indexOf(g); if (k >= 0) CRAFT.sel.splice(k, 1); else if (CRAFT.sel.length < 3) CRAFT.sel.push(g); var idea = document.getElementById('crIdea').value; craftDraw(); document.getElementById('crIdea').value = idea; }; });
+    el.querySelectorAll('[data-make]').forEach(function (b) { b.onclick = function () { craftMake(b.dataset.make); }; });
+    document.getElementById('crGo').onclick = function () { craftInvent(document.getElementById('crIdea').value.trim()); };
+  }
+
+  // ---------- inventing ----------
+  function craftInvent(idea) {
+    if (CRAFT.busy || CRAFT.sel.length < 2) return; var sel = CRAFT.sel.slice();
+    var desc = sel.map(function (g) { return g.name + ' [' + (g.cat || 'misc') + (g.tags && g.tags.length ? '; ' + g.tags.join(', ') : '') + (g.dmg ? '; ' + g.dmg : '') + (g.heal ? '; heals ' + g.heal : '') + ']: ' + (g.desc || ''); }).join('\n');
+    if (!NET.sample) { craftApply(craftOffline(sel, idea), sel, idea); return; }
+    CRAFT.busy = true; craftDraw();
+    var prompt = 'You are the System, the AI running a Dungeon Crawler Carl style dungeon on D&D 5e rules. ' + CREW_LORE + '\n\nA crawler wants to jury-rig something from items in their bag. Judge it like a fair, funny DM. Physical builds use the Jury-Rig track (INT); mixtures, potions, poisons and chemistry use the Alchemy track (WIS). ' +
+      'Crawler skills: Jury-Rig ' + skillLv('Jury-Rig') + ', Alchemy ' + skillLv('Alchemy') + ', INT mod ' + MOD.INT + ', WIS mod ' + MOD.WIS + '.\n\nItems:\n' + desc + '\n\nWhat they want to make: ' + (idea || '(they did not say; make the most sensible thing)') +
+      '\n\nRules: if the combination cannot plausibly make anything, ok=false and say why in comment. Otherwise design ONE item using only these fields. Recipe level 1-3 by complexity and power. Power limits: level 1 = up to 2d6 damage or 1d8 weapon or 2d4 healing; level 2 = up to 3d6, 1d10 weapon, 3d4+2 healing; level 3 = up to 4d6 area 2. ' +
+      'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. DC 8-18.' +
+      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"dc":10,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"comment":"one short System line"}';
+    serverSample([{ role: 'user', content: prompt }], { modelTier: 'complex', maxTokens: 600 }).then(function (r) {
+      var j = null; try { j = JSON.parse(r.text.replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {}
+      CRAFT.busy = false; craftApply(j || craftOffline(sel, idea), sel, idea);
+    }).catch(function () { CRAFT.busy = false; craftApply(craftOffline(sel, idea), sel, idea); });
+  }
+  // without the AI: a handful of sensible combinations by tag
+  function craftOffline(sel, idea) {
+    var t = {}; sel.forEach(function (g) { (g.tags || []).forEach(function (x) { t[x] = 1; }); if (/lighter|match/i.test(g.name)) t.fire = 1; });
+    var mats = sel.filter(function (g) { return !/lighter/i.test(g.name); }).map(function (g) { return g.name; });
+    if (t.fire && t.flammable && t.sticky) return { ok: true, track: 'alchemy', level: 2, dc: 12, name: 'Sticky firebomb', desc: 'It clings, it burns, it does not stop burning. The System is impressed and a little worried.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d6', turns: 3 }], area: 1 }, tags: ['flammable', 'sticky'], consumes: mats };
+    if (t.fire && t.flammable && (t.glass || t.container || t.paper)) return { ok: true, track: 'alchemy', level: 1, dc: 10, name: 'Dungeon cocktail', desc: 'A bottle, a rag, a bad idea.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d4', turns: 2 }] }, tags: ['flammable'], consumes: mats };
+    if (t.sharp && t.long && (t.binding || t.sticky)) return { ok: true, track: 'physical', level: 1, dc: 10, name: 'Taped spear', desc: 'A blade, a stick and an unreasonable amount of tape.', cat: 'weapon', dmg: '1d8', tags: ['long', 'sharp'], consumes: sel.map(function (g) { return g.name; }) };
+    if (t.heavy && (t.binding || t.sticky)) return { ok: true, track: 'physical', level: 1, dc: 9, name: 'Strapped bludgeon', desc: 'Heavy thing, firmly attached to a handle-ish thing.', cat: 'weapon', dmg: '1d8', tags: ['heavy'], consumes: sel.map(function (g) { return g.name; }) };
+    if (t.sticky || t.slippery) return { ok: true, track: 'alchemy', level: 1, dc: 9, name: 'Goo trap', desc: 'Throw it under something and watch it try to walk.', cat: 'consumable', throw: { fx: [{ type: 'prone' }, { type: 'weaken', ac: 1, turns: 2 }] }, tags: ['sticky'], consumes: mats };
+    var heals = sel.filter(function (g) { return g.heal; }); if (heals.length >= 2) return { ok: true, track: 'alchemy', level: 1, dc: 8, name: 'Questionable tonic', desc: 'Everything medical in your bag, shaken together.', cat: 'consumable', heal: '2d4+1', consumes: heals.map(function (g) { return g.name; }) };
+    return { ok: false, comment: 'Nothing about these goes together. The System suggests: tags. Look at what things are made of.' };
+  }
+  function clampDice(s, maxN, maxS) { var m = /^(\d+)d(\d+)(?:\+(\d+))?$/.exec(String(s || '').replace(/\s/g, '')); if (!m) return null; return Math.min(+m[1], maxN) + 'd' + Math.min(+m[2], maxS) + (m[3] ? '+' + Math.min(+m[3], 6) : ''); }
+  function craftSpec(j) { // keep only fields the engine runs, within this floor's limits
+    var lv = Math.max(1, Math.min(3, +j.level || 1)), spec = { cat: /^(weapon|consumable|tool)$/.test(j.cat) ? j.cat : 'consumable', desc: String(j.desc || '').slice(0, 200), tags: (j.tags || []).slice(0, 4).map(String), crafted: true };
+    if (spec.cat === 'weapon') { spec.dmg = clampDice(j.dmg, 1, lv === 1 ? 8 : lv === 2 ? 10 : 12) || '1d6'; if (+j.crit >= 18 && +j.crit < 20) spec.crit = Math.max(19, +j.crit); }
+    if (j.heal) spec.heal = clampDice(j.heal, lv + 1, 4) || null; if (!spec.heal) delete spec.heal;
+    if (j.throw && j.throw.fx) {
+      var ok = { damage: 1, burn: 1, stun: 1, distract: 1, prone: 1, push: 1, weaken: 1 };
+      spec.throw = { fx: j.throw.fx.filter(function (f) { return f && ok[f.type]; }).slice(0, 3).map(function (f) { var o = { type: f.type }; if (f.dice) o.dice = clampDice(f.dice, lv + 1, 6) || '1d6'; if (f.turns) o.turns = Math.min(3, +f.turns || 1); if (f.tiles) o.tiles = Math.min(3, +f.tiles || 1); if (f.ac) o.ac = Math.min(2, +f.ac || 1); return o; }), area: Math.min(lv >= 3 ? 2 : 1, +j.throw.area || 0) };
+      if (!spec.throw.fx.length) delete spec.throw;
+    }
+    if (+j.uses > 1 && spec.cat === 'tool') spec.uses = Math.min(5, +j.uses);
+    return { lv: lv, spec: spec };
+  }
+  function craftApply(j, sel, idea) {
+    if (!j || !j.ok) { say('Jury-rig · no', (j && j.comment) || 'That does not go together.', 5000); craftDraw(); return; }
+    var track = j.track === 'alchemy' ? 'alchemy' : 'physical', sk = trackSkill(track), cs = craftSpec(j), dc = Math.max(8, Math.min(18, +j.dc || 10));
+    var stat = track === 'alchemy' ? 'WIS' : 'INT', R = roll20(false, false), b = MOD[stat] + skillLv(sk) + itemChecks(sk), tot = R.r + b, ok = R.r === 20 || (R.r !== 1 && tot >= dc);
+    var name = String(j.name || 'Contraption').replace(/[^\w '\-+!?]/g, '').slice(0, 40), consumes = (j.consumes || []).filter(function (n) { return sel.some(function (g) { return g.name === n; }); });
+    if (!consumes.length) consumes = sel.filter(function (g) { return g.cat === 'material' || g.cat === 'consumable'; }).map(function (g) { return g.name; });
+    if (!ok) {
+      if (R.r === 1 && consumes.length) { var lost = CHAR.gear.filter(function (g) { return g.name === consumes[0]; })[0]; if (lost) itemSpend(lost); }
+      say('Jury-rig · it fails', 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (R.r === 1 ? 'It falls apart in your hands and takes the ' + consumes[0].toLowerCase() + ' with it.' : 'Close, but it will not hold. Your materials are fine.') + (j.comment ? ' ' + j.comment : ''), 6000);
+      skillUse(sk); CRAFT.sel = []; craftDraw(); return;
+    }
+    consumes.forEach(function (n) { var g = CHAR.gear.filter(function (x) { return x.name === n; })[0]; if (g) itemSpend(g); });
+    var made = Object.assign({ name: name, from: 'your own two hands', level: 1 }, cs.spec); invAdd(made, true);
+    CHAR.recipes = CHAR.recipes || {}; var isNew = !CHAR.recipes[name] && !CRAFT.shared.some(function (r) { return r.name.toLowerCase() === name.toLowerCase(); });
+    var rec = { name: name, track: track, level: cs.lv, dc: dc, inputs: sel.map(function (g) { return g.name; }), keep: sel.map(function (g) { return g.name; }).filter(function (n) { return consumes.indexOf(n) < 0; }), spec: cs.spec, by: CHAR.name, byUid: NET.uid, inventor: true, idea: idea || '' };
+    if (isNew) {
+      CHAR.recipes[name] = rec; if (!skillHas(sk)) skillGrant(sk, 'you built something that works'); else for (var i = 0; i < cs.lv * 2; i++) skillUse(sk);
+      logEvent('Invented ' + name + ' (' + sk + ' ' + cs.lv + ')', 'skill');
+      if (NET.mode === 'server' && NET.uid) api('recipes', { method: 'POST', body: { recipe: rec } }).then(function (r) { CRAFT.shared = r.value || CRAFT.shared; }).catch(function () {});
+      setTimeout(function () { achieve('first_invention', 'Some Assembly Required', 'You built something from garbage and it worked. The System files a patent in its own name.', 25); }, 1500);
+    } else skillUse(sk);
+    say((isNew ? 'Invented · ' : 'Made · ') + name, 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (cs.spec.desc || '') + (isNew ? ' New ' + sk + ' ' + cs.lv + ' recipe, shared with the SGC.' : '') + (j.comment ? ' ' + j.comment : ''), 7000);
+    CRAFT.sel = []; saveChar(CHAR); craftDraw(); if (UI.bag) bagDraw();
+  }
+  function craftMake(name) {
+    var r = allRecipes().filter(function (x) { return x.name === name; })[0]; if (!r) return; var s = recipeState(r); if (!s.skillOk || !s.have) return;
+    var sel = r.inputs.map(function (n) { return CHAR.gear.filter(function (g) { return g.name === n; })[0]; });
+    var j = Object.assign({ ok: true, name: r.name, track: r.track, level: r.level, dc: Math.max(6, (r.dc || 10) - 3), consumes: r.inputs.filter(function (n) { return (r.keep || []).indexOf(n) < 0; }) }, r.spec);
+    craftApply(j, sel, r.idea);
+  }
+
   // ===================== theme: Iron & Parchment (classic D&D chrome; the System keeps its own voice in the text) =====================
   (function () {
     var fl = document.createElement('link'); fl.rel = 'stylesheet';
@@ -8999,6 +9342,7 @@
       // explore action bar
       '#bar{align-items:flex-end}',
       '#bar .act{' + iron + 'border:1px solid #8a7a5a;border-radius:50%;width:50px;height:50px;min-width:0;padding:0;font-family:Cinzel,serif;font-size:9.5px;letter-spacing:.02em;text-transform:none}',
+      '#aTry{border-color:#7A1F1A !important;color:#F3C8B0 !important;font-style:italic}',
       '#bar .act.on{background:#5a4420}#bar .act.held{border-color:#E0B868;color:#E0B868}',
       '#aInteract{order:9;width:62px !important;height:62px !important;background:radial-gradient(circle at 40% 35%,#a8302a,#5e1410) !important;border:3px solid #3a0c08 !important;color:#F3E6CC !important;font-size:10.5px !important;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,.6)}',
       // belt hot bar
@@ -9090,6 +9434,22 @@
       '#bagInfo .ccBtn{height:34px;padding:0 12px;' + iron + 'border:1px solid #8a7a5a !important;border-radius:3px !important;font-family:Cinzel,serif !important;font-weight:700;font-size:11.5px !important;text-transform:none !important;letter-spacing:.04em !important}',
       '#bagInfo .ccBtn[data-act=wield]{background:' + OX + ' !important;border-color:#3a0c08 !important;color:#F3E6CC !important}',
       '@media (max-height:420px){#bag .eqHint{display:none}#heroPic{max-width:120px}}',
+      // jury-rig
+      '#craft{position:fixed;inset:10px;z-index:31;display:none;flex-direction:column;background:linear-gradient(180deg,#4a2e1a,#2c1a0e);border:2px solid #2e2116;border-radius:6px;font-family:"EB Garamond",serif;color:' + INK + '}#craft.on{display:flex}',
+      '#craft header{display:flex;align-items:center;gap:8px;padding:6px 10px;' + iron + 'border-bottom:2px solid ' + BR + '}#craft header b{font-family:Cinzel,serif;font-size:15px;flex:1}#craft header span{font-family:Cinzel,serif;font-size:11px;color:#C9B48A}',
+      '#craft .xbtn{' + iron + 'border:1px solid #6b5a3a !important;color:' + LT + ' !important;font-family:Cinzel,serif;border-radius:3px;height:34px;padding:0 12px}',
+      '#craft .cb{flex:1;display:flex;gap:10px;padding:10px;min-height:0}',
+      '#craft .cpick,#craft .crec{' + parch + 'border:2px solid #2e2116;border-radius:3px;padding:9px 10px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-width:0}#craft .cpick{flex:1}#craft .crec{width:min(300px,38%)}',
+      '#craft h3{margin:0;font-family:Cinzel,serif;font-size:12px;letter-spacing:.08em;color:' + OX + '}',
+      '#craft .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:5px}',
+      '#craft .cgrid button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px;min-height:58px;background:rgba(255,250,235,.45);border:1px solid #6b5a3a;border-radius:3px;font-family:"EB Garamond",serif;font-size:12px;color:' + INK + ';line-height:1.1}',
+      '#craft .cgrid button.on{background:#F3E9D2;border:2px solid ' + OX + '}#craft .cgrid svg{width:20px;height:20px}#craft .cgrid i{font-size:10px;color:#7A1F1A}',
+      '#craft label{font-family:Cinzel,serif;font-size:11px;color:#5a4430;margin-top:4px}#craft input{height:38px;padding:0 10px;border:1px solid #6b5a3a;border-radius:3px;background:rgba(255,250,235,.7);font-family:"EB Garamond",serif;font-size:15px}',
+      '#craft .go{height:44px;border:0;border-radius:3px;background:radial-gradient(circle at 50% 30%,#a8302a,#5e1410);color:#F3E6CC;font-family:Cinzel,serif;font-weight:800;font-size:14px}#craft .go:disabled{opacity:.45}',
+      '#craft .hint{margin:0;font-style:italic;font-size:12.5px;color:#5a4430}',
+      '#craft .rc{display:flex;align-items:center;gap:6px;padding:5px 0;border-top:1px solid rgba(43,29,18,.15)}#craft .rc>div{flex:1;min-width:0}#craft .rc small{font-family:Cinzel,serif;font-size:9.5px;color:#6b5a3a}#craft .rc span{display:block;font-size:12px;color:#4a3826}#craft .rc.off{opacity:.6}',
+      '#craft .ccBtn{height:34px;padding:0 10px;' + iron + 'border:1px solid #8a7a5a;border-radius:3px;font-family:Cinzel,serif;font-size:11px;color:' + LT + '}#craft .ccBtn:disabled{opacity:.6}',
+      '@media (max-width:700px){#craft .cb{flex-direction:column;overflow-y:auto}#craft .crec{width:auto}}',
       // other dialogs: same parchment family
       '#lootw,#talk,#mapFull,#tryBox,#deadBox{border-color:' + BR + ' !important}',
       '#lootw header b,#talk header b,#mapFull header b{font-family:Cinzel,serif;color:#E0B868 !important;letter-spacing:.08em}'
@@ -9268,12 +9628,14 @@
   function fogKey() { return 'crawl-fog-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : ''); }
   function fogSave() { // explored tiles as runs: start,length;start,length...
     var out = [], i = 0; while (i < W * H) { if (tileState[i]) { var j = i; while (j < W * H && tileState[j]) j++; out.push(i.toString(36) + ',' + (j - i).toString(36)); i = j; } else i++; }
-    try { localStorage.setItem(fogKey(), out.join(';')); } catch (e) {}
+    var str = out.join(';'); try { localStorage.setItem(fogKey(), str); } catch (e) {}
+    // the server copy is what survives a new phone, a cleared browser or Safari's storage limits
+    if (NET.mode === 'server' && NET.uid && str !== fogSave.last) { fogSave.last = str; clearTimeout(fogSave.t); fogSave.t = setTimeout(function () { api('kv/fog-' + (CHAR ? CHAR.name : '').replace(/[^\w-]/g, '').slice(0, 40), { method: 'PUT', body: { value: str } }).catch(function () {}); }, 3000); }
   }
+  function fogMerge(s) { if (!s) return; s.split(';').forEach(function (p) { var a = p.split(','), st = parseInt(a[0], 36), n = parseInt(a[1], 36); for (var k = 0; k < n && st + k < W * H; k++) tileState[st + k] = 1; }); }
   function fogLoad() {
-    var s; try { s = localStorage.getItem(fogKey()); } catch (e) {} if (!s) return;
-    s.split(';').forEach(function (p) { var a = p.split(','), st = parseInt(a[0], 36), n = parseInt(a[1], 36); for (var k = 0; k < n && st + k < W * H; k++) tileState[st + k] = 1; });
-    FOG.total = 0; FOG.seen = 0;
+    var s; try { s = localStorage.getItem(fogKey()); } catch (e) {} fogMerge(s); FOG.total = 0; FOG.seen = 0;
+    if (NET.mode === 'server' && NET.uid && CHAR) api('kv/fog-' + CHAR.name.replace(/[^\w-]/g, '').slice(0, 40)).then(function (j) { var v = j && (j.value !== undefined ? j.value : j.v); if (typeof v === 'string' && v) { fogMerge(v); FOG.total = 0; FOG.seen = 0; refreshFog(); fogSave(); } }).catch(function () {});
   }
   var lastSavedPos = '';
   function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); if (CHAR.pos && heroTo(CHAR.pos.x, CHAR.pos.z)) { refreshFog(); enterRoom(); } }
@@ -9474,6 +9836,7 @@
     if (ch(P.x, P.z) === 'D') return { c: 'D', key: P.x + ',' + P.z, x: P.x, z: P.z };
     return { c: 'area', key: 'area' };
   }
+  var LASTPTR = null; addEventListener('pointerdown', function (ev) { LASTPTR = { x: ev.clientX, y: ev.clientY, t: performance.now(), mouse: ev.pointerType === 'mouse' }; }, true);
   function closeMenu() { menuOpen = false; menuEl.classList.remove('on'); document.getElementById('aInteract').classList.remove('held'); }
   function openMenu(t0) {
     if (gearOpen || (CHAR && CHAR.dead)) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
@@ -9490,6 +9853,13 @@
       menuEl.appendChild(b);
     });
     menuOpen = true; menuEl.classList.add('on'); document.getElementById('aInteract').classList.add('held');
+    // with a mouse, the menu opens beside what you clicked instead of in the corner
+    var lp = LASTPTR; menuEl.style.left = menuEl.style.top = menuEl.style.right = menuEl.style.bottom = '';
+    if (t0 && lp && lp.mouse && performance.now() - lp.t < 800) {
+      var mw = menuEl.offsetWidth || 240, mh = menuEl.offsetHeight || 200, x = lp.x + 18, y = lp.y - mh / 2;
+      if (x + mw > innerWidth - 8) x = lp.x - mw - 18; y = Math.max(8, Math.min(innerHeight - mh - 8, y));
+      menuEl.style.left = Math.max(8, x) + 'px'; menuEl.style.top = y + 'px'; menuEl.style.right = 'auto'; menuEl.style.bottom = 'auto';
+    }
   }
   function act(t, a) {
     closeMenu();
@@ -9502,6 +9872,7 @@
     if (a.talk) { talkOpen(t.e); return; }
     if (a.loot) { lootBody(t.e); return; }
     if (a.stash) { stashBody(t.e); return; }
+    if (a.harvest) { closeMenu(); harvest(t.e); return; }
     if (a.auto === 'try') { trySomething(t.e || null); return; }
     if (a.fnx) { a.fnx(); return; }
     if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); t.e.calm = false; cbStart(t.e.calm ? '' : 'You started it.', t.e); return; }
@@ -9598,15 +9969,16 @@
   function cycleSight() {
     if (gearOpen) return;
     if (sty('off') === 2) { look.off = [0, look.off[1]]; buildHero(); saveLook(); refreshFog(); say('Torch lowered', 'You lower your torch. Human eyes: you see ' + SIGHTS[sightNow()].r + ' tiles, more in well-lit places.', 3200); return; }
-    if (CHAR && CHAR.torch) { look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say('Torch raised', 'You hold up your torch. You see ' + SIGHTS[1].r + ' tiles, and it takes your off hand.', 3200); return; }
+    if (CHAR && (CHAR.torch || hasLight())) { look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say('Torch raised', 'You hold up your torch. You see ' + SIGHTS[1].r + ' tiles, and it takes your off hand.', 3200); return; }
     say('No torch', 'You do not have a torch. Light one at any brazier (walk up to one and interact). Your eyes are what they are.', 3800);
   }
-  tap('aInteract', openMenu); tap('aJump', jump); tap('aCrouch', toggleCrouch); tap('aSight', cycleSight);
+  tap('aInteract', openMenu); tap('aJump', jump); tap('aTry', function () { var best = null, bd = 7; CB.enemies.forEach(function (q) { if (q.dead || q.npc) return; var dd = cheb(P.x, P.z, q.x, q.z); if (dd < bd && los(P.x, P.z, q.x, q.z)) { bd = dd; best = q; } }); trySomething(best); }); tap('aCrouch', toggleCrouch); tap('aSight', cycleSight);
   var KEYS = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R', w: 'U', s: 'D', a: 'L', d: 'R', W: 'U', S: 'D', A: 'L', D: 'R' };
   window.addEventListener('keydown', function (e) {
     if (LOOTW.open) { if (e.key === 'Escape') lootClose(); return; }
     if (TALK.open || CC || AUTH.open || (typeof TRY !== 'undefined' && TRY.open)) return;
     if (e.key === 'i' || e.key === 'I') { bagToggle(); return; } if (e.key === 'm' || e.key === 'M') { mapToggle(); return; }
+    if (e.key === 'Escape' && CRAFT.open) { craftToggle(); return; }
     if (e.key === 'Escape' && CS.open) { charToggle(); return; }
     if (e.key === 'Escape' && (UI.bag || UI.map)) { if (UI.bag) bagToggle(); if (UI.map) mapToggle(); return; }
     if (CB.on && !gearOpen) { var ck = cbMenuOpen() && e.key >= '1' && e.key <= '9' ? function () { cbMenuPick(+e.key); } : { '1': function () { cbAttackButton(false); }, '2': function () { cbMenuToggle('acts'); }, '3': function () { cbMenuToggle('bonus'); }, e: cbEndTurn, Enter: cbEndTurn, Escape: cbMenuClose }[e.key]; if (ck) { e.preventDefault(); ck(); } if (KEYS[e.key] || e.key === ' ') e.preventDefault(); return; }
@@ -9801,7 +10173,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { fog: function () { return tileState; }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { fog: function () { return tileState; }, craft: { harvest: harvest, toggle: craftToggle, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

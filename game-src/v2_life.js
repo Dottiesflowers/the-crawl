@@ -6,7 +6,8 @@
     jitters: { name: 'Jittery', icon: '〰', desc: 'Three coffees. Your hands shake: -1 to hit.' },
     fed: { name: 'Well Fed', icon: '🍲', desc: 'A hot meal: you heal 1 HP every 5 seconds outside fights.' },
     rested: { name: 'Rested', icon: '☾', desc: 'A real nap: +1 to hit.' },
-    sugar: { name: 'Sugar Rush', icon: '✦', desc: '+1 to hit, then a crash.' }
+    sugar: { name: 'Sugar Rush', icon: '✦', desc: '+1 to hit, then a crash.' },
+    minty: { name: 'Minty Fresh', icon: '❄', desc: '+2 to talking (Charisma) checks.' }
   };
   function buffs() { var c = CHAR; if (!c) return {}; c.buffs = c.buffs || {}; var now = Date.now(); Object.keys(c.buffs).forEach(function (k) { if (c.buffs[k] <= now) delete c.buffs[k]; }); return c.buffs; }
   function buffHas(k) { return !!buffs()[k]; }

@@ -43,6 +43,7 @@
       // explore action bar
       '#bar{align-items:flex-end}',
       '#bar .act{' + iron + 'border:1px solid #8a7a5a;border-radius:50%;width:50px;height:50px;min-width:0;padding:0;font-family:Cinzel,serif;font-size:9.5px;letter-spacing:.02em;text-transform:none}',
+      '#aTry{border-color:#7A1F1A !important;color:#F3C8B0 !important;font-style:italic}',
       '#bar .act.on{background:#5a4420}#bar .act.held{border-color:#E0B868;color:#E0B868}',
       '#aInteract{order:9;width:62px !important;height:62px !important;background:radial-gradient(circle at 40% 35%,#a8302a,#5e1410) !important;border:3px solid #3a0c08 !important;color:#F3E6CC !important;font-size:10.5px !important;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,.6)}',
       // belt hot bar
@@ -134,6 +135,22 @@
       '#bagInfo .ccBtn{height:34px;padding:0 12px;' + iron + 'border:1px solid #8a7a5a !important;border-radius:3px !important;font-family:Cinzel,serif !important;font-weight:700;font-size:11.5px !important;text-transform:none !important;letter-spacing:.04em !important}',
       '#bagInfo .ccBtn[data-act=wield]{background:' + OX + ' !important;border-color:#3a0c08 !important;color:#F3E6CC !important}',
       '@media (max-height:420px){#bag .eqHint{display:none}#heroPic{max-width:120px}}',
+      // jury-rig
+      '#craft{position:fixed;inset:10px;z-index:31;display:none;flex-direction:column;background:linear-gradient(180deg,#4a2e1a,#2c1a0e);border:2px solid #2e2116;border-radius:6px;font-family:"EB Garamond",serif;color:' + INK + '}#craft.on{display:flex}',
+      '#craft header{display:flex;align-items:center;gap:8px;padding:6px 10px;' + iron + 'border-bottom:2px solid ' + BR + '}#craft header b{font-family:Cinzel,serif;font-size:15px;flex:1}#craft header span{font-family:Cinzel,serif;font-size:11px;color:#C9B48A}',
+      '#craft .xbtn{' + iron + 'border:1px solid #6b5a3a !important;color:' + LT + ' !important;font-family:Cinzel,serif;border-radius:3px;height:34px;padding:0 12px}',
+      '#craft .cb{flex:1;display:flex;gap:10px;padding:10px;min-height:0}',
+      '#craft .cpick,#craft .crec{' + parch + 'border:2px solid #2e2116;border-radius:3px;padding:9px 10px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-width:0}#craft .cpick{flex:1}#craft .crec{width:min(300px,38%)}',
+      '#craft h3{margin:0;font-family:Cinzel,serif;font-size:12px;letter-spacing:.08em;color:' + OX + '}',
+      '#craft .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:5px}',
+      '#craft .cgrid button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px;min-height:58px;background:rgba(255,250,235,.45);border:1px solid #6b5a3a;border-radius:3px;font-family:"EB Garamond",serif;font-size:12px;color:' + INK + ';line-height:1.1}',
+      '#craft .cgrid button.on{background:#F3E9D2;border:2px solid ' + OX + '}#craft .cgrid svg{width:20px;height:20px}#craft .cgrid i{font-size:10px;color:#7A1F1A}',
+      '#craft label{font-family:Cinzel,serif;font-size:11px;color:#5a4430;margin-top:4px}#craft input{height:38px;padding:0 10px;border:1px solid #6b5a3a;border-radius:3px;background:rgba(255,250,235,.7);font-family:"EB Garamond",serif;font-size:15px}',
+      '#craft .go{height:44px;border:0;border-radius:3px;background:radial-gradient(circle at 50% 30%,#a8302a,#5e1410);color:#F3E6CC;font-family:Cinzel,serif;font-weight:800;font-size:14px}#craft .go:disabled{opacity:.45}',
+      '#craft .hint{margin:0;font-style:italic;font-size:12.5px;color:#5a4430}',
+      '#craft .rc{display:flex;align-items:center;gap:6px;padding:5px 0;border-top:1px solid rgba(43,29,18,.15)}#craft .rc>div{flex:1;min-width:0}#craft .rc small{font-family:Cinzel,serif;font-size:9.5px;color:#6b5a3a}#craft .rc span{display:block;font-size:12px;color:#4a3826}#craft .rc.off{opacity:.6}',
+      '#craft .ccBtn{height:34px;padding:0 10px;' + iron + 'border:1px solid #8a7a5a;border-radius:3px;font-family:Cinzel,serif;font-size:11px;color:' + LT + '}#craft .ccBtn:disabled{opacity:.6}',
+      '@media (max-width:700px){#craft .cb{flex-direction:column;overflow-y:auto}#craft .crec{width:auto}}',
       // other dialogs: same parchment family
       '#lootw,#talk,#mapFull,#tryBox,#deadBox{border-color:' + BR + ' !important}',
       '#lootw header b,#talk header b,#mapFull header b{font-family:Cinzel,serif;color:#E0B868 !important;letter-spacing:.08em}'
