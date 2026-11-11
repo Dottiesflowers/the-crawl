@@ -5,35 +5,51 @@
   //   cat: weapon | clothing | tool | consumable | valuable | misc   (bodies and boss trophies are made by the engine)
   //   dmg: '1d6' for weapons · heal: '2d4+2' or a number for consumables · slot/style/color for clothing
   //   desc: flavour text shown in the bag · effects: [] reserved for the item effect system (coming)
+  //   level: first level it can appear on (from then on, not only then) · until: last level it appears on (optional)
+  //   common: true for staples that stay equally common on every level (optional)
   var ITEMS = {
     // ---- consumables ----
-    'Healing potion': { cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' },
-    'Energy bar': { cat: 'consumable', heal: '1d4', desc: 'Chocolate peanut. Restores 1d4 HP.' },
-    'Bottle of water': { cat: 'consumable', heal: '1', desc: 'Lukewarm. Restores 1 HP and some dignity.' },
-    'Half-eaten snack': { cat: 'consumable', heal: '1d2', desc: 'You do not want to know what it was. Restores 1d2 HP.' },
-    'Craft services sandwich': { cat: 'consumable', heal: 4, desc: 'Free, wrapped, and surprisingly good. Heals 4 HP.' },
+    'Healing potion': { cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' , level: 1, common: true },
+    'Energy bar': { cat: 'consumable', heal: '1d4', desc: 'Chocolate peanut. Restores 1d4 HP.' , level: 1 },
+    'Bottle of water': { cat: 'consumable', heal: '1', desc: 'Lukewarm. Restores 1 HP and some dignity.' , level: 1, common: true },
+    'Half-eaten snack': { cat: 'consumable', heal: '1d2', desc: 'You do not want to know what it was. Restores 1d2 HP.' , level: 1 },
+    'Craft services sandwich': { cat: 'consumable', heal: 4, desc: 'Free, wrapped, and surprisingly good. Heals 4 HP.' , level: 1 },
     // ---- weapons ----
-    'Puglin stick': { cat: 'weapon', dmg: '1d4', desc: 'Chewed at one end. Still works.' },
-    'Imp mace': { cat: 'weapon', dmg: '1d6', desc: 'Company property. Heavy, spiky, and badly maintained.' },
-    'Crowbar': { cat: 'weapon', dmg: '1d6', desc: 'Opens crates, doors and arguments.' },
+    'Puglin stick': { cat: 'weapon', dmg: '1d4', desc: 'Chewed at one end. Still works.' , level: 1, until: 3 },
+    'Imp mace': { cat: 'weapon', dmg: '1d6', desc: 'Company property. Heavy, spiky, and badly maintained.' , level: 1 },
+    'Crowbar': { cat: 'weapon', dmg: '1d6', desc: 'Opens crates, doors and arguments.' , level: 1 },
     // ---- tools ----
-    'Roll of duct tape': { cat: 'tool', desc: 'The universal fix. The System has rules about it, but no one has read them.' },
-    'Flashlight': { cat: 'tool', desc: 'Works. For now.' },
-    'Lighter': { cat: 'tool', desc: 'Three clicks to light. Always three.' },
-    'Ball of twine': { cat: 'tool', desc: 'Long enough to find your way back. Maybe.' },
+    'Roll of duct tape': { cat: 'tool', desc: 'The universal fix. The System has rules about it, but no one has read them.' , level: 1 },
+    'Flashlight': { cat: 'tool', desc: 'Works. For now.' , level: 1 },
+    'Lighter': { cat: 'tool', desc: 'Three clicks to light. Always three.' , level: 1 },
+    'Ball of twine': { cat: 'tool', desc: 'Long enough to find your way back. Maybe.' , level: 1 },
     // ---- valuables and oddities ----
-    'Security badge': { cat: 'valuable', desc: 'FLOOR 1 · STAIRWELL · NIGHT SHIFT. The photo is unflattering.' },
-    'Bronze loot box coupon': { cat: 'valuable', desc: 'Redeemable at any sponsor booth. There are no sponsor booths.' },
-    'Shiny button': { cat: 'misc', desc: 'The puglin was very proud of this.' },
-    'Union card': { cat: 'misc', desc: 'Local 666. Dues paid through next season.' },
-    'Rusty key': { cat: 'misc', desc: 'Opens something, somewhere, probably.' },
+    'Security badge': { cat: 'valuable', desc: 'FLOOR 1 · STAIRWELL · NIGHT SHIFT. The photo is unflattering.' , level: 1 },
+    'Bronze loot box coupon': { cat: 'valuable', desc: 'Redeemable at any sponsor booth. There are no sponsor booths.' , level: 1 },
+    'Shiny button': { cat: 'misc', desc: 'The puglin was very proud of this.' , level: 1 },
+    'Union card': { cat: 'misc', desc: 'Local 666. Dues paid through next season.' , level: 1 },
+    'Rusty key': { cat: 'misc', desc: 'Opens something, somewhere, probably.' , level: 1 },
+    // ---- brought from home: the canonical versions of starting gear (character creation should look these up by name) ----
+    'Pruning shears': { cat: 'weapon', dmg: '1d4', desc: 'Made for stems. Willing to try other things.' , level: 1 },
+    "Florist's knife": { cat: 'weapon', dmg: '1d4', desc: 'Small, sharp, and used to being underestimated.' , level: 1 },
+    'Claw hammer': { cat: 'weapon', dmg: '1d6', desc: 'The original multitool.' , level: 1 },
+    'Roll of floral tape': { cat: 'tool', desc: 'Holds anything together for about a day.' , level: 1 },
+    'Bottle opener': { cat: 'tool', desc: 'Opens bottles. Also, sometimes, conversations.' , level: 1 },
+    'Tape measure': { cat: 'tool', desc: 'Twenty-five feet of certainty.' , level: 1 },
+    'Trauma shears': { cat: 'tool', desc: 'Cuts clothes, seatbelts, and sometimes tension.' , level: 1 },
+    'Gauze roll': { cat: 'consumable', heal: '1d4', desc: 'Restores a little dignity and 1d4 HP.' , level: 1, common: true },
+    'Phone (no signal)': { cat: 'valuable', desc: 'Flashlight works. Nothing else does.' , level: 1 },
+    'Laptop (12% battery)': { cat: 'valuable', desc: 'No Wi-Fi in the dungeon. Heavy enough to throw.' , level: 1 },
+    'Keys on a ring': { cat: 'misc', desc: 'Jingles at the worst possible moment.' , level: 1 },
+    'Guitar picks (3)': { cat: 'misc', desc: 'Light, sharp-edged, easy to lose.' , level: 1 },
+    'Bar rag': { cat: 'misc', desc: 'Damp. Always damp.' , level: 1 },
     // ---- clothing (style must be a wardrobe style; color is a palette index 0-9) ----
-    'Hard hat': { cat: 'clothing', slot: 'kHead', style: 'Hard hat', color: 0, desc: 'OSHA approved, in another galaxy.' },
-    'Cowboy hat': { cat: 'clothing', slot: 'kHead', style: 'Cowboy hat', color: 0, desc: 'Yeehaw is now a valid battle cry.' },
-    'Plain white tee': { cat: 'clothing', slot: 'kTop', style: 'T-shirt', color: 0, desc: 'Clean. Suspiciously clean.' },
-    'Grey hoodie': { cat: 'clothing', slot: 'kTop', style: 'Hoodie', color: 2, desc: 'Somebody\'s. Not anymore.' },
-    'Black jeans': { cat: 'clothing', slot: 'kPants', style: 'Jeans', color: 1, desc: 'Slim fit. You will make it work.' },
-    'Work boots': { cat: 'clothing', slot: 'kBoots', style: 'Work boots', color: 7, desc: 'Steel toe. Good for kicking.' }
+    'Hard hat': { cat: 'clothing', slot: 'kHead', style: 'Hard hat', color: 0, desc: 'OSHA approved, in another galaxy.' , level: 1 },
+    'Cowboy hat': { cat: 'clothing', slot: 'kHead', style: 'Cowboy hat', color: 0, desc: 'Yeehaw is now a valid battle cry.' , level: 1 },
+    'Plain white tee': { cat: 'clothing', slot: 'kTop', style: 'T-shirt', color: 0, desc: 'Clean. Suspiciously clean.' , level: 1 },
+    'Grey hoodie': { cat: 'clothing', slot: 'kTop', style: 'Hoodie', color: 2, desc: 'Somebody\'s. Not anymore.' , level: 1 },
+    'Black jeans': { cat: 'clothing', slot: 'kPants', style: 'Jeans', color: 1, desc: 'Slim fit. You will make it work.' , level: 1 },
+    'Work boots': { cat: 'clothing', slot: 'kBoots', style: 'Work boots', color: 7, desc: 'Steel toe. Good for kicking.' , level: 1 }
   };
 
   // ---------- where items come from ----------
