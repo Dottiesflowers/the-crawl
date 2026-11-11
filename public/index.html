@@ -6873,7 +6873,7 @@
   }
   function cbEnd(win) {
     setTimeout(worldSave, 500);
-    CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; cbShowMoves(); cbRingsUpdate(); cbHUD();
+    CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
     CB.enemies.forEach(function (e) { e.grappled = false; if (e.prone && !e.dead) { e.prone = false; } if (!e.dead) cbPlay(e, 'Idle_Loop'); });
     // XP for every monster beaten in this fight: killed, or talked into giving up
@@ -7166,7 +7166,11 @@
   // ---------- life between fights: monsters mill about; shrubs go looking for bodies ----------
   function cbRoam(e, dt) {
     if (e.dead || e.npc || e.guard || e.boss || CB.busy && CB.on) return;
-    var now = performance.now();
+    var now = performance.now(), near = cheb(P.x, P.z, e.x, e.z) <= 14;
+    // a fight nearby puts everything around it on turn time: nothing wanders in or snacks on the fallen mid-fight
+    if (CB.on && near) { if (e.eating) e.eating.t = now; return; }
+    // and the shrubs give you a moment afterwards to search the bodies
+    if (near && CB.graceUntil && now < CB.graceUntil && /shrub/.test(e.def.base || e.kind || '')) { if (e.eating) e.eating.t = now; e.path = null; return; }
     if (e.eating) { // munching: the body shrinks away, the shrub grows
       if (now - e.eating.t < 2600) return; var body = e.eating.body; e.eating = null;
       if (body.dead && !body.eaten) { body.eaten = true; body.obj.visible = false; body.bar.style.display = 'none'; shrubGrow(e, body); worldSave(); }
@@ -7212,6 +7216,7 @@
       e.mixer.update(dt);
       if (!CB.on || CB.order.indexOf(e) < 0) cbRoam(e, dt);
       if (e.body) cbShrubAnim(e, dt);
+      if (CB.on && CB.order.indexOf(e) < 0 && cheb(e.x, e.z, P.x, P.z) <= 14) { if (e.path && e.roaming) { e.path = null; cbPlay(e, 'Idle_Loop'); } return; } // frozen on turn time
       if (e.path) {
         var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = (e.roaming ? (e.body ? 1.8 : 1.3) : 3.2) * dt;
         e.obj.rotation.y = Math.atan2(dx, dz);
@@ -7984,7 +7989,7 @@
       CATS.map(function (c) { return '<button type="button" class="chip2' + (UI.cat === c[0] ? ' on' : '') + '" data-cat="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>' +
       '<div id="bagList">' + (list.length ? list.map(function (o) {
         var t = o.it.worn ? 'worn' : (CHAR.wield === o.it.name ? 'in hand' : CHAR.back === o.it.name ? 'on back' : '');
-        return '<button type="button" data-i="' + o.i + '" class="' + (UI.sel === o.i ? 'on' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + (o.it.qty > 1 ? ' ×' + o.it.qty : '') + '</span>' + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
+        return '<button type="button" data-i="' + o.i + '" class="' + (UI.sel === o.i ? 'on' : '') + (o.it.rarity ? ' r-' + String(o.it.rarity).toLowerCase() : '') + (o.it.bonus ? ' magic' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + (o.it.qty > 1 ? ' ×' + o.it.qty : '') + '</span>' + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
       }).join('') : '<p style="padding:10px">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
       '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div></div>';
     document.getElementById('bagSwap').onclick = swapWeapons;
@@ -8006,7 +8011,8 @@
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
-      '<p><small>' + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + '</small></p>' +
+      (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
+      '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + '</small></p>' +
       '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
   }
   function bagAct(a, it) {
@@ -8026,7 +8032,8 @@
   // ---------- whole bodies: DCC-style, you can carry a corpse. Keeps it from the shrubs; drop it later as bait, or sell it ----------
   function stashBody(e) {
     if (!CHAR || !e || !e.dead || e.eaten || e.npc) return;
-    var L = e.lootStore ? e.lootStore : rollDrops(e.kind, e.def.base);
+    var L = e.lootStore ? e.lootStore : rollDrops(e.kind, e.def.base), RD = DROPS.monsters[e.kind] || {};
+    if (!e.lootStore && RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); }
     e.eaten = true; e.claimed = false; e.obj.visible = false; e.bar.style.display = 'none'; e.looted = true;
     (L.items || []).forEach(function (it) { it.from = it.from || e.name; invAdd(it, true); }); CHAR.gold = (CHAR.gold || 0) + (L.gold || 0);
     CHAR.gear.push({ name: e.name + ' (body)', cat: 'body', body: e.n, desc: 'A whole ' + e.name.toLowerCase() + ', folded to fit. Shrubs would kill for it. Someone in the Underbazaar might pay for it. Drop it to use it as bait.' });
@@ -8093,7 +8100,8 @@
     var m = /(\d+)d(\d+)/.exec(it.dmg), light = /knife|dagger|shear|scissor|blade|pick|opener|pen/i.test(it.name);
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
     var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam, dmgB: MOD[stat], fam: fam };
+    var bon = +it.bonus || 0; // enchanted: +1 weapons add to hit and damage, 5e style
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon, dmgB: MOD[stat] + bon, fam: fam, magic: bon };
   }
 
   // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------
@@ -8118,7 +8126,7 @@
     var el = document.getElementById('wset'); if (!el) return; var w = wieldItem(), b = backItem();
     el.style.display = !CHAR || gearOpen || CC || AUTH.open ? 'none' : '';
     el.innerHTML = '<div class="wb"><small>On back</small>' + (b ? esc(b.name) + (b.dmg ? ' · ' + esc(b.dmg) : '') : '<i>nothing</i>') + '</div>' +
-      '<div class="wh"><small>In hand</small><b>' + (w ? esc(w.name) : 'Fists') + '</b><span>' + (w && w.dmg ? esc(w.dmg) : '1 + STR') + '</span></div>' +
+      '<div class="wh"><small>In hand</small><b>' + (w ? esc(w.name) : 'Fists') + '</b><span>' + (w && w.dmg ? esc(w.dmg) + (w.bonus ? ' · +' + w.bonus : '') : '1 + STR') + '</span></div>' +
       '<button type="button" id="wSwap" aria-label="Swap weapons"' + (b ? '' : ' disabled') + '><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>';
     document.getElementById('wSwap').onclick = swapWeapons;
   }
@@ -8214,7 +8222,8 @@
   // monster drops live in items.js (DROPS.monsters); rollDrops() reads them
   function lootBody(e) {
     if (!e.lootStore) {
-      var L = rollDrops(e.kind, e.def.base);
+      var L = rollDrops(e.kind, e.def.base), RD = DROPS.monsters[e.kind] || {};
+      if (RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); } // elites and bosses: one guaranteed pick from their table
       if (e.boss) { L.gold += d(10, 6); L.items.push({ name: e.name.split(',')[0] + '\'s trophy', cat: 'valuable', desc: 'Proof you beat a zone boss. Heavier than it looks.' }); }
       L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true;
     }
@@ -8714,6 +8723,7 @@
       '#bag .chip2.on{background:#3a2a1a !important;color:#F3E6CC !important}',
       '#bagList{display:grid !important;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:5px;overflow-y:auto;max-height:none !important;flex:1;align-content:start;border:0 !important;padding:0 !important}',
       '#bagList button{position:relative;display:flex !important;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:62px;padding:4px !important;background:rgba(255,250,235,.45) !important;border:1px solid #6b5a3a !important;border-radius:3px !important;color:' + INK + ' !important;font-family:"EB Garamond",serif;font-weight:600;font-size:12px !important;line-height:1.1;text-align:center}',
+      '#bagList button.magic,#bagList button.r-uncommon{box-shadow:inset 0 0 0 2px #3a6ea8}#bagList button.r-rare{box-shadow:inset 0 0 0 2px #7a3ab8}#bagList button.r-legendary{box-shadow:inset 0 0 0 2px #c9952e}',
       '#bagList button.on{background:#F3E9D2 !important;border:2px solid #2e2116 !important}#bagList button svg{width:22px;height:22px}',
       '#bagList .tag{position:absolute;top:2px;right:3px;font-family:Cinzel,serif;font-size:8px;letter-spacing:.06em;color:' + OX + ' !important;background:none !important;border:0 !important;padding:0 !important}',
       '#bagInfo{padding:7px 10px !important;background:rgba(255,250,235,.55) !important;border:1px solid #6b5a3a !important;border-radius:3px;color:' + INK + ' !important;max-height:132px;overflow-y:auto}',

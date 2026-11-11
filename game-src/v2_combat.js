@@ -410,7 +410,7 @@
   }
   function cbEnd(win) {
     setTimeout(worldSave, 500);
-    CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; cbShowMoves(); cbRingsUpdate(); cbHUD();
+    CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
     CB.enemies.forEach(function (e) { e.grappled = false; if (e.prone && !e.dead) { e.prone = false; } if (!e.dead) cbPlay(e, 'Idle_Loop'); });
     // XP for every monster beaten in this fight: killed, or talked into giving up
@@ -703,7 +703,11 @@
   // ---------- life between fights: monsters mill about; shrubs go looking for bodies ----------
   function cbRoam(e, dt) {
     if (e.dead || e.npc || e.guard || e.boss || CB.busy && CB.on) return;
-    var now = performance.now();
+    var now = performance.now(), near = cheb(P.x, P.z, e.x, e.z) <= 14;
+    // a fight nearby puts everything around it on turn time: nothing wanders in or snacks on the fallen mid-fight
+    if (CB.on && near) { if (e.eating) e.eating.t = now; return; }
+    // and the shrubs give you a moment afterwards to search the bodies
+    if (near && CB.graceUntil && now < CB.graceUntil && /shrub/.test(e.def.base || e.kind || '')) { if (e.eating) e.eating.t = now; e.path = null; return; }
     if (e.eating) { // munching: the body shrinks away, the shrub grows
       if (now - e.eating.t < 2600) return; var body = e.eating.body; e.eating = null;
       if (body.dead && !body.eaten) { body.eaten = true; body.obj.visible = false; body.bar.style.display = 'none'; shrubGrow(e, body); worldSave(); }
@@ -749,6 +753,7 @@
       e.mixer.update(dt);
       if (!CB.on || CB.order.indexOf(e) < 0) cbRoam(e, dt);
       if (e.body) cbShrubAnim(e, dt);
+      if (CB.on && CB.order.indexOf(e) < 0 && cheb(e.x, e.z, P.x, P.z) <= 14) { if (e.path && e.roaming) { e.path = null; cbPlay(e, 'Idle_Loop'); } return; } // frozen on turn time
       if (e.path) {
         var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = (e.roaming ? (e.body ? 1.8 : 1.3) : 3.2) * dt;
         e.obj.rotation.y = Math.atan2(dx, dz);

@@ -119,6 +119,7 @@
       '#bag .chip2.on{background:#3a2a1a !important;color:#F3E6CC !important}',
       '#bagList{display:grid !important;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:5px;overflow-y:auto;max-height:none !important;flex:1;align-content:start;border:0 !important;padding:0 !important}',
       '#bagList button{position:relative;display:flex !important;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:62px;padding:4px !important;background:rgba(255,250,235,.45) !important;border:1px solid #6b5a3a !important;border-radius:3px !important;color:' + INK + ' !important;font-family:"EB Garamond",serif;font-weight:600;font-size:12px !important;line-height:1.1;text-align:center}',
+      '#bagList button.magic,#bagList button.r-uncommon{box-shadow:inset 0 0 0 2px #3a6ea8}#bagList button.r-rare{box-shadow:inset 0 0 0 2px #7a3ab8}#bagList button.r-legendary{box-shadow:inset 0 0 0 2px #c9952e}',
       '#bagList button.on{background:#F3E9D2 !important;border:2px solid #2e2116 !important}#bagList button svg{width:22px;height:22px}',
       '#bagList .tag{position:absolute;top:2px;right:3px;font-family:Cinzel,serif;font-size:8px;letter-spacing:.06em;color:' + OX + ' !important;background:none !important;border:0 !important;padding:0 !important}',
       '#bagInfo{padding:7px 10px !important;background:rgba(255,250,235,.55) !important;border:1px solid #6b5a3a !important;border-radius:3px;color:' + INK + ' !important;max-height:132px;overflow-y:auto}',

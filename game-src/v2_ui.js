@@ -148,7 +148,7 @@
       CATS.map(function (c) { return '<button type="button" class="chip2' + (UI.cat === c[0] ? ' on' : '') + '" data-cat="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>' +
       '<div id="bagList">' + (list.length ? list.map(function (o) {
         var t = o.it.worn ? 'worn' : (CHAR.wield === o.it.name ? 'in hand' : CHAR.back === o.it.name ? 'on back' : '');
-        return '<button type="button" data-i="' + o.i + '" class="' + (UI.sel === o.i ? 'on' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + (o.it.qty > 1 ? ' ×' + o.it.qty : '') + '</span>' + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
+        return '<button type="button" data-i="' + o.i + '" class="' + (UI.sel === o.i ? 'on' : '') + (o.it.rarity ? ' r-' + String(o.it.rarity).toLowerCase() : '') + (o.it.bonus ? ' magic' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + (o.it.qty > 1 ? ' ×' + o.it.qty : '') + '</span>' + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
       }).join('') : '<p style="padding:10px">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
       '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div></div>';
     document.getElementById('bagSwap').onclick = swapWeapons;
@@ -170,7 +170,8 @@
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
-      '<p><small>' + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + '</small></p>' +
+      (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
+      '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + '</small></p>' +
       '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
   }
   function bagAct(a, it) {
@@ -190,7 +191,8 @@
   // ---------- whole bodies: DCC-style, you can carry a corpse. Keeps it from the shrubs; drop it later as bait, or sell it ----------
   function stashBody(e) {
     if (!CHAR || !e || !e.dead || e.eaten || e.npc) return;
-    var L = e.lootStore ? e.lootStore : rollDrops(e.kind, e.def.base);
+    var L = e.lootStore ? e.lootStore : rollDrops(e.kind, e.def.base), RD = DROPS.monsters[e.kind] || {};
+    if (!e.lootStore && RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); }
     e.eaten = true; e.claimed = false; e.obj.visible = false; e.bar.style.display = 'none'; e.looted = true;
     (L.items || []).forEach(function (it) { it.from = it.from || e.name; invAdd(it, true); }); CHAR.gold = (CHAR.gold || 0) + (L.gold || 0);
     CHAR.gear.push({ name: e.name + ' (body)', cat: 'body', body: e.n, desc: 'A whole ' + e.name.toLowerCase() + ', folded to fit. Shrubs would kill for it. Someone in the Underbazaar might pay for it. Drop it to use it as bait.' });
@@ -257,7 +259,8 @@
     var m = /(\d+)d(\d+)/.exec(it.dmg), light = /knife|dagger|shear|scissor|blade|pick|opener|pen/i.test(it.name);
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
     var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam, dmgB: MOD[stat], fam: fam };
+    var bon = +it.bonus || 0; // enchanted: +1 weapons add to hit and damage, 5e style
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon, dmgB: MOD[stat] + bon, fam: fam, magic: bon };
   }
 
   // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------
@@ -282,7 +285,7 @@
     var el = document.getElementById('wset'); if (!el) return; var w = wieldItem(), b = backItem();
     el.style.display = !CHAR || gearOpen || CC || AUTH.open ? 'none' : '';
     el.innerHTML = '<div class="wb"><small>On back</small>' + (b ? esc(b.name) + (b.dmg ? ' · ' + esc(b.dmg) : '') : '<i>nothing</i>') + '</div>' +
-      '<div class="wh"><small>In hand</small><b>' + (w ? esc(w.name) : 'Fists') + '</b><span>' + (w && w.dmg ? esc(w.dmg) : '1 + STR') + '</span></div>' +
+      '<div class="wh"><small>In hand</small><b>' + (w ? esc(w.name) : 'Fists') + '</b><span>' + (w && w.dmg ? esc(w.dmg) + (w.bonus ? ' · +' + w.bonus : '') : '1 + STR') + '</span></div>' +
       '<button type="button" id="wSwap" aria-label="Swap weapons"' + (b ? '' : ' disabled') + '><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>';
     document.getElementById('wSwap').onclick = swapWeapons;
   }
@@ -378,7 +381,8 @@
   // monster drops live in items.js (DROPS.monsters); rollDrops() reads them
   function lootBody(e) {
     if (!e.lootStore) {
-      var L = rollDrops(e.kind, e.def.base);
+      var L = rollDrops(e.kind, e.def.base), RD = DROPS.monsters[e.kind] || {};
+      if (RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); } // elites and bosses: one guaranteed pick from their table
       if (e.boss) { L.gold += d(10, 6); L.items.push({ name: e.name.split(',')[0] + '\'s trophy', cat: 'valuable', desc: 'Proof you beat a zone boss. Heavier than it looks.' }); }
       L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true;
     }
