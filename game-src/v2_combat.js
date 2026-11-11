@@ -301,6 +301,8 @@
     ]);
     var near = CB.enemies.filter(function (e) { return !e.dead && !e.calm && !e.npc && cheb(P.x, P.z, e.x, e.z) <= 6; }).sort(function (a, b) { return cheb(P.x, P.z, a.x, a.z) - cheb(P.x, P.z, b.x, b.z); })[0];
     return [
+      { label: tryLabel(), tag: 'describe anything · action', ok: r.action && triesLeft() > 0, fn: function () { trySomething(near); } },
+    ].concat(CB.enemies.filter(function (q) { return q.boss && !q.dead && CB.order.indexOf(q) >= 0; }).reduce(function (a, q) { return a.concat(weakOptions(q, true).map(function (o) { o.ok = o.ok && r.action; return o; })); }, [])).concat([
       { label: 'Talk to ' + (near ? near.name : 'someone'), tag: 'free · say anything', ok: !!near, fn: function () { talkOpen(near); } },
       { label: 'Dash', tag: '+6 tiles', ok: r.action, fn: cbDash },
       { label: 'Disengage', tag: 'no opportunity attacks', ok: r.action, fn: cbDisengage },
@@ -310,7 +312,7 @@
       { label: 'Grapple', tag: 'Athletics contest · speed 0', ok: r.action && adj.length > 0, fn: cbGrapple },
       { label: 'Hide', tag: 'Stealth vs their Perception', ok: r.action && adj.length === 0, fn: cbHide },
       { label: 'Throw ' + Wt.name, tag: Wt.n + 'd' + Wt.s + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action, fn: function () { CB.aim = 'throw'; say('Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal throw; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
-    ];
+    ]);
   }
   function cbMenuToggle(which) {
     var el = document.getElementById('cbMenu'); if (el.classList.contains('on') && el.dataset.which === which) { cbMenuClose(); return; }
@@ -338,7 +340,7 @@
     if (!CB.on) { cbMenuClose(); return; }
     // show the real odds on the Attack button: d20 + your bonus against the nearest foe's armour
     var foe = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; }).sort(function (x, y) { return cheb(P.x, P.z, x.x, x.z) - cheb(P.x, P.z, y.x, y.z); })[0], ab = document.getElementById('cbAtk');
-    if (foe && ab) { var Wq = pcWeapon(), need = foe.def.ac - Wq.hit, pct = Math.round(Math.max(5, Math.min(95, (21 - need) * 5))); ab.innerHTML = 'Attack<small>+' + Wq.hit + ' · ' + pct + '% to hit</small>'; }
+    if (foe && ab) { var Wq = pcWeapon(), need = acOf(foe) - Wq.hit, pct = Math.round(Math.max(5, Math.min(95, (21 - need) * 5))); ab.innerHTML = 'Attack<small>+' + Wq.hit + ' · ' + pct + '% to hit</small>'; }
     document.getElementById('turns').innerHTML = CB.order.map(function (c, i) {
       var nm = c === 'pc' ? 'You' : c.name + (c.prone ? ' (prone)' : '') + (c.grappled ? ' (grappled)' : ''), dead = c !== 'pc' && c.dead;
       return '<span class="' + (i === CB.idx ? 'cur ' : '') + (dead ? 'dead' : '') + '">' + nm + ' · ' + (c === 'pc' ? PC.init : c.init) + '</span>';
@@ -503,7 +505,8 @@
     if (e.grappled && dist <= 1) { adv = true; why.push('grappled'); }
     if (opt.ranged && cbAdjacent().length) { dis = true; why.push('enemy next to you'); }
     if (opt.ranged && dist > Wp.range) { dis = true; why.push('long range'); }
-    var cover = opt.ranged && hasCover(P.x, P.z, e.x, e.z) ? 2 : 0, ac = e.def.ac + cover;
+    if (CB.advNext) { adv = true; why.push('opening'); CB.advNext = false; }
+    var cover = opt.ranged && hasCover(P.x, P.z, e.x, e.z) ? 2 : 0, ac = acOf(e) + cover;
     var R = roll20(adv, dis), tot = R.r + Wp.hit, crit = R.r === 20, hit = crit || (R.r !== 1 && tot >= ac);
     var line = R.txt + ' + ' + Wp.hit + ' = ' + tot + ' vs AC ' + ac + (cover ? ' (half cover)' : '') + (why.length ? ' · ' + why.join(', ') : '');
     if (PC.hidden) { PC.hidden = false; }
@@ -647,6 +650,9 @@
   function cbEnemyTurn(e) {
     if (!CB.on) return;
     if (e.dead || e.calm) { setTimeout(cbNext, 200); return; } // it made a deal mid-fight: it keeps its word
+    if (e.weak && e.weak.turns > 0) e.weak.turns--;
+    if (e.burning && e.burning.turns > 0) { var bd = Math.max(1, rollDice(e.burning.dice)); e.hp -= bd; e.burning.turns--; floater(e.px, e.def.h + 0.3, e.pz, '-' + bd, 'dmg'); say(e.name + ' burns', bd + ' fire damage.' + (e.burning.turns ? '' : ' The flames go out.'), 2400); if (e.hp <= 0) { cbKill(e); setTimeout(cbNext, 900); return; } }
+    if (e.stunned > 0) { e.stunned--; say(e.name + ' loses its turn', e.stunned ? 'Still reeling.' : 'It shakes it off. Next turn it is back.', 2600); setTimeout(cbNext, 1000); return; }
     var speed = e.def.speed;
     if (e.prone) { e.prone = false; speed = Math.floor(speed / 2); cbPlay(e, 'Idle_Loop'); say(e.name, 'It scrambles back to its feet (half its movement).', 2200); }
     if (e.grappled) speed = 0;
@@ -787,12 +793,12 @@
     if (e.npc) return [talk,
       { label: 'Examine', text: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile. Not a threat to anyone, least of all you.' },
       { label: 'Read their mood', stat: 'WIS', dc: 8, win: 'Overworked, underpaid, and quietly rooting for you.', lose: 'Hard to tell under all that sweating.' }];
-    return [talk,
+    return [talk].concat(weakOptions(e, false).map(function (o) { return { label: o.label, fnx: o.fn, okx: o.ok }; })).concat([{ label: tryLabel(), auto: 'try' },
       { label: 'Examine', text: examineText(e) },
-      { label: 'Study its fighting style', stat: 'INT', skill: ['Lore', 0], dc: 12, win: 'Armor about AC ' + e.def.ac + '. It fights with a ' + e.def.weapon + ' and hits roughly ' + e.def.dmg[0] + 'd' + e.def.dmg[1] + '+' + e.def.dmg[2] + '.', lose: 'It fights like something that wants you dead. That is all you learn.' },
+      { label: 'Study its fighting style', stat: 'INT', skill: ['Lore', 0], dc: 12, win: (WEAK[e.kind] ? WEAK[e.kind].hint + ' ' : '') + 'Armor about AC ' + acOf(e) + '. It fights with a ' + e.def.weapon + ' and hits roughly ' + e.def.dmg[0] + 'd' + e.def.dmg[1] + '+' + e.def.dmg[2] + '.', lose: 'It fights like something that wants you dead. That is all you learn.' },
       { label: 'Read its mood', stat: 'WIS', dc: 10, win: e.kind === 'imp' ? 'Bored and paid by the hour. It wants an excuse not to fight.' : 'Hungry, nervous, and showing off for the other one.', lose: 'It stares back. You learn nothing.' },
       { label: 'Talk it down', stat: 'CHA', skill: ['De-escalation', 2], dc: e.kind === 'imp' ? 15 : 12, flag: 'calm', win: 'You tell it "no, man" until it gives up. It sits down and watches you go by.', lose: 'It is not in the mood to be talked to.' },
-      { label: 'Play it a bass line', stat: 'CHA', skill: ['Performance', 3], dc: e.kind === 'imp' ? 14 : 11, flag: 'calm', win: 'It sways. Somewhere, viewer numbers tick up. It will not fight you now.', lose: 'It prefers treble.' },
+      { label: 'Perform for it', stat: 'CHA', skill: ['Performance', 0], dc: e.kind === 'imp' ? 14 : 11, flag: 'calm', win: 'It is charmed in spite of itself. It will not fight you now.', lose: 'It is not a fan.' },
       { label: 'Attack', fight: true }
-    ];
+    ]);
   }

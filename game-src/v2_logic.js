@@ -197,7 +197,8 @@
     area: [
       { label: 'Search the area', stat: 'WIS', dc: 12, win: 'Scuffed footprints, not yours, heading for the stairwell.', lose: 'Nothing catches your eye.' },
       { label: 'Sense the stairwell (Living Map)', auto: 'map' },
-      { label: 'Play your bass', stat: 'CHA', skill: ['Performance', 3], dc: 10, win: 'The room has decent acoustics. An unseen viewer sends a tip you cannot spend.', lose: 'You are out of tune. The System lets everyone know.' },
+      { label: 'Try something', auto: 'try' },
+      { label: 'Perform', stat: 'CHA', skill: ['Performance', 0], dc: 10, win: 'Good acoustics in here. Your mood improves.', lose: 'Nobody needed that.' },
       { label: 'Take a short rest', rest: true, text: 'You sit for a minute and patch yourself up. HP restored. Nothing attacks you. Enjoy it while it lasts.' }
     ]
   };
@@ -216,6 +217,7 @@
     var t = t0 || findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
     menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : nameOf(t); menuEl.appendChild(hd);
     (t.e ? enemyActs(t.e) : ACTS[t.c]).forEach(function (a, i) {
+      if (a.auto === 'try') a = { label: tryLabel(), auto: 'try' };
       var b = document.createElement('button'); b.type = 'button';
       var spent = a.flag && done[t.key + a.flag] && a.flag !== 'open' && a.flag !== 'loot';
       var bonus = a.stat ? chkBonus(a) : 0;
@@ -236,6 +238,8 @@
     if (a.talk) { talkOpen(t.e); return; }
     if (a.loot) { lootBody(t.e); return; }
     if (a.stash) { stashBody(t.e); return; }
+    if (a.auto === 'try') { trySomething(t.e || null); return; }
+    if (a.fnx) { a.fnx(); return; }
     if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); t.e.calm = false; cbStart(t.e.calm ? '' : 'You started it.', t.e); return; }
     if (a.rest) { PC.hp = PC.max; cbHUD(); }
     if (a.auto === 'eat') { eatFood(); return; }
@@ -337,7 +341,7 @@
   var KEYS = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R', w: 'U', s: 'D', a: 'L', d: 'R', W: 'U', S: 'D', A: 'L', D: 'R' };
   window.addEventListener('keydown', function (e) {
     if (LOOTW.open) { if (e.key === 'Escape') lootClose(); return; }
-    if (TALK.open || CC || AUTH.open) return;
+    if (TALK.open || CC || AUTH.open || (typeof TRY !== 'undefined' && TRY.open)) return;
     if (e.key === 'i' || e.key === 'I') { bagToggle(); return; } if (e.key === 'm' || e.key === 'M') { mapToggle(); return; }
     if (e.key === 'Escape' && (UI.bag || UI.map)) { if (UI.bag) bagToggle(); if (UI.map) mapToggle(); return; }
     if (CB.on && !gearOpen) { var ck = cbMenuOpen() && e.key >= '1' && e.key <= '9' ? function () { cbMenuPick(+e.key); } : { '1': function () { cbAttackButton(false); }, '2': function () { cbMenuToggle('acts'); }, '3': function () { cbMenuToggle('bonus'); }, e: cbEndTurn, Enter: cbEndTurn, Escape: cbMenuClose }[e.key]; if (ck) { e.preventDefault(); ck(); } if (KEYS[e.key] || e.key === ' ') e.preventDefault(); return; }
