@@ -79,6 +79,7 @@
   // re-dress an existing character from what they said they were wearing, without making a new one
   function redress() {
     var c = CHAR; if (!c) { say('No character', 'Create a character first.', 3000); return; }
+    if (NET.live) { say('Locked', 'The campaign is live. You wear what you brought and what you find.', 3500); return; }
     var qa = (c.interview || []).filter(function (x) { return /wearing/i.test(x.q || ''); })[0];
     var txt = window.prompt('What were you wearing when they took you? Head to toe, colors included.', qa && qa.a ? qa.a : '');
     if (txt === null || !txt.trim()) return; txt = txt.trim().slice(0, 600);
@@ -148,7 +149,7 @@
     if (c.look) { for (var k in c.look) if (look[k]) look[k] = c.look[k]; buildHero(); }
   }
   function signedIn(me) {
-    NET.user = me.user; NET.uid = me.user.id; NET.sample = serverSample; authClose();
+    NET.user = me.user; NET.uid = me.user.id; NET.sample = serverSample; authClose(); api('campaign').then(function (j) { NET.live = !!(j.value && j.value.live); }, function () {});
     if (me.character && me.character.stats) { loadChar(me.character); say('Welcome back, ' + (me.character.name || me.user.username), 'Your character is right where you left it. The audience missed you. Mostly.', 4500); }
     else ccOpen();
     partyPoll();
@@ -202,7 +203,9 @@
         (open.length ? '<ul>' + open.map(function (i) { return '<li><b style="user-select:all">' + esc(i.code) + '</b>' + (i.note ? ' · ' + esc(i.note) : '') + '</li>'; }).join('') + '</ul>' : '') +
         (used.length ? '<p>Used: ' + used.map(function (i) { return esc(i.used_by); }).join(', ') + '</p>' : '') +
         '<p><button type="button" class="ccBtn" id="dmTalk">Read recent NPC conversations</button></p><div id="dmLogs"></div>' +
-        (CHAR ? '<p><button type="button" class="ccBtn" id="dmWard">' + (CHAR.freeWardrobe ? 'Lock my wardrobe again' : 'Unlock all clothes for me (DM testing)') + '</button></p>' : '');
+        (CHAR && !NET.live ? '<p><button type="button" class="ccBtn" id="dmWard">' + (CHAR.freeWardrobe ? 'Lock my wardrobe again' : 'Unlock all clothes for me (DM testing)') + '</button></p>' : '') +
+        '<h3>Campaign</h3><p>' + (NET.live ? 'Live. Testing tools are locked for everyone (re-dressing, free wardrobe).' : 'Testing. Players can re-dress from their description and the DM can unlock clothes.') + '</p><p><button type="button" class="ccBtn" id="dmLive">' + (NET.live ? 'Back to testing mode' : 'Start the campaign (lock testing tools)') + '</button></p>';
+      document.getElementById('dmLive').onclick = function () { if (!NET.live && !confirm('Start the campaign? Re-dressing and the free wardrobe lock for everyone.')) return; api('dm/campaign', { method: 'PUT', body: { live: !NET.live } }).then(function () { NET.live = !NET.live; if (NET.live && CHAR && CHAR.freeWardrobe) { CHAR.freeWardrobe = false; saveChar(CHAR); } drawRows(); }, function (e) { say('Failed', e.message); }); };
       if (document.getElementById('dmWard')) document.getElementById('dmWard').onclick = function () { CHAR.freeWardrobe = !CHAR.freeWardrobe; saveChar(CHAR); drawRows(); };
       document.getElementById('dmNew').onclick = function () { var note = prompt('Who is this invite for? (optional)') || ''; api('dm/invites', { method: 'POST', body: { note: note } }).then(sheetAfter, function (e) { say('Invite failed', e.message); }); };
       document.getElementById('dmTalk').onclick = function () {
@@ -227,7 +230,7 @@
       '<h3>Skills</h3>' + (kp ? '<p class="pts">' + kp + ' skill point' + (kp > 1 ? 's' : '') + ' to spend: tap + on any skill.</p>' : '') + '<ul>' + (kp ? SKILLS.map(function (s) { return s[0]; }) : sk).map(function (k) { var lv = c.skills[k] || 0, prog = (c.skillXP || {})[k] || 0; return '<li>' + esc(k) + ' ' + lv + (prog ? ' <small>(' + prog + '/' + (lv + 1) * 3 + ' practice)</small>' : '') + (kp && lv < 3 + (PC.level || 1) ? ' <button type="button" class="plus" onclick="window.__crawl.spend(\'skill\',\'' + k + '\')" aria-label="Raise ' + esc(k) + '">+</button>' : '') + '</li>'; }).join('') + '</ul>' +
       '<h3>Trait: ' + esc(c.trait) + '</h3><p>' + esc(c.traitDesc || tr[1]) + '</p><h3>Flaw: ' + esc(c.flaw) + '</h3><p>' + esc(c.flawDesc || fl[1]) + '</p>' +
       (gear ? '<h3>Brought from home</h3><ul class="gear">' + gear + '</ul>' : '') +
-      '<p><button type="button" class="ccBtn" onclick="window.__crawl.redress()">Get dressed by the System</button> <small>Re-picks your outfit from what you say you were wearing. Keeps your character.</small></p>' +
+      (NET.live ? '' : '<p><button type="button" class="ccBtn" onclick="window.__crawl.redress()">Get dressed by the System</button> <small>Re-picks your outfit from what you say you were wearing. Keeps your character. Testing only: it locks when the campaign starts.</small></p>') +
       '<h3>Class</h3><p>' + ((PC.level || 1) >= 3 ? 'Unlocked. The class choice is coming soon; the System is watching what you train.' : 'Unlocks at level 3, offered from the weapons and skills you actually use.') + '</p>' +
       (party.length ? '<h3>Party</h3><ul>' + party.map(function (p) { return '<li>' + esc(p.name || p.username) + (p.name ? ' <small>(' + esc(p.username) + ')</small>' : ' <small>(no character yet)</small>') + ' · ' + (p.xp || 0) + ' XP</li>'; }).join('') + '</ul>' : '') +
       '<p><button type="button" class="ccBtn" onclick="window.__crawl.newChar()">' + (CHAR ? 'Make a new character' : 'Create your character') + '</button></p>' +

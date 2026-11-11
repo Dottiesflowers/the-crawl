@@ -141,6 +141,13 @@ export class Campaign extends DurableObject {
         this.sql.exec('INSERT INTO board (user_id, room, text, created) VALUES (?, ?, ?, ?)', u.id, parseInt(body.room, 10) || 0, text, Date.now());
         return json({ ok: true });
       }
+      // campaign settings everyone can read; only the DM changes them (live = the campaign has started and testing tools lock)
+      if (p === '/api/campaign' && m === 'GET') { const r = this.one('SELECT v FROM kv WHERE user_id = 0 AND k = ?', 'campaign'); return json({ value: r ? JSON.parse(r.v) : { live: false } }); }
+      if (p === '/api/dm/campaign' && m === 'PUT') {
+        if (u.role !== 'dm') return json({ error: 'dm_only' }, 403);
+        const v = JSON.stringify({ live: !!body.live, since: body.live ? Date.now() : null });
+        this.sql.exec('INSERT INTO kv (user_id, k, v, updated) VALUES (0, ?, ?, ?) ON CONFLICT(user_id, k) DO UPDATE SET v = excluded.v, updated = excluded.updated', 'campaign', v, Date.now()); return json({ ok: true });
+      }
       if (p.startsWith('/api/kv/')) {
         const k = decodeURIComponent(p.slice(8)).slice(0, 80);
         if (m === 'GET') { const r = this.one('SELECT v FROM kv WHERE user_id = ? AND k = ?', u.id, k); return json({ value: r ? JSON.parse(r.v) : null }); }
