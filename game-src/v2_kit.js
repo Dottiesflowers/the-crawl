@@ -12,9 +12,10 @@
   var KIT_HAIR = [null, 'long', 'simpleparted', 'slickback', 'buzzed', 'balding', 'mohawk', 'ponytail', 'ponytail_2', 'dreads', 'longdreads', 'bob', 'buns'];
   var KIT_BEARD = [[], ['beard'], ['moustache'], ['muttonchops'], ['muttonchops', 'moustache']];
   // modern clothes are shells of the base body (see m_modern): label -> meshes, texture
-  var MOD_PIECES = { 'T-shirt': [['Mod_Top_TShirt', 'knit']], 'Long sleeve': [['Mod_Top_LongSleeve', 'knit']], 'Tank top': [['Mod_Top_Tank', 'knit']], 'Hoodie': [['Mod_Top_Hoodie', 'knit'], ['Mod_HoodDown', 'knit']],
-    'Button-up': [['Mod_Top_ButtonUp', 'canvas'], ['Mod_Collar', 'canvas']], 'Jeans': [['Mod_Legs_Jeans', 'denim']], 'Shorts': [['Mod_Legs_Shorts', 'canvas']], 'Sweatpants': [['Mod_Legs_Sweatpants', 'knit']],
-    'Sneakers': [['Mod_Feet_Sneakers', 'canvas'], ['Mod_Feet_SneakerSole', 'sole', 1]], 'Work boots': [['Mod_Feet_Boots', 'leather'], ['Mod_Feet_BootSole', 'sole', 1]], 'Beanie': [['Mod_Head_Beanie', 'knit']], 'Cap': [['Mod_Head_Cap', 'canvas'], ['Mod_Head_CapBrim', 'canvas']] };
+  // each modern piece has its own painted texture (mp_<key>.jpg) and normal map from tools/modern_clothes2.py; pc[2] = keeps its own colour
+  var MOD_PIECES = { 'T-shirt': [['Mod_Top_TShirt', 'tee']], 'Long sleeve': [['Mod_Top_LongSleeve', 'long']], 'Tank top': [['Mod_Top_Tank', 'tank']], 'Hoodie': [['Mod_Top_Hoodie', 'hoodie'], ['Mod_HoodDown', 'hood']],
+    'Button-up': [['Mod_Top_ButtonUp', 'button'], ['Mod_Collar', 'collar']], 'Jeans': [['Mod_Legs_Jeans', 'jeans']], 'Shorts': [['Mod_Legs_Shorts', 'shorts']], 'Sweatpants': [['Mod_Legs_Sweatpants', 'sweats']],
+    'Sneakers': [['Mod_Feet_Sneakers', 'sneaker'], ['Mod_Feet_SneakerSole', 'sneakersole', 1]], 'Work boots': [['Mod_Feet_Boots', 'boot'], ['Mod_Feet_BootSole', 'bootsole', 1]], 'Beanie': [['Mod_Head_Beanie', 'beanie']], 'Cap': [['Mod_Head_Cap', 'cap'], ['Mod_Head_CapBrim', 'canvas']] };
   var HAT_LABELS = ['Cowboy hat', 'Hard hat', 'Winter hat', 'Santa hat', 'Clown hat', 'Wizard hat', 'Fedora', 'Trilby'];
   var MOD_SLOT = { 'T-shirt': 'kTop', 'Long sleeve': 'kTop', 'Tank top': 'kTop', 'Hoodie': 'kTop', 'Button-up': 'kTop', Jeans: 'kPants', Shorts: 'kPants', Sweatpants: 'kPants', Sneakers: 'kBoots', 'Work boots': 'kBoots', Beanie: 'kHead', Cap: 'kHead' };
   function kitOutfitOf(label) { if (MOD_SLOT[label] || HAT_LABELS.indexOf(label) >= 0) return 'modern'; var w = label.toLowerCase(); if (/crown|gorget|lion/.test(w)) return 'noble'; if (/helm|scarf|plate|tunic|round|spiked/.test(w)) return 'knight'; return w.split(' ')[0]; }
@@ -135,8 +136,8 @@
     Object.keys(mods).forEach(function (nm) { var m = mods[nm]; rebind(m); base.add(m); m.castShadow = true; m.frustumCulled = false; m.visible = false; });
     Object.keys(MOD_PIECES).forEach(function (label) {
       MOD_PIECES[label].forEach(function (pc) {
-        var m = mods[pc[0]]; if (!m) return; m.material = kitMat('mod_' + pc[1] + '.jpg', null, null, THREE.DoubleSide); m.material.skinning = true; m.material.roughness = pc[1] === 'leather' ? 0.6 : 0.95;
-        var t = m.material.map; t.wrapS = t.wrapT = THREE.RepeatWrapping; add(MOD_SLOT[label], label, m, 'modern'); m.userData.fixed = !!pc[2];
+        var m = mods[pc[0]]; if (!m) return; var own = pc[1] !== 'canvas'; m.material = own ? kitMat('mp_' + pc[1] + '.jpg', 'mp_' + pc[1] + '_n.jpg', null, THREE.DoubleSide) : kitMat('mod_canvas.jpg', null, null, THREE.DoubleSide); m.material.skinning = true; m.material.roughness = pc[1] === 'boot' ? 0.6 : 0.95;
+        if (own) m.material.normalScale.set(0.6, 0.6); else { var t = m.material.map; t.wrapS = t.wrapT = THREE.RepeatWrapping; } add(MOD_SLOT[label], label, m, 'modern'); m.userData.fixed = !!pc[2];
       });
     });
     KIT.modSkin = {}; ['Torso', 'Arms', 'Legs', 'Feet'].forEach(function (k) { var m = mods['Mod_Skin_' + k]; if (!m) return; m.material = kitMat('skin_light.jpg', 'skin_n.jpg', 'skin_r.jpg'); m.material.skinning = true; KIT.modSkin[k] = m; });
