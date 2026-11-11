@@ -461,7 +461,7 @@
       sides.forEach(function (sd) { if (!okS && inb(sd[0], sd[1]) && isFloor(g[sd[1]][sd[0]]) && rooms[reg[sd[1]][sd[0]]] && rooms[reg[sd[1]][sd[0]]].type === 'corridor') okS = sd; });
       if (!okS) continue;
       var hzn = null; zones.forEach(function (Z) { if (hx2 >= Z.cell[0] && hx2 <= Z.cell[2] && hz2 >= Z.cell[1] && hz2 <= Z.cell[3]) hzn = Z; });
-      var hr2 = room({ name: HN[hidden], theme: 'store', type: 'hidden', x0: hx2, z0: hz2, x1: hx2 + hw2, z1: hz2 + hh2, line: 'A hidden room. The audience gasps on cue.' });
+      var hr2 = room({ name: HN[hidden], theme: 'store', type: 'hidden', x0: hx2, z0: hz2, x1: hx2 + hw2, z1: hz2 + hh2, line: 'A hidden room. Nobody was supposed to find this.' });
       carveRect(hr2); put(okS[2], okS[3], 'H', hr2.id); var hc = center(hr2); put(hc[0], hc[1], 'C'); hidden++;
     }
 
@@ -6408,6 +6408,7 @@
   var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? 'imp' : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
   function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
 
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
   function d(n, s) { var t = 0; for (var i = 0; i < n; i++) t += 1 + Math.floor(Math.random() * s); return t; }
   function d20() { return 1 + Math.floor(Math.random() * 20); }
   function roll20(adv, dis) { // 5e: advantage and disadvantage cancel out
@@ -6424,7 +6425,7 @@
   function safeRoomPenalty() {
     var r = roomInfo(P.x, P.z), best = null;
     for (var dz = -12; dz <= 12; dz++) for (var dx = -12; dx <= 12; dx++) { var x = P.x + dx, z = P.z + dz; if (!r || !walkable(x, z, 'pc') || inSafeRoom(x, z)) continue; var dd = Math.abs(dx) + Math.abs(dz); if (!best || dd < best[2]) best = [x, z, dd]; }
-    say('SAFE ROOM VIOLATION', 'Aggression is not permitted in a safe room. You have been relocated and placed in a timeout. The audience boos.', 6000);
+    say('SAFE ROOM VIOLATION', 'Aggression is not permitted in a safe room. You have been relocated and placed in a timeout. The System notes this in your file.', 6000);
     if (best) { P.x = best[0]; P.z = best[1]; P.px = best[0]; P.pz = best[1]; refreshFog(); enterRoom(); }
     PC.timeout = performance.now() + 15000;
   }
@@ -6456,7 +6457,7 @@
     var gw = gearWeapon(); if (gw) return gw;
     var m = sty('main');
     var W = [{ name: 'fists', n: 1, s: 1, b: 1 + MOD.STR, stat: 'STR', clip: 'Punch_Jab' }, { name: 'sword', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' }, { name: 'axe', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' },
-      { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'The crowd loves it, so it hits with Charisma.' }][m];
+      { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'It is a performance as much as a weapon, so it hits with Charisma.' }][m];
     if (!m && sty('off') === 3) W = { name: 'dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', clip: 'Punch_Jab' };
     W.hit = PROF() + MOD[W.stat]; W.dmgB = W.b !== undefined ? W.b : MOD[W.stat]; return W;
   }
@@ -6778,13 +6779,13 @@
     if (xp && !win) { grantXP(xp); }
     if (xp && win) {
       var talked = beaten.filter(function (e) { return !e.dead; }).length;
-      say('Victory · +' + xp + ' XP', (talked ? talked + ' of them talked down, which counts. ' : '') + 'The cameras zoom in on your face. Viewers voted you "most likely to survive floor one."', 6500); grantXP(xp);
+      say('Victory · +' + xp + ' XP', (talked ? talked + ' of them talked down, which counts. ' : '') + pick(['Fight over.', 'Clean work.', 'That will do.', 'The System has updated your file.']), 6500); grantXP(xp);
       var later = 0; function ach(id, t, x, n) { setTimeout(function () { achieve(id, t, x, n); }, 2400 + 2600 * later++); }
       if (beaten.some(function (e) { return e.dead; }) && !(CHAR && CHAR.ach && CHAR.ach.first_blood)) ach('first_blood', 'First Blood', 'Your first kill on camera. Your mother would be so proud.', 50);
-      if (talked && !(CHAR && CHAR.ach && CHAR.ach.talker)) ach('talker', 'Use Your Words', 'You talked a monster out of a fight. The viewers are confused but intrigued.', 50);
+      if (talked && !(CHAR && CHAR.ach && CHAR.ach.talker)) ach('talker', 'Use Your Words', 'You talked a monster out of a fight. The System finds this personally refreshing.', 50);
       if (beaten.some(function (e) { return e.dead && e.def.base === 'shrub'; }) && !(CHAR && CHAR.ach && CHAR.ach.weed)) ach('weed', 'Weed Whacker', 'You killed a shrub. Gardeners everywhere salute you.', 10);
       if (beaten.some(function (e) { return e.dead && e.def.lvl === 4; })) ach('thornmaw', 'Should Have Stepped On It', 'You killed a Thornmaw. Somebody let it get that big.', 150);
-      if (beaten.some(function (e) { return e.dead && e.boss; })) ach('boss_' + beaten.filter(function (e) { return e.boss; })[0].kind, 'Boss Down', 'You beat ' + beaten.filter(function (e) { return e.boss; })[0].name + '. The audience is on its feet.', 100);
+      if (beaten.some(function (e) { return e.dead && e.boss; })) ach('boss_' + beaten.filter(function (e) { return e.boss; })[0].kind, 'Boss Down', 'You beat ' + beaten.filter(function (e) { return e.boss; })[0].name + '. The System is, frankly, a little impressed.', 100);
     }
   }
   function cbNext() {
@@ -6808,7 +6809,7 @@
     var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; });
     var near = foes.some(function (e) { var dd = cheb(e.x, e.z, P.x, P.z); return dd <= 5 || (dd <= 8 && los(e.x, e.z, P.x, P.z)); });
     if (near || PC.down) return false;
-    CB.order = []; cbEnd(false); setTimeout(function () { achieve('got_away', 'Strategic Retreat', 'You ran away and lived. That counts as a skill on this show.', 10); }, 5200); say('You got away', 'You ran and they lost track of you. The audience is split between booing and respecting it. No XP for running.', 5000);
+    CB.order = []; cbEnd(false); setTimeout(function () { achieve('got_away', 'Strategic Retreat', 'You ran away and lived. That counts as a skill on this show.', 10); }, 5200); say('You got away', 'You ran and they lost track of you. Living counts. No XP for running.', 5000);
     return true;
   }
   function cbEndTurn() { if (!cbMyTurn() || CB.busy || PC.down) return; CB.res = { move: 0, action: 0, bonus: 0 }; CB.aim = null; cbShowMoves(); cbNext(); }
@@ -6944,7 +6945,7 @@
   }
   function cbKill(e) {
     e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
-    say('Enemy down · ' + e.name, e.def.xp + ' XP. ' + (e.kind === 'imp' ? 'The stairwell is unguarded.' : 'Its stick rolls away. The audience applauds politely.'), 4200);
+    say('Enemy down · ' + e.name, e.def.xp + ' XP. ' + (e.kind === 'imp' ? 'The stairwell is unguarded.' : 'Its stick rolls away.'), 4200);
     if (PROPS && PROPS.ready) setTimeout(function () { place('Coin_Pile', e.px + 0.25, e.pz + 0.2, { s: 0.6 }); refreshFog(); }, 1600);
   }
 
@@ -6958,7 +6959,7 @@
   function cbDeathSave() {
     if (!CB.on || !PC.down) return;
     var r = d20(), S = PC.saves;
-    if (r === 20) { PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; say('Death save · natural 20', 'You come back up with 1 HP. The crowd loses its mind.', 4200); cbShowMoves(); cbHUD(); return; }
+    if (r === 20) { PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; say('Death save · natural 20', 'You come back up with 1 HP. Against the odds.', 4200); cbShowMoves(); cbHUD(); return; }
     if (r === 1) S.f += 2; else if (r >= 10) S.s++; else S.f++;
     say('Death save · d20 ' + r, (r >= 10 ? 'Success.' : r === 1 ? 'Natural 1: two failures.' : 'Failure.') + ' ' + S.s + ' successes, ' + S.f + ' failures.', 3600); cbHUD();
     setTimeout(function () {
@@ -6969,7 +6970,7 @@
   }
   // once the campaign is live, death sticks: you lie where you fell until a party member revives you
   function liveDown(stable) {
-    say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. You will come to where you fell, with 1 HP, once the fight moves on.' : 'The crowd goes silent. Your body stays where it fell. Only your party can bring you back now.', 7000);
+    say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. You will come to where you fell, with 1 HP, once the fight moves on.' : 'Your body stays where it fell. Only your party can bring you back now.', 7000);
     setTimeout(function () {
       cbEnd(false); CB.enemies.forEach(function (e) { if (!e.dead) { e.path = null; e.fought = false; cbPlay(e, 'Idle_Loop'); } });
       if (stable) { PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; say('Back on your feet', '1 HP. The monsters lost interest. Find a safe room and something to eat.', 5000); }
@@ -6987,7 +6988,7 @@
   }
   function reviveMe() {
     if (!CHAR) return; CHAR.dead = null; PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; var el = document.getElementById('deadBox'); if (el) el.style.display = 'none';
-    saveChar(CHAR); cbHUD(); say('Revived', 'You gasp back to life with 1 HP. The audience did not see that coming.', 5000);
+    saveChar(CHAR); cbHUD(); say('Revived', 'You gasp back to life with 1 HP.', 5000);
   }
   function deadCheck() { // on load, and whenever we learn whether the campaign is live
     if (!CHAR || !CHAR.dead) return;
@@ -6997,7 +6998,7 @@
     CB.busy = true;
     if (NET.live) { liveDown(stable); return; }
     say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. The monsters lose interest, and the System drags you to the nearest safe room.' :
-      'The crowd goes silent. In the full game, death in the crawl is permanent. For this test, the System drags you to the nearest safe room. The monsters you killed stay dead.', 6500);
+      'In the full game, death in the crawl is permanent. For this test, the System drags you to the nearest safe room. The monsters you killed stay dead.', 6500);
     setTimeout(function () {
       cbEnd(false); PC.down = false; PC.hp = PC.max; if (CHAR && !(CHAR.gear || []).some(function (g) { return /potion/i.test(g.name); })) invAdd({ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' }, true);
       if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -7236,7 +7237,7 @@
     PC.max = maxHPFor(c, PC.level); PC.hp = Math.min(PC.max, PC.hp + (PC.max - was));
     c.skillPts = (c.skillPts || 0) + 1; var stat = PC.level % 2 === 0; if (stat) c.statPts = (c.statPts || 0) + 1; c.gold = (c.gold || 0) + 10 * PC.level;
     var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon).' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : '';
-    setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'The crowd goes wild. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
+    setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'Level up. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
   }
   function achieve(id, title, text, xp) {
     var c = CHAR; if (!c) return; c.ach = c.ach || {}; if (c.ach[id]) return; c.ach[id] = Date.now();
@@ -7244,7 +7245,7 @@
   }
   function overcome(e) { // a monster beaten without killing it
     if (!e || e.counted || e.npc || CB.on) return; e.counted = true; grantXP(e.def.xp);
-    achieve('talker', 'Use Your Words', 'You talked a monster out of a fight. The viewers are confused but intrigued.', 50);
+    achieve('talker', 'Use Your Words', 'You talked a monster out of a fight. The System finds this personally refreshing.', 50);
   }
   function skillUse(name) { // every success with a skill is practice; enough practice and it levels up on its own
     var c = CHAR; if (!c || !name) return; c.skillXP = c.skillXP || {}; var lv = c.skills[name] || 0; if (lv >= 10) return;
@@ -7325,7 +7326,7 @@
   }
   function signedIn(me) {
     NET.user = me.user; NET.uid = me.user.id; NET.sample = serverSample; authClose(); api('campaign').then(function (j) { NET.live = !!(j.value && j.value.live); deadCheck(); }, function () {});
-    if (me.character && me.character.stats) { loadChar(me.character); say('Welcome back, ' + (me.character.name || me.user.username), 'Your character is right where you left it. The audience missed you. Mostly.', 4500); }
+    if (me.character && me.character.stats) { loadChar(me.character); say('Welcome back, ' + (me.character.name || me.user.username), 'Your character is right where you left it.', 4500); }
     else ccOpen();
     partyPoll();
   }
@@ -7442,7 +7443,7 @@
         '<label for="ccName">Your name</label><input type="text" id="ccName" maxlength="24" value="' + esc(CC.name) + '" autocomplete="off">' +
         '<div class="nav"><button type="button" id="ccGo">Start the interview</button><button type="button" class="alt" id="ccMichael">Use Michael\'s test sheet</button>' + (CHAR ? '<button type="button" class="alt" id="ccCancel">Cancel</button>' : '') + '</div>';
     } else if (s === 1) {
-      h = '<h2>Interview · step 2 of 5</h2><p class="sys">Answer in your own words. Short is fine. Jokes are fine; the audience likes jokes.</p>' +
+      h = '<h2>Interview · step 2 of 5</h2><p class="sys">Answer in your own words. Short is fine. Jokes are fine.</p>' +
         QUESTIONS.map(function (q, i) { return '<label for="ccA' + i + '">' + esc(q) + '</label><textarea id="ccA' + i + '">' + esc(CC.answers[i]) + '</textarea>'; }).join('') +
         '<div class="nav"><button type="button" id="ccGo">' + (NET.sample ? 'Send to the System' : 'Next') + '</button><button type="button" class="alt" id="ccBack">Back</button></div>';
     } else if (s === 2) {
@@ -7991,7 +7992,7 @@
   function lootBody(e) {
     if (!e.lootStore) {
       var L = (LOOT[e.kind] || LOOT[e.def.base] || function () { return { gold: 0, items: [] }; })();
-      if (e.boss) { L.gold += d(10, 6); L.items.push({ name: e.name.split(',')[0] + '\'s trophy', cat: 'valuable', desc: 'Proof you beat a neighborhood boss. The audience wants you to wear it.' }); }
+      if (e.boss) { L.gold += d(10, 6); L.items.push({ name: e.name.split(',')[0] + '\'s trophy', cat: 'valuable', desc: 'Proof you beat a zone boss. Heavier than it looks.' }); }
       L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true;
     }
     lootWindow(e.lootStore);
@@ -8217,7 +8218,7 @@
   var FED_MS = 120000;
   function eatFood() {
     var now = Date.now();
-    if (PC.hp >= PC.max) { say('Eat', 'You are already at full health. You eat a grape anyway. The audience respects it.', 3500); return; }
+    if (PC.hp >= PC.max) { say('Eat', 'You are already at full health. You eat a grape anyway.', 3500); return; }
     if (PC.fedUntil && now < PC.fedUntil) { say('Too full', 'You are stuffed. You can eat again in ' + Math.ceil((PC.fedUntil - now) / 1000) + ' seconds.', 3500); return; }
     var got = PC.max - PC.hp; PC.hp = PC.max; PC.fedUntil = now + FED_MS; setTimeout(function () { achieve('free_lunch', 'Free Lunch', 'You ate the sponsors\' food. They own a small part of you now.', 10); }, 4600); if (typeof cbHUD === 'function') cbHUD();
     kitOneShot('PickUp_Table'); say('Free food', 'You eat like the sponsors are paying, because they are. +' + got + ' HP. You are full for the next two minutes.', 4500);
@@ -8336,13 +8337,13 @@
     ],
     Y: [
       { label: 'Examine', text: 'A real tree, underground. The sponsors pipe in the light. The roots go somewhere you would rather not know about.' },
-      { label: 'Climb it for a look around', stat: 'STR', skill: ['Athletics', 1], dc: 12, flag: 'climb', win: 'From the top you can see over the reeds. You map the area around you.', lose: 'You slide down with a fistful of bark. The audience loved it.' },
+      { label: 'Climb it for a look around', stat: 'STR', skill: ['Athletics', 1], dc: 12, flag: 'climb', win: 'From the top you can see over the reeds. You map the area around you.', lose: 'You slide down with a fistful of bark.' },
       { label: 'Hide in its branches', stat: 'DEX', skill: ['Stealth', 1], dc: 12, win: 'You disappear into the leaves. A bird objects.', lose: 'A branch snaps. Everyone heard that.' }
     ],
     C: [
       { label: 'Examine', text: 'A bronze loot box. Sealed. You are being filmed looking at it.' },
       { label: 'Investigate for traps', stat: 'INT', dc: 10, win: 'No traps. The lock is cheap and the hinges are worse.', lose: 'It looks like a box. You learn nothing else.' },
-      { label: 'Pick the lock', stat: 'DEX', dc: 13, flag: 'open', win: 'Click. Inside: one slightly used torch and a coupon the System will not honor.', lose: 'The lock holds. The audience giggles.' },
+      { label: 'Pick the lock', stat: 'DEX', dc: 13, flag: 'open', win: 'Click. Inside: one slightly used torch and a coupon the System will not honor.', lose: 'The lock holds.' },
       { label: 'Force it open', stat: 'STR', dc: 15, flag: 'open', win: 'The lid gives up. Inside: one slightly used torch and a coupon the System will not honor.', lose: 'You hurt your shoulder. The box is fine.' },
       { label: 'Jury-rig the hinges', stat: 'DEX', skill: ['Jury-Rig', 2], dc: 12, flag: 'open', win: 'You pop the hinge pins with a boot buckle. Inside: one slightly used torch and a coupon.', lose: 'The pins will not budge. Yet.' }
     ],
@@ -8388,7 +8389,7 @@
     ],
     H: [
       { label: 'Examine', text: 'It is a wall. Probably.' },
-      { label: 'Search for a hidden door', stat: 'WIS', skill: ['Perception', 0], dc: 13, flag: 'found', win: 'A seam, a click, and the wall swings inward. The audience gasps on cue.', lose: 'Solid. Or you missed something.' }
+      { label: 'Search for a hidden door', stat: 'WIS', skill: ['Perception', 0], dc: 13, flag: 'found', win: 'A seam, a click, and the wall swings inward. Someone built this on purpose.', lose: 'Solid. Or you missed something.' }
     ],
     X: [{ label: 'Use the mirror (change hair and facial hair)', auto: 'mirror' }, { label: 'Read the stall wall', auto: 'board' }, { label: 'Write on the stall wall (only your party can read it)', auto: 'write' },
       { label: 'Examine', text: 'A safe room bathroom. Clean, by dungeon standards. The stall walls are covered in messages from crawlers.' }],
@@ -8398,7 +8399,7 @@
     b: [{ label: 'Search it', stat: 'INT', dc: 10, flag: 'loot', win: 'You rummage through it.', lose: 'Old rags and something that bit you.' }],
     h: [{ label: 'Search it', stat: 'INT', dc: 11, flag: 'loot', win: 'Behind the bottles, something useful.', lose: 'Dusty bottles. All empty.' }],
     c: [{ label: 'Examine', text: 'A tall iron candle stand. The candles never burn down.' }],
-    q: [{ label: 'Examine', text: 'A cauldron of something green that occasionally says "hello".' }, { label: 'Taste it', stat: 'CON', dc: 12, win: 'Tastes like soup. You feel fine. Mostly.', lose: 'You throw up a little. The audience loves it.' }],
+    q: [{ label: 'Examine', text: 'A cauldron of something green that occasionally says "hello".' }, { label: 'Taste it', stat: 'CON', dc: 12, win: 'Tastes like soup. You feel fine. Mostly.', lose: 'You throw up a little.' }],
     k: [{ label: 'Read it', stat: 'INT', dc: 10, win: 'A field guide page: "Puglins flee when their leader falls. Imps will not cross a picket line."', lose: 'The handwriting is terrible.' }],
     g: [{ label: 'Examine', text: 'A small cage. The door is open. Whatever was inside is not.' }],
     v: [{ label: 'Smash it', stat: 'STR', dc: 6, flag: 'loot', win: 'Crash. Something rolls out of the shards.', lose: 'It bounces. Embarrassing.' }],

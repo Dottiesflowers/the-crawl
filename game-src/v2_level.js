@@ -334,7 +334,7 @@
       sides.forEach(function (sd) { if (!okS && inb(sd[0], sd[1]) && isFloor(g[sd[1]][sd[0]]) && rooms[reg[sd[1]][sd[0]]] && rooms[reg[sd[1]][sd[0]]].type === 'corridor') okS = sd; });
       if (!okS) continue;
       var hzn = null; zones.forEach(function (Z) { if (hx2 >= Z.cell[0] && hx2 <= Z.cell[2] && hz2 >= Z.cell[1] && hz2 <= Z.cell[3]) hzn = Z; });
-      var hr2 = room({ name: HN[hidden], theme: 'store', type: 'hidden', x0: hx2, z0: hz2, x1: hx2 + hw2, z1: hz2 + hh2, line: 'A hidden room. The audience gasps on cue.' });
+      var hr2 = room({ name: HN[hidden], theme: 'store', type: 'hidden', x0: hx2, z0: hz2, x1: hx2 + hw2, z1: hz2 + hh2, line: 'A hidden room. Nobody was supposed to find this.' });
       carveRect(hr2); put(okS[2], okS[3], 'H', hr2.id); var hc = center(hr2); put(hc[0], hc[1], 'C'); hidden++;
     }
 

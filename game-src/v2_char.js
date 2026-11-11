@@ -73,7 +73,7 @@
     PC.max = maxHPFor(c, PC.level); PC.hp = Math.min(PC.max, PC.hp + (PC.max - was));
     c.skillPts = (c.skillPts || 0) + 1; var stat = PC.level % 2 === 0; if (stat) c.statPts = (c.statPts || 0) + 1; c.gold = (c.gold || 0) + 10 * PC.level;
     var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon).' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : '';
-    setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'The crowd goes wild. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
+    setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'Level up. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
   }
   function achieve(id, title, text, xp) {
     var c = CHAR; if (!c) return; c.ach = c.ach || {}; if (c.ach[id]) return; c.ach[id] = Date.now();
@@ -81,7 +81,7 @@
   }
   function overcome(e) { // a monster beaten without killing it
     if (!e || e.counted || e.npc || CB.on) return; e.counted = true; grantXP(e.def.xp);
-    achieve('talker', 'Use Your Words', 'You talked a monster out of a fight. The viewers are confused but intrigued.', 50);
+    achieve('talker', 'Use Your Words', 'You talked a monster out of a fight. The System finds this personally refreshing.', 50);
   }
   function skillUse(name) { // every success with a skill is practice; enough practice and it levels up on its own
     var c = CHAR; if (!c || !name) return; c.skillXP = c.skillXP || {}; var lv = c.skills[name] || 0; if (lv >= 10) return;
@@ -162,7 +162,7 @@
   }
   function signedIn(me) {
     NET.user = me.user; NET.uid = me.user.id; NET.sample = serverSample; authClose(); api('campaign').then(function (j) { NET.live = !!(j.value && j.value.live); deadCheck(); }, function () {});
-    if (me.character && me.character.stats) { loadChar(me.character); say('Welcome back, ' + (me.character.name || me.user.username), 'Your character is right where you left it. The audience missed you. Mostly.', 4500); }
+    if (me.character && me.character.stats) { loadChar(me.character); say('Welcome back, ' + (me.character.name || me.user.username), 'Your character is right where you left it.', 4500); }
     else ccOpen();
     partyPoll();
   }
@@ -279,7 +279,7 @@
         '<label for="ccName">Your name</label><input type="text" id="ccName" maxlength="24" value="' + esc(CC.name) + '" autocomplete="off">' +
         '<div class="nav"><button type="button" id="ccGo">Start the interview</button><button type="button" class="alt" id="ccMichael">Use Michael\'s test sheet</button>' + (CHAR ? '<button type="button" class="alt" id="ccCancel">Cancel</button>' : '') + '</div>';
     } else if (s === 1) {
-      h = '<h2>Interview · step 2 of 5</h2><p class="sys">Answer in your own words. Short is fine. Jokes are fine; the audience likes jokes.</p>' +
+      h = '<h2>Interview · step 2 of 5</h2><p class="sys">Answer in your own words. Short is fine. Jokes are fine.</p>' +
         QUESTIONS.map(function (q, i) { return '<label for="ccA' + i + '">' + esc(q) + '</label><textarea id="ccA' + i + '">' + esc(CC.answers[i]) + '</textarea>'; }).join('') +
         '<div class="nav"><button type="button" id="ccGo">' + (NET.sample ? 'Send to the System' : 'Next') + '</button><button type="button" class="alt" id="ccBack">Back</button></div>';
     } else if (s === 2) {

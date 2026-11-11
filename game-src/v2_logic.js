@@ -9,7 +9,7 @@
   var FED_MS = 120000;
   function eatFood() {
     var now = Date.now();
-    if (PC.hp >= PC.max) { say('Eat', 'You are already at full health. You eat a grape anyway. The audience respects it.', 3500); return; }
+    if (PC.hp >= PC.max) { say('Eat', 'You are already at full health. You eat a grape anyway.', 3500); return; }
     if (PC.fedUntil && now < PC.fedUntil) { say('Too full', 'You are stuffed. You can eat again in ' + Math.ceil((PC.fedUntil - now) / 1000) + ' seconds.', 3500); return; }
     var got = PC.max - PC.hp; PC.hp = PC.max; PC.fedUntil = now + FED_MS; setTimeout(function () { achieve('free_lunch', 'Free Lunch', 'You ate the sponsors\' food. They own a small part of you now.', 10); }, 4600); if (typeof cbHUD === 'function') cbHUD();
     kitOneShot('PickUp_Table'); say('Free food', 'You eat like the sponsors are paying, because they are. +' + got + ' HP. You are full for the next two minutes.', 4500);
@@ -128,13 +128,13 @@
     ],
     Y: [
       { label: 'Examine', text: 'A real tree, underground. The sponsors pipe in the light. The roots go somewhere you would rather not know about.' },
-      { label: 'Climb it for a look around', stat: 'STR', skill: ['Athletics', 1], dc: 12, flag: 'climb', win: 'From the top you can see over the reeds. You map the area around you.', lose: 'You slide down with a fistful of bark. The audience loved it.' },
+      { label: 'Climb it for a look around', stat: 'STR', skill: ['Athletics', 1], dc: 12, flag: 'climb', win: 'From the top you can see over the reeds. You map the area around you.', lose: 'You slide down with a fistful of bark.' },
       { label: 'Hide in its branches', stat: 'DEX', skill: ['Stealth', 1], dc: 12, win: 'You disappear into the leaves. A bird objects.', lose: 'A branch snaps. Everyone heard that.' }
     ],
     C: [
       { label: 'Examine', text: 'A bronze loot box. Sealed. You are being filmed looking at it.' },
       { label: 'Investigate for traps', stat: 'INT', dc: 10, win: 'No traps. The lock is cheap and the hinges are worse.', lose: 'It looks like a box. You learn nothing else.' },
-      { label: 'Pick the lock', stat: 'DEX', dc: 13, flag: 'open', win: 'Click. Inside: one slightly used torch and a coupon the System will not honor.', lose: 'The lock holds. The audience giggles.' },
+      { label: 'Pick the lock', stat: 'DEX', dc: 13, flag: 'open', win: 'Click. Inside: one slightly used torch and a coupon the System will not honor.', lose: 'The lock holds.' },
       { label: 'Force it open', stat: 'STR', dc: 15, flag: 'open', win: 'The lid gives up. Inside: one slightly used torch and a coupon the System will not honor.', lose: 'You hurt your shoulder. The box is fine.' },
       { label: 'Jury-rig the hinges', stat: 'DEX', skill: ['Jury-Rig', 2], dc: 12, flag: 'open', win: 'You pop the hinge pins with a boot buckle. Inside: one slightly used torch and a coupon.', lose: 'The pins will not budge. Yet.' }
     ],
@@ -180,7 +180,7 @@
     ],
     H: [
       { label: 'Examine', text: 'It is a wall. Probably.' },
-      { label: 'Search for a hidden door', stat: 'WIS', skill: ['Perception', 0], dc: 13, flag: 'found', win: 'A seam, a click, and the wall swings inward. The audience gasps on cue.', lose: 'Solid. Or you missed something.' }
+      { label: 'Search for a hidden door', stat: 'WIS', skill: ['Perception', 0], dc: 13, flag: 'found', win: 'A seam, a click, and the wall swings inward. Someone built this on purpose.', lose: 'Solid. Or you missed something.' }
     ],
     X: [{ label: 'Use the mirror (change hair and facial hair)', auto: 'mirror' }, { label: 'Read the stall wall', auto: 'board' }, { label: 'Write on the stall wall (only your party can read it)', auto: 'write' },
       { label: 'Examine', text: 'A safe room bathroom. Clean, by dungeon standards. The stall walls are covered in messages from crawlers.' }],
@@ -190,7 +190,7 @@
     b: [{ label: 'Search it', stat: 'INT', dc: 10, flag: 'loot', win: 'You rummage through it.', lose: 'Old rags and something that bit you.' }],
     h: [{ label: 'Search it', stat: 'INT', dc: 11, flag: 'loot', win: 'Behind the bottles, something useful.', lose: 'Dusty bottles. All empty.' }],
     c: [{ label: 'Examine', text: 'A tall iron candle stand. The candles never burn down.' }],
-    q: [{ label: 'Examine', text: 'A cauldron of something green that occasionally says "hello".' }, { label: 'Taste it', stat: 'CON', dc: 12, win: 'Tastes like soup. You feel fine. Mostly.', lose: 'You throw up a little. The audience loves it.' }],
+    q: [{ label: 'Examine', text: 'A cauldron of something green that occasionally says "hello".' }, { label: 'Taste it', stat: 'CON', dc: 12, win: 'Tastes like soup. You feel fine. Mostly.', lose: 'You throw up a little.' }],
     k: [{ label: 'Read it', stat: 'INT', dc: 10, win: 'A field guide page: "Puglins flee when their leader falls. Imps will not cross a picket line."', lose: 'The handwriting is terrible.' }],
     g: [{ label: 'Examine', text: 'A small cage. The door is open. Whatever was inside is not.' }],
     v: [{ label: 'Smash it', stat: 'STR', dc: 6, flag: 'loot', win: 'Crash. Something rolls out of the shards.', lose: 'It bounces. Embarrassing.' }],

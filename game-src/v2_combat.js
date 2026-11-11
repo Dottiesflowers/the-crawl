@@ -42,6 +42,7 @@
   var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? 'imp' : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
   function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
 
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
   function d(n, s) { var t = 0; for (var i = 0; i < n; i++) t += 1 + Math.floor(Math.random() * s); return t; }
   function d20() { return 1 + Math.floor(Math.random() * 20); }
   function roll20(adv, dis) { // 5e: advantage and disadvantage cancel out
@@ -58,7 +59,7 @@
   function safeRoomPenalty() {
     var r = roomInfo(P.x, P.z), best = null;
     for (var dz = -12; dz <= 12; dz++) for (var dx = -12; dx <= 12; dx++) { var x = P.x + dx, z = P.z + dz; if (!r || !walkable(x, z, 'pc') || inSafeRoom(x, z)) continue; var dd = Math.abs(dx) + Math.abs(dz); if (!best || dd < best[2]) best = [x, z, dd]; }
-    say('SAFE ROOM VIOLATION', 'Aggression is not permitted in a safe room. You have been relocated and placed in a timeout. The audience boos.', 6000);
+    say('SAFE ROOM VIOLATION', 'Aggression is not permitted in a safe room. You have been relocated and placed in a timeout. The System notes this in your file.', 6000);
     if (best) { P.x = best[0]; P.z = best[1]; P.px = best[0]; P.pz = best[1]; refreshFog(); enterRoom(); }
     PC.timeout = performance.now() + 15000;
   }
@@ -90,7 +91,7 @@
     var gw = gearWeapon(); if (gw) return gw;
     var m = sty('main');
     var W = [{ name: 'fists', n: 1, s: 1, b: 1 + MOD.STR, stat: 'STR', clip: 'Punch_Jab' }, { name: 'sword', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' }, { name: 'axe', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' },
-      { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'The crowd loves it, so it hits with Charisma.' }][m];
+      { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'It is a performance as much as a weapon, so it hits with Charisma.' }][m];
     if (!m && sty('off') === 3) W = { name: 'dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', clip: 'Punch_Jab' };
     W.hit = PROF() + MOD[W.stat]; W.dmgB = W.b !== undefined ? W.b : MOD[W.stat]; return W;
   }
@@ -412,13 +413,13 @@
     if (xp && !win) { grantXP(xp); }
     if (xp && win) {
       var talked = beaten.filter(function (e) { return !e.dead; }).length;
-      say('Victory · +' + xp + ' XP', (talked ? talked + ' of them talked down, which counts. ' : '') + 'The cameras zoom in on your face. Viewers voted you "most likely to survive floor one."', 6500); grantXP(xp);
+      say('Victory · +' + xp + ' XP', (talked ? talked + ' of them talked down, which counts. ' : '') + pick(['Fight over.', 'Clean work.', 'That will do.', 'The System has updated your file.']), 6500); grantXP(xp);
       var later = 0; function ach(id, t, x, n) { setTimeout(function () { achieve(id, t, x, n); }, 2400 + 2600 * later++); }
       if (beaten.some(function (e) { return e.dead; }) && !(CHAR && CHAR.ach && CHAR.ach.first_blood)) ach('first_blood', 'First Blood', 'Your first kill on camera. Your mother would be so proud.', 50);
-      if (talked && !(CHAR && CHAR.ach && CHAR.ach.talker)) ach('talker', 'Use Your Words', 'You talked a monster out of a fight. The viewers are confused but intrigued.', 50);
+      if (talked && !(CHAR && CHAR.ach && CHAR.ach.talker)) ach('talker', 'Use Your Words', 'You talked a monster out of a fight. The System finds this personally refreshing.', 50);
       if (beaten.some(function (e) { return e.dead && e.def.base === 'shrub'; }) && !(CHAR && CHAR.ach && CHAR.ach.weed)) ach('weed', 'Weed Whacker', 'You killed a shrub. Gardeners everywhere salute you.', 10);
       if (beaten.some(function (e) { return e.dead && e.def.lvl === 4; })) ach('thornmaw', 'Should Have Stepped On It', 'You killed a Thornmaw. Somebody let it get that big.', 150);
-      if (beaten.some(function (e) { return e.dead && e.boss; })) ach('boss_' + beaten.filter(function (e) { return e.boss; })[0].kind, 'Boss Down', 'You beat ' + beaten.filter(function (e) { return e.boss; })[0].name + '. The audience is on its feet.', 100);
+      if (beaten.some(function (e) { return e.dead && e.boss; })) ach('boss_' + beaten.filter(function (e) { return e.boss; })[0].kind, 'Boss Down', 'You beat ' + beaten.filter(function (e) { return e.boss; })[0].name + '. The System is, frankly, a little impressed.', 100);
     }
   }
   function cbNext() {
@@ -442,7 +443,7 @@
     var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; });
     var near = foes.some(function (e) { var dd = cheb(e.x, e.z, P.x, P.z); return dd <= 5 || (dd <= 8 && los(e.x, e.z, P.x, P.z)); });
     if (near || PC.down) return false;
-    CB.order = []; cbEnd(false); setTimeout(function () { achieve('got_away', 'Strategic Retreat', 'You ran away and lived. That counts as a skill on this show.', 10); }, 5200); say('You got away', 'You ran and they lost track of you. The audience is split between booing and respecting it. No XP for running.', 5000);
+    CB.order = []; cbEnd(false); setTimeout(function () { achieve('got_away', 'Strategic Retreat', 'You ran away and lived. That counts as a skill on this show.', 10); }, 5200); say('You got away', 'You ran and they lost track of you. Living counts. No XP for running.', 5000);
     return true;
   }
   function cbEndTurn() { if (!cbMyTurn() || CB.busy || PC.down) return; CB.res = { move: 0, action: 0, bonus: 0 }; CB.aim = null; cbShowMoves(); cbNext(); }
@@ -578,7 +579,7 @@
   }
   function cbKill(e) {
     e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
-    say('Enemy down · ' + e.name, e.def.xp + ' XP. ' + (e.kind === 'imp' ? 'The stairwell is unguarded.' : 'Its stick rolls away. The audience applauds politely.'), 4200);
+    say('Enemy down · ' + e.name, e.def.xp + ' XP. ' + (e.kind === 'imp' ? 'The stairwell is unguarded.' : 'Its stick rolls away.'), 4200);
     if (PROPS && PROPS.ready) setTimeout(function () { place('Coin_Pile', e.px + 0.25, e.pz + 0.2, { s: 0.6 }); refreshFog(); }, 1600);
   }
 
@@ -592,7 +593,7 @@
   function cbDeathSave() {
     if (!CB.on || !PC.down) return;
     var r = d20(), S = PC.saves;
-    if (r === 20) { PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; say('Death save · natural 20', 'You come back up with 1 HP. The crowd loses its mind.', 4200); cbShowMoves(); cbHUD(); return; }
+    if (r === 20) { PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; say('Death save · natural 20', 'You come back up with 1 HP. Against the odds.', 4200); cbShowMoves(); cbHUD(); return; }
     if (r === 1) S.f += 2; else if (r >= 10) S.s++; else S.f++;
     say('Death save · d20 ' + r, (r >= 10 ? 'Success.' : r === 1 ? 'Natural 1: two failures.' : 'Failure.') + ' ' + S.s + ' successes, ' + S.f + ' failures.', 3600); cbHUD();
     setTimeout(function () {
@@ -603,7 +604,7 @@
   }
   // once the campaign is live, death sticks: you lie where you fell until a party member revives you
   function liveDown(stable) {
-    say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. You will come to where you fell, with 1 HP, once the fight moves on.' : 'The crowd goes silent. Your body stays where it fell. Only your party can bring you back now.', 7000);
+    say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. You will come to where you fell, with 1 HP, once the fight moves on.' : 'Your body stays where it fell. Only your party can bring you back now.', 7000);
     setTimeout(function () {
       cbEnd(false); CB.enemies.forEach(function (e) { if (!e.dead) { e.path = null; e.fought = false; cbPlay(e, 'Idle_Loop'); } });
       if (stable) { PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; say('Back on your feet', '1 HP. The monsters lost interest. Find a safe room and something to eat.', 5000); }
@@ -621,7 +622,7 @@
   }
   function reviveMe() {
     if (!CHAR) return; CHAR.dead = null; PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; var el = document.getElementById('deadBox'); if (el) el.style.display = 'none';
-    saveChar(CHAR); cbHUD(); say('Revived', 'You gasp back to life with 1 HP. The audience did not see that coming.', 5000);
+    saveChar(CHAR); cbHUD(); say('Revived', 'You gasp back to life with 1 HP.', 5000);
   }
   function deadCheck() { // on load, and whenever we learn whether the campaign is live
     if (!CHAR || !CHAR.dead) return;
@@ -631,7 +632,7 @@
     CB.busy = true;
     if (NET.live) { liveDown(stable); return; }
     say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. The monsters lose interest, and the System drags you to the nearest safe room.' :
-      'The crowd goes silent. In the full game, death in the crawl is permanent. For this test, the System drags you to the nearest safe room. The monsters you killed stay dead.', 6500);
+      'In the full game, death in the crawl is permanent. For this test, the System drags you to the nearest safe room. The monsters you killed stay dead.', 6500);
     setTimeout(function () {
       cbEnd(false); PC.down = false; PC.hp = PC.max; if (CHAR && !(CHAR.gear || []).some(function (g) { return /potion/i.test(g.name); })) invAdd({ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' }, true);
       if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
