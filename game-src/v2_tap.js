@@ -83,11 +83,13 @@
       else opts.push({ label: 'Walk over and talk', fn: function () { walkTo(t.x, t.z, function () { talkOpen(t.e); }, true); } });
       if (!t.e.calm && !t.e.npc) opts.push({ label: 'Attack', fn: function () { cbStart('You start it.', t.e); } });
     }
-    opts.push({ label: far ? 'Walk over and interact' : 'Interact', fn: function () { walkTo(t.x, t.z, function () { openMenu(t); }, true); } });
+    if (t.e && t.e.dead) enemyActs(t.e).forEach(function (a) { if (/^Examine/.test(a.label)) return; opts.push({ label: a.label, fn: function () { walkTo(t.x, t.z, function () { act(t, a); }, true); } }); });
+    else if (!t.e) (actsOf(t) || []).forEach(function (a) { if (/^Examine/.test(a.label)) return; var b = a.stat ? chkBonus(a) : 0; opts.push({ label: a.label + (a.stat ? ' <i>' + a.stat + ' ' + (b >= 0 ? '+' : '') + b + '</i>' : ''), fn: function () { walkTo(t.x, t.z, function () { act(t, a); }, true); } }); });
+    else opts.push({ label: far ? 'Walk over and interact' : 'Interact', fn: function () { walkTo(t.x, t.z, function () { openMenu(t); }, true); } });
     if (far) opts.push({ label: 'Walk over', fn: function () { walkTo(t.x, t.z, null, true); } });
     menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = tapName(t); menuEl.appendChild(hd);
     opts.forEach(function (o, i) { var b = document.createElement('button'); b.type = 'button'; b.innerHTML = '<span>' + (i + 1) + '. ' + o.label + '</span>'; b.onclick = function () { closeMenu(); o.fn(); }; menuEl.appendChild(b); });
-    menuOpen = true; menuAt = { x: P.px, z: P.pz }; menuEl.classList.add('on');
+    menuOpen = true; menuAt = { x: P.px, z: P.pz }; menuEl.classList.add('on'); menuBeside(t);
   }
 
   // ---------- the bathroom stall wall: messages only your party can read ----------

@@ -133,6 +133,9 @@
   function bagDraw() {
     var el = document.getElementById('bag'), items = bagItems(), q = UI.q.toLowerCase();
     var list = items.map(function (it, i) { return { it: it, i: i }; }).filter(function (o) { return (UI.cat === 'all' || o.it.cat === UI.cat) && (!q || (o.it.name + ' ' + (o.it.desc || '')).toLowerCase().indexOf(q) >= 0); });
+    // identical things stack into one tile with a count (worn clothes stay separate)
+    var groups = {}, glist = []; list.forEach(function (o) { var k = o.it.worn ? 'w' + o.i : o.it.name; if (groups[k]) { groups[k].n += (o.it.qty || 1); groups[k].all.push(o.i); if (UI.sel === o.i) groups[k].i = o.i; } else { groups[k] = { it: o.it, i: o.i, n: o.it.qty || 1, all: [o.i] }; glist.push(groups[k]); } });
+    list = glist;
     if (UI.sel !== null && !items[UI.sel]) UI.sel = null;
     var sel = UI.sel !== null ? items[UI.sel] : null;
     var worn = function (slot) { return items.filter(function (g) { return g.worn && g.slot === slot; })[0]; }, w = wieldItem(), bk = backItem();
@@ -148,7 +151,7 @@
       CATS.map(function (c) { return '<button type="button" class="chip2' + (UI.cat === c[0] ? ' on' : '') + '" data-cat="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>' +
       '<div id="bagList">' + (list.length ? list.map(function (o) {
         var t = o.it.worn ? 'worn' : (CHAR.wield === o.it.name ? 'in hand' : CHAR.back === o.it.name ? 'on back' : '');
-        return '<button type="button" data-i="' + o.i + '" class="' + (UI.sel === o.i ? 'on' : '') + (o.it.rarity ? ' r-' + String(o.it.rarity).toLowerCase() : '') + (o.it.bonus ? ' magic' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + (o.it.qty > 1 ? ' ×' + o.it.qty : '') + '</span>' + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
+        return '<button type="button" data-i="' + o.i + '" class="' + (o.all.indexOf(UI.sel) >= 0 ? 'on' : '') + (o.it.rarity ? ' r-' + String(o.it.rarity).toLowerCase() : '') + (o.it.bonus ? ' magic' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + '</span>' + (o.n > 1 ? '<b class="qn">×' + o.n + '</b>' : '') + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
       }).join('') : '<p style="padding:10px">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
       '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div></div>';
     document.getElementById('bagSwap').onclick = swapWeapons;

@@ -231,6 +231,15 @@
     return { c: 'area', key: 'area' };
   }
   var LASTPTR = null; addEventListener('pointerdown', function (ev) { LASTPTR = { x: ev.clientX, y: ev.clientY, t: performance.now(), mouse: ev.pointerType === 'mouse' }; }, true);
+  // with a mouse, menus open right beside the thing they are about (projected from the world), not in the corner
+  function menuBeside(t) {
+    menuEl.style.left = menuEl.style.top = menuEl.style.right = menuEl.style.bottom = '';
+    if (!LASTPTR || !LASTPTR.mouse || !t) return;
+    var v = new THREE.Vector3(t.e ? t.e.px : t.x, 0.9, t.e ? t.e.pz : t.z).project(cam), sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight;
+    var mw = menuEl.offsetWidth || 260, mh = menuEl.offsetHeight || 200, x = sx + 34, y = sy - mh / 2;
+    if (x + mw > innerWidth - 8) x = sx - mw - 34; y = Math.max(8, Math.min(innerHeight - mh - 8, y));
+    menuEl.style.left = Math.max(8, x) + 'px'; menuEl.style.top = y + 'px'; menuEl.style.right = 'auto'; menuEl.style.bottom = 'auto';
+  }
   function closeMenu() { menuOpen = false; menuEl.classList.remove('on'); document.getElementById('aInteract').classList.remove('held'); }
   function openMenu(t0) {
     if (gearOpen || (CHAR && CHAR.dead)) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
@@ -247,13 +256,7 @@
       menuEl.appendChild(b);
     });
     menuOpen = true; menuEl.classList.add('on'); document.getElementById('aInteract').classList.add('held');
-    // with a mouse, the menu opens beside what you clicked instead of in the corner
-    var lp = LASTPTR; menuEl.style.left = menuEl.style.top = menuEl.style.right = menuEl.style.bottom = '';
-    if (t0 && lp && lp.mouse && performance.now() - lp.t < 800) {
-      var mw = menuEl.offsetWidth || 240, mh = menuEl.offsetHeight || 200, x = lp.x + 18, y = lp.y - mh / 2;
-      if (x + mw > innerWidth - 8) x = lp.x - mw - 18; y = Math.max(8, Math.min(innerHeight - mh - 8, y));
-      menuEl.style.left = Math.max(8, x) + 'px'; menuEl.style.top = y + 'px'; menuEl.style.right = 'auto'; menuEl.style.bottom = 'auto';
-    }
+    menuBeside(t);
   }
   function act(t, a) {
     closeMenu();
@@ -567,7 +570,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { fog: function () { return tileState; }, craft: { harvest: harvest, toggle: craftToggle, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

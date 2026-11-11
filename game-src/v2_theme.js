@@ -135,6 +135,9 @@
       '#bagInfo .ccBtn{height:34px;padding:0 12px;' + iron + 'border:1px solid #8a7a5a !important;border-radius:3px !important;font-family:Cinzel,serif !important;font-weight:700;font-size:11.5px !important;text-transform:none !important;letter-spacing:.04em !important}',
       '#bagInfo .ccBtn[data-act=wield]{background:' + OX + ' !important;border-color:#3a0c08 !important;color:#F3E6CC !important}',
       '@media (max-height:420px){#bag .eqHint{display:none}#heroPic{max-width:120px}}',
+      '#bagList .qn{position:absolute;right:4px;bottom:2px;font-family:Cinzel,serif;font-size:11px;color:' + OX + '}',
+      // big screens: bigger tiles and text, a sensibly sized info panel
+      '@media (min-width:1000px) and (min-height:600px){#bagList{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:7px}#bagList button{height:92px;font-size:14.5px !important}#bagList button svg{width:34px;height:34px}#bagList .tag{font-size:10px}#bagList .qn{font-size:13px}#bag .eqs{font-size:14.5px;min-height:52px}#bag .eqs small{font-size:10px}#bag .eqL,#bag .eqR{width:130px}#bag .eq{width:min(470px,40%)}#heroPic{max-width:210px}#bagInfo{max-height:220px;font-size:15px}#bagInfo h3{font-size:17px}#bagInfo p{font-size:15px !important}#bag .chip2{height:34px;font-size:14px !important}#bagQ{height:34px;font-size:15px;width:160px}#bag header b{font-size:17px !important}}',
       // jury-rig
       '#craft{position:fixed;inset:10px;z-index:31;display:none;flex-direction:column;background:linear-gradient(180deg,#4a2e1a,#2c1a0e);border:2px solid #2e2116;border-radius:6px;font-family:"EB Garamond",serif;color:' + INK + '}#craft.on{display:flex}',
       '#craft header{display:flex;align-items:center;gap:8px;padding:6px 10px;' + iron + 'border-bottom:2px solid ' + BR + '}#craft header b{font-family:Cinzel,serif;font-size:15px;flex:1}#craft header span{font-family:Cinzel,serif;font-size:11px;color:#C9B48A}',
