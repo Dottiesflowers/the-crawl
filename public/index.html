@@ -6561,6 +6561,35 @@
     CB.idx = -1; foes.forEach(function (e) { cbFace(e, P.x, P.z); });
     setTimeout(cbNext, 700); cbHUD();
   }
+  // ---------- the fight has a reach: anything hostile that comes inside it rolls initiative and joins ----------
+  // The zone is centred on everyone in the fight. Monsters join when they see you close up, or when they are
+  // close enough to the fighting to hear it. (Party play will use the same rule: a crawler who walks into the
+  // zone rolls initiative and takes a place in the same turn order.)
+  var CB_ZONE = 6, CB_HEAR = 4;
+  function cbZone() {
+    var pts = [[P.x, P.z]]; CB.order.forEach(function (c) { if (c !== 'pc' && !c.dead) pts.push([c.x, c.z]); });
+    var x = 0, z = 0; pts.forEach(function (p) { x += p[0]; z += p[1]; }); x /= pts.length; z /= pts.length;
+    var r = 0; pts.forEach(function (p) { r = Math.max(r, Math.max(Math.abs(p[0] - x), Math.abs(p[1] - z))); });
+    return { x: x, z: z, r: r + CB_ZONE };
+  }
+  function cbJoin(e, why) {
+    if (!CB.on || CB.order.indexOf(e) >= 0 || e.dead || e.calm) return;
+    e.init = d20() + e.def.init; e.react = true; e.prone = false; e.grappled = false;
+    var initOf = function (c) { return c === 'pc' ? PC.init : c.init; }, at = CB.order.length;
+    for (var i = 0; i < CB.order.length; i++) if (e.init > initOf(CB.order[i])) { at = i; break; }
+    CB.order.splice(at, 0, e); if (at <= CB.idx) CB.idx++; // the current turn stays the current turn
+    cbFace(e, P.x, P.z); cbRingsUpdate(); cbHUD();
+    say('Joins the fight · initiative ' + e.init, e.name + ' ' + why + ' It takes its place in the turn order.', 4200);
+  }
+  function cbJoinCheck() {
+    if (!CB.on) return; var Z = cbZone();
+    CB.enemies.forEach(function (e) {
+      if (e.dead || e.calm || e.npc || CB.order.indexOf(e) >= 0 || inSafeRoom(e.x, e.z)) return;
+      var seesYou = visNow[e.x + ',' + e.z] !== undefined && cheb(e.x, e.z, P.x, P.z) <= CB_ZONE;
+      var hears = CB.order.some(function (c) { return c !== 'pc' && !c.dead && cheb(e.x, e.z, c.x, c.z) <= CB_HEAR; }) && Math.max(Math.abs(e.x - Z.x), Math.abs(e.z - Z.z)) <= Z.r;
+      if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
+    });
+  }
   function cbEnd(win) {
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -6572,6 +6601,7 @@
     if (!CB.on) return;
     if (!CB.enemies.some(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; })) { cbEnd(true); return; }
     CB.idx = (CB.idx + 1) % CB.order.length;
+    if (CB.idx === 0) cbJoinCheck();
     var c = CB.order[CB.idx];
     if (c !== 'pc' && (c.dead || c.calm)) { cbNext(); return; }
     if (c === 'pc' && cbEscaped()) return;
@@ -6620,7 +6650,7 @@
     var dx = t[0] - P.px, dz = t[1] - P.pz, dist = Math.sqrt(dx * dx + dz * dz), step = 2.4 * dt;
     P.speed = 1.6; cbFaceHero(t[0], t[1]);
     if (dist <= step) {
-      P.px = t[0]; P.pz = t[1]; P.x = t[0]; P.z = t[1]; CB.path.shift(); CB.stepChecked = false; refreshFog(); enterRoom();
+      P.px = t[0]; P.pz = t[1]; P.x = t[0]; P.z = t[1]; CB.path.shift(); CB.stepChecked = false; refreshFog(); enterRoom(); cbJoinCheck();
       CB.enemies.forEach(function (e) { if (e.grappled && cheb(P.x, P.z, e.x, e.z) > 1) { e.grappled = false; say('Grapple released', 'You stepped away and let go of ' + e.name + '.', 2200); } });
     } else { P.px += dx / dist * step; P.pz += dz / dist * step; }
     if (!CB.path.length) { CB.path = null; P.speed = 0; CB.busy = false; var f = CB.afterWalk; CB.afterWalk = null; cbShowMoves(); cbHUD(); if (f) f(); }
