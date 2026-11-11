@@ -352,7 +352,7 @@
     var prompt = kind === 'followups' ? head + '\n\nAsk up to 3 short, pointed follow-up questions tailored to what they said, that would best decide their ability scores, skills, weaknesses and what gear they had on them. Reply with JSON only: {"comment": one dry sentence from the System about what you have heard so far, "questions": [strings]}'
       : head + '\n\nBuild their level-1 human sheet from real-life evidence. Ability scores use the 5e 27-point buy exactly (each score 8-15; costs 8=0,9=1,10=2,11=3,12=4,13=5,14=7,15=9; total exactly 27). Skills come only from this list: ' + SKILLS.map(function (s) { return s[0]; }).join(', ') +
         '. Give 4 to 6 skills, levels 1-3, total points at most ' + SKILL_BUDGET + '. Invent one personal trait and one personal flaw drawn from their real life (funny, specific, consequential). Each must use one game effect: trait effect from ' + TRAITS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') + '. Flaw effect from ' + FLAWS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') +
-        '. Starting gear: 3 to 6 everyday items they would really have had on them or within reach (from their job, habits and answer about what was on them), no fantasy gear. Categories: weapon, tool, consumable, valuable, misc. Improvised weapons get small damage dice (1d3 to 1d6).' +
+        '. Starting gear: 3 to 6 everyday items they would really have had on them or within reach (from their job, habits and answer about what was on them), no fantasy gear. Categories: weapon, tool, consumable, valuable, misc. Improvised weapons get small damage dice (1d3 to 1d6). When one of these standard items fits, use its exact name: ' + homeNames().join(', ') + '.' +
         ' Outfit: dress them in what they said they are wearing, using the closest available pieces and colors from this catalog (slot: options with color indexes):\n' + outfitCatalog() + '\nPrefer the modern pieces (T-shirt, Long sleeve, Tank top, Hoodie, Button-up, Jeans, Shorts, Sweatpants, Sneakers, Work boots, Beanie, Cap); use the fantasy ones only for things like suits (Noble), jackets or coats (Ranger) or a hood that is up. Give each piece the real name of what they wear (e.g. "Faded black hoodie").' +
         ' Reply with JSON only: {"outfit":[{"slot":"kTop","style":"exact option name","color":index,"name":"what it really is","desc":"one dry sentence"}],"stats":{"STR":n,"DEX":n,"CON":n,"INT":n,"WIS":n,"CHA":n},"skills":{"Name":level},"trait":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed trait effect"},"flaw":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed flaw effect"},"gear":[{"name":"...","cat":"...","desc":"one dry sentence","dmg":"1d4 or empty"}],"comment": two dry sentences from the System explaining the numbers, mentioning specific things they said}';
     var call = NET.sample.json ? NET.sample.json(prompt, { modelTier: 'default', cache: false }) : NET.sample(prompt, { cache: false }).then(function (r) { return JSON.parse((r.text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); });
@@ -373,24 +373,32 @@
     CC.cTrait = custom(r && r.trait, TRAITS); CC.cFlaw = custom(r && r.flaw, FLAWS);
     CC.sugTrait = CC.cTrait ? CC.cTrait[0] : (TRAITS.some(function (t) { return t[0] === (r && r.trait); }) ? r.trait : null);
     CC.sugFlaw = CC.cFlaw ? CC.cFlaw[0] : (FLAWS.some(function (t) { return t[0] === (r && r.flaw); }) ? r.flaw : null);
-    CC.gear = (r && Array.isArray(r.gear) ? r.gear : []).slice(0, 6).map(function (g) { return { name: String(g.name || 'Something').slice(0, 40), cat: /^(weapon|tool|consumable|valuable|misc)$/.test(g.cat) ? g.cat : 'misc', desc: String(g.desc || '').slice(0, 160), dmg: /^\d+d\d+$/.test(g.dmg || '') ? g.dmg : '' }; });
+    CC.gear = (r && Array.isArray(r.gear) ? r.gear : []).slice(0, 6).map(function (g) { return { name: String(g.name || 'Something').slice(0, 40), cat: /^(weapon|tool|consumable|valuable|misc)$/.test(g.cat) ? g.cat : 'misc', desc: String(g.desc || '').slice(0, 160), dmg: /^\d+d\d+$/.test(g.dmg || '') ? g.dmg : '' }; }).map(canonGear);
     if (!CC.gear.length) ccGearLocal();
     CC.outfit = outfitFrom(r && r.outfit); if (!(r && r.outfit && r.outfit.length)) CC.outfit = outfitLocal(CC.answers[CC.answers.length - 1]);
     CC.trait = CC.sugTrait; CC.flaw = CC.sugFlaw; CC.note = (r && r.comment) || 'Your numbers.';
     if (!Object.keys(CC.skills).length) ccSuggestLocal(true);
   }
   // no Claude available: a keyword guess from the answers
+  // starting gear: items.js has standard versions of everyday things; use them whenever the AI picks one
+  function homeNames() { var all = Object.keys(ITEMS), h = all.filter(function (n) { return ITEMS[n].home; }); return h.length ? h : all.filter(function (n) { return ITEMS[n].cat !== 'clothing' && (ITEMS[n].level || 1) <= 1; }); }
+  function canonGear(g) {
+    var key = String(g.name || '').toLowerCase().replace(/[^a-z0-9]/g, ''), hit = Object.keys(ITEMS).filter(function (n) { return n.toLowerCase().replace(/[^a-z0-9]/g, '') === key; })[0];
+    if (hit && ITEMS[hit].cat !== 'clothing') return item(hit);
+    if (g.cat === 'consumable' && !g.heal) g.heal = '1d2'; // invented consumables still do something
+    return g;
+  }
   function ccGearLocal() {
     var t = (CC.answers.join(' ') + ' ' + CC.followA.join(' ')).toLowerCase(), g = [];
-    [[/flor|flower|plant|garden/, [{ name: 'Pruning shears', cat: 'weapon', desc: 'Made for stems. Willing to try other things.', dmg: '1d4' }, { name: "Florist's knife", cat: 'weapon', desc: 'Small, sharp, and used to being underestimated.', dmg: '1d4' }, { name: 'Roll of floral tape', cat: 'tool', desc: 'Holds anything together for about a day.' }]],
-     [/bar|bartend|restaurant|kitchen|chef|cook/, [{ name: 'Bottle opener', cat: 'tool', desc: 'Opens bottles. Also, sometimes, conversations.' }, { name: 'Bar rag', cat: 'misc', desc: 'Damp. Always damp.' }]],
-     [/music|band|drum|guitar|bass/, [{ name: 'Guitar picks (3)', cat: 'misc', desc: 'Light, sharp-edged, easy to lose.' }]],
-     [/construct|contractor|carpent|mechanic|repair|handy/, [{ name: 'Claw hammer', cat: 'weapon', desc: 'The original multitool.', dmg: '1d6' }, { name: 'Tape measure', cat: 'tool', desc: 'Twenty-five feet of certainty.' }]],
-     [/nurse|medic|doctor|emt/, [{ name: 'Trauma shears', cat: 'tool', desc: 'Cuts clothes, seatbelts, and sometimes tension.' }, { name: 'Gauze roll', cat: 'consumable', desc: 'Restores a little dignity and 1d4 HP.' }]],
-     [/office|computer|engineer|code|account/, [{ name: 'Laptop (12% battery)', cat: 'valuable', desc: 'No Wi-Fi in the dungeon. Heavy enough to throw.' }]]]
+    [[/flor|flower|plant|garden/, ['Pruning shears', "Florist's knife", 'Roll of floral tape']],
+     [/bar|bartend|restaurant|kitchen|chef|cook/, ['Bottle opener', 'Bar rag']],
+     [/music|band|drum|guitar|bass/, ['Guitar picks (3)']],
+     [/construct|contractor|carpent|mechanic|repair|handy/, ['Claw hammer', 'Tape measure']],
+     [/nurse|medic|doctor|emt/, ['Trauma shears', 'Gauze roll']],
+     [/office|computer|engineer|code|account/, ['Laptop (12% battery)']]]
       .forEach(function (p) { if (p[0].test(t)) g = g.concat(p[1]); });
-    g = g.concat([{ name: 'Phone (no signal)', cat: 'valuable', desc: 'Flashlight works. Nothing else does.' }, { name: 'Keys on a ring', cat: 'misc', desc: 'Jingles at the worst possible moment.' }]);
-    CC.gear = g.slice(0, 6);
+    g = g.concat(['Phone (no signal)', 'Keys on a ring']);
+    CC.gear = g.slice(0, 6).map(function (n) { return item(n); }).filter(Boolean);
   }
   function ccSuggestLocal(skillsOnly) {
     var t = (CC.answers.join(' ') + ' ' + CC.followA.join(' ')).toLowerCase();

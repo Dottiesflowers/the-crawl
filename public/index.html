@@ -6371,35 +6371,51 @@
   //   cat: weapon | clothing | tool | consumable | valuable | misc   (bodies and boss trophies are made by the engine)
   //   dmg: '1d6' for weapons · heal: '2d4+2' or a number for consumables · slot/style/color for clothing
   //   desc: flavour text shown in the bag · effects: [] reserved for the item effect system (coming)
+  //   level: first level it can appear on (from then on, not only then) · until: last level it appears on (optional)
+  //   common: true for staples that stay equally common on every level (optional)
   var ITEMS = {
     // ---- consumables ----
-    'Healing potion': { cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' },
-    'Energy bar': { cat: 'consumable', heal: '1d4', desc: 'Chocolate peanut. Restores 1d4 HP.' },
-    'Bottle of water': { cat: 'consumable', heal: '1', desc: 'Lukewarm. Restores 1 HP and some dignity.' },
-    'Half-eaten snack': { cat: 'consumable', heal: '1d2', desc: 'You do not want to know what it was. Restores 1d2 HP.' },
-    'Craft services sandwich': { cat: 'consumable', heal: 4, desc: 'Free, wrapped, and surprisingly good. Heals 4 HP.' },
+    'Healing potion': { cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' , level: 1, common: true },
+    'Energy bar': { cat: 'consumable', heal: '1d4', desc: 'Chocolate peanut. Restores 1d4 HP.' , level: 1 },
+    'Bottle of water': { cat: 'consumable', heal: '1', desc: 'Lukewarm. Restores 1 HP and some dignity.' , level: 1, common: true },
+    'Half-eaten snack': { cat: 'consumable', heal: '1d2', desc: 'You do not want to know what it was. Restores 1d2 HP.' , level: 1 },
+    'Craft services sandwich': { cat: 'consumable', heal: 4, desc: 'Free, wrapped, and surprisingly good. Heals 4 HP.' , level: 1 },
     // ---- weapons ----
-    'Puglin stick': { cat: 'weapon', dmg: '1d4', desc: 'Chewed at one end. Still works.' },
-    'Imp mace': { cat: 'weapon', dmg: '1d6', desc: 'Company property. Heavy, spiky, and badly maintained.' },
-    'Crowbar': { cat: 'weapon', dmg: '1d6', desc: 'Opens crates, doors and arguments.' },
+    'Puglin stick': { cat: 'weapon', dmg: '1d4', desc: 'Chewed at one end. Still works.' , level: 1, until: 3 },
+    'Imp mace': { cat: 'weapon', dmg: '1d6', desc: 'Company property. Heavy, spiky, and badly maintained.' , level: 1 },
+    'Crowbar': { cat: 'weapon', dmg: '1d6', desc: 'Opens crates, doors and arguments.' , level: 1 },
     // ---- tools ----
-    'Roll of duct tape': { cat: 'tool', desc: 'The universal fix. The System has rules about it, but no one has read them.' },
-    'Flashlight': { cat: 'tool', desc: 'Works. For now.' },
-    'Lighter': { cat: 'tool', desc: 'Three clicks to light. Always three.' },
-    'Ball of twine': { cat: 'tool', desc: 'Long enough to find your way back. Maybe.' },
+    'Roll of duct tape': { cat: 'tool', desc: 'The universal fix. The System has rules about it, but no one has read them.' , level: 1 },
+    'Flashlight': { cat: 'tool', desc: 'Works. For now.' , level: 1 },
+    'Lighter': { cat: 'tool', desc: 'Three clicks to light. Always three.' , level: 1 },
+    'Ball of twine': { cat: 'tool', desc: 'Long enough to find your way back. Maybe.' , level: 1 },
     // ---- valuables and oddities ----
-    'Security badge': { cat: 'valuable', desc: 'FLOOR 1 · STAIRWELL · NIGHT SHIFT. The photo is unflattering.' },
-    'Bronze loot box coupon': { cat: 'valuable', desc: 'Redeemable at any sponsor booth. There are no sponsor booths.' },
-    'Shiny button': { cat: 'misc', desc: 'The puglin was very proud of this.' },
-    'Union card': { cat: 'misc', desc: 'Local 666. Dues paid through next season.' },
-    'Rusty key': { cat: 'misc', desc: 'Opens something, somewhere, probably.' },
+    'Security badge': { cat: 'valuable', desc: 'FLOOR 1 · STAIRWELL · NIGHT SHIFT. The photo is unflattering.' , level: 1 },
+    'Bronze loot box coupon': { cat: 'valuable', desc: 'Redeemable at any sponsor booth. There are no sponsor booths.' , level: 1 },
+    'Shiny button': { cat: 'misc', desc: 'The puglin was very proud of this.' , level: 1 },
+    'Union card': { cat: 'misc', desc: 'Local 666. Dues paid through next season.' , level: 1 },
+    'Rusty key': { cat: 'misc', desc: 'Opens something, somewhere, probably.' , level: 1 },
+    // ---- brought from home: the canonical versions of starting gear (character creation should look these up by name) ----
+    'Pruning shears': { cat: 'weapon', dmg: '1d4', desc: 'Made for stems. Willing to try other things.' , level: 1 },
+    "Florist's knife": { cat: 'weapon', dmg: '1d4', desc: 'Small, sharp, and used to being underestimated.' , level: 1 },
+    'Claw hammer': { cat: 'weapon', dmg: '1d6', desc: 'The original multitool.' , level: 1 },
+    'Roll of floral tape': { cat: 'tool', desc: 'Holds anything together for about a day.' , level: 1 },
+    'Bottle opener': { cat: 'tool', desc: 'Opens bottles. Also, sometimes, conversations.' , level: 1 },
+    'Tape measure': { cat: 'tool', desc: 'Twenty-five feet of certainty.' , level: 1 },
+    'Trauma shears': { cat: 'tool', desc: 'Cuts clothes, seatbelts, and sometimes tension.' , level: 1 },
+    'Gauze roll': { cat: 'consumable', heal: '1d4', desc: 'Restores a little dignity and 1d4 HP.' , level: 1, common: true },
+    'Phone (no signal)': { cat: 'valuable', desc: 'Flashlight works. Nothing else does.' , level: 1 },
+    'Laptop (12% battery)': { cat: 'valuable', desc: 'No Wi-Fi in the dungeon. Heavy enough to throw.' , level: 1 },
+    'Keys on a ring': { cat: 'misc', desc: 'Jingles at the worst possible moment.' , level: 1 },
+    'Guitar picks (3)': { cat: 'misc', desc: 'Light, sharp-edged, easy to lose.' , level: 1 },
+    'Bar rag': { cat: 'misc', desc: 'Damp. Always damp.' , level: 1 },
     // ---- clothing (style must be a wardrobe style; color is a palette index 0-9) ----
-    'Hard hat': { cat: 'clothing', slot: 'kHead', style: 'Hard hat', color: 0, desc: 'OSHA approved, in another galaxy.' },
-    'Cowboy hat': { cat: 'clothing', slot: 'kHead', style: 'Cowboy hat', color: 0, desc: 'Yeehaw is now a valid battle cry.' },
-    'Plain white tee': { cat: 'clothing', slot: 'kTop', style: 'T-shirt', color: 0, desc: 'Clean. Suspiciously clean.' },
-    'Grey hoodie': { cat: 'clothing', slot: 'kTop', style: 'Hoodie', color: 2, desc: 'Somebody\'s. Not anymore.' },
-    'Black jeans': { cat: 'clothing', slot: 'kPants', style: 'Jeans', color: 1, desc: 'Slim fit. You will make it work.' },
-    'Work boots': { cat: 'clothing', slot: 'kBoots', style: 'Work boots', color: 7, desc: 'Steel toe. Good for kicking.' }
+    'Hard hat': { cat: 'clothing', slot: 'kHead', style: 'Hard hat', color: 0, desc: 'OSHA approved, in another galaxy.' , level: 1 },
+    'Cowboy hat': { cat: 'clothing', slot: 'kHead', style: 'Cowboy hat', color: 0, desc: 'Yeehaw is now a valid battle cry.' , level: 1 },
+    'Plain white tee': { cat: 'clothing', slot: 'kTop', style: 'T-shirt', color: 0, desc: 'Clean. Suspiciously clean.' , level: 1 },
+    'Grey hoodie': { cat: 'clothing', slot: 'kTop', style: 'Hoodie', color: 2, desc: 'Somebody\'s. Not anymore.' , level: 1 },
+    'Black jeans': { cat: 'clothing', slot: 'kPants', style: 'Jeans', color: 1, desc: 'Slim fit. You will make it work.' , level: 1 },
+    'Work boots': { cat: 'clothing', slot: 'kBoots', style: 'Work boots', color: 7, desc: 'Steel toe. Good for kicking.' , level: 1 }
   };
 
   // ---------- where items come from ----------
@@ -7599,7 +7615,7 @@
     var prompt = kind === 'followups' ? head + '\n\nAsk up to 3 short, pointed follow-up questions tailored to what they said, that would best decide their ability scores, skills, weaknesses and what gear they had on them. Reply with JSON only: {"comment": one dry sentence from the System about what you have heard so far, "questions": [strings]}'
       : head + '\n\nBuild their level-1 human sheet from real-life evidence. Ability scores use the 5e 27-point buy exactly (each score 8-15; costs 8=0,9=1,10=2,11=3,12=4,13=5,14=7,15=9; total exactly 27). Skills come only from this list: ' + SKILLS.map(function (s) { return s[0]; }).join(', ') +
         '. Give 4 to 6 skills, levels 1-3, total points at most ' + SKILL_BUDGET + '. Invent one personal trait and one personal flaw drawn from their real life (funny, specific, consequential). Each must use one game effect: trait effect from ' + TRAITS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') + '. Flaw effect from ' + FLAWS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') +
-        '. Starting gear: 3 to 6 everyday items they would really have had on them or within reach (from their job, habits and answer about what was on them), no fantasy gear. Categories: weapon, tool, consumable, valuable, misc. Improvised weapons get small damage dice (1d3 to 1d6).' +
+        '. Starting gear: 3 to 6 everyday items they would really have had on them or within reach (from their job, habits and answer about what was on them), no fantasy gear. Categories: weapon, tool, consumable, valuable, misc. Improvised weapons get small damage dice (1d3 to 1d6). When one of these standard items fits, use its exact name: ' + homeNames().join(', ') + '.' +
         ' Outfit: dress them in what they said they are wearing, using the closest available pieces and colors from this catalog (slot: options with color indexes):\n' + outfitCatalog() + '\nPrefer the modern pieces (T-shirt, Long sleeve, Tank top, Hoodie, Button-up, Jeans, Shorts, Sweatpants, Sneakers, Work boots, Beanie, Cap); use the fantasy ones only for things like suits (Noble), jackets or coats (Ranger) or a hood that is up. Give each piece the real name of what they wear (e.g. "Faded black hoodie").' +
         ' Reply with JSON only: {"outfit":[{"slot":"kTop","style":"exact option name","color":index,"name":"what it really is","desc":"one dry sentence"}],"stats":{"STR":n,"DEX":n,"CON":n,"INT":n,"WIS":n,"CHA":n},"skills":{"Name":level},"trait":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed trait effect"},"flaw":{"name":"...","desc":"one sentence, mention the game effect","effect":"one listed flaw effect"},"gear":[{"name":"...","cat":"...","desc":"one dry sentence","dmg":"1d4 or empty"}],"comment": two dry sentences from the System explaining the numbers, mentioning specific things they said}';
     var call = NET.sample.json ? NET.sample.json(prompt, { modelTier: 'default', cache: false }) : NET.sample(prompt, { cache: false }).then(function (r) { return JSON.parse((r.text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); });
@@ -7620,24 +7636,32 @@
     CC.cTrait = custom(r && r.trait, TRAITS); CC.cFlaw = custom(r && r.flaw, FLAWS);
     CC.sugTrait = CC.cTrait ? CC.cTrait[0] : (TRAITS.some(function (t) { return t[0] === (r && r.trait); }) ? r.trait : null);
     CC.sugFlaw = CC.cFlaw ? CC.cFlaw[0] : (FLAWS.some(function (t) { return t[0] === (r && r.flaw); }) ? r.flaw : null);
-    CC.gear = (r && Array.isArray(r.gear) ? r.gear : []).slice(0, 6).map(function (g) { return { name: String(g.name || 'Something').slice(0, 40), cat: /^(weapon|tool|consumable|valuable|misc)$/.test(g.cat) ? g.cat : 'misc', desc: String(g.desc || '').slice(0, 160), dmg: /^\d+d\d+$/.test(g.dmg || '') ? g.dmg : '' }; });
+    CC.gear = (r && Array.isArray(r.gear) ? r.gear : []).slice(0, 6).map(function (g) { return { name: String(g.name || 'Something').slice(0, 40), cat: /^(weapon|tool|consumable|valuable|misc)$/.test(g.cat) ? g.cat : 'misc', desc: String(g.desc || '').slice(0, 160), dmg: /^\d+d\d+$/.test(g.dmg || '') ? g.dmg : '' }; }).map(canonGear);
     if (!CC.gear.length) ccGearLocal();
     CC.outfit = outfitFrom(r && r.outfit); if (!(r && r.outfit && r.outfit.length)) CC.outfit = outfitLocal(CC.answers[CC.answers.length - 1]);
     CC.trait = CC.sugTrait; CC.flaw = CC.sugFlaw; CC.note = (r && r.comment) || 'Your numbers.';
     if (!Object.keys(CC.skills).length) ccSuggestLocal(true);
   }
   // no Claude available: a keyword guess from the answers
+  // starting gear: items.js has standard versions of everyday things; use them whenever the AI picks one
+  function homeNames() { var all = Object.keys(ITEMS), h = all.filter(function (n) { return ITEMS[n].home; }); return h.length ? h : all.filter(function (n) { return ITEMS[n].cat !== 'clothing' && (ITEMS[n].level || 1) <= 1; }); }
+  function canonGear(g) {
+    var key = String(g.name || '').toLowerCase().replace(/[^a-z0-9]/g, ''), hit = Object.keys(ITEMS).filter(function (n) { return n.toLowerCase().replace(/[^a-z0-9]/g, '') === key; })[0];
+    if (hit && ITEMS[hit].cat !== 'clothing') return item(hit);
+    if (g.cat === 'consumable' && !g.heal) g.heal = '1d2'; // invented consumables still do something
+    return g;
+  }
   function ccGearLocal() {
     var t = (CC.answers.join(' ') + ' ' + CC.followA.join(' ')).toLowerCase(), g = [];
-    [[/flor|flower|plant|garden/, [{ name: 'Pruning shears', cat: 'weapon', desc: 'Made for stems. Willing to try other things.', dmg: '1d4' }, { name: "Florist's knife", cat: 'weapon', desc: 'Small, sharp, and used to being underestimated.', dmg: '1d4' }, { name: 'Roll of floral tape', cat: 'tool', desc: 'Holds anything together for about a day.' }]],
-     [/bar|bartend|restaurant|kitchen|chef|cook/, [{ name: 'Bottle opener', cat: 'tool', desc: 'Opens bottles. Also, sometimes, conversations.' }, { name: 'Bar rag', cat: 'misc', desc: 'Damp. Always damp.' }]],
-     [/music|band|drum|guitar|bass/, [{ name: 'Guitar picks (3)', cat: 'misc', desc: 'Light, sharp-edged, easy to lose.' }]],
-     [/construct|contractor|carpent|mechanic|repair|handy/, [{ name: 'Claw hammer', cat: 'weapon', desc: 'The original multitool.', dmg: '1d6' }, { name: 'Tape measure', cat: 'tool', desc: 'Twenty-five feet of certainty.' }]],
-     [/nurse|medic|doctor|emt/, [{ name: 'Trauma shears', cat: 'tool', desc: 'Cuts clothes, seatbelts, and sometimes tension.' }, { name: 'Gauze roll', cat: 'consumable', desc: 'Restores a little dignity and 1d4 HP.' }]],
-     [/office|computer|engineer|code|account/, [{ name: 'Laptop (12% battery)', cat: 'valuable', desc: 'No Wi-Fi in the dungeon. Heavy enough to throw.' }]]]
+    [[/flor|flower|plant|garden/, ['Pruning shears', "Florist's knife", 'Roll of floral tape']],
+     [/bar|bartend|restaurant|kitchen|chef|cook/, ['Bottle opener', 'Bar rag']],
+     [/music|band|drum|guitar|bass/, ['Guitar picks (3)']],
+     [/construct|contractor|carpent|mechanic|repair|handy/, ['Claw hammer', 'Tape measure']],
+     [/nurse|medic|doctor|emt/, ['Trauma shears', 'Gauze roll']],
+     [/office|computer|engineer|code|account/, ['Laptop (12% battery)']]]
       .forEach(function (p) { if (p[0].test(t)) g = g.concat(p[1]); });
-    g = g.concat([{ name: 'Phone (no signal)', cat: 'valuable', desc: 'Flashlight works. Nothing else does.' }, { name: 'Keys on a ring', cat: 'misc', desc: 'Jingles at the worst possible moment.' }]);
-    CC.gear = g.slice(0, 6);
+    g = g.concat(['Phone (no signal)', 'Keys on a ring']);
+    CC.gear = g.slice(0, 6).map(function (n) { return item(n); }).filter(Boolean);
   }
   function ccSuggestLocal(skillsOnly) {
     var t = (CC.answers.join(' ') + ' ' + CC.followA.join(' ')).toLowerCase();
