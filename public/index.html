@@ -6681,6 +6681,7 @@
     ['Lockpicking', 'DEX', 'Locks, traps, loot boxes.', ''],
     ['Investigation', 'INT', 'Searching, deducing, reading the room.', ''],
     ['Appraisal', 'INT', 'What loot is worth, to the copper.', ''],
+    ['Material Sense', 'INT', 'You can tell what stuff is made of: +1 per level to inspecting materials for their traits.', ''],
     ['Lore', 'INT', 'Knowing things about monsters and places.', ''],
     ['Monster Taxonomy', 'INT', 'You are keeping notes on everything that tried to eat you.', ''],
     ['Bureaucracy', 'INT', 'Forms, filing, and the dark art of the right signature. The System loves it.', ''],
@@ -6729,6 +6730,7 @@
   // counts things you do; when a count hits its mark the matching skill appears (then each further one is practice)
   var SKILL_TRIGGERS = {
     stash: [3, 'Corpse Wrangler', 'you keep stuffing bodies in your bag'],
+    lore: [5, 'Material Sense', 'you keep finding out what things are made of'],
     eat: [5, 'Iron Stomach', 'you will eat anything down here'],
     loot: [8, 'Scavenger', 'you search every body you find'],
     box: [4, 'Box Cracker', 'you open every box you see'],
@@ -7765,7 +7767,7 @@
   }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, buffs: c.buffs || {}, swUsed: !!c.swUsed, cool: c.cool || {}, cups: c.cups || [], counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, born: c.born || null, updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, buffs: c.buffs || {}, swUsed: !!c.swUsed, cool: c.cool || {}, cups: c.cups || [], counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, lore: c.lore || {}, born: c.born || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
@@ -8619,11 +8621,11 @@
     if (canBack(it) && CHAR.wield !== it.name) acts.push(CHAR.back === it.name ? ['unback', 'Take off back'] : ['back', 'Wear on back']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
-    acts = acts.concat(lampActs(it));
+    acts = acts.concat(lampActs(it)); if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
     if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); if (!it.box) acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
-      (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
+      loreLine(it) + (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
       '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
       '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
   }
@@ -8636,6 +8638,7 @@
     if (a === 'wear') wear(it);
     if (a === 'unwear') { it.worn = false; look[it.slot] = [0, 0]; buildHero(); saveLook(); }
     if (/^lamp/.test(a)) lampAct(a, it);
+    if (a === 'inspect') loreInspect(it);
     if (a === 'use') useItem(it);
     if (a === 'drop') dropBody(it);
     if (a === 'hot') { hotPut(it.name); }
@@ -9394,7 +9397,7 @@
       itemSpend(it); say(it.name, 'Thick smoke fills the room. When it clears, you are somewhere else. The audience boos.', 4500);
       CB.order = []; cbEnd(false); return true;
     }
-    if (it.throw) return throwItem(it, pickTarget(it));
+    if (it.throw) { var thr = throwItem(it, pickTarget(it)); if (thr !== false) loreFromThrow(it); return thr; }
     if (it.buff) { itemSpend(it); buffOn(it.buff, 10 * 60000); var b = BUFFS[it.buff]; say(it.name, b ? b.name + ': ' + b.desc : 'You feel different.', 3500); return true; }
     return false;
   }
@@ -9472,6 +9475,51 @@
     if (l.charge % 5 === 0 && typeof cbSaveChar === 'function') cbSaveChar();
   }, 30000);
 
+  // ---------- material traits you discover: obvious ones are known, the rest you inspect for or learn by doing ----------
+  var LORE_OBVIOUS = { glass: 1, container: 1, paper: 1, sharp: 1, long: 1, heavy: 1, hard: 1, stringy: 1, wet: 1, loud: 1, battery: 1, lever: 1, fire: 1, elastic: 1, spicy: 1 };
+  // words in the name or description that give a trait away
+  var LORE_HINT = { flammable: /flammab|burns?\b|flame|fuel|lighter fluid|gasoline|kerosene/, sticky: /sticky|tacky|glue|adhesive|tape/, slippery: /slipp|slick|grease|lube|oil\b/, toxic: /poison|toxic|venom|bleach/,
+    conductive: /copper|wire|cable|electric/, absorbent: /sponge|towel|absorb|rag\b|paper towel/, binding: /tape|zip tie|cord|rope|strap|bungee/, staining: /stain|permanent|dye/, explosive: /explos|dynamite|firework/ };
+  // what you knew before the dungeon: your old job tells you a few things
+  var LORE_BG = [[/flor|garden|plant|botan|landscap|nursery/, 'sticky', /sap|resin|vine|plant|shrub/], [/chef|cook|kitchen|restaurant|line cook|baker|bartend/, 'flammable', /grease|oil|fat|lard|alcohol|vodka|rum/],
+    [/nurse|doctor|medic|chem|pharm|lab\b|scien/, 'toxic', /./], [/electric|engineer|mechanic|technician|\bit\b|plumb/, 'conductive', /./], [/janitor|clean|custod|housekeep/, 'slippery', /./]];
+  function loreBg() { return ((CHAR && CHAR.interview) || []).map(function (x) { return x.a || ''; }).join(' ').toLowerCase(); }
+  function loreKnows(it, tag) {
+    if (LORE_OBVIOUS[tag]) return true; var n = it.name || '';
+    if (CHAR && CHAR.lore && (CHAR.lore[n] || []).indexOf(tag) >= 0) return true;
+    var txt = (n + ' ' + (it.desc || '')).toLowerCase(); if (LORE_HINT[tag] && LORE_HINT[tag].test(txt)) return true;
+    var bg = loreBg(); return LORE_BG.some(function (r) { return r[1] === tag && r[0].test(bg) && r[2].test(n.toLowerCase()); });
+  }
+  function loreKnown(it) { return (it.tags || []).filter(function (t) { return loreKnows(it, t); }); }
+  function loreHidden(it) { return (it.tags || []).filter(function (t) { return !loreKnows(it, t); }); }
+  var LORE_LINE = { flammable: 'You hold it near a spark and it catches, eagerly. Flammable.', toxic: 'A drop on your glove smokes a little. Toxic.', sticky: 'It will not let go of your fingers. Sticky.', slippery: 'It squirts out of your grip twice. Slippery.',
+    conductive: 'You touch it to a battery and it sparks. Conductive.', absorbent: 'It drinks a splash of water instantly. Absorbent.', binding: 'It wraps around itself and holds. Good for binding things.', staining: 'Your hands will be this color for a week. Staining.', explosive: 'It hisses when you shake it. Explosive. Stop shaking it.' };
+  // learn one or more traits; one popup for the lot
+  function loreLearn(list, why) {
+    if (!CHAR) return 0; CHAR.lore = CHAR.lore || {}; var got = [];
+    list.forEach(function (p) { var it = p[0], tag = p[1]; if (!it || !tag || loreKnows(it, tag)) return; (CHAR.lore[it.name] = CHAR.lore[it.name] || []).push(tag); got.push(it.name + ' is ' + tag); logEvent('Learned that ' + it.name.toLowerCase() + ' is ' + tag, 'lore'); });
+    if (got.length) { say('Trait discovered', got.join('. ') + '.' + (why ? ' ' + why : ''), 4600); skillCount('lore'); if (typeof cbSaveChar === 'function') cbSaveChar(); }
+    return got.length;
+  }
+  function loreInspect(it) {
+    var hid = loreHidden(it); if (!hid.length) { say('Nothing new', 'You know everything there is to know about the ' + it.name.toLowerCase() + '.', 2600); return; }
+    CHAR.cool = CHAR.cool || {}; var k = 'insp:' + it.name, wait = (CHAR.cool[k] || 0) - Date.now();
+    if (wait > 0) { say('Give it a minute', 'You just looked at it. Try again in ' + Math.ceil(wait / 1000) + ' seconds, or learn by using it.', 2800); return; }
+    var R = roll20(false, false), b = MOD.INT + skillLv('Alchemy') + skillLv('Material Sense'), tot = R.r + b, dc = 11, ok = R.r === 20 || (R.r !== 1 && tot >= dc);
+    if (!ok) { CHAR.cool[k] = Date.now() + 120000; say('Inspect · ' + it.name, 'INT + Alchemy: d20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. You poke it, sniff it and learn nothing. Try again in two minutes.', 4200); if (typeof cbSaveChar === 'function') cbSaveChar(); return; }
+    var tag = hid[Math.floor(Math.random() * hid.length)]; skillUse('Alchemy');
+    loreLearn([[it, tag]], ''); say('Inspect · ' + it.name, 'd20 ' + R.r + ' + ' + b + ' = ' + tot + '. ' + (LORE_LINE[tag] || 'It turns out to be ' + tag + '.') + (hid.length > 1 ? ' There is more to it.' : ''), 5200);
+  }
+  // throwing something shows what it does
+  function loreFromThrow(it) {
+    var fx = ((it.throw && it.throw.fx) || []).map(function (f) { return f.type; }), show = { flammable: fx.indexOf('burn') >= 0, explosive: (it.throw && it.throw.area > 0), slippery: fx.indexOf('prone') >= 0, sticky: fx.indexOf('prone') >= 0 || fx.indexOf('weaken') >= 0, toxic: fx.indexOf('weaken') >= 0 || fx.indexOf('damage') >= 0 };
+    loreLearn(loreHidden(it).filter(function (t) { return show[t]; }).map(function (t) { return [it, t]; }), 'You saw it happen.');
+  }
+  function loreLine(it) {
+    if (!(it.tags || []).length) return ''; var k = loreKnown(it), h = loreHidden(it).length;
+    return '<p class="traits"><b>Traits:</b> ' + (k.length ? k.map(esc).join(', ') : '<i>none known</i>') + (h ? ' <span class="unk">· ' + h + ' unknown</span>' : '') + '</p>';
+  }
+
   // ===================== Harvest and Jury-rigging: materials from bodies, inventions from your bag =====================
   // Recipes carry a required level in their track (Jury-Rig for physical builds, Alchemy for mixtures). Inventing one
   // gives XP in that track. The inventor can always make their own recipe; the rest of the SGC can see it but needs the
@@ -9525,7 +9573,7 @@
         '<div class="ctools"><input id="crQ" type="search" placeholder="Search your bag (name, or a tag like flammable)" aria-label="Search items" value="' + esc(CRAFT.q) + '">' +
         cats.map(function (c) { return '<button type="button" class="chip2' + (CRAFT.cat === c[0] ? ' on' : '') + '" data-ccat="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>' +
         '<div class="cgrid">' + (glist.length ? glist.map(function (o, i) { var n = o.all.filter(function (g) { return CRAFT.sel.indexOf(g) >= 0; }).length, left = o.all.length - n;
-          return '<button type="button" class="' + (n ? 'on' : '') + '" data-cg="' + i + '"' + (left ? '' : ' disabled') + '>' + itemIcon(o.it) + '<span>' + esc(o.it.name) + '</span>' + ((o.it.tags || []).length ? '<i>' + esc(o.it.tags.slice(0, 2).join(', ')) + '</i>' : '') + (o.all.length > 1 ? '<b class="qn">×' + left + '</b>' : '') + '</button>'; }).join('') : '<p class="hint">Nothing matches.</p>') + '</div>' +
+          return '<button type="button" class="' + (n ? 'on' : '') + '" data-cg="' + i + '"' + (left ? '' : ' disabled') + '>' + itemIcon(o.it) + '<span>' + esc(o.it.name) + '</span>' + ((o.it.tags || []).length ? '<i>' + (loreKnown(o.it).length ? esc(loreKnown(o.it).slice(0, 2).join(', ')) : '') + (loreHidden(o.it).length ? (loreKnown(o.it).length ? ' ' : '') + '?' : '') + '</i>' : '') + (o.all.length > 1 ? '<b class="qn">×' + left + '</b>' : '') + '</button>'; }).join('') : '<p class="hint">Nothing matches.</p>') + '</div>' +
         '<div class="cbottom"><label for="crIdea">What are you trying to make?</label><input id="crIdea" type="text" maxlength="160" placeholder="e.g. a sticky firebomb, a spear, something that heals" value="' + esc(CRAFT.idea) + '">' +
         '<div class="csel"><h3>Selected items <small>' + CRAFT.sel.length + '</small></h3>' + (CRAFT.sel.length ? CRAFT.sel.map(function (g, i) { return '<button type="button" class="cs" data-un="' + i + '" aria-label="Remove ' + esc(g.name) + '">' + itemIcon(g) + '<span>' + esc(g.name) + '</span><b aria-hidden="true">×</b></button>'; }).join('') : '<p class="hint">Tap items above to add them. Use as many as your idea needs.</p>') + '</div>' +
         '<button type="button" class="go" id="crGo"' + (CRAFT.sel.length >= 2 && !CRAFT.busy ? '' : ' disabled') + '>' + (CRAFT.busy ? 'The System is thinking…' : 'Jury-rig it') + '</button><p class="hint">The System decides if it works, what roll it takes and what you get. Piling on junk does not help; the right parts do. Inventions become recipes the whole SGC can see.</p></div></div>' +
@@ -9553,7 +9601,7 @@
       'Crawler skills: Jury-Rig ' + skillLv('Jury-Rig') + ', Alchemy ' + skillLv('Alchemy') + ', INT mod ' + MOD.INT + ', WIS mod ' + MOD.WIS + '.\n\nItems:\n' + desc + '\n\nWhat they want to make: ' + (idea || '(they did not say; make the most sensible thing)') +
       '\n\nRules: if the combination cannot plausibly make anything, ok=false and say why in comment. Otherwise design ONE item using only these fields. Recipe level 1-3 by complexity and power. Power limits: level 1 = up to 2d6 damage or 1d8 weapon or 2d4 healing; level 2 = up to 3d6, 1d10 weapon, 3d4+2 healing; level 3 = up to 4d6 area 2. ' +
       'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. They may hand you any number of items, duplicates included (two of the same item means they want to use both). Use the parts that make sense, put only those in consumes, and judge the whole idea: more parts can make a sturdier or stronger build, but junk that does not belong adds nothing. DC 8-18.' +
-      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"dc":10,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"icon":"one of: spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
+      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"dc":10,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
     serverSample([{ role: 'user', content: prompt }], { modelTier: 'complex', maxTokens: 600 }).then(function (r) {
       var j = null; try { j = JSON.parse(r.text.replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {}
       CRAFT.busy = false; craftApply(j || craftOffline(sel, idea), sel, idea);
@@ -9563,11 +9611,11 @@
   function craftOffline(sel, idea) {
     var t = {}; sel.forEach(function (g) { (g.tags || []).forEach(function (x) { t[x] = 1; }); if (/lighter|match/i.test(g.name)) t.fire = 1; });
     var mats = sel.filter(function (g) { return !/lighter/i.test(g.name); }).map(function (g) { return g.name; });
-    if (t.fire && t.flammable && t.sticky) return { ok: true, track: 'alchemy', level: 2, dc: 12, name: 'Sticky firebomb', desc: 'It clings, it burns, it does not stop burning. The System is impressed and a little worried.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d6', turns: 3 }], area: 1 }, tags: ['flammable', 'sticky'], consumes: mats };
-    if (t.fire && t.flammable && (t.glass || t.container || t.paper)) return { ok: true, track: 'alchemy', level: 1, dc: 10, name: 'Dungeon cocktail', desc: 'A bottle, a rag, a bad idea.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d4', turns: 2 }] }, tags: ['flammable'], consumes: mats };
-    if (t.sharp && t.long && (t.binding || t.sticky)) return { ok: true, track: 'physical', level: 1, dc: 10, name: 'Taped spear', desc: 'A blade, a stick and an unreasonable amount of tape.', cat: 'weapon', dmg: '1d8', tags: ['long', 'sharp'], consumes: sel.map(function (g) { return g.name; }) };
-    if (t.heavy && (t.binding || t.sticky)) return { ok: true, track: 'physical', level: 1, dc: 9, name: 'Strapped bludgeon', desc: 'Heavy thing, firmly attached to a handle-ish thing.', cat: 'weapon', dmg: '1d8', tags: ['heavy'], consumes: sel.map(function (g) { return g.name; }) };
-    if (t.sticky || t.slippery) return { ok: true, track: 'alchemy', level: 1, dc: 9, name: 'Goo trap', desc: 'Throw it under something and watch it try to walk.', cat: 'consumable', throw: { fx: [{ type: 'prone' }, { type: 'weaken', ac: 1, turns: 2 }] }, tags: ['sticky'], consumes: mats };
+    if (t.fire && t.flammable && t.sticky) return { ok: true, track: 'alchemy', level: 2, dc: 12, why: ['flammable', 'sticky', 'fire'], name: 'Sticky firebomb', desc: 'It clings, it burns, it does not stop burning. The System is impressed and a little worried.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d6', turns: 3 }], area: 1 }, tags: ['flammable', 'sticky'], consumes: mats };
+    if (t.fire && t.flammable && (t.glass || t.container || t.paper)) return { ok: true, track: 'alchemy', level: 1, dc: 10, why: ['flammable', 'glass', 'container', 'paper'], name: 'Dungeon cocktail', desc: 'A bottle, a rag, a bad idea.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d4', turns: 2 }] }, tags: ['flammable'], consumes: mats };
+    if (t.sharp && t.long && (t.binding || t.sticky)) return { ok: true, track: 'physical', level: 1, dc: 10, why: ['sharp', 'long', 'binding', 'sticky'], name: 'Taped spear', desc: 'A blade, a stick and an unreasonable amount of tape.', cat: 'weapon', dmg: '1d8', tags: ['long', 'sharp'], consumes: sel.map(function (g) { return g.name; }) };
+    if (t.heavy && (t.binding || t.sticky)) return { ok: true, track: 'physical', level: 1, dc: 9, why: ['heavy', 'binding', 'sticky'], name: 'Strapped bludgeon', desc: 'Heavy thing, firmly attached to a handle-ish thing.', cat: 'weapon', dmg: '1d8', tags: ['heavy'], consumes: sel.map(function (g) { return g.name; }) };
+    if (t.sticky || t.slippery) return { ok: true, track: 'alchemy', level: 1, dc: 9, why: ['sticky', 'slippery'], name: 'Goo trap', desc: 'Throw it under something and watch it try to walk.', cat: 'consumable', throw: { fx: [{ type: 'prone' }, { type: 'weaken', ac: 1, turns: 2 }] }, tags: ['sticky'], consumes: mats };
     var heals = sel.filter(function (g) { return g.heal; }); if (heals.length >= 2) return { ok: true, track: 'alchemy', level: 1, dc: 8, name: 'Questionable tonic', desc: 'Everything medical in your bag, shaken together.', cat: 'consumable', heal: '2d4+1', consumes: heals.map(function (g) { return g.name; }) };
     return { ok: false, comment: 'Nothing about these goes together. The System suggests: tags. Look at what things are made of.' };
   }
@@ -9596,6 +9644,7 @@
       say('Jury-rig · it fails', 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (R.r === 1 ? 'It falls apart in your hands and takes the ' + consumes[0].toLowerCase() + ' with it.' : 'Close, but it will not hold. Your materials are fine.') + (j.comment ? ' ' + j.comment : ''), 6000);
       skillUse(sk); CRAFT.sel = []; craftDraw(); return;
     }
+    var used = (j.why || j.traits_used || []).map(function (x) { return String(x).toLowerCase(); }); loreLearn(sel.reduce(function (acc, g) { return acc.concat((g.tags || []).filter(function (t) { return used.indexOf(t) >= 0; }).map(function (t) { return [g, t]; })); }, []), 'That is why it worked.');
     consumes.forEach(function (n) { var g = CHAR.gear.filter(function (x) { return x.name === n; })[0]; if (g) itemSpend(g); });
     var made = Object.assign({ name: name, from: 'your own two hands', level: 1 }, cs.spec); invAdd(made, true);
     CHAR.recipes = CHAR.recipes || {}; var isNew = !CHAR.recipes[name] && !CRAFT.shared.some(function (r) { return r.name.toLowerCase() === name.toLowerCase(); });
@@ -9769,6 +9818,7 @@
       '#craft label{font-family:Cinzel,serif;font-size:11px;color:#5a4430;margin-top:4px}#craft input{height:38px;padding:0 10px;border:1px solid #6b5a3a;border-radius:3px;background:rgba(255,250,235,.7);font-family:"EB Garamond",serif;font-size:15px}',
       '#craft .go{height:44px;border:0;border-radius:3px;background:radial-gradient(circle at 50% 30%,#a8302a,#5e1410);color:#F3E6CC;font-family:Cinzel,serif;font-weight:800;font-size:14px}#craft .go:disabled{opacity:.45}',
       '#craft .hint{margin:0;font-style:italic;font-size:12.5px;color:#5a4430}',
+      '#bagInfo .traits{margin:4px 0}#bagInfo .traits b{color:#7A1F1A;font-family:Cinzel,serif;font-size:.85em}#bagInfo .traits .unk{color:#8a7a5a;font-style:italic}',
       '@media (min-width:1000px) and (min-height:600px){.ebar{width:120px !important;font-size:13.5px !important;font-family:Cinzel,serif;font-weight:700;letter-spacing:.03em !important;color:#ffe6d8 !important;text-shadow:0 1px 3px #000,0 0 6px #000 !important;white-space:nowrap}.ebar i{width:80px !important;height:7px !important;margin:0 auto 3px !important}}',
       '#craft .ctools{display:flex;flex-wrap:wrap;gap:5px;align-items:center}#craft .ctools input{flex:1 1 220px;min-width:0}#craft .chip2{height:30px;padding:0 10px;border:1px solid #6b5a3a;border-radius:15px;background:rgba(255,250,235,.45);font-family:"EB Garamond",serif;font-size:13px;color:' + INK + '}#craft .chip2.on{background:#2b1d12;color:#F3E6CC}',
       '#craft .cgrid{flex:1;min-height:120px;overflow-y:auto;align-content:start}#craft .cgrid button{position:relative}#craft .cgrid button:disabled{opacity:.4}#craft .cgrid .qn{position:absolute;right:4px;bottom:2px;font-size:11px;color:#7A1F1A}',

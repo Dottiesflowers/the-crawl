@@ -25,7 +25,7 @@
       itemSpend(it); say(it.name, 'Thick smoke fills the room. When it clears, you are somewhere else. The audience boos.', 4500);
       CB.order = []; cbEnd(false); return true;
     }
-    if (it.throw) return throwItem(it, pickTarget(it));
+    if (it.throw) { var thr = throwItem(it, pickTarget(it)); if (thr !== false) loreFromThrow(it); return thr; }
     if (it.buff) { itemSpend(it); buffOn(it.buff, 10 * 60000); var b = BUFFS[it.buff]; say(it.name, b ? b.name + ': ' + b.desc : 'You feel different.', 3500); return true; }
     return false;
   }
@@ -102,3 +102,48 @@
     if (l.charge === 0) { l.lit = false; say('Headlamp dies', 'The light fades to nothing. ' + (batteryItem() ? 'Swap the batteries in your bag.' : 'You need new batteries.'), 4200); refreshFog(); }
     if (l.charge % 5 === 0 && typeof cbSaveChar === 'function') cbSaveChar();
   }, 30000);
+
+  // ---------- material traits you discover: obvious ones are known, the rest you inspect for or learn by doing ----------
+  var LORE_OBVIOUS = { glass: 1, container: 1, paper: 1, sharp: 1, long: 1, heavy: 1, hard: 1, stringy: 1, wet: 1, loud: 1, battery: 1, lever: 1, fire: 1, elastic: 1, spicy: 1 };
+  // words in the name or description that give a trait away
+  var LORE_HINT = { flammable: /flammab|burns?\b|flame|fuel|lighter fluid|gasoline|kerosene/, sticky: /sticky|tacky|glue|adhesive|tape/, slippery: /slipp|slick|grease|lube|oil\b/, toxic: /poison|toxic|venom|bleach/,
+    conductive: /copper|wire|cable|electric/, absorbent: /sponge|towel|absorb|rag\b|paper towel/, binding: /tape|zip tie|cord|rope|strap|bungee/, staining: /stain|permanent|dye/, explosive: /explos|dynamite|firework/ };
+  // what you knew before the dungeon: your old job tells you a few things
+  var LORE_BG = [[/flor|garden|plant|botan|landscap|nursery/, 'sticky', /sap|resin|vine|plant|shrub/], [/chef|cook|kitchen|restaurant|line cook|baker|bartend/, 'flammable', /grease|oil|fat|lard|alcohol|vodka|rum/],
+    [/nurse|doctor|medic|chem|pharm|lab\b|scien/, 'toxic', /./], [/electric|engineer|mechanic|technician|\bit\b|plumb/, 'conductive', /./], [/janitor|clean|custod|housekeep/, 'slippery', /./]];
+  function loreBg() { return ((CHAR && CHAR.interview) || []).map(function (x) { return x.a || ''; }).join(' ').toLowerCase(); }
+  function loreKnows(it, tag) {
+    if (LORE_OBVIOUS[tag]) return true; var n = it.name || '';
+    if (CHAR && CHAR.lore && (CHAR.lore[n] || []).indexOf(tag) >= 0) return true;
+    var txt = (n + ' ' + (it.desc || '')).toLowerCase(); if (LORE_HINT[tag] && LORE_HINT[tag].test(txt)) return true;
+    var bg = loreBg(); return LORE_BG.some(function (r) { return r[1] === tag && r[0].test(bg) && r[2].test(n.toLowerCase()); });
+  }
+  function loreKnown(it) { return (it.tags || []).filter(function (t) { return loreKnows(it, t); }); }
+  function loreHidden(it) { return (it.tags || []).filter(function (t) { return !loreKnows(it, t); }); }
+  var LORE_LINE = { flammable: 'You hold it near a spark and it catches, eagerly. Flammable.', toxic: 'A drop on your glove smokes a little. Toxic.', sticky: 'It will not let go of your fingers. Sticky.', slippery: 'It squirts out of your grip twice. Slippery.',
+    conductive: 'You touch it to a battery and it sparks. Conductive.', absorbent: 'It drinks a splash of water instantly. Absorbent.', binding: 'It wraps around itself and holds. Good for binding things.', staining: 'Your hands will be this color for a week. Staining.', explosive: 'It hisses when you shake it. Explosive. Stop shaking it.' };
+  // learn one or more traits; one popup for the lot
+  function loreLearn(list, why) {
+    if (!CHAR) return 0; CHAR.lore = CHAR.lore || {}; var got = [];
+    list.forEach(function (p) { var it = p[0], tag = p[1]; if (!it || !tag || loreKnows(it, tag)) return; (CHAR.lore[it.name] = CHAR.lore[it.name] || []).push(tag); got.push(it.name + ' is ' + tag); logEvent('Learned that ' + it.name.toLowerCase() + ' is ' + tag, 'lore'); });
+    if (got.length) { say('Trait discovered', got.join('. ') + '.' + (why ? ' ' + why : ''), 4600); skillCount('lore'); if (typeof cbSaveChar === 'function') cbSaveChar(); }
+    return got.length;
+  }
+  function loreInspect(it) {
+    var hid = loreHidden(it); if (!hid.length) { say('Nothing new', 'You know everything there is to know about the ' + it.name.toLowerCase() + '.', 2600); return; }
+    CHAR.cool = CHAR.cool || {}; var k = 'insp:' + it.name, wait = (CHAR.cool[k] || 0) - Date.now();
+    if (wait > 0) { say('Give it a minute', 'You just looked at it. Try again in ' + Math.ceil(wait / 1000) + ' seconds, or learn by using it.', 2800); return; }
+    var R = roll20(false, false), b = MOD.INT + skillLv('Alchemy') + skillLv('Material Sense'), tot = R.r + b, dc = 11, ok = R.r === 20 || (R.r !== 1 && tot >= dc);
+    if (!ok) { CHAR.cool[k] = Date.now() + 120000; say('Inspect · ' + it.name, 'INT + Alchemy: d20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. You poke it, sniff it and learn nothing. Try again in two minutes.', 4200); if (typeof cbSaveChar === 'function') cbSaveChar(); return; }
+    var tag = hid[Math.floor(Math.random() * hid.length)]; skillUse('Alchemy');
+    loreLearn([[it, tag]], ''); say('Inspect · ' + it.name, 'd20 ' + R.r + ' + ' + b + ' = ' + tot + '. ' + (LORE_LINE[tag] || 'It turns out to be ' + tag + '.') + (hid.length > 1 ? ' There is more to it.' : ''), 5200);
+  }
+  // throwing something shows what it does
+  function loreFromThrow(it) {
+    var fx = ((it.throw && it.throw.fx) || []).map(function (f) { return f.type; }), show = { flammable: fx.indexOf('burn') >= 0, explosive: (it.throw && it.throw.area > 0), slippery: fx.indexOf('prone') >= 0, sticky: fx.indexOf('prone') >= 0 || fx.indexOf('weaken') >= 0, toxic: fx.indexOf('weaken') >= 0 || fx.indexOf('damage') >= 0 };
+    loreLearn(loreHidden(it).filter(function (t) { return show[t]; }).map(function (t) { return [it, t]; }), 'You saw it happen.');
+  }
+  function loreLine(it) {
+    if (!(it.tags || []).length) return ''; var k = loreKnown(it), h = loreHidden(it).length;
+    return '<p class="traits"><b>Traits:</b> ' + (k.length ? k.map(esc).join(', ') : '<i>none known</i>') + (h ? ' <span class="unk">· ' + h + ' unknown</span>' : '') + '</p>';
+  }

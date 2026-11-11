@@ -54,6 +54,7 @@
     ['Lockpicking', 'DEX', 'Locks, traps, loot boxes.', ''],
     ['Investigation', 'INT', 'Searching, deducing, reading the room.', ''],
     ['Appraisal', 'INT', 'What loot is worth, to the copper.', ''],
+    ['Material Sense', 'INT', 'You can tell what stuff is made of: +1 per level to inspecting materials for their traits.', ''],
     ['Lore', 'INT', 'Knowing things about monsters and places.', ''],
     ['Monster Taxonomy', 'INT', 'You are keeping notes on everything that tried to eat you.', ''],
     ['Bureaucracy', 'INT', 'Forms, filing, and the dark art of the right signature. The System loves it.', ''],
@@ -102,6 +103,7 @@
   // counts things you do; when a count hits its mark the matching skill appears (then each further one is practice)
   var SKILL_TRIGGERS = {
     stash: [3, 'Corpse Wrangler', 'you keep stuffing bodies in your bag'],
+    lore: [5, 'Material Sense', 'you keep finding out what things are made of'],
     eat: [5, 'Iron Stomach', 'you will eat anything down here'],
     loot: [8, 'Scavenger', 'you search every body you find'],
     box: [4, 'Box Cracker', 'you open every box you see'],
