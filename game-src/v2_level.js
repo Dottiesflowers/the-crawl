@@ -1,143 +1,359 @@
 
-  // ===================== Level One generator =====================
-  // One fixed seed, so every player gets the same floor. Layout: a central Safe Room inside a ring corridor;
-  // four monster neighborhoods in the corners, each a cluster of rooms joined by tunnels with a boss room at
-  // the far end; a feast hall to the north, the stairwell to the south, extra safe rooms on the ring, and a few
-  // hidden rooms behind walls that only a good Perception check finds.
-  // Map characters: # wall · . floor · , moss floor · ~ water · D door · H hidden door · S stairs · @ start
-  //   P pillar · B brazier · C loot box · K crate · R barrel · T table · W weapon rack · U training dummy
-  //   b sack · h shelf · c candle stand · q cauldron · k book stand · g cage · v vase
+  // ===================== Level One generator: the grand layout =====================
+  // A fixed seed, so every player shares the same floor. 240 x 240 tiles laid out as a 3 x 3 grid of zones
+  // joined by four grand boulevards. You start in the southwest corner (the Processing Center) and the stairs
+  // are in the northeast corner (the Stairwell Gate), reached only through the Arena. Every boulevard ends in a
+  // small safe room with free food. Each zone has its own architecture: studio halls, caves, offices, flooded
+  // stacks, an open market cavern, an outdoor garden, a stadium and a gatehouse.
+  // Map characters: # wall · . floor · , moss/grass floor · ~ water · D door · H hidden door · S stairs · @ start
+  //   P pillar · B brazier · C loot box · K crate · R barrel · T table/desk/stall · W weapon rack · U training dummy
+  //   b sack · h shelf · c candle stand · q cauldron · k book stand · g cage · v vase · X bathroom · F free food · Y tree
   function genLevel(seed) {
-    var Wd = 90, Hd = 90, s = seed >>> 0;
+    var Wd = 240, Hd = 240, s = seed >>> 0;
     function rnd() { s = (s + 0x6D2B79F5) >>> 0; var t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
     function ri(a, b) { return a + Math.floor(rnd() * (b - a + 1)); }
-    var g = [], reg = [], rooms = [], spawns = [], i, x, z;
+    function pick(a) { return a[Math.floor(rnd() * a.length)]; }
+    var g = [], reg = [], rooms = [], spawns = [], zones = [], x, z, i;
     for (z = 0; z < Hd; z++) { g.push([]); reg.push([]); for (x = 0; x < Wd; x++) { g[z].push('#'); reg[z].push(-1); } }
     function inb(x, z) { return x > 0 && z > 0 && x < Wd - 1 && z < Hd - 1; }
-    function room(o) { o.id = rooms.length; rooms.push(o); return o; }
-    function carveRect(r, floor) {
-      for (var zz = r.z0; zz <= r.z1; zz++) for (var xx = r.x0; xx <= r.x1; xx++) if (inb(xx, zz)) { g[zz][xx] = floor || '.'; reg[zz][xx] = r.id; }
-    }
+    function isFloor(c) { return c === '.' || c === ',' || c === '~'; }
+    function room(o, Z) { o.id = rooms.length; rooms.push(o); if (Z) { o.hood = Z.idx; Z.rooms.push(o); Z.rids[o.id] = 1; if (!o.theme) o.theme = Z.theme; if (!o.line) o.line = Z.line; } return o; }
+    function put(x, z, c, rid) { if (!inb(x, z)) return; g[z][x] = c; if (rid !== undefined) reg[z][x] = rid; }
+    function carve(x, z, rid, floor) { if (!inb(x, z)) return; if (g[z][x] === '#') g[z][x] = floor || '.'; if (rid !== undefined && reg[z][x] < 0) reg[z][x] = rid; }
+    function carveRect(r, floor) { for (var zz = r.z0; zz <= r.z1; zz++) for (var xx = r.x0; xx <= r.x1; xx++) put(xx, zz, floor || '.', r.id); }
+    function center(r) { return [Math.floor((r.x0 + r.x1) / 2), Math.floor((r.z0 + r.z1) / 2)]; }
     function free(x0, z0, x1, z1) { for (var zz = z0 - 1; zz <= z1 + 1; zz++) for (var xx = x0 - 1; xx <= x1 + 1; xx++) { if (!inb(xx, zz) || g[zz][xx] !== '#') return false; } return true; }
-    function carveTile(x, z, rid, floor) { if (!inb(x, z)) return; if (g[z][x] === '#') { g[z][x] = floor || '.'; reg[z][x] = rid; } }
-    // an L-shaped tunnel; where it breaks into a room through its wall it leaves a doorway
-    function tunnel(ax, az, bx, bz, rid, wide, floor) {
-      var horizFirst = rnd() < 0.5, pts = horizFirst ? [[ax, az], [bx, az], [bx, bz]] : [[ax, az], [ax, bz], [bx, bz]];
+    // decor on open floor inside a room, kept off its edges and away from doors
+    function scatter(r, chars, n) {
+      for (var k = 0; k < n; k++) for (var t = 0; t < 20; t++) {
+        var xx = ri(r.x0 + 1, r.x1 - 1), zz = ri(r.z0 + 1, r.z1 - 1);
+        if (!inb(xx, zz) || reg[zz][xx] !== r.id || !isFloor(g[zz][xx]) || g[zz][xx] === '~' || nearDoor(xx, zz)) continue;
+        g[zz][xx] = chars.charAt(Math.floor(rnd() * chars.length)); break;
+      }
+    }
+    function nearDoor(xx, zz) { for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { var c = g[zz + dz] && g[zz + dz][xx + dx]; if (c === 'D' || c === 'H') return true; } return false; }
+    function openSpot(r, tries) { // a free floor tile near the middle of a room
+      var c = center(r);
+      for (var rad = 0; rad < 8; rad++) for (var t = 0; t < (tries || 12); t++) {
+        var xx = c[0] + ri(-rad, rad), zz = c[1] + ri(-rad, rad);
+        if (inb(xx, zz) && reg[zz][xx] === r.id && (g[zz][xx] === '.' || g[zz][xx] === ',') && !taken[xx + ',' + zz]) { taken[xx + ',' + zz] = 1; return [xx, zz]; }
+      }
+      return null;
+    }
+    var taken = {};
+    function spawnIn(r, fam, o) { var p = openSpot(r); if (!p) return; var sp = { kind: fam, x: p[0], z: p[1], room: r.id }; for (var k in o) sp[k] = o[k]; spawns.push(sp); }
+    function tierRoll(z) { var q = rnd(); return q < (z.elite || 0.12) ? 3 : q < 0.5 ? 2 : 1; }
+    // a straight or L-shaped passage of a given width
+    function passage(ax, az, bx, bz, rid, floor, w) {
+      var pts = rnd() < 0.5 ? [[ax, az], [bx, az], [bx, bz]] : [[ax, az], [ax, bz], [bx, bz]], h = Math.floor((w - 1) / 2);
       for (var k = 0; k < 2; k++) {
-        var p = pts[k], q = pts[k + 1], dx = Math.sign(q[0] - p[0]), dz = Math.sign(q[1] - p[1]), x = p[0], z = p[1];
+        var p = pts[k], q = pts[k + 1], dx = Math.sign(q[0] - p[0]), dz = Math.sign(q[1] - p[1]), xx = p[0], zz = p[1];
         while (true) {
-          carveTile(x, z, rid, floor); if (wide) { carveTile(x + (dz ? 1 : 0), z + (dx ? 1 : 0), rid, floor); }
-          if (x === q[0] && z === q[1]) break; x += dx; z += dz;
+          for (var a = -h; a < w - h; a++) for (var b = -h; b < w - h; b++) carve(xx + a, zz + b, rid, floor);
+          if (xx === q[0] && zz === q[1]) break; xx += dx; zz += dz;
         }
       }
     }
-    function center(r) { return [Math.floor((r.x0 + r.x1) / 2), Math.floor((r.z0 + r.z1) / 2)]; }
-    function scatter(r, chars, n) { // decor on free floor inside a room, away from its edges
-      for (var k = 0; k < n; k++) for (var t = 0; t < 12; t++) {
-        var x = ri(r.x0 + 1, r.x1 - 1), z = ri(r.z0 + 1, r.z1 - 1);
-        if (g[z][x] === '.' || g[z][x] === ',') { g[z][x] = chars[Math.floor(rnd() * chars.length)]; break; }
+    // a wandering cave tunnel
+    function drunk(ax, az, bx, bz, rid, floor) {
+      var xx = ax, zz = az, n = 0;
+      while ((xx !== bx || zz !== bz) && n++ < 2000) {
+        for (var a = 0; a < 2; a++) for (var b = 0; b < 2; b++) carve(xx + a, zz + b, rid, floor);
+        if (rnd() < 0.72) { if (Math.abs(bx - xx) > Math.abs(bz - zz)) xx += Math.sign(bx - xx); else zz += Math.sign(bz - zz); }
+        else if (rnd() < 0.5) xx += rnd() < 0.5 ? 1 : -1; else zz += rnd() < 0.5 ? 1 : -1;
+        xx = Math.max(2, Math.min(Wd - 3, xx)); zz = Math.max(2, Math.min(Hd - 3, zz));
       }
     }
-    // ----- hub: the Safe Room and the ring corridor -----
-    var C = 45, hub = room({ name: 'Safe Room', theme: 'crypt', type: 'safe', x0: C - 4, z0: C - 4, x1: C + 4, z1: C + 4, line: 'Your holding cell. No violence of any kind; the System takes this very seriously, and so does its teleporter.' });
-    carveRect(hub);
-    var ring = room({ name: 'The Ring', theme: 'hall', type: 'corridor', x0: C - 15, z0: C - 15, x1: C + 15, z1: C + 15, line: 'A long loop of corridor. Quiet. Mostly.' });
-    for (x = ring.x0; x <= ring.x1; x++) for (var w = 0; w < 2; w++) { carveTile(x, ring.z0 + w, ring.id); carveTile(x, ring.z1 - w, ring.id); }
-    for (z = ring.z0; z <= ring.z1; z++) for (w = 0; w < 2; w++) { carveTile(ring.x0 + w, z, ring.id); carveTile(ring.x1 - w, z, ring.id); }
-    // hub doors out to the ring on all four sides
-    [[C, C - 5, 0, -1], [C, C + 5, 0, 1], [C - 5, C, -1, 0], [C + 5, C, 1, 0]].forEach(function (d) {
-      g[d[1]][d[0]] = 'D'; reg[d[1]][d[0]] = hub.id;
-      tunnel(d[0] + d[2], d[1] + d[3], d[2] ? (d[2] < 0 ? ring.x0 + 1 : ring.x1 - 1) : d[0], d[3] ? (d[3] < 0 ? ring.z0 + 1 : ring.z1 - 1) : d[1], ring.id);
+    function blob(cx, cz, rx, rz, fn) { for (var zz = cz - rz - 1; zz <= cz + rz + 1; zz++) for (var xx = cx - rx - 1; xx <= cx + rx + 1; xx++) { var d = ((xx - cx) * (xx - cx)) / (rx * rx + 0.01) + ((zz - cz) * (zz - cz)) / (rz * rz + 0.01); if (d <= 1 + (rnd() - 0.5) * 0.35) fn(xx, zz); } }
+
+    // ---------- the grid: zone cells and boulevards ----------
+    var CX = [[2, 73], [82, 157], [166, 237]], CZ = CX; // cell bounds; zones build inside them, one tile in
+    var BV = [[75, 80], [159, 164]];                     // boulevard bands (x for the north-south ones, z for the east-west ones)
+    function zone(o, col, row) {
+      o.idx = zones.length; o.rooms = []; o.rids = {}; o.cell = [CX[col][0], CZ[row][0], CX[col][1], CZ[row][1]];
+      o.x0 = o.cell[0] + 1; o.z0 = o.cell[1] + 1; o.x1 = o.cell[2] - 1; o.z1 = o.cell[3] - 1; zones.push(o); return o;
+    }
+    // ---------- boulevards ----------
+    var BLINE = 'A grand boulevard. Pillars, banners and sponsor billboards. Mostly safe, if you keep moving.';
+    function boulevard(name, horiz, band, a0, a1) {
+      var r = room(horiz ? { name: name, theme: 'blvd', type: 'corridor', x0: a0, z0: band[0], x1: a1, z1: band[1], line: BLINE } : { name: name, theme: 'blvd', type: 'corridor', x0: band[0], z0: a0, x1: band[1], z1: a1, line: BLINE });
+      carveRect(r);
+      for (var t = a0 + 3, k = 0; t <= a1 - 3; t += 6, k++) {
+        var cross = (t >= BV[0][0] - 2 && t <= BV[0][1] + 2) || (t >= BV[1][0] - 2 && t <= BV[1][1] + 2); if (cross) continue;
+        if (horiz) { put(t, band[0], 'P'); put(t, band[1], 'P'); if (k % 4 === 2) put(t + 3, k % 8 === 2 ? band[0] : band[1], 'B'); }
+        else { put(band[0], t, 'P'); put(band[1], t, 'P'); if (k % 4 === 2) put(k % 8 === 2 ? band[0] : band[1], t + 3, 'B'); }
+      }
+      return r;
+    }
+    var westway = boulevard('Westway', false, BV[0], 10, 229), eastway = boulevard('Eastway', false, BV[1], 10, 229);
+    var upper = boulevard('Upper Concourse', true, BV[0], 10, 164), lower = boulevard('Lower Concourse', true, BV[1], 10, 229);
+    var gateCon = boulevard('Gate Concourse', true, BV[0], 166, 229); // walled off from the rest: the Arena is the only way in
+    gateCon.line = 'The concourse past the Arena. The crowd noise follows you. So do the cameras.';
+    // ---------- a small safe room with free food at the end of every boulevard ----------
+    var SNACK = ['The Snack Closet', 'The Snack Bar', 'The Vending Nook', 'Hydration Station', 'The Comp Buffet', 'Catering Overflow', 'Green Room B', 'The Unofficial Break Room'], sn = 0;
+    function endRoom(x0, z0, x1, z1, doors, food) {
+      var r = room({ name: SNACK[sn++], theme: 'crypt', type: 'safe', x0: x0, z0: z0, x1: x1, z1: z1, line: 'A tiny safe room. The catering table is free and it heals you. The System says "within reason."' });
+      carveRect(r); doors.forEach(function (d) { put(d[0], d[1], 'D', r.id); }); food.forEach(function (f) { put(f[0], f[1], 'F'); });
+      put(x0 + 1, z0 + 1, 'c'); put(x1 - 1, z1 - 1, 'c'); return r;
+    }
+    BV.forEach(function (b, k) {
+      endRoom(b[0] - 1, 2, b[1] + 1, 8, [[b[0] + 2, 9], [b[0] + 3, 9]], [[b[0] + 2, 3], [b[0] + 3, 3]]);            // north end of a north-south boulevard
+      endRoom(b[0] - 1, 231, b[1] + 1, 237, [[b[0] + 2, 230], [b[0] + 3, 230]], [[b[0] + 2, 236], [b[0] + 3, 236]]); // south end
+      endRoom(2, b[0] - 1, 8, b[1] + 1, [[9, b[0] + 2], [9, b[0] + 3]], [[3, b[0] + 2], [3, b[0] + 3]]);             // west end of an east-west boulevard
+      endRoom(231, b[0] - 1, 237, b[1] + 1, [[230, b[0] + 2], [230, b[0] + 3]], [[236, b[0] + 2], [236, b[0] + 3]]); // east end
     });
-    g[C - 3][C - 1] = 'X'; g[C][C - 2] = '@'; g[C - 3][C - 3] = 'c'; g[C - 3][C + 3] = 'c'; g[C + 3][C - 3] = 'v'; g[C + 3][C + 3] = 'g'; g[C - 2][C + 2] = 'B';
-    spawns.push({ kind: 'imp', npc: 'pip', x: C + 1, z: C + 1 });
-    // ----- the ring's own rooms: two more safe rooms, the feast hall north, the stairwell south -----
-    function sideRoom(o, door) {
-      var r = room(o); carveRect(r); var d = door; g[d[1]][d[0]] = 'D'; reg[d[1]][d[0]] = r.id;
-      var ox = Math.sign(d[0] - C) * (Math.abs(d[0] - C) > 2 ? 1 : 0), oz = Math.sign(d[1] - C) * (Math.abs(d[1] - C) > 2 ? 1 : 0); carveTile(d[0] - ox, d[1] - oz, ring.id); return r;
-    }
-    var safeW = sideRoom({ name: 'Safe Room (West Ring)', theme: 'crypt', type: 'safe', x0: C - 24, z0: C - 3, x1: C - 18, z1: C + 3, line: 'Another safe room. The vending machine is out of everything.' }, [C - 17, C]);
-    g[C][C - 21] = 'B'; g[C - 2][C - 23] = 'c'; g[C + 2][C - 23] = 'X';
-    var safeE = sideRoom({ name: 'Safe Room (East Ring)', theme: 'crypt', type: 'safe', x0: C + 18, z0: C - 3, x1: C + 24, z1: C + 3, line: 'A safe room with a broken toilet and a working fire.' }, [C + 17, C]);
-    g[C][C + 21] = 'B'; g[C + 2][C + 23] = 'c'; g[C - 2][C + 23] = 'X';
-    var feast = sideRoom({ name: 'The Feast Hall', theme: 'hall', type: 'hall', x0: C - 9, z0: C - 27, x1: C + 9, z1: C - 18, line: 'A banquet laid out for a crowd that never came. Pillars block your line of sight.' }, [C, C - 17]);
-    for (x = feast.x0 + 2; x <= feast.x1 - 2; x += 4) { g[feast.z0 + 2][x] = 'P'; g[feast.z1 - 2][x] = 'P'; }
-    g[C - 23][C - 1] = 'T'; g[C - 23][C + 3] = 'T'; g[C - 22][C - 6] = 'W'; g[C - 20][C + 6] = 'U'; g[C - 25][C] = 'B'; scatter(feast, 'RKR', 3);
-    var stair = sideRoom({ name: 'Stairwell Approach', theme: 'gate', type: 'stairs', x0: C - 6, z0: C + 18, x1: C + 6, z1: C + 25, line: 'The stairs down are here. So is whatever is guarding them.' }, [C, C + 17]);
-    g[C + 24][C] = 'S'; g[C + 22][C - 4] = 'q'; g[C + 20][C + 5] = 'k'; g[C + 24][C + 5] = 'c'; g[C + 19][C - 5] = 'B'; g[C + 19][C + 5] = 'B';
-    spawns.push({ kind: 'imp', tier: 2, x: C + 1, z: C + 22, guard: true, name: 'Imp, stairwell guard' });
-    // ----- four neighborhoods -----
-    var HOODS = [
-      { name: 'The Puglin Warrens', theme: 'moss', fam: 'puglin', x0: 2, z0: 2, x1: 28, z1: 28, gate: [C - 15, C - 8], tunnels: 'Warren tunnels', boss: 'Grik\'s Throne Room',
-        line: 'Puglin territory. Something has been watering the moss, and something has been eating the gardeners.', decor: 'bbKRv', roomNames: ['Gnawing Pit', 'Moss Den', 'Bone Garden', 'Snack Larder', 'Mud Nursery', 'Sentry Nook', 'Rag Pile', 'Root Cellar'] },
-      { name: 'Imp Union Hall', theme: 'gate', fam: 'imp', x0: 62, z0: 2, x1: 87, z1: 28, gate: [C + 15, C - 8], tunnels: 'Service corridors', boss: 'The Steward\'s Office',
-        line: 'Imp territory. Every door has a sign-in sheet. Every sign-in sheet is blank.', decor: 'KRhTB', roomNames: ['Break Room', 'Locker Room', 'Grievance Office', 'Time Clock', 'Supply Closet', 'Night Shift Lounge', 'Union Archive', 'Overtime Pit'] },
-      { name: 'The Gnawed Cellars', theme: 'store', fam: 'puglin', x0: 2, z0: 62, x1: 28, z1: 87, gate: [C - 15, C + 8], tunnels: 'Cellar passages', boss: 'The Butcher\'s Block',
-        line: 'Storerooms the puglins took over. The crates are full of things that used to be other crates.', decor: 'KKRRbh', roomNames: ['Pantry', 'Wine Cellar', 'Crate Maze', 'Cold Store', 'Spice Room', 'Coal Bin', 'Old Larder', 'Barrel Room'] },
-      { name: 'The Flooded Archive', theme: 'water', fam: 'imp', x0: 62, z0: 62, x1: 87, z1: 87, gate: [C + 15, C + 8], tunnels: 'Drowned stacks', boss: 'The Records Vault',
-        line: 'Ankle-deep water over a records archive. The imps say the paperwork is load-bearing.', decor: 'hkKR', roomNames: ['Reading Pool', 'Wet Stacks', 'Card Catalog', 'Filing Sump', 'Microfiche Bog', 'Index Pond', 'Damp Annex', 'Ledger Room'] }
-    ];
-    var BOSSNAME = { puglin: ['grik', 'puglin_chief'], imp: ['steward', 'imp_foreman'] };
-    HOODS.forEach(function (H, hi) {
-      var floor = H.theme === 'moss' ? ',' : '.', tun = room({ name: H.tunnels, theme: H.theme, type: 'corridor', hood: hi, x0: H.x0, z0: H.z0, x1: H.x1, z1: H.z1, line: H.line });
-      var list = [], gx = H.gate[0], gz = H.gate[1], farX = gx < C ? H.x0 : H.x1, farZ = gz < C ? H.z0 : H.z1;
-      // boss room at the far corner
-      var bw = ri(10, 12), bh = ri(9, 11), bx0 = farX === H.x0 ? H.x0 + 1 : H.x1 - bw - 1, bz0 = farZ === H.z0 ? H.z0 + 1 : H.z1 - bh - 1;
-      var boss = room({ name: H.boss, theme: H.theme, type: 'boss', hood: hi, x0: bx0, z0: bz0, x1: bx0 + bw, z1: bz0 + bh, line: 'A big room that smells like a boss fight.' });
-      carveRect(boss, floor); list.push(boss);
-      for (x = boss.x0 + 2; x <= boss.x1 - 2; x += 4) { g[boss.z0 + 2][x] = 'P'; g[boss.z1 - 2][x] = 'P'; }
-      g[boss.z0 + 1][boss.x0 + 1] = 'B'; g[boss.z1 - 1][boss.x1 - 1] = 'B'; g[boss.z0 + 1][boss.x1 - 1] = 'B'; g[boss.z1 - 1][boss.x0 + 1] = 'B';
-      var bc = center(boss), behind = [bc[0] + (farX === H.x0 ? -3 : 3), bc[1] + (farZ === H.z0 ? -2 : 2)]; g[behind[1]][behind[0]] = 'C';
-      spawns.push({ kind: H.fam, boss: true, sub: BOSSNAME[H.fam][0], x: bc[0], z: bc[1], room: boss.id });
-      spawns.push({ kind: H.fam, sub: BOSSNAME[H.fam][1], x: bc[0] + 2, z: bc[1] + 1, room: boss.id }); spawns.push({ kind: H.fam, tier: 2, x: bc[0] - 2, z: bc[1] - 1, room: boss.id });
-      // other rooms
-      var names = H.roomNames.slice(), tries = 0;
-      while (list.length < 8 && tries++ < 400) {
-        var rw = ri(4, 8), rh = ri(4, 7), rx = ri(H.x0 + 1, H.x1 - rw - 1), rz = ri(H.z0 + 1, H.z1 - rh - 1);
-        if (!free(rx, rz, rx + rw, rz + rh)) continue;
-        var r = room({ name: names.shift() || 'Side Room', theme: H.theme, type: 'room', hood: hi, x0: rx, z0: rz, x1: rx + rw, z1: rz + rh, line: H.line });
-        carveRect(r, floor); list.push(r);
+
+    // ---------- gates: a wide mouth from a boulevard into a zone, tunnelled to the zone's nearest floor ----------
+    function gate(Z, side, at, name) {
+      var mouth = room({ name: name || Z.name + ' gate', type: 'corridor', x0: 0, z0: 0, x1: 0, z1: 0 }, Z), ox, oz, ix, iz;
+      if (side === 'E') { ox = Z.cell[2] + 1; oz = at; ix = Z.x1; iz = at; } else if (side === 'W') { ox = Z.cell[0] - 1; oz = at; ix = Z.x0; iz = at; }
+      else if (side === 'N') { ox = at; oz = Z.cell[1] - 1; ix = at; iz = Z.z0; } else { ox = at; oz = Z.cell[3] + 1; ix = at; iz = Z.z1; }
+      var best = null, bd = 1e9;
+      for (var zz = Z.z0; zz <= Z.z1; zz++) for (var xx = Z.x0; xx <= Z.x1; xx++) {
+        if (!isFloor(g[zz][xx]) || !Z.rids[reg[zz][xx]] || reg[zz][xx] === mouth.id) continue;
+        var dd = Math.abs(xx - ix) + Math.abs(zz - iz); if (dd < bd) { bd = dd; best = [xx, zz]; }
       }
-      // join them: a spanning tree by distance plus one extra loop
-      var joined = [list[list.length - 1]], left = list.slice(0, list.length - 1);
+      if (!best) return;
+      passage(ox, oz, best[0], best[1], mouth.id, '.', 3);
+      mouth.x0 = Math.min(ox, best[0]); mouth.x1 = Math.max(ox, best[0]); mouth.z0 = Math.min(oz, best[1]); mouth.z1 = Math.max(oz, best[1]);
+    }
+
+    // ---------- rooms in blocks around two crossing halls (studio and office zones) ----------
+    function blockRooms(Z, o) {
+      var hw = o.hall, hx0 = Math.floor((Z.x0 + Z.x1) / 2) - (hw >> 1), hz0 = Math.floor((Z.z0 + Z.z1) / 2) - (hw >> 1);
+      var halls = room({ name: o.hallName, type: 'corridor', x0: Z.x0, z0: Z.z0, x1: Z.x1, z1: Z.z1 }, Z);
+      for (var zz = Z.z0; zz <= Z.z1; zz++) for (var k = 0; k < hw; k++) put(hx0 + k, zz, '.', halls.id);
+      for (var xx = Z.x0; xx <= Z.x1; xx++) for (k = 0; k < hw; k++) put(xx, hz0 + k, '.', halls.id);
+      var out = [], Q = [
+        { x0: Z.x0, x1: hx0 - 2, z0: Z.z0, z1: hz0 - 2, hx: 1, hz: 1, q: 'NW' }, { x0: hx0 + hw + 1, x1: Z.x1, z0: Z.z0, z1: hz0 - 2, hx: -1, hz: 1, q: 'NE' },
+        { x0: Z.x0, x1: hx0 - 2, z0: hz0 + hw + 1, z1: Z.z1, hx: 1, hz: -1, q: 'SW' }, { x0: hx0 + hw + 1, x1: Z.x1, z0: hz0 + hw + 1, z1: Z.z1, hx: -1, hz: -1, q: 'SE' }];
+      Q.forEach(function (q) {
+        var n = (o.split && o.split[q.q]) || o.n, cutsX = cuts(q.x0, q.x1, n[0]), cutsZ = cuts(q.z0, q.z1, n[1]), grid = [];
+        for (var a = 0; a < n[0]; a++) { grid.push([]); for (var b = 0; b < n[1]; b++) {
+          var r = room({ name: 'Room', type: 'room', x0: cutsX[a][0], x1: cutsX[a][1], z0: cutsZ[b][0], z1: cutsZ[b][1], q: q.q, gx: a, gz: b, nx: n[0], nz: n[1] }, Z);
+          carveRect(r); grid[a].push(r); out.push(r);
+        } }
+        // doors: every room links one step toward the north-south hall; rooms on the east-west hall also open onto it
+        for (a = 0; a < n[0]; a++) for (b = 0; b < n[1]; b++) {
+          var r = grid[a][b], cz = ri(r.z0 + 1, r.z1 - 1), cx = ri(r.x0 + 1, r.x1 - 1);
+          if (q.hx > 0) put(r.x1 + 1, cz, 'D', r.id); else put(r.x0 - 1, cz, 'D', r.id);
+          var edgeZ = q.hz > 0 ? b === n[1] - 1 : b === 0; if (edgeZ || rnd() < 0.35) { if (q.hz > 0) put(cx, r.z1 + 1, 'D', r.id); else put(cx, r.z0 - 1, 'D', r.id); }
+        }
+      });
+      return { halls: halls, rooms: out, hx0: hx0, hz0: hz0 };
+    }
+    function cuts(a0, a1, n) { // split a span into n rooms with one-tile walls
+      var span = a1 - a0 + 1, out = [], pos = a0;
+      for (var k = 0; k < n; k++) {
+        var left = a1 - pos + 1, size = k === n - 1 ? left : Math.max(5, Math.round((span - (n - 1)) / n + (rnd() - 0.5) * 4));
+        if (k < n - 1) size = Math.min(size, left - (n - 1 - k) * 6); out.push([pos, pos + size - 1]); pos += size + 1;
+      }
+      return out;
+    }
+
+    // ================= 1. The Processing Center (southwest corner, the start) =================
+    var PCZ = zone({ name: 'The Processing Center', theme: 'studio', fam: 'puglin', line: 'Sterile halls, neon signs and a lot of paperwork. This is where the show checks you in.' }, 0, 2);
+    var pc = blockRooms(PCZ, { hall: 4, hallName: 'Processing Halls', n: [2, 2], split: { NE: [2, 3], SE: [2, 2] } });
+    var green = pc.rooms.filter(function (r) { return r.q === 'SW' && r.gx === 0 && r.gz === r.nz - 1; })[0];
+    green.name = 'The Green Room'; green.type = 'safe'; green.line = 'Your holding cell, now with a couch. No violence of any kind; the System takes this very seriously, and so does its teleporter.';
+    var gc = center(green), start = { x: gc[0] - 1, z: gc[1] };
+    put(start.x, start.z, '@'); put(green.x0 + 1, green.z0 + 1, 'X'); put(green.x0 + 3, green.z0 + 1, 'X'); put(green.x1 - 1, green.z1 - 1, 'F'); put(green.x1 - 2, green.z1 - 1, 'F');
+    put(green.x1 - 1, green.z0 + 1, 'B'); put(green.x0 + 1, green.z1 - 1, 'c'); put(green.x1 - 1, green.z0 + 3, 'v');
+    spawns.push({ kind: 'imp', npc: 'pip', x: gc[0] + 1, z: gc[1] + 1, room: green.id }); taken[(gc[0] + 1) + ',' + (gc[1] + 1)] = 1;
+    var PCN = ['Intake', 'Makeup & Prosthetics', 'Wardrobe Department', 'Stage 3', 'Casting Office', 'Prop Storage', 'Orientation Theater', 'Medical (Closed)', 'Contracts Office', 'Waiver Signing', 'Holding Pen B', 'Loading Dock', 'Craft Services Annex', 'Control Room'], pn = 0;
+    pc.rooms.forEach(function (r) {
+      if (r === green) return; r.name = PCN[pn++] || 'Back Office';
+      if (r.name === 'Stage 3') { scatter(r, 'U', 3); scatter(r, 'W', 1); r.line = 'A practice stage with training dummies. Hit them. They are paid to take it.'; }
+      else if (r.name === 'Prop Storage') { scatter(r, 'C', 1); scatter(r, 'KKR', 4); }
+      else if (r.name === 'Wardrobe Department') scatter(r, 'hhb', 3);
+      else if (r.name === 'Orientation Theater') { for (var zz = r.z0 + 2; zz < r.z1; zz += 2) for (var xx = r.x0 + 2; xx < r.x1 - 1; xx += 3) if (!nearDoor(xx, zz)) put(xx, zz, 'T'); }
+      else scatter(r, 'TKhv', ri(1, 3));
+      if (r.name === 'Holding Pen B' || r.name === 'Loading Dock') { var n = r.name === 'Loading Dock' ? 2 : 1; for (var m = 0; m < n; m++) spawnIn(r, 'puglin', { tier: 1, name: 'Escaped reject' }); r.line = 'Something got out of its holding pen. It is small, angry and in your way. Practice on it.'; }
+    });
+    for (var k = 0; k < 6; k++) { var hp = [pc.hx0 + ri(0, 3), PCZ.z0 + ri(3, PCZ.z1 - PCZ.z0 - 3)]; if (g[hp[1]][hp[0]] === '.') put(hp[0], hp[1], 'c'); }
+
+    // ================= 2. The Puglin Warrens (south middle): caves =================
+    var WRZ = zone({ name: 'The Puglin Warrens', theme: 'moss', fam: 'puglin', line: 'Puglin territory. Tight, twisting tunnels, moss, mud and the smell of snacks gone wrong.', elite: 0.14 }, 1, 2);
+    var wtun = room({ name: 'Warren Tunnels', type: 'corridor', x0: WRZ.x0, z0: WRZ.z0, x1: WRZ.x1, z1: WRZ.z1 }, WRZ);
+    var WN = ['Gnawing Pit', 'Moss Den', 'Bone Garden', 'Snack Larder', 'Mud Nursery', 'Sentry Nook', 'Rag Pile', 'Root Cellar', 'The Drip', 'Gristle Hall', 'Puddle Court', 'The Burrows'];
+    var caves = [], wboss = room({ name: 'Grik\'s Throne Room', type: 'boss', x0: 112, z0: 218, x1: 132, z1: 232, line: 'A cavern full of stolen snack wrappers and one very large puglin on a throne of bottle caps.' }, WRZ);
+    blob(122, 225, 10, 7, function (xx, zz) { put(xx, zz, ',', wboss.id); }); caves.push(wboss);
+    for (var t = 0; t < 600 && caves.length < 13; t++) {
+      var rx = ri(4, 7), rz = ri(3, 6), cx2 = ri(WRZ.x0 + rx + 1, WRZ.x1 - rx - 1), cz2 = ri(WRZ.z0 + rz + 1, WRZ.z1 - rz - 1), ok = true;
+      caves.forEach(function (c) { var cc = center(c); if (Math.abs(cc[0] - cx2) < rx + (c.x1 - c.x0) / 2 + 5 && Math.abs(cc[1] - cz2) < rz + (c.z1 - c.z0) / 2 + 5) ok = false; });
+      if (!ok) continue;
+      var cr = room({ name: WN[caves.length - 1] || 'Side Cave', type: 'room', x0: cx2 - rx, z0: cz2 - rz, x1: cx2 + rx, z1: cz2 + rz }, WRZ);
+      blob(cx2, cz2, rx, rz, function (xx, zz) { if (inb(xx, zz) && xx >= WRZ.x0 && xx <= WRZ.x1 && zz >= WRZ.z0 && zz <= WRZ.z1) put(xx, zz, ',', cr.id); }); caves.push(cr);
+    }
+    connectAll(caves, function (a, b) { drunk(a[0], a[1], b[0], b[1], wtun.id, ','); }, 3);
+    put(wboss.x0 + 4, wboss.z0 + 3, 'B'); put(wboss.x1 - 4, wboss.z0 + 3, 'B'); put(122, 230, 'C');
+    spawnIn(wboss, 'puglin', { boss: true, sub: 'grik' }); spawnIn(wboss, 'puglin', { sub: 'puglin_chief' }); spawnIn(wboss, 'puglin', { tier: 2 });
+    caves.forEach(function (c) { if (c === wboss) return; scatter(c, 'bbRKv', ri(1, 3)); if (rnd() < 0.3) scatter(c, 'C', 1); if (rnd() < 0.35) scatter(c, 'B', 1); var n = ri(1, 3); for (var m = 0; m < n; m++) spawnIn(c, 'puglin', { tier: tierRoll(WRZ) }); });
+
+    // ================= 3. Imp Union Hall (southeast corner): offices =================
+    var UHZ = zone({ name: 'Imp Union Hall', theme: 'office', fam: 'imp', line: 'Imp territory. Cubicles, break rooms and endless bureaucracy. Every door has a sign-in sheet.', elite: 0.16 }, 2, 2);
+    var uh = blockRooms(UHZ, { hall: 3, hallName: 'Union Hall Corridors', n: [3, 3], split: { SE: [2, 2] } });
+    var UN = ['Break Room', 'Locker Room', 'Grievance Office', 'Time Clock', 'Supply Closet', 'Night Shift Lounge', 'Union Archive', 'Overtime Pit', 'Cubicle Farm', 'Payroll', 'Mailroom', 'HR (Abandoned)', 'Copy Room', 'Conference Room B', 'Water Cooler', 'Minutes Office', 'Strike Fund', 'Dispute Office', 'Seniority Lounge', 'Picket Sign Shop', 'Training Room', 'Shop Floor', 'Records', 'Bulletin Room', 'Vending Hall', 'Quiet Room', 'Parking Office', 'Badge Office', 'Elevator Lobby', 'Wellness Room', 'Benefits Desk'], un = 0;
+    var uboss = uh.rooms.filter(function (r) { return r.q === 'SE' && r.gx === r.nx - 1 && r.gz === r.nz - 1; })[0];
+    uboss.name = 'The Steward\'s Office'; uboss.type = 'boss'; uboss.line = 'A corner office with a view of more office. The Shop Steward has never lost a negotiation or a fistfight.';
+    uh.rooms.forEach(function (r) {
+      if (r === uboss) return; r.name = UN[un++] || 'Office';
+      if (r.name === 'Cubicle Farm' || r.name === 'Payroll' || r.name === 'Shop Floor') { for (var zz = r.z0 + 1; zz < r.z1; zz += 3) for (var xx = r.x0 + 1; xx < r.x1; xx += 2) if (!nearDoor(xx, zz)) put(xx, zz, 'T'); }
+      else scatter(r, 'ThhKR', ri(1, 4));
+      if (rnd() < 0.25) scatter(r, 'C', 1);
+      if (rnd() < 0.62) { var n = ri(1, 2); for (var m = 0; m < n; m++) spawnIn(r, 'imp', { tier: tierRoll(UHZ) }); }
+    });
+    scatter(uboss, 'hhT', 4); put(uboss.x1 - 1, uboss.z1 - 1, 'C');
+    spawnIn(uboss, 'imp', { boss: true, sub: 'steward' }); spawnIn(uboss, 'imp', { sub: 'imp_foreman' }); spawnIn(uboss, 'imp', { tier: 2 });
+
+    // ================= 4. The Flooded Archive (west middle): stacks in water =================
+    var ARZ = zone({ name: 'The Flooded Archive', theme: 'water', fam: 'clerk', line: 'Knee-deep water between stacks of records. The clerks say the paperwork is load-bearing.' }, 0, 1);
+    var acor = room({ name: 'Drowned Stacks', type: 'corridor', x0: ARZ.x0, z0: ARZ.z0, x1: ARZ.x1, z1: ARZ.z1 }, ARZ);
+    var aw = Math.floor((ARZ.x1 - ARZ.x0 + 1 - 2 * 5) / 3), ah = Math.floor((ARZ.z1 - ARZ.z0 + 1 - 2 * 5) / 3), AN = ['Reading Pool', 'Wet Stacks', 'Card Catalog', 'Filing Sump', 'Microfiche Bog', 'Index Pond', 'Ledger Room', 'Damp Annex'], an = 0, ahalls = [];
+    for (var gi = 0; gi < 3; gi++) for (var gj = 0; gj < 3; gj++) {
+      var hx = ARZ.x0 + gi * (aw + 5), hz = ARZ.z0 + gj * (ah + 5), isBoss = gi === 0 && gj === 1;
+      var hr = room({ name: isBoss ? 'The Records Vault' : AN[an++], type: isBoss ? 'boss' : 'room', x0: hx, z0: hz, x1: hx + aw - 1, z1: hz + ah - 1, line: isBoss ? 'The vault where the floor\'s records go to drown. The Head Archivist does not allow talking.' : null }, ARZ);
+      carveRect(hr); ahalls.push(hr);
+      if (isBoss) { for (var xx = hr.x0 + 2; xx < hr.x1 - 1; xx += 4) { put(xx, hr.z0 + 2, 'P'); put(xx, hr.z1 - 2, 'P'); } }
+      else for (var zz = hr.z0 + 2; zz < hr.z1 - 1; zz += 3) for (xx = hr.x0 + 2; xx < hr.x1 - 1; xx++) if ((xx - hr.x0) % 7 !== 0) put(xx, zz, 'h'); // stacks with cross-aisles
+      // corridors between halls, three wide, and doors onto them
+      if (gi < 2) { for (zz = hz; zz <= hz + ah - 1; zz++) for (k = 1; k <= 3; k++) carve(hx + aw + k, zz, acor.id); put(hx + aw, hz + (ah >> 1), 'D', hr.id); put(hx + aw, hz + (ah >> 1) + 1, 'D', hr.id); }
+      if (gi > 0) { put(hx - 1, hz + (ah >> 1), 'D', hr.id); put(hx - 1, hz + (ah >> 1) + 1, 'D', hr.id); }
+      if (gj < 2) { for (xx = Math.max(ARZ.x0, hx - 4); xx <= Math.min(ARZ.x1, hx + aw + 3); xx++) for (k = 1; k <= 3; k++) carve(xx, hz + ah + k, acor.id); put(hx + (aw >> 1), hz + ah, 'D', hr.id); put(hx + (aw >> 1) + 1, hz + ah, 'D', hr.id); }
+      if (gj > 0) { put(hx + (aw >> 1), hz - 1, 'D', hr.id); put(hx + (aw >> 1) + 1, hz - 1, 'D', hr.id); }
+    }
+    for (zz = ARZ.z0; zz <= ARZ.z1; zz++) for (xx = ARZ.x0; xx <= ARZ.x1; xx++) if (g[zz][xx] === '.' && Z_owns(ARZ, xx, zz) && rnd() < 0.55 && !nearDoor(xx, zz)) g[zz][xx] = '~';
+    ahalls.forEach(function (hr) {
+      if (hr.type === 'boss') { put(hr.x0 + 1, hr.z0 + 1, 'C'); spawnIn(hr, 'clerk', { boss: true, sub: 'archivist' }); spawnIn(hr, 'clerk', { sub: 'clerk_head' }); spawnIn(hr, 'clerk', { tier: 2 }); return; }
+      scatter(hr, 'kK', ri(1, 2)); if (rnd() < 0.35) scatter(hr, 'C', 1); var n = ri(1, 3); for (var m = 0; m < n; m++) spawnIn(hr, 'clerk', { tier: tierRoll(ARZ) });
+    });
+
+    // ================= 5. The Underbazaar (center): an open market cavern, all safe =================
+    var BZZ = zone({ name: 'The Underbazaar', theme: 'bazaar', fam: null, line: 'A huge cavern market under lanterns. Stalls, gossip, and a strict no-violence policy enforced by a very large teleporter.' }, 1, 1);
+    var plaza = room({ name: 'The Underbazaar', type: 'safe', x0: BZZ.x0, z0: BZZ.z0, x1: BZZ.x1, z1: BZZ.z1 }, BZZ);
+    var bcx = 120, bcz = 120;
+    for (zz = BZZ.z0 + 1; zz < BZZ.z1; zz++) for (xx = BZZ.x0 + 1; xx < BZZ.x1; xx++) {
+      var nx = (xx - bcx) / 35, nz = (zz - bcz) / 35, d4 = Math.pow(Math.abs(nx), 4) + Math.pow(Math.abs(nz), 4), wob = (Math.sin(xx * 0.37) + Math.cos(zz * 0.29)) * 0.06;
+      if (d4 < 0.82 + wob) put(xx, zz, '.', plaza.id);
+    }
+    function sub(name, x0, z0, x1, z1, line) { var r = room({ name: name, type: 'safe', x0: x0, z0: z0, x1: x1, z1: z1, line: line }, BZZ); for (var zz = z0; zz <= z1; zz++) for (var xx = x0; xx <= x1; xx++) if (isFloor(g[zz][xx])) reg[zz][xx] = r.id; return r; }
+    var fount = sub('Fountain Square', bcx - 7, bcz - 7, bcx + 7, bcz + 7, 'A fountain that runs on something blue. Do not drink it. Everyone does.');
+    for (zz = bcz - 2; zz <= bcz + 2; zz++) for (xx = bcx - 2; xx <= bcx + 2; xx++) put(xx, zz, '~');
+    [[-4, -4], [4, -4], [-4, 4], [4, 4]].forEach(function (o) { put(bcx + o[0], bcz + o[1], 'B'); });
+    var stalls = sub('Stall Row', bcx - 26, bcz - 26, bcx + 26, bcz - 12, 'Rows of empty market stalls. The vendors are on their way, the System promises.');
+    for (zz = stalls.z0 + 1; zz <= stalls.z1 - 1; zz += 4) for (xx = stalls.x0 + 2; xx <= stalls.x1 - 2; xx += 3) if (g[zz][xx] === '.') { put(xx, zz, 'T'); if (rnd() < 0.4 && g[zz + 1][xx] === '.') put(xx, zz + 1, pick(['b', 'R', 'K', 'v'])); }
+    var night = sub('Night Market', bcx - 26, bcz + 12, bcx + 26, bcz + 26, 'The shady end of the market. Lanterns, cages and goods with no receipts.');
+    for (zz = night.z0 + 1; zz <= night.z1 - 1; zz += 4) for (xx = night.x0 + 3; xx <= night.x1 - 3; xx += 4) if (g[zz][xx] === '.') put(xx, zz, pick(['T', 'T', 'g', 'q', 'R']));
+    var craft = sub('Craft Services', bcx + 14, bcz - 8, bcx + 28, bcz + 8, 'Free food for crawlers, courtesy of the sponsors. It heals you. The bathrooms are in the back.');
+    for (zz = craft.z0 + 2; zz <= craft.z1 - 2; zz += 4) { put(bcx + 20, zz, 'F'); put(bcx + 21, zz, 'F'); }
+    put(craft.x1 - 1, craft.z0 + 1, 'X'); put(craft.x1 - 1, craft.z0 + 3, 'X');
+    sub('Rumor Corner', bcx - 28, bcz - 8, bcx - 14, bcz + 8, 'Where crawlers trade gossip. Nobody is here yet. That is its own kind of rumor.');
+    for (zz = BZZ.z0 + 8; zz < BZZ.z1 - 6; zz += 12) for (xx = BZZ.x0 + 8; xx < BZZ.x1 - 6; xx += 12) if (g[zz][xx] === '.' && reg[zz][xx] === plaza.id) put(xx, zz, 'B');
+    [[-14, -32], [14, -32], [-32, 14], [32, -14], [-14, 32], [14, 32]].forEach(function (o) { for (var a = 0; a < 2; a++) for (var b = 0; b < 2; b++) put(bcx + o[0] + a, bcz + o[1] + b, '#'); }); // rock columns
+
+    // ================= 6. The Arena (east middle): a stadium =================
+    var AZ = zone({ name: 'The Arena', theme: 'arena', fam: 'puglin', line: 'A stadium carved out of the rock. The stands are full of aliens, and every one of them has paid to see you get hurt.' }, 2, 1);
+    var afield = room({ name: 'The Arena Floor', type: 'boss', x0: 175, z0: 98, x1: 227, z1: 142, line: 'Sand, blood and floodlights. The announcer is already introducing you. Badly.' }, AZ);
+    var acx = 201, acz = 120;
+    for (zz = afield.z0; zz <= afield.z1; zz++) for (xx = afield.x0; xx <= afield.x1; xx++) { var e2 = ((xx - acx) * (xx - acx)) / (26 * 26) + ((zz - acz) * (zz - acz)) / (22 * 22); if (e2 <= 1) put(xx, zz, '.', afield.id); }
+    for (var an2 = 0; an2 < 32; an2++) { var ang = an2 / 32 * Math.PI * 2, px2 = Math.round(acx + Math.cos(ang) * 23), pz2 = Math.round(acz + Math.sin(ang) * 19); if (an2 % 2 === 0) put(px2, pz2, 'P'); else if (an2 % 4 === 1) put(px2, pz2, 'B'); }
+    put(acx - 6, acz - 4, 'g'); put(acx + 6, acz + 4, 'g'); put(acx + 18, acz, 'C');
+    spawns.push({ kind: 'puglin', boss: true, sub: 'headliner', x: acx, z: acz, room: afield.id }); taken[acx + ',' + acz] = 1;
+    spawns.push({ kind: 'puglin', sub: 'puglin_brute', x: acx - 8, z: acz + 2, room: afield.id, name: 'Undercard brute' });
+    spawns.push({ kind: 'imp', sub: 'imp_foreman', x: acx + 8, z: acz - 2, room: afield.id, name: 'Undercard bruiser' });
+
+    // ================= 7. The Drowned Gardens (northwest corner): outdoors under the cavern sky =================
+    var GZ = zone({ name: 'The Drowned Gardens', theme: 'garden', fam: 'bog', line: 'An overgrown cavern that feels like outdoors. Trees, ponds, fog, and things that live in the reeds.', elite: 0.14 }, 0, 0);
+    var gfield = room({ name: 'The Drowned Gardens', type: 'corridor', x0: GZ.x0, z0: GZ.z0, x1: GZ.x1, z1: GZ.z1 }, GZ);
+    for (zz = GZ.z0 + 1; zz < GZ.z1; zz++) for (xx = GZ.x0 + 1; xx < GZ.x1; xx++) { var edge = Math.min(xx - GZ.x0, GZ.x1 - xx, zz - GZ.z0, GZ.z1 - zz); if (edge > 1 || rnd() < 0.5) put(xx, zz, ',', gfield.id); }
+    var gboss = room({ name: 'The Rotting Gazebo', type: 'boss', x0: 8, z0: 8, x1: 24, z1: 24, line: 'A gazebo swallowed by vines. Something big has been gardening here. It has been composting crawlers.' }, GZ);
+    for (k = 0; k < 7; k++) blob(ri(GZ.x0 + 8, GZ.x1 - 8), ri(GZ.z0 + 8, GZ.z1 - 8), ri(2, 4), ri(2, 3), function (xx, zz) { if (inb(xx, zz) && reg[zz][xx] === gfield.id && Math.max(Math.abs(xx - 16), Math.abs(zz - 16)) > 12) g[zz][xx] = '#'; });
+    for (k = 0; k < 7; k++) blob(ri(GZ.x0 + 6, GZ.x1 - 6), ri(GZ.z0 + 6, GZ.z1 - 6), ri(2, 5), ri(2, 4), function (xx, zz) { if (inb(xx, zz) && g[zz][xx] === ',' && Math.max(Math.abs(xx - 16), Math.abs(zz - 16)) > 12) g[zz][xx] = '~'; });
+    for (zz = GZ.z0 + 2; zz < GZ.z1 - 1; zz++) for (xx = GZ.x0 + 2; xx < GZ.x1 - 1; xx++) {
+      if (g[zz][xx] !== ',' || Math.max(Math.abs(xx - 16), Math.abs(zz - 16)) <= 10) continue;
+      var nn = Math.sin(xx * 0.21 + 1.3) * Math.cos(zz * 0.17 - 0.4) + Math.sin((xx + zz) * 0.09);
+      if (nn > 0.8 && rnd() < 0.3) g[zz][xx] = 'Y'; else if (rnd() < 0.008) g[zz][xx] = 'Y';
+    }
+    for (zz = gboss.z0; zz <= gboss.z1; zz++) for (xx = gboss.x0; xx <= gboss.x1; xx++) if ((xx - 16) * (xx - 16) + (zz - 16) * (zz - 16) <= 64) put(xx, zz, ',', gboss.id);
+    for (k = 0; k < 6; k++) put(Math.round(16 + Math.cos(k / 6 * Math.PI * 2) * 4), Math.round(16 + Math.sin(k / 6 * Math.PI * 2) * 4), 'P');
+    put(16, 16, 'C');
+    var GN = [['Lily Pond', 'Lily pads big enough to stand on. Do not stand on them.'], ['The Mushroom Ring', 'A perfect circle of mushrooms. Stepping inside feels like a contract.'], ['Willow Hollow', 'The trees lean in close. The fog is thick enough to hide in.'], ['The Old Greenhouse', 'A glass greenhouse, mostly broken. The plants inside are winning.'], ['Reed Marsh', 'Tall reeds and soft mud. Something keeps moving just out of sight.'], ['Picnic Lawn', 'A sponsor\'s picnic, abandoned mid-sandwich.']];
+    var glist = [gboss];
+    GN.forEach(function (gn, k) {
+      for (var t = 0; t < 80; t++) {
+        var cx3 = ri(GZ.x0 + 8, GZ.x1 - 8), cz3 = ri(GZ.z0 + 8, GZ.z1 - 8), ok = true;
+        glist.forEach(function (o) { var c = center(o); if (Math.abs(c[0] - cx3) < 16 && Math.abs(c[1] - cz3) < 16) ok = false; }); if (!ok) continue;
+        var cl = room({ name: gn[0], type: 'room', x0: cx3 - 5, z0: cz3 - 5, x1: cx3 + 5, z1: cz3 + 5, line: gn[1] }, GZ);
+        for (var zz = cl.z0; zz <= cl.z1; zz++) for (var xx = cl.x0; xx <= cl.x1; xx++) { if (g[zz][xx] === 'Y' || g[zz][xx] === '#') g[zz][xx] = ','; if (g[zz][xx] === ',' || g[zz][xx] === '~') reg[zz][xx] = cl.id; }
+        if (gn[0] === 'Lily Pond') blob(cx3, cz3, 3, 3, function (xx, zz) { if (reg[zz][xx] === cl.id) g[zz][xx] = '~'; });
+        if (gn[0] === 'The Old Greenhouse') { for (xx = cl.x0; xx <= cl.x1; xx++) { put(xx, cl.z0, '#'); put(xx, cl.z1, '#'); } for (zz = cl.z0; zz <= cl.z1; zz++) { put(cl.x0, zz, '#'); put(cl.x1, zz, '#'); } put(cx3, cl.z1, 'D', cl.id); put(cx3, cl.z0, 'D', cl.id); scatter(cl, 'hhvq', 5); }
+        if (gn[0] === 'Picnic Lawn') scatter(cl, 'TRb', 3);
+        if (rnd() < 0.4) scatter(cl, 'C', 1);
+        glist.push(cl); break;
+      }
+    });
+    spawnIn(gboss, 'bog', { boss: true, sub: 'gardener' }); spawnIn(gboss, 'bog', { sub: 'bog_chief' }); spawnIn(gboss, 'bog', { tier: 2 });
+    glist.forEach(function (cl) { if (cl === gboss) return; var n = ri(1, 3); for (var m = 0; m < n; m++) spawnIn(cl, 'bog', { tier: tierRoll(GZ) }); });
+    for (k = 0; k < 10; k++) { var wx = ri(GZ.x0 + 4, GZ.x1 - 4), wz = ri(GZ.z0 + 4, GZ.z1 - 4); if (g[wz][wx] === ',' && reg[wz][wx] === gfield.id && !taken[wx + ',' + wz]) { taken[wx + ',' + wz] = 1; spawns.push({ kind: 'bog', tier: tierRoll(GZ), x: wx, z: wz, room: gfield.id }); } }
+
+    // ================= 8. The Stairwell Gate (northeast corner): the way down =================
+    var SGZ = zone({ name: 'The Stairwell Gate', theme: 'gate', fam: 'imp', line: 'The last stretch of the floor. The stairs down are close, and so is whatever is guarding them.' }, 2, 0);
+    var appr = room({ name: 'The Approach', type: 'hall', x0: 196, z0: 34, x1: 205, z1: SGZ.z1 - 1, line: 'A long hall built to make you feel small. It works.' }, SGZ);
+    carveRect(appr); for (zz = appr.z0 + 2; zz < appr.z1; zz += 4) { put(appr.x0, zz, 'P'); put(appr.x1, zz, 'P'); } put(appr.x0 + 1, appr.z0 + 6, 'B'); put(appr.x1 - 1, appr.z0 + 6, 'B'); put(appr.x0 + 1, appr.z1 - 6, 'B'); put(appr.x1 - 1, appr.z1 - 6, 'B');
+    var gh = room({ name: 'The Gatehouse', type: 'boss', x0: 188, z0: 10, x1: 213, z1: 30, line: 'The gatehouse. The thing that guards the stairs has been waiting for you specifically. It read your file.' }, SGZ);
+    carveRect(gh); passage(200, 31, 200, 33, gh.id, '.', 4);
+    for (xx = gh.x0 + 3; xx < gh.x1 - 2; xx += 5) { put(xx, gh.z0 + 3, 'P'); put(xx, gh.z1 - 3, 'P'); } put(gh.x0 + 1, gh.z0 + 1, 'B'); put(gh.x1 - 1, gh.z0 + 1, 'B'); put(gh.x0 + 1, gh.z1 - 1, 'B'); put(gh.x1 - 1, gh.z1 - 1, 'B');
+    var stairR = room({ name: 'The Stairwell', type: 'stairs', x0: 221, z0: 6, x1: 233, z1: 16, line: 'The stairs down to Floor 2. Step on them when your whole party is ready.' }, SGZ);
+    carveRect(stairR); passage(214, 12, 220, 12, gh.id, '.', 2); put(227, 9, 'S'); put(222, 7, 'c'); put(232, 7, 'c'); var stairs = { x: 227, z: 9 };
+    var lcs = room({ name: 'Last Chance Lounge', type: 'safe', x0: 180, z0: 46, x1: 192, z1: 56, line: 'A safe room before the end. Free food, a mirror, and a sign that says GOOD LUCK in six languages.' }, SGZ);
+    carveRect(lcs); put(lcs.x1 + 1, 51, 'D', lcs.id); put(lcs.x1 + 2, 51, '.', appr.id); put(lcs.x1 + 3, 51, '.', appr.id); put(lcs.x0 + 1, lcs.z0 + 1, 'F'); put(lcs.x0 + 2, lcs.z0 + 1, 'F'); put(lcs.x0 + 1, lcs.z1 - 1, 'X'); put(lcs.x1 - 1, lcs.z0 + 1, 'c');
+    var troph = room({ name: 'The Trophy Room', type: 'room', x0: 209, z0: 50, x1: 221, z1: 60, line: 'Trophies from crawlers who did not make it down. Some of them are still warm.' }, SGZ);
+    carveRect(troph); put(troph.x0 - 1, 55, 'D', troph.id); put(troph.x0 - 2, 55, '.', appr.id); put(troph.x0 - 3, 55, '.', appr.id); scatter(troph, 'WWkv', 4); put(troph.x1 - 1, troph.z0 + 1, 'C');
+    spawns.push({ kind: 'imp', sub: 'imp_foreman', x: 199, z: 44, room: appr.id, guard: true, name: 'Gate guard' }); spawns.push({ kind: 'imp', sub: 'imp_foreman', x: 202, z: 44, room: appr.id, guard: true, name: 'Gate guard' });
+    spawnIn(troph, 'imp', { tier: 2 });
+    spawns.push({ kind: 'imp', boss: true, sub: 'gatekeeper', x: 200, z: 20, room: gh.id }); spawns.push({ kind: 'imp', sub: 'imp_foreman', x: 196, z: 22, room: gh.id }); spawns.push({ kind: 'puglin', sub: 'puglin_chief', x: 205, z: 22, room: gh.id });
+
+    // ---------- gates: zones open onto the boulevards ----------
+    gate(PCZ, 'E', pc.hz0 + 1, 'Processing Exit'); gate(PCZ, 'N', pc.hx0 + 1, 'Processing North Doors');
+    gate(WRZ, 'W', 205, 'Warren Mouth'); gate(WRZ, 'N', 120, 'Warren Burrow'); gate(WRZ, 'E', 200, 'Warren Back Door');
+    gate(UHZ, 'W', uh.hz0 + 1, 'Union Hall Lobby'); gate(UHZ, 'N', uh.hx0 + 1, 'Union Hall Loading Dock');
+    gate(ARZ, 'E', 120, 'Archive Steps'); gate(ARZ, 'N', 38, 'Archive North Door'); gate(ARZ, 'S', 38, 'Archive South Door');
+    gate(BZZ, 'W', 120, 'Bazaar West Gate'); gate(BZZ, 'E', 120, 'Bazaar East Gate'); gate(BZZ, 'N', 120, 'Bazaar North Gate'); gate(BZZ, 'S', 120, 'Bazaar South Gate');
+    gate(AZ, 'W', 120, 'Contestant Tunnel'); gate(AZ, 'S', 201, 'Ticket Hall'); gate(AZ, 'N', 201, 'Victory Tunnel');
+    gate(GZ, 'S', 38, 'Garden Path'); gate(GZ, 'E', 38, 'Garden Gate');
+    gate(SGZ, 'S', 200, 'The Last Mile');
+
+    // ---------- hidden rooms: behind a wall that hides a door, off any corridor ----------
+    var HN = ['A Forgotten Closet', 'The Secret Stash', 'A Smugglers\' Nook', 'The Producer\'s Hideout', 'The Writers\' Room', 'An Unlisted Dressing Room', 'The Blooper Vault', 'A Sponsor\'s Lost Crate', 'The Stunt Double\'s Bunk', 'The Censor\'s Office'], hidden = 0;
+    for (t = 0; t < 4000 && hidden < HN.length; t++) {
+      var hx2 = ri(4, Wd - 10), hz2 = ri(4, Hd - 10), hw2 = ri(3, 5), hh2 = ri(3, 4);
+      if (!free(hx2, hz2, hx2 + hw2, hz2 + hh2)) continue;
+      var sides = [[hx2 - 2, hz2 + 1, hx2 - 1, hz2 + 1], [hx2 + hw2 + 2, hz2 + 1, hx2 + hw2 + 1, hz2 + 1], [hx2 + 1, hz2 - 2, hx2 + 1, hz2 - 1], [hx2 + 1, hz2 + hh2 + 2, hx2 + 1, hz2 + hh2 + 1]], okS = null;
+      sides.forEach(function (sd) { if (!okS && inb(sd[0], sd[1]) && isFloor(g[sd[1]][sd[0]]) && rooms[reg[sd[1]][sd[0]]] && rooms[reg[sd[1]][sd[0]]].type === 'corridor') okS = sd; });
+      if (!okS) continue;
+      var hzn = null; zones.forEach(function (Z) { if (hx2 >= Z.cell[0] && hx2 <= Z.cell[2] && hz2 >= Z.cell[1] && hz2 <= Z.cell[3]) hzn = Z; });
+      var hr2 = room({ name: HN[hidden], theme: 'store', type: 'hidden', x0: hx2, z0: hz2, x1: hx2 + hw2, z1: hz2 + hh2, line: 'A hidden room. The audience gasps on cue.' });
+      carveRect(hr2); put(okS[2], okS[3], 'H', hr2.id); var hc = center(hr2); put(hc[0], hc[1], 'C'); hidden++;
+    }
+
+    // ---------- tidy up: anything you cannot walk to becomes rock; spawns must stand on reachable floor ----------
+    var seen = new Uint8Array(Wd * Hd), q = [start.x + start.z * Wd]; seen[q[0]] = 1;
+    var PASS = { '.': 1, ',': 1, '~': 1, 'D': 1, 'H': 1, 'S': 1, '@': 1 };
+    while (q.length) { var cur = q.pop(), cx4 = cur % Wd, cz4 = (cur / Wd) | 0;
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (dd) { var nx2 = cx4 + dd[0], nz2 = cz4 + dd[1], k2 = nx2 + nz2 * Wd; if (!inb(nx2, nz2) || seen[k2] || !PASS[g[nz2][nx2]]) return; seen[k2] = 1; q.push(k2); }); }
+    var lost = 0;
+    for (zz = 1; zz < Hd - 1; zz++) for (xx = 1; xx < Wd - 1; xx++) if (isFloor(g[zz][xx]) && !seen[xx + zz * Wd]) { g[zz][xx] = '#'; lost++; }
+    spawns = spawns.filter(function (sp) { var c = g[sp.z] && g[sp.z][sp.x]; return (c === '.' || c === ',') && seen[sp.x + sp.z * Wd]; });
+    function Z_owns(Z, xx, zz) { return !!Z.rids[reg[zz][xx]]; }
+    function connectAll(list, link, extra) { // a spanning tree by distance, plus a few extra loops
+      var joined = [list[0]], left = list.slice(1);
       while (left.length) {
         var best = null, bd = 1e9;
         left.forEach(function (a) { joined.forEach(function (b) { var ca = center(a), cb = center(b), dd = Math.abs(ca[0] - cb[0]) + Math.abs(ca[1] - cb[1]); if (dd < bd) { bd = dd; best = [a, b]; } }); });
-        var ca = center(best[0]), cb = center(best[1]); tunnel(ca[0], ca[1], cb[0], cb[1], tun.id, false, floor);
-        joined.push(best[0]); left.splice(left.indexOf(best[0]), 1);
+        link(center(best[0]), center(best[1])); joined.push(best[0]); left.splice(left.indexOf(best[0]), 1);
       }
-      if (list.length > 3) { var e1 = center(list[1]), e2 = center(list[list.length - 2]); tunnel(e1[0], e1[1], e2[0], e2[1], tun.id, false, floor); }
-      // the neighborhood's mouth: the room nearest the ring gate tunnels out to the ring
-      var near = list.slice(1).sort(function (a, b) { var A = center(a), B = center(b); return (Math.abs(A[0] - gx) + Math.abs(A[1] - gz)) - (Math.abs(B[0] - gx) + Math.abs(B[1] - gz)); })[0] || boss;
-      var cn = center(near); tunnel(cn[0], cn[1], gx, gz, tun.id, true, '.');
-      // dress the rooms and fill them with the neighborhood's monster family
-      list.forEach(function (r, k) {
-        if (r === boss) return;
-        scatter(r, H.decor, ri(1, 3)); if (rnd() < 0.35) scatter(r, 'C', 1);
-        var n = ri(1, 3); if (r === near) n = 1;
-        for (var m = 0; m < n; m++) { var c2 = center(r); spawns.push({ kind: H.fam, tier: rnd() < 0.18 ? 3 : rnd() < 0.45 ? 2 : 1, x: c2[0] + ri(-1, 1), z: c2[1] + ri(-1, 1), room: r.id }); }
-      });
-      H.rooms = list; H.tun = tun; H.bossRoom = boss;
-    });
-    // ----- hidden rooms: a short dead-end off a corridor behind a wall that hides a door -----
-    var hidden = 0;
-    for (var t = 0; t < 400 && hidden < 4; t++) {
-      var hx = ri(4, Wd - 12), hz = ri(4, Hd - 12), hw = ri(3, 4), hh = ri(3, 4);
-      if (!free(hx, hz, hx + hw, hz + hh)) continue;
-      // find a corridor tile two steps from one side
-      var sides = [[hx - 2, hz + 1, hx - 1, hz + 1], [hx + hw + 2, hz + 1, hx + hw + 1, hz + 1], [hx + 1, hz - 2, hx + 1, hz - 1], [hx + 1, hz + hh + 2, hx + 1, hz + hh + 1]], ok = null;
-      sides.forEach(function (sd) { if (!ok && inb(sd[0], sd[1]) && g[sd[1]][sd[0]] !== '#' && rooms[reg[sd[1]][sd[0]]] && rooms[reg[sd[1]][sd[0]]].type === 'corridor') ok = sd; });
-      if (!ok) continue;
-      var hr = room({ name: ['A Forgotten Closet', 'The Secret Stash', 'A Smugglers\' Nook', 'The Producer\'s Hideout'][hidden], theme: 'store', type: 'hidden', x0: hx, z0: hz, x1: hx + hw, z1: hz + hh, line: 'A hidden room. The audience gasps on cue.' });
-      carveRect(hr); g[ok[3]][ok[2]] = 'H'; reg[ok[3]][ok[2]] = hr.id; var hc = center(hr); g[hc[1]][hc[0]] = 'C'; hidden++;
+      for (var e = 0; e < extra && list.length > 3; e++) { var a = pick(list), b = pick(list); if (a !== b) link(center(a), center(b)); }
     }
-    // drop spawns that landed on non-floor
-    spawns = spawns.filter(function (sp) { var c = g[sp.z] && g[sp.z][sp.x]; return c === '.' || c === ','; });
-    // ----- water floors in the archive: pools inside rooms, with dry walkways -----
-    rooms.forEach(function (r) {
-      if (r.theme !== 'water' || r.type === 'corridor') return;
-      for (var zz = r.z0 + 1; zz <= r.z1 - 1; zz++) for (var xx = r.x0 + 1; xx <= r.x1 - 1; xx++) if (g[zz][xx] === '.' && (xx + zz) % 3 !== 0 && rnd() < 0.7) g[zz][xx] = '~';
-    });
-    var map = g.map(function (row) { return row.join(''); }), start = { x: C - 2, z: C };
-    return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start, hoods: HOODS, stairs: { x: C, z: C + 24 } };
+    var map = g.map(function (row) { return row.join(''); });
+    return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start, hoods: zones, stairs: stairs, lost: lost };
   }

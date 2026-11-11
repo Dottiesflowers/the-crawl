@@ -4,7 +4,7 @@
   // arrive (or if they fail) the hand-made blocks stay.
   var PROPS = { ready: false, lib: {}, box: {}, mats: {} };
   var PROPBLOCK = {};
-  var PTEX = [[/Trim_Furniture/, 'trim_furniture.jpg'], [/Trim_Metal/, 'trim_metal.jpg'], [/Trim_Props/, 'trim_props.jpg'], [/Trim_Cloth|Banner/, 'trim_cloth.jpg'],
+  var PTEX = [[/Bark_NormalTree/, 'n_bark.jpg'], [/Bark_Twisted|Bark_Dead/, 'n_bark2.jpg'], [/Leaves_NormalTree/, 'n_treeleaves.png'], [/Leaves_TwistedTree/, 'n_twleaves.png'], [/Leaves_Pine/, 'n_pine.png'], [/^Flowers/, 'n_flowers.png'], [/Trim_Furniture/, 'trim_furniture.jpg'], [/Trim_Metal/, 'trim_metal.jpg'], [/Trim_Props/, 'trim_props.jpg'], [/Trim_Cloth|Banner/, 'trim_cloth.jpg'],
     [/Page/, 'page.jpg'], [/Mushrooms/, 'n_mushrooms.jpg'], [/Rocks|Bark/, 'n_rocks.jpg'], [/Grass/, 'n_grass.jpg'], [/Leaves|Flowers/, 'n_leaves.png']];
   function propMat(name, fade) {
     var file = 'trim_furniture.jpg', leafy = /Leaves|Flowers/.test(name);
@@ -76,6 +76,10 @@
     else if (c === 'W') place('WeaponStand', x, z, { fit: 1.0, rot: r * 2 });
     else if (c === 'U') place('Dummy', x, z, { h: 1.3, rot: r * 6 });
     else if (c === 'b') place('Bag', x, z, { fit: 0.45, rot: r * 6 });
+    else if (c === 'h' && th === 'water') place('Bookcase_2', x, z, { fit: 0.98, rot: Math.PI / 2 });
+    else if (c === 'h' && th === 'office') place('Shelf_Arch', x, z, { fit: 0.9, rot: Math.round(r * 2) * Math.PI });
+    else if (c === 'F') { place('Table_Large', x, z, { fit: 1.05, rot: 0 }); var fy = 0.815 * 0.37; place('FarmCrate_Apple', x - 0.18, z, { y: fy, fit: 0.32 }); place(r > 0.5 ? 'Pot_1' : 'Mug', x + 0.2, z - 0.08, { y: fy, fit: 0.2 }); place('Bag', x + 0.15, z + 0.15, { y: fy, fit: 0.2 }); }
+    else if (c === 'Y') { place(['CommonTree_1', 'CommonTree_3', 'Pine_2', 'CommonTree_1'][Math.floor(r * 4)], x, z, { h: 2.6 + r2 * 1.1, rot: r * 7, fade: true, noShadow: true }); }
     else if (c === 'h') place('Shelf_Small_Bottles', x, z, { fit: 0.95, rot: Math.round(r * 4) * Math.PI / 2 });
     else if (c === 'c') place('CandleStick_Stand', x, z, { h: 1.0 });
     else if (c === 'q') place('Cauldron', x, z, { fit: 0.72 });
@@ -86,6 +90,10 @@
       if (r > 0.5) place(['Grass_Wispy_Short', 'Clover_1', 'Fern_1', 'Plant_1', 'Grass_Common_Short', 'Plant_7'][Math.floor(r2 * 6)], x + (r2 - 0.5) * 0.5, z + (r - 0.75) * 0.6, { fit: 0.45 + r2 * 0.3, rot: r * 9, noShadow: true, tx: x, tz: z });
       if (r2 > 0.72) place(r > 0.5 ? 'Mushroom_Common' : 'Mushroom_Laetiporus', x - (r - 0.5) * 0.4, z + (r2 - 0.86) * 1.2, { fit: 0.26 + r * 0.14, rot: r2 * 7, tx: x, tz: z });
       if (r < 0.18) place('Pebble_Round_' + (1 + Math.floor(r2 * 3)), x + 0.25, z - 0.2, { fit: 0.24, rot: r2 * 5, noShadow: true, tx: x, tz: z });
+    } else if (th === 'garden' && c === ',') {
+      if (r > 0.68) place(['Grass_Wispy_Short', 'Grass_Common_Short', 'Grass_Wispy_Tall', 'Clover_1', 'Fern_1', 'Plant_1', 'Flower_3_Group', 'Flower_4_Group'][Math.floor(r2 * 8)], x + (r2 - 0.5) * 0.5, z + (r - 0.7) * 0.6, { fit: 0.45 + r2 * 0.35, rot: r * 9, noShadow: true, tx: x, tz: z });
+      if (r2 > 0.93) place(r > 0.5 ? 'Bush_Common_Flowers' : 'Bush_Common', x - 0.1, z + 0.1, { fit: 0.8, rot: r2 * 7, tx: x, tz: z });
+      else if (r2 > 0.86) place(r > 0.5 ? 'Mushroom_Common' : 'Rock_Medium_' + (1 + Math.floor(r * 3)), x, z, { fit: r > 0.5 ? 0.3 : 0.4, rot: r2 * 7, tx: x, tz: z, noShadow: true });
     } else if (c === '.' && th === 'store' && r > 0.94) place(r2 > 0.5 ? 'Bucket_Wooden_1' : 'Rope_1', x + (r2 - 0.5) * 0.4, z, { fit: 0.3, rot: r * 5, noShadow: true, tx: x, tz: z });
     else if (c === '.' && th === 'crypt' && r > 0.95) place('Chain_Coil', x, z, { fit: 0.45, noShadow: true });
   }

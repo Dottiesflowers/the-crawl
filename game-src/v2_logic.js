@@ -1,9 +1,43 @@
 
   // ---------- state ----------
   var P = { x: start.x, z: start.z, px: start.x, pz: start.z, speed: 0 };
+  var CAMV = { a: Math.PI / 4, yaw: 0, cx: 1, cz: 1, px: 0, pz: 0, uz: 1, home: false, fx: 0, fz: 0, halfH: 4.1, ptrs: {}, pinch: 0 };
   var SIGHTS = [{ name: 'Human eyes', r: 4, dark: false }, { name: 'Torch', r: 6, dark: false }, { name: 'Darkvision', r: 9, dark: true }];
   var sightI = 0, gearOpen = false, zoom = 1, spin = 0;
   hero.position.set(P.px, 0, P.pz);
+  // ---------- free food in safe rooms: heals to full, then you are too stuffed to eat for two minutes ----------
+  var FED_MS = 120000;
+  function eatFood() {
+    var now = Date.now();
+    if (PC.hp >= PC.max) { say('Eat', 'You are already at full health. You eat a grape anyway. The audience respects it.', 3500); return; }
+    if (PC.fedUntil && now < PC.fedUntil) { say('Too full', 'You are stuffed. You can eat again in ' + Math.ceil((PC.fedUntil - now) / 1000) + ' seconds.', 3500); return; }
+    var got = PC.max - PC.hp; PC.hp = PC.max; PC.fedUntil = now + FED_MS; if (typeof cbHUD === 'function') cbHUD();
+    kitOneShot('PickUp_Table'); say('Free food', 'You eat like the sponsors are paying, because they are. +' + got + ' HP. You are full for the next two minutes.', 4500);
+  }
+  // ---------- where you are and what you have explored, saved per character ----------
+  function heroTo(x, z) {
+    if (x < 0 || z < 0 || x >= W || z >= H || blocksMove(x, z) || ch(x, z) === '#') return false;
+    P.x = x; P.z = z; P.px = x; P.pz = z; P.path = null; hero.position.set(x, 0, z); return true;
+  }
+  function fogKey() { return 'crawl-fog-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : ''); }
+  function fogSave() { // explored tiles as runs: start,length;start,length...
+    var out = [], i = 0; while (i < W * H) { if (tileState[i]) { var j = i; while (j < W * H && tileState[j]) j++; out.push(i.toString(36) + ',' + (j - i).toString(36)); i = j; } else i++; }
+    try { localStorage.setItem(fogKey(), out.join(';')); } catch (e) {}
+  }
+  function fogLoad() {
+    var s; try { s = localStorage.getItem(fogKey()); } catch (e) {} if (!s) return;
+    s.split(';').forEach(function (p) { var a = p.split(','), st = parseInt(a[0], 36), n = parseInt(a[1], 36); for (var k = 0; k < n && st + k < W * H; k++) tileState[st + k] = 1; });
+    FOG.total = 0; FOG.seen = 0;
+  }
+  var lastSavedPos = '';
+  function posRestore() { if (!CHAR) return; fogLoad(); if (CHAR.pos && heroTo(CHAR.pos.x, CHAR.pos.z)) { refreshFog(); enterRoom(); } }
+  function posSave(force) {
+    if (!CHAR || CB.on) return; var k = P.x + ',' + P.z; if (!force && k === lastSavedPos) return; lastSavedPos = k;
+    CHAR.pos = { x: P.x, z: P.z }; fogSave(); saveChar(CHAR);
+  }
+  setInterval(function () { posSave(false); }, 30000);
+  if (CHAR) setTimeout(posRestore, 0);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) posSave(true); });
 
   function los(x0, z0, x1, z1) {
     var dx = Math.abs(x1 - x0), dz = Math.abs(z1 - z0), sx = x0 < x1 ? 1 : -1, sz = z0 < z1 ? 1 : -1, e = dx - dz, x = x0, z = z0;
@@ -14,20 +48,21 @@
     return true;
   }
   var visNow = {}, tmp = new THREE.Color();
+  var FOG = { total: 0, seen: 0 };
+  var LIT = { bazaar: 6, arena: 6, blvd: 4, studio: 3, office: 2, garden: 2 }; // well-lit places let you see farther
   function refreshFog() {
     streamChunks();
-    var S = SIGHTS[sightI], R = S.r; visNow = {};
+    var S = SIGHTS[sightI], here = roomInfo(P.x, P.z), R = S.r + ((here && LIT[here.theme]) || 0); visNow = {};
     for (var z = P.z - R; z <= P.z + R; z++) for (var x = P.x - R; x <= P.x + R; x++) {
       if (x < 0 || z < 0 || x >= W || z >= H) continue;
       var d = Math.sqrt((x - P.x) * (x - P.x) + (z - P.z) * (z - P.z));
-      if (d <= R + 0.4 && los(P.x, P.z, x, z)) { visNow[x + ',' + z] = d; tileState[z * W + x] = 1; }
+      if (d <= R + 0.4 && los(P.x, P.z, x, z)) { visNow[x + ',' + z] = d; if (!tileState[z * W + x]) { tileState[z * W + x] = 1; if (FOG.total && MAP[z].charAt(x) !== '#') FOG.seen++; } }
     }
-    var seen = 0, total = 0;
-    for (var i = 0; i < W * H; i++) { if (MAP[Math.floor(i / W)].charAt(i % W) !== '#') { total++; if (tileState[i]) seen++; } }
-    document.getElementById('explored').textContent = 'Explored ' + Math.round(100 * seen / total) + '%';
+    if (!FOG.total) { for (var i = 0; i < W * H; i++) if (MAP[(i / W) | 0].charAt(i % W) !== '#') { FOG.total++; if (tileState[i]) FOG.seen++; } }
+    document.getElementById('explored').textContent = 'Explored ' + (Math.round(1000 * FOG.seen / FOG.total) / 10) + '%';
     for (var j = 0; j < tiles.length; j++) {
       var t = tiles[j], key = t.x + ',' + t.z, d2 = visNow[key], explored = tileState[t.z * W + t.x];
-      var ax = t.x - P.x, az = t.z - P.z, sum = ax + az, dif = Math.abs(ax - az), cut = sum >= 1 && sum <= 8 && dif <= 5;
+      var ax = t.x - P.x, az = t.z - P.z, sum = ax * CAMV.cx + az * CAMV.cz, dif = Math.abs(ax * CAMV.cz - az * CAMV.cx), cut = sum >= 1 && sum <= 8 && dif <= 5;
       if (d2 === undefined) {
         t.mesh.visible = !!explored && !t.mob && !(t.glow && t.hang);
         if (t.mesh.visible) { if (t.glow) t.mesh.material.color.copy(t.base).multiplyScalar(0.3); else t.mesh.material.color.setScalar(0.17); }
@@ -62,7 +97,7 @@
     var info = roomInfo(P.x, P.z); if (!info) return; var id = info.id; if (id === lastRoom) return; lastRoom = id;
     var hood = info.hood !== undefined ? LEVEL.hoods[info.hood] : null;
     document.getElementById('region').textContent = info.name;
-    if (hood && !seenRooms['h' + info.hood]) { seenRooms['h' + info.hood] = 1; say('Neighborhood discovered: ' + hood.name, hood.line, 6000); }
+    if (hood && !seenRooms['h' + info.hood]) { seenRooms['h' + info.hood] = 1; say('Zone discovered: ' + hood.name, hood.line, 6000); }
     else if (!seenRooms[id] && info.type !== 'corridor') { seenRooms[id] = 1; say((info.type === 'safe' ? 'Safe room: ' : info.type === 'boss' ? 'Boss room: ' : info.type === 'hidden' ? 'Secret found: ' : 'Discovered: ') + info.name, info.line, 4500); }
     // a sharp-eyed crawler notices odd walls nearby
     var pp = 10 + MOD.WIS + skillLv('Perception');
@@ -77,8 +112,18 @@
     var v = sys > 2 ? 'down' : (sys < -2 ? 'up' : ''), h = sxs > 2 ? 'right' : (sxs < -2 ? 'left' : '');
     return n < 2 ? 'You are standing next to it.' : 'The stairwell is ' + n + ' tiles away, toward the ' + ((v + ' ' + h).trim() || 'middle') + ' of your screen.';
   }
-  var NAMES = { X: 'Bathroom', H: 'Wall', T: 'Table', W: 'Weapon rack', U: 'Training dummy', b: 'Sack', h: 'Shelf', c: 'Candle stand', q: 'Cauldron', k: 'Book stand', g: 'Cage', v: 'Vase', C: 'Loot box (Bronze)', M: 'Cellar Grub, level 1', B: 'Brazier', P: 'Pillar', S: 'Stairwell', D: 'Doorway', K: 'Crate', R: 'Barrel', '#': 'Wall', area: 'Your surroundings' };
+  var NAMES = { F: 'Free food', Y: 'Tree', X: 'Bathroom', H: 'Wall', T: 'Table', W: 'Weapon rack', U: 'Training dummy', b: 'Sack', h: 'Shelf', c: 'Candle stand', q: 'Cauldron', k: 'Book stand', g: 'Cage', v: 'Vase', C: 'Loot box (Bronze)', M: 'Cellar Grub, level 1', B: 'Brazier', P: 'Pillar', S: 'Stairwell', D: 'Doorway', K: 'Crate', R: 'Barrel', '#': 'Wall', area: 'Your surroundings' };
   var ACTS = {
+    F: [
+      { label: 'Eat', auto: 'eat' },
+      { label: 'Examine', text: 'A catering table, courtesy of the sponsors. Sandwiches, fruit, something in a pot. It heals you. Eating is free; loitering is filmed.' },
+      { label: 'Pocket a snack', auto: 'snack' }
+    ],
+    Y: [
+      { label: 'Examine', text: 'A real tree, underground. The sponsors pipe in the light. The roots go somewhere you would rather not know about.' },
+      { label: 'Climb it for a look around', stat: 'STR', skill: ['Athletics', 1], dc: 12, flag: 'climb', win: 'From the top you can see over the reeds. You map the area around you.', lose: 'You slide down with a fistful of bark. The audience loved it.' },
+      { label: 'Hide in its branches', stat: 'DEX', skill: ['Stealth', 1], dc: 12, win: 'You disappear into the leaves. A bird objects.', lose: 'A branch snaps. Everyone heard that.' }
+    ],
     C: [
       { label: 'Examine', text: 'A bronze loot box. Sealed. You are being filmed looking at it.' },
       { label: 'Investigate for traps', stat: 'INT', dc: 10, win: 'No traps. The lock is cheap and the hinges are worse.', lose: 'It looks like a box. You learn nothing else.' },
@@ -185,6 +230,12 @@
     if (a.loot) { lootBody(t.e); return; }
     if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); t.e.calm = false; cbStart(t.e.calm ? '' : 'You started it.', t.e); return; }
     if (a.rest) { PC.hp = PC.max; cbHUD(); }
+    if (a.auto === 'eat') { eatFood(); return; }
+    if (a.auto === 'snack') {
+      if (done[t.key + 'snack']) { say('Pocket a snack', 'You already took one from this table. The caterer is watching you now.', 3500); return; }
+      done[t.key + 'snack'] = true; invAdd({ name: 'Craft services sandwich', cat: 'consumable', heal: 4, desc: 'Free, wrapped, and surprisingly good. Heals 4 HP.', from: 'a catering table' });
+      say('Pocket a snack', 'One sandwich for the road. It heals 4 HP when you eat it from your bag.', 3500); return;
+    }
     if (a.auto === 'torch') { sightI = 1; document.getElementById('sight').textContent = 'Sight: Torch'; look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say(a.label, a.text); return; }
     if (!a.stat) { say(a.label, a.text); return; }
     var roll = 1 + Math.floor(Math.random() * 20), bonus = chkBonus(a), total = roll + bonus;
@@ -198,6 +249,7 @@
       if (a.flag === 'open') { tiles.forEach(function (q) { if (q.x === t.x && q.z === t.z && q.lid) { q.mesh.position.y += 0.2; q.mesh.position.z -= 0.2; } }); lootSpot(t.x, t.z, 'chest'); }
       if (a.flag === 'loot') lootSpot(t.x, t.z, 'small');
       if (a.flag === 'found') { revealHidden(t.x, t.z); }
+      if (a.flag === 'climb') { for (var cz = -14; cz <= 14; cz++) for (var cx = -14; cx <= 14; cx++) { var qx = t.x + cx, qz = t.z + cz; if (qx >= 0 && qz >= 0 && qx < W && qz < H && cx * cx + cz * cz <= 196 && !tileState[qz * W + qx]) { tileState[qz * W + qx] = 1; if (FOG.total && MAP[qz].charAt(qx) !== '#') FOG.seen++; } } refreshFog(); done[t.key + 'climb'] = false; }
     }
   }
 
@@ -228,7 +280,8 @@
     } else {
       if (gearOpen || m < 0.15) { P.speed = 0; return; }
       if (m > 1) { sx /= m; sy /= m; m = 1; }
-      wx = (sx + sy) * 0.7071; wz = (sy - sx) * 0.7071; // screen direction to floor direction
+      var ca = Math.cos(CAMV.a), sa = Math.sin(CAMV.a); wx = sx * ca + sy * sa; wz = -sx * sa + sy * ca; // screen direction to floor direction (follows the camera's turn)
+      if (CAMV.px || CAMV.pz) CAMV.home = true; // moving with the stick brings the camera back to you
     }
     if (menuOpen && Math.abs(P.px - menuAt.x) + Math.abs(P.pz - menuAt.z) > 0.4 && !P.path) closeMenu();
     var top = crouch ? 1.5 : 3.3; P.speed = top * m;
@@ -283,6 +336,11 @@
     else if (menuOpen && e.key >= '1' && e.key <= '9') { var mb = menuEl.querySelectorAll('button')[Number(e.key) - 1]; if (mb && !mb.disabled) mb.click(); }
     else if (e.key === 'Escape') closeMenu();
     else if (e.key === 'c') toggleCrouch();
+    else if (e.key === '[' || e.key === 'q' || e.key === 'Q') camTurn(-1);
+    else if (e.key === ']' || e.key === 'r' || e.key === 'R') camTurn(1);
+    else if (e.key === '-' || e.key === '_') camZoom(1 / 1.25);
+    else if (e.key === '=' || e.key === '+') camZoom(1.25);
+    else if (e.key === 'h' || e.key === 'H' || e.key === 'Home') CAMV.home = true;
     else if (e.key === 'v') cycleSight();
     else if (e.key === 'g') toggleGear();
   });
@@ -370,15 +428,53 @@
   window.addEventListener('resize', resize); resize();
   var camY = 12;
   function frameCam() {
-    var w = window.innerWidth, h = window.innerHeight, a = w / h, face = gearOpen && tab === 'Face';
-    var halfH = (a >= 1 ? 4.1 : 3.8 / a) / zoom, halfW = halfH * a;
+    var w = window.innerWidth, h = window.innerHeight, ar = w / h, face = gearOpen && tab === 'Face';
+    var halfH = (ar >= 1 ? 4.1 : 3.8 / ar) / zoom, halfW = halfH * ar; CAMV.halfH = halfH;
     cam.left = -halfW; cam.right = halfW; cam.top = halfH; cam.bottom = -halfH; cam.updateProjectionMatrix();
-    var shift = gearOpen ? -halfW * 0.3 : 0; // slide the hero clear of the builder panel
-    var tx = hero.position.x + shift * 0.7071, tz = hero.position.z - shift * 0.7071, ty = gearOpen ? (face ? (1.02 + LIFT) * rig.scale.y : 0.72) : 0.45;
+    // the camera's turn eases toward the chosen quarter; panning eases home when asked
+    var want = Math.PI / 4 + CAMV.yaw * Math.PI / 2, dA = want - CAMV.a; CAMV.a += dA * 0.18; if (Math.abs(dA) < 0.002) CAMV.a = want;
+    if (CAMV.home || gearOpen) { CAMV.px *= 0.82; CAMV.pz *= 0.82; if (Math.abs(CAMV.px) + Math.abs(CAMV.pz) < 0.02) { CAMV.px = CAMV.pz = 0; CAMV.home = false; } }
+    var ca = Math.cos(CAMV.a), sa = Math.sin(CAMV.a), shift = gearOpen ? -halfW * 0.3 : 0; // slide the hero clear of the builder panel
+    var tx = hero.position.x + CAMV.px + shift * ca, tz = hero.position.z + CAMV.pz - shift * sa, ty = gearOpen ? (face ? (1.02 + LIFT) * rig.scale.y : 0.72) : 0.45;
     camY += ((face ? 3.5 : 12) - camY) * 0.15;
-    cam.position.set(tx + 12, ty + camY, tz + 12); cam.lookAt(tx, ty, tz);
+    cam.position.set(tx + sa * 16.97, ty + camY, tz + ca * 16.97); cam.lookAt(tx, ty, tz);
     sun.position.set(hero.position.x - 5, 11, hero.position.z + 4); sun.target.position.copy(hero.position);
+    var fx = Math.round(tx), fz = Math.round(tz); // looking somewhere new: build the chunks there and light what you have explored
+    if (Math.abs(fx - CAMV.fx) + Math.abs(fz - CAMV.fz) >= 3) { CAMV.fx = fx; CAMV.fz = fz; refreshFog(); }
+    document.getElementById('camHome').style.display = (Math.abs(CAMV.px) + Math.abs(CAMV.pz) > 1.5 && !gearOpen) ? '' : 'none';
   }
+  // ---------- free look: drag to look around, pinch or scroll to zoom, turn the board in quarter steps ----------
+  function camZoom(f) { CAMV.uz = Math.max(0.45, Math.min(2.4, CAMV.uz * f)); }
+  function camTurn(d) { CAMV.yaw = (CAMV.yaw + d + 4) % 4; var a = Math.PI / 4 + CAMV.yaw * Math.PI / 2; CAMV.cx = Math.round(Math.sin(a) * 1.4142); CAMV.cz = Math.round(Math.cos(a) * 1.4142); refreshFog(); }
+  function camPan(dx, dy) { // pixels dragged → floor units, so the floor sticks to your finger
+    var k = 2 * CAMV.halfH / window.innerHeight, ca = Math.cos(CAMV.a), sa = Math.sin(CAMV.a);
+    CAMV.px -= (dx * k) * ca + (dy * k * 1.732) * sa; CAMV.pz -= -(dx * k) * sa + (dy * k * 1.732) * ca;
+    var m = Math.sqrt(CAMV.px * CAMV.px + CAMV.pz * CAMV.pz); if (m > 28) { CAMV.px *= 28 / m; CAMV.pz *= 28 / m; } CAMV.home = false;
+  }
+  (function camUI() {
+    var css = document.createElement('style');
+    css.textContent = '#camBar{position:fixed;top:174px;right:10px;z-index:6;display:flex;gap:4px}#camBar button{width:28px;height:28px;padding:0;border-radius:6px;background:rgba(8,9,15,.72);border:1px solid rgba(61,242,224,.35);color:var(--neon);font:inherit;font-size:14px;cursor:pointer}' +
+      '#camHome{position:fixed;left:50%;top:52px;transform:translateX(-50%);z-index:6;padding:6px 12px;border-radius:14px;background:rgba(8,9,15,.8);border:1px solid var(--neon);color:var(--neon);font:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}';
+    document.head.appendChild(css);
+    var bar = document.createElement('div'); bar.id = 'camBar';
+    [['−', 'Zoom out', function () { camZoom(1 / 1.25); }], ['+', 'Zoom in', function () { camZoom(1.25); }], ['⟲', 'Turn the board left', function () { camTurn(-1); }], ['⟳', 'Turn the board right', function () { camTurn(1); }]].forEach(function (b) {
+      var el = document.createElement('button'); el.type = 'button'; el.textContent = b[0]; el.title = b[1]; el.setAttribute('aria-label', b[1]); el.onclick = b[2]; bar.appendChild(el); });
+    document.body.appendChild(bar);
+    var home = document.createElement('button'); home.type = 'button'; home.id = 'camHome'; home.textContent = '◎ Back to me'; home.style.display = 'none'; home.onclick = function () { CAMV.home = true; }; document.body.appendChild(home);
+  })();
+  canvas.addEventListener('wheel', function (e) { if (gearOpen) return; e.preventDefault(); camZoom(e.deltaY < 0 ? 1.12 : 1 / 1.12); }, { passive: false });
+  canvas.addEventListener('pointerdown', function (e) { if (gearOpen) return; CAMV.ptrs[e.pointerId] = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY }; CAMV.pinch = 0; });
+  window.addEventListener('pointermove', function (e) {
+    var p = CAMV.ptrs[e.pointerId]; if (!p || gearOpen) return;
+    var ids = Object.keys(CAMV.ptrs);
+    if (ids.length >= 2) { // pinch to zoom
+      p.x = e.clientX; p.y = e.clientY; var a = CAMV.ptrs[ids[0]], b = CAMV.ptrs[ids[1]], d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (CAMV.pinch) camZoom(d / CAMV.pinch); CAMV.pinch = d; return;
+    }
+    if (!p.panning && Math.abs(e.clientX - p.sx) + Math.abs(e.clientY - p.sy) > 14) p.panning = true;
+    if (p.panning) camPan(e.clientX - p.x, e.clientY - p.y); p.x = e.clientX; p.y = e.clientY;
+  });
+  ['pointerup', 'pointercancel'].forEach(function (n) { window.addEventListener(n, function (e) { delete CAMV.ptrs[e.pointerId]; CAMV.pinch = 0; }); });
   var perfN = 0, perfT = 0, perfLast = performance.now();
   var last = performance.now(), hq1 = new THREE.Quaternion(), hq2 = new THREE.Quaternion(), hq3 = new THREE.Quaternion(), upY = new THREE.Vector3(0, 1, 0);
   function loop(now) {
@@ -416,7 +512,7 @@
     if (torchLight.intensity > 0) torchLight.intensity = 0.85 + 0.15 * Math.sin(T * 13);
     for (i = 0; i < waterTex.length; i++) { waterTex[i].offset.x = T * 0.035; waterTex[i].offset.y = Math.sin(T * 0.5 + i) * 0.04; }
     for (i = 0; i < mobParts.length; i++) { var mp = mobParts[i], sq = 1 + 0.07 * Math.sin(T * 2.2 + mp.ph); mp.t.mesh.scale.y = mp.round ? sq : mp.h * sq; mp.t.mesh.position.y = mp.h * sq / 2 + (mp.head ? 0.1 : 0.02); }
-    zoom += ((gearOpen ? (tab === 'Face' ? 11 : 3.6) : 1) - zoom) * Math.min(1, dt * 8);
+    zoom += ((gearOpen ? (tab === 'Face' ? 11 : 3.6) : CAMV.uz) - zoom) * Math.min(1, dt * 8);
     if (gearOpen) { if (autoSpin) spin += dt * 0.7; rig.rotation.y = spin; }
     if (perfN >= 0) { perfT += (now - perfLast); perfLast = now; perfN++; if (perfN === 90) { if (perfT / 90 > 38) { lowPower = true; renderer.shadowMap.enabled = false; sun.castShadow = false; resize(); scene.traverse(function (o) { if (o.material) [].concat(o.material).forEach(function (q) { q.needsUpdate = true; }); }); } perfN = -1; } }
     frameCam();
@@ -424,7 +520,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

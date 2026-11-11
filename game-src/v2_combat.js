@@ -19,7 +19,19 @@
   BEAST.imp_intern = variant('imp', { name: 'Imp intern', ac: 11, hp: 9, atk: 3, dmg: [1, 4, 1], str: 0, xp: 40, scale: 0.56, h: 0.9, tint: 0xd0c0ff, lines: ['Unpaid. Furious about it.'] });
   BEAST.imp_foreman = variant('imp', { name: 'Imp foreman', ac: 14, hp: 26, atk: 5, dmg: [1, 8, 3], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0xffa080, lines: ['Clipboard in one hand, mace in the other. Both are for you.'] });
   BEAST.steward = variant('imp', { name: 'The Shop Steward', ac: 15, hp: 58, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0xff6a5a, boss: true, lines: ['Head of the imp union. Has never lost a negotiation or a fistfight. Will not cross a picket line.'] });
-  var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'] };
+  // placeholder families until their own models are imported: bog puglins in the Gardens, archive clerks (imps) in the Archive
+  BEAST.bog = variant('puglin', { name: 'Bog puglin', hp: 8, xp: 30, tint: 0x8ab070, lines: ['A puglin that went feral in the reeds. Smells like a pond with opinions.'] });
+  BEAST.bog_brute = variant('puglin', { name: 'Reed stalker', ac: 13, hp: 14, atk: 4, dmg: [1, 6, 2], dex: 2, str: 1, xp: 60, scale: 0.86, h: 0.74, tint: 0x6a9a5a, lines: ['Moves through the reeds without a sound. You will hear it when it wants you to.'] });
+  BEAST.bog_chief = variant('puglin', { name: 'Marsh warden', ac: 13, hp: 24, atk: 5, dmg: [1, 8, 3], str: 3, dex: 1, xp: 130, scale: 1.0, h: 0.86, tint: 0x5a8a4a, lines: ['Wears a crown of lily pads. It is not a joke to them.'] });
+  BEAST.gardener = variant('puglin', { name: 'The Gardener', ac: 14, hp: 52, atk: 6, dmg: [2, 6, 3], str: 4, dex: 1, init: 1, pp: 13, xp: 550, scale: 1.5, h: 1.3, tint: 0x4a7a3a, boss: true, lines: ['Boss of the Drowned Gardens. It has been composting crawlers, and it is very proud of the results.'] });
+  BEAST.clerk = variant('imp', { name: 'Archive clerk', ac: 11, hp: 10, atk: 3, dmg: [1, 4, 1], str: 0, xp: 40, scale: 0.6, h: 0.95, tint: 0x9ab8e0, lines: ['A soggy imp with a stamp. It will file you under deceased.'] });
+  BEAST.clerk_mid = variant('imp', { name: 'Records keeper', ac: 12, hp: 17, atk: 4, dmg: [1, 6, 2], str: 1, dex: 2, xp: 90, scale: 0.72, h: 1.15, tint: 0x7a9ad0, lines: ['Knows where every file is and resents everyone who asks.'] });
+  BEAST.clerk_head = variant('imp', { name: 'Senior archivist', ac: 14, hp: 26, atk: 5, dmg: [1, 8, 3], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0x5a7ac0, lines: ['Shushes you before it hits you. Both hurt.'] });
+  BEAST.archivist = variant('imp', { name: 'The Head Archivist', ac: 15, hp: 56, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0x4a6ab8, boss: true, lines: ['Boss of the Flooded Archive. It has a file on you, and the file is very thin.'] });
+  // stand-ins for the Arena headliner (the ogre bugbear) and the Stairwell Gate's final boss (the dragon) until those models are in
+  BEAST.headliner = variant('puglin', { name: 'The Headliner', ac: 15, hp: 70, atk: 7, dmg: [2, 8, 4], str: 5, dex: 0, init: 0, pp: 12, xp: 800, scale: 1.8, h: 1.6, tint: 0x9a6a4a, boss: true, lines: ['The Arena\'s main event. The crowd chants its name. It does not know yours yet.'] });
+  BEAST.gatekeeper = variant('imp', { name: 'The Gatekeeper', ac: 16, hp: 90, atk: 7, dmg: [2, 10, 4], str: 5, dex: 2, init: 3, pp: 15, xp: 1200, scale: 1.4, h: 2.2, tint: 0xff4a3a, boss: true, lines: ['Guardian of the stairs down. It has read your file and it is not impressed.'] });
+  var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'], bog: [null, 'bog', 'bog_brute', 'bog_chief'], clerk: [null, 'clerk', 'clerk_mid', 'clerk_head'] };
   var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? 'imp' : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
   function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
 
@@ -101,17 +113,9 @@
     for (var i = tiles.length - 1; i >= 0; i--) if (tiles[i].mob) { scene.remove(tiles[i].mesh); tiles.splice(i, 1); }
     mobParts.length = 0; SOLID.M = 0;
     SPAWNS.forEach(function (sp, n) {
-      var B = BEAST[sp.kind], root = THREE.SkeletonUtils.clone(CB.defs[B.base || sp.kind]), holder = new THREE.Group();
-      root.traverse(function (o) {
-        if (!o.isMesh) return;
-        var m = kitMat(B.tex + '_' + (n % 3) + '.jpg', B.tex + '_n.jpg', B.tex + '_orm.jpg');
-        m.emissiveMap = kitTex(B.tex + '_e.jpg'); m.emissive = new THREE.Color(0xffffff); m.skinning = !!o.isSkinnedMesh;
-        if (B.tint) m.color.set(B.tint).multiplyScalar(1.25); o.material = m; o.castShadow = true; o.frustumCulled = false;
-      });
-      if (sp.npc) root.traverse(function (o) { if (/Mace|Chains|SpikedCollar/.test(o.name)) o.visible = false; });
-      root.scale.setScalar(B.scale * (sp.npc ? 0.62 : 1)); holder.add(root); scene.add(holder);
+      var B = BEAST[sp.kind], holder = new THREE.Group(); holder.visible = false; scene.add(holder);
       var e = { kind: sp.kind, def: B, name: sp.name || B.name, x: sp.x, z: sp.z, sx: sp.x, sz: sp.z, px: sp.x, pz: sp.z, hp: B.hp, max: B.hp, dead: false, calm: !!sp.npc, npc: sp.npc || null, guard: !!sp.guard,
-        obj: holder, mixer: new THREE.AnimationMixer(root), clips: cbClipsFor(root), path: null, act: null, cur: '' };
+        obj: holder, mixer: null, clips: {}, sp: sp, n: n, path: null, act: null, cur: '' };
       holder.position.set(sp.x, 0, sp.z); holder.rotation.y = Math.PI * 0.75;
       e.bar = document.createElement('div'); e.bar.className = 'ebar'; e.bar.innerHTML = '<i></i><span></span>'; document.body.appendChild(e.bar);
       if (sp.npc) { e.name = 'Pip'; holder.rotation.y = -Math.PI * 0.6; }
@@ -120,7 +124,22 @@
     });
     CB.ready = true; refreshFog();
   }
+  // monsters only get a real model (skinned mesh, materials, animations) once a crawler comes near them
+  function cbMaterialize(e) {
+    if (e.mixer) return; var B = e.def, sp = e.sp, root = THREE.SkeletonUtils.clone(CB.defs[B.base || sp.kind]);
+    root.traverse(function (o) {
+      if (!o.isMesh) return;
+      var m = kitMat(B.tex + '_' + (e.n % 3) + '.jpg', B.tex + '_n.jpg', B.tex + '_orm.jpg');
+      m.emissiveMap = kitTex(B.tex + '_e.jpg'); m.emissive = new THREE.Color(0xffffff); m.skinning = !!o.isSkinnedMesh;
+      if (B.tint) m.color.set(B.tint).multiplyScalar(1.25); o.material = m; o.castShadow = true; o.frustumCulled = false;
+    });
+    if (sp.npc) root.traverse(function (o) { if (/Mace|Chains|SpikedCollar/.test(o.name)) o.visible = false; });
+    root.scale.setScalar(B.scale * (sp.npc ? 0.62 : 1)); e.obj.add(root);
+    e.mixer = new THREE.AnimationMixer(root); e.clips = cbClipsFor(root); var want = e.want || (e.dead ? 'Death01' : 'Idle_Loop'); e.cur = ''; cbPlay(e, want, e.dead);
+    if (e.dead && e.act) { e.act.time = e.clips.Death01 ? e.clips.Death01.duration : 0; }
+  }
   function cbPlay(e, name, once) {
+    if (!e.mixer) { e.want = name; return; }
     var c = e.clips[name]; if (!c) return; var a = e.mixer.clipAction(c);
     if (e.cur === name && !once) return;
     a.reset(); a.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat); a.clampWhenFinished = !!once; a.play();
@@ -532,6 +551,7 @@
   function cbUpdate(dt) {
     CB.enemies.forEach(function (e) {
       if (cheb(e.x, e.z, P.x, P.z) > 16 && !e.path) { if (e.obj.visible) { e.obj.visible = false; e.bar.style.display = 'none'; } return; }
+      if (!e.mixer) cbMaterialize(e);
       e.mixer.update(dt);
       if (e.path) {
         var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = 3.2 * dt;
@@ -566,8 +586,11 @@
   }
   // taps on the floor or on a monster during your turn
   var cbRay = new THREE.Raycaster(), cbPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), cbHit = new THREE.Vector3();
-  canvas.addEventListener('pointerdown', function (ev) {
-    if (!CB.on || gearOpen) return;
+  var cbDown = null;
+  canvas.addEventListener('pointerdown', function (ev) { cbDown = { x: ev.clientX, y: ev.clientY }; });
+  canvas.addEventListener('pointerup', function (ev) {
+    if (!CB.on || gearOpen || !cbDown) return; var dn = cbDown; cbDown = null;
+    if (Math.abs(ev.clientX - dn.x) + Math.abs(ev.clientY - dn.y) > 14) return; // that was a drag to look around
     for (var i = 0; i < CB.enemies.length; i++) { var e = CB.enemies[i]; if (e.dead || !e.obj.visible) continue; var s = toScreen(e.px, e.def.h * 0.5, e.pz), dx = s.x - ev.clientX, dy = s.y - ev.clientY; if (dx * dx + dy * dy < 46 * 46) { cbTap(e.x, e.z); return; } }
     var r = canvas.getBoundingClientRect();
     cbRay.setFromCamera(new THREE.Vector2((ev.clientX - r.left) / r.width * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1), cam);

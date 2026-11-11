@@ -44,13 +44,14 @@
     if (full) { for (var q = 0; q < W * H; q++) if (tileState[q]) { var qx = q % W, qz = (q / W) | 0; if (qx < bx0) bx0 = qx; if (qx > bx1) bx1 = qx; if (qz < bz0) bz0 = qz; if (qz > bz1) bz1 = qz; } bx0 -= 4; bz0 -= 4; bx1 += 4; bz1 += 4; }
     var span = full ? Math.max(18, ((bx1 - bx0) + (bz1 - bz0)) / Math.SQRT2) : 26, s = Math.min(cw, chh) / span * (full ? 0.97 : 1.0), k = s / Math.SQRT2 * dpr;
     var ox = cv.width / 2, oy = cv.height / 2, cx = full ? (bx0 + bx1) / 2 : P.px, cz = full ? (bz0 + bz1) / 2 : P.pz;
-    function tr(x, z) { var dx = x - cx, dz = z - cz; return [ox + (dx - dz) * k, oy + (dx + dz) * k]; }
+    var ya = typeof CAMV !== 'undefined' ? Math.PI / 4 + CAMV.yaw * Math.PI / 2 : Math.PI / 4, yc = Math.cos(ya) * 1.4142, ys = Math.sin(ya) * 1.4142;
+    function tr(x, z) { var dx = x - cx, dz = z - cz; return [ox + (dx * yc - dz * ys) * k, oy + (dx * ys + dz * yc) * k]; }
     function cell(x, z, col) { var a = tr(x - .5, z - .5), b = tr(x + .5, z - .5), c = tr(x + .5, z + .5), d = tr(x - .5, z + .5); g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill(); }
-    var liv = hasTrait('Living Map'), R = full ? 1e9 : 20, THEME = { crypt: '#3f6a52', hall: '#5d5a54', moss: '#4f6a3a', gate: '#6a3e3a', store: '#6a5438', water: '#2f5a74' };
+    var liv = hasTrait('Living Map'), R = full ? 1e9 : 20, THEME = { crypt: '#3f6a52', hall: '#5d5a54', moss: '#4f6a3a', gate: '#6a3e3a', store: '#6a5438', water: '#2f5a74', studio: '#7a8494', office: '#4a566a', bazaar: '#8a6e48', garden: '#3f7a34', arena: '#a08250', blvd: '#6a665e' };
     for (var z = Math.max(0, Math.floor(P.pz - R)); z < Math.min(H, P.pz + R); z++) for (var x = Math.max(0, Math.floor(P.px - R)); x < Math.min(W, P.px + R); x++) {
       if (!tileState[z * W + x]) continue; var c = MAP[z].charAt(x), lit = visNow[x + ',' + z] !== undefined || liv;
       if (c === '#' || c === 'H') { if (!full) { g.globalAlpha = lit ? 1 : .6; cell(x, z, '#23252f'); } continue; }
-      var col = c === '~' ? '#3a6ea8' : c === 'D' ? '#c98a4a' : c === 'S' ? '#ffd34a' : c === 'C' ? '#e0c060' : THEME[roomAt(x, z)] || '#5d5a54';
+      var col = c === '~' ? '#3a6ea8' : c === 'D' ? '#c98a4a' : c === 'S' ? '#ffd34a' : c === 'C' ? '#e0c060' : c === 'F' ? '#40ff90' : c === 'Y' ? '#2a5a24' : THEME[roomAt(x, z)] || '#5d5a54';
       g.globalAlpha = lit ? 1 : .62; cell(x, z, col);
     }
     g.globalAlpha = 1;
@@ -60,7 +61,7 @@
     if (full) {
       g.textAlign = 'center'; g.textBaseline = 'middle';
       LEVEL.rooms.forEach(function (rm) {
-        if (rm.type === 'corridor') return; var mx = (rm.x0 + rm.x1) / 2, mz = (rm.z0 + rm.z1) / 2, seen = false;
+        if (rm.type === 'corridor' || (span > 90 && rm.type === 'room')) return; var mx = (rm.x0 + rm.x1) / 2, mz = (rm.z0 + rm.z1) / 2, seen = false;
         for (var zz = rm.z0; zz <= rm.z1 && !seen; zz++) for (var xx = rm.x0; xx <= rm.x1; xx++) if (tileState[zz * W + xx]) { seen = true; break; }
         if (!seen) return; var p = tr(mx, mz), icon = rm.type === 'safe' ? '✚ ' : rm.type === 'boss' ? '☠ ' : rm.type === 'stairs' ? '▼ ' : rm.type === 'hidden' ? '★ ' : '';
         g.font = (rm.type === 'boss' || rm.type === 'safe' ? 'bold ' : '') + (10.5 * dpr) + 'px ui-monospace,monospace';

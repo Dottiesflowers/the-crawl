@@ -120,10 +120,16 @@
     moss:  { name: 'The Overgrowth', floor: [0x5d5f52, 0x676a5a, 0x54574b], wall: 0x6a7460 },
     store: { name: 'The Storeroom', floor: [0x7a5c3a, 0x86663f, 0x6e5233], wall: 0x837657 },
     water: { name: 'The Flooded Hall', floor: [0x245a72, 0x2a6680, 0x1f5066], wall: 0x56727e },
-    gate:  { name: 'Stairwell Approach', floor: [0x70403c, 0x7c4742, 0x643a36], wall: 0x8a5a56 }
+    gate:  { name: 'Stairwell Approach', floor: [0x70403c, 0x7c4742, 0x643a36], wall: 0x8a5a56 },
+    studio: { name: 'Processing Center', floor: [0xb4b9c2, 0xbec3cb, 0xaab0b9], wall: 0xc4c9d1 },
+    office: { name: 'Union Hall', floor: [0x4b5a6e, 0x52627a, 0x46546a], wall: 0xb8ad94 },
+    bazaar: { name: 'Underbazaar', floor: [0x8a7a62, 0x94836a, 0x7f7058], wall: 0x6e6253 },
+    garden: { name: 'Drowned Gardens', floor: [0x4f7a3a, 0x5a8442, 0x476f34], wall: 0x5e5a4e },
+    arena:  { name: 'The Arena', floor: [0xc2a46c, 0xccae76, 0xb89a62], wall: 0x7a6a5a },
+    blvd:   { name: 'Boulevard', floor: [0x8c8577, 0x958e80, 0x837c6e], wall: 0x9a8f7c }
   };
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
-  var SOLID = { 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
+  var SOLID = { 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
   function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z); }
   function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P' || c === 'H'; }
 
@@ -164,6 +170,26 @@
           y = 4 + Math.floor(r() * 24); px(g, d2, x0, y, 8, 1); px(g, '#2a2018', x0 + 2, y - 2); px(g, '#2a2018', x0 + 5, y + 2); px(g, '#2a2018', x0 + 3, 1); px(g, '#2a2018', x0 + 4, 30);
           if (r() > 0.6) { y = 3 + Math.floor(r() * 26); px(g, d2, x0 + 3, y, 2, 2); px(g, d1, x0 + 2, y - 1, 4, 1); px(g, d1, x0 + 2, y + 2, 4, 1); }
         }
+      } else if (id === 'studio') { // big glossy tiles with grout
+        for (y = 0; y < 32; y += 16) for (x = 0; x < 32; x += 16) { px(g, [base, l1, hexs(shade(c, 0.95))][Math.floor(r() * 3)], x, y, 16, 16); px(g, l2, x + 1, y + 1, 14, 1); px(g, l2, x + 1, y + 1, 1, 14); px(g, d1, x, y + 15, 16, 1); px(g, d1, x + 15, y, 1, 16); }
+        speck(14, d1); if (r() > 0.7) { px(g, '#3df2e0', 0, 15, 32, 1); }
+      } else if (id === 'office') { // carpet
+        speck(260, d1); speck(160, l1); speck(40, d2);
+        for (i = 0; i < 32; i += 8) { g.globalAlpha = 0.25; px(g, d2, 0, i, 32, 1); px(g, d2, i, 0, 1, 32); g.globalAlpha = 1; }
+      } else if (id === 'bazaar') { // cobbles
+        px(g, d2, 0, 0, 32, 32);
+        for (y = 0; y < 32; y += 6) for (x = -(y % 12 ? 3 : 0); x < 32; x += 6) { var cw = 4 + Math.floor(r() * 2); px(g, [base, d1, l1, hexs(shade(c, 0.9))][Math.floor(r() * 4)], x + 1, y + 1, cw, 4); px(g, l2, x + 1, y + 1, cw - 1, 1); }
+      } else if (id === 'garden') { // grass
+        speck(120, d1); speck(80, l1);
+        for (i = 0; i < 70; i++) { x = Math.floor(r() * 32); y = Math.floor(r() * 31); px(g, r() > 0.5 ? '#6f9f4a' : '#3f6a2c', x, y, 1, 2); }
+        if (r() > 0.6) { x = 3 + Math.floor(r() * 26); y = 3 + Math.floor(r() * 26); px(g, r() > 0.5 ? '#f0e060' : '#e8a0d0', x, y); px(g, '#fff6c0', x + 1, y); }
+      } else if (id === 'arena') { // raked sand
+        speck(150, d1); speck(110, l1); speck(20, d2);
+        for (y = 3; y < 32; y += 6) { g.globalAlpha = 0.35; for (x = 0; x < 32; x++) px(g, d1, x, y + Math.round(Math.sin((x + v * 5) * 0.4))); g.globalAlpha = 1; }
+        if (r() > 0.85) blob(Math.floor(r() * 32), Math.floor(r() * 32), 2, ['#6a2a20', '#7a3428'], 0.5);
+      } else if (id === 'blvd') { // large flagstones
+        for (y = 0; y < 32; y += 16) for (x = -(y ? 8 : 0); x < 32; x += 16) { px(g, [base, d1, l1, hexs(shade(c, 0.93))][Math.floor(r() * 4)], x + 1, y + 1, 15, 15); px(g, l2, x + 1, y + 1, 15, 1); }
+        speck(60, d1); speck(30, l1);
       } else if (id === 'water') {
         for (i = 0; i < 5; i++) blob(Math.floor(r() * 32), Math.floor(r() * 32), 2 + Math.floor(r() * 4), [d1, d2], 0.8);
         speck(40, d1);
@@ -196,7 +222,7 @@
       }
       px(g, l1, 0, 0, 32, 3); px(g, l2, 0, 0, 32, 1); px(g, d2, 0, 3, 32, 1); for (i = 0; i < 12; i++) px(g, d1, Math.floor(r() * 32), 1 + Math.floor(r() * 2));
       for (x = 0; x < 32; x++) { k = 2 + Math.floor(r() * 4); for (y = 48 - k; y < 48; y++) if ((x + y) % 2 === 0 || r() > 0.5) px(g, d2, x, y); }
-      if (id === 'moss') { for (i = 0; i < 6; i++) { x = Math.floor(r() * 32); k = 6 + Math.floor(r() * 26); for (y = 2; y < k; y++) { px(g, r() > 0.5 ? '#4f7f3a' : '#3d6a2e', x + (r() > 0.8 ? 1 : 0), y); if (r() > 0.7) px(g, '#6a9a48', x + 1, y); } px(g, '#86b85a', x, k); } }
+      if (id === 'moss' || id === 'garden') { for (i = 0; i < 6; i++) { x = Math.floor(r() * 32); k = 6 + Math.floor(r() * 26); for (y = 2; y < k; y++) { px(g, r() > 0.5 ? '#4f7f3a' : '#3d6a2e', x + (r() > 0.8 ? 1 : 0), y); if (r() > 0.7) px(g, '#6a9a48', x + 1, y); } px(g, '#86b85a', x, k); } }
       if (id === 'water') { for (x = 0; x < 32; x++) { k = 28 + Math.floor(r() * 6); for (y = k; y < 48; y++) if ((x + y) % 2 === 0) px(g, '#16303a', x, y); } for (i = 0; i < 4; i++) { x = Math.floor(r() * 32); for (y = 6; y < 30; y++) if (r() > 0.3) px(g, '#2a4a56', x, y); } }
       if (id === 'gate') { for (i = 0; i < 3; i++) { x = Math.floor(r() * 30); y = 8 + Math.floor(r() * 30); for (k = 0; k < 20; k++) px(g, '#2a1210', clamp(x + Math.floor(r() * 5) - 2, 0, 31), clamp(y + Math.floor(r() * 7) - 3, 0, 47)); } }
       if (id === 'crypt' && r() > 0.3) { x = 4 + Math.floor(r() * 24); y = 5; for (k = 0; k < 16; k++) { px(g, d2, x, y); y += 2; x = clamp(x + (r() > 0.5 ? 1 : -1), 1, 30); } }
@@ -280,7 +306,7 @@
         box(0.16, 0.05, 0.05, 0x2c2c33, x + 0.56, 1.0, z, x, z, { hang: true, kind: 'metal' });
         box(0.06, 0.26, 0.06, 0x5a3a1c, x + 0.62, 1.08, z, x, z, { hang: true, kind: 'wood' });
         flame(x + 0.62, 1.2, z, x, z, 0.42, { hang: true });
-      } else if ((south || east) && rid === 'moss' && r2 > 0.4) { // hanging vines
+      } else if ((south || east) && (rid === 'moss' || rid === 'garden') && r2 > 0.4) { // hanging vines
         for (var vi = 0; vi < 3; vi++) { var vx = south ? x - 0.3 + vi * 0.3 : x + 0.52, vz = south ? z + 0.52 : z - 0.3 + vi * 0.3, vl = 0.4 + hash(x + vi, z * 3) * 0.7;
           box(0.07, vl, 0.04, [0x4f7f3a, 0x3d6a2e, 0x6a9a48][vi], vx, wh - vl / 2 - 0.05, vz, x, z, { hang: true, kind: 'cloth', seed: vi, noShadow: true }); }
       }
@@ -295,9 +321,10 @@
       box(0.3, 0.03, 0.03, 0x3df2e0, x, 1.38, z - 0.41, x, z, { glow: true });
       return;
     }
-    var ft = floorTex(rid, rid === 'hall' ? ((x + z) % 2) + 2 * Math.floor(r * 2) : v);
-    if (rid === 'water' && waterTex.indexOf(ft) < 0) { ft.wrapS = ft.wrapT = THREE.RepeatWrapping; waterTex.push(ft); }
-    box(0.995, 0.1, 0.995, room.floor[0], x, rid === 'water' ? -0.09 : -0.05, z, x, z, { tex: ft, noShadow: true });
+    var wet = rid === 'water' || c === '~', fid = c === '~' ? 'water' : rid;
+    var ft = floorTex(fid, fid === 'hall' ? ((x + z) % 2) + 2 * Math.floor(r * 2) : v);
+    if (wet && waterTex.indexOf(ft) < 0) { ft.wrapS = ft.wrapT = THREE.RepeatWrapping; waterTex.push(ft); }
+    box(0.995, 0.1, 0.995, ROOMS[fid].floor[0], x, wet ? -0.09 : -0.05, z, x, z, { tex: ft, noShadow: true });
     if (c === 'D') {
       var horiz = ch(x - 1, z) === '#';
       [-0.44, 0.44].forEach(function (o) { box(0.16, 1.5, 0.16, 0x4a3420, x + (horiz ? o : 0), 0.75, z + (horiz ? 0 : o), x, z, { fade: true, kind: 'wood' });
@@ -322,6 +349,11 @@
       box(0.22, 0.3, 0.02, 0xd8e8f0, x - 0.25, 0.95, z + 0.43, x, z, { kind: 'metal' });
     } else if ('TWUbhcqkgv'.indexOf(c) >= 0) {
       if (!propsOn()) box(0.5, 0.5, 0.5, 0x6b5a44, x, 0.25, z, x, z, { kind: 'wood' });
+    } else if (c === 'F') { // free food: a catering table with a green marker
+      if (!propsOn()) { box(0.9, 0.06, 0.6, 0x8a6a44, x, 0.45, z, x, z, { kind: 'wood' }); box(0.5, 0.12, 0.3, 0xd09040, x, 0.54, z, x, z, { kind: 'cloth' }); }
+      box(0.18, 0.03, 0.18, 0x40ff90, x, 0.92, z, x, z, { glow: true });
+    } else if (c === 'Y') { // a tree
+      if (!propsOn()) { box(0.22, 1.4, 0.22, 0x5a3a20, x, 0.7, z, x, z, { kind: 'wood', fade: true }); box(1.1, 0.9, 1.1, 0x3f6a2e, x, 1.7, z, x, z, { kind: 'cloth', fade: true }); }
     } else if (c === 'C' && !propsOn()) {
       box(0.66, 0.34, 0.46, 0x6b4423, x, 0.17, z, x, z, { kind: 'wood' });
       [-0.24, 0.24].forEach(function (o) { box(0.07, 0.36, 0.48, 0x5a5f66, x + o, 0.17, z, x, z, { kind: 'metal' }); });
@@ -384,7 +416,9 @@
   }
   function rebuildChunks() { Object.keys(chunks).forEach(unloadChunk); chunkAt = ''; streamChunks(true); }
   function streamChunks(force) {
-    var px = (typeof P !== 'undefined') ? P.x : start.x, pz = (typeof P !== 'undefined') ? P.z : start.z, key = Math.floor(px / 4) + ',' + Math.floor(pz / 4);
+    var px = (typeof P !== 'undefined') ? P.x : start.x, pz = (typeof P !== 'undefined') ? P.z : start.z;
+    if (typeof CAMV !== 'undefined' && CAMV) { px = Math.round(px + CAMV.px); pz = Math.round(pz + CAMV.pz); }
+    var key = Math.floor(px / 4) + ',' + Math.floor(pz / 4);
     if (!force && key === chunkAt) return; chunkAt = key;
     var need = {};
     for (var cz = Math.floor((pz - CH_R) / CHUNK); cz <= Math.floor((pz + CH_R) / CHUNK); cz++) for (var cx = Math.floor((px - CH_R) / CHUNK); cx <= Math.floor((px + CH_R) / CHUNK); cx++) {

@@ -40,7 +40,7 @@
     document.getElementById('tForm').onsubmit = function (ev) { ev.preventDefault(); var v = document.getElementById('tIn').value.trim(); if (v) talkSay(v); };
     document.getElementById('tIn').addEventListener('keydown', function (ev) { ev.stopPropagation(); });
   })();
-  function personaOf(e) { return PERSONA[e.npc || e.kind]; }
+  function personaOf(e) { return PERSONA[e.npc || e.kind] || (e.def && PERSONA[e.def.base]); }
   function talkKey(e) { return 'crawl-talk-' + (NET.uid ? NET.uid + '-' : '') + (e.npc || e.name.replace(/\W+/g, '')); }
   function talkOpen(e) {
     var p = personaOf(e); if (!p) return;
