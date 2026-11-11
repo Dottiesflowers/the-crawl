@@ -340,7 +340,7 @@
     if (s === 5) {
       var tp = (CC.cTrait && CC.cTrait[0] === CC.trait) ? CC.cTrait : (TRAITS.filter(function (t) { return t[0] === CC.trait; })[0] || [CC.trait, '', CC.trait]), fp = (CC.cFlaw && CC.cFlaw[0] === CC.flaw) ? CC.cFlaw : (FLAWS.filter(function (t) { return t[0] === CC.flaw; })[0] || [CC.flaw, '', CC.flaw]);
       var c = { name: CC.name, stats: CC.stats, skills: CC.skills, trait: tp[0], traitDesc: tp[1], traitFx: tp[2] || tp[0], flaw: fp[0], flawDesc: fp[1], flawFx: fp[2] || fp[0], gear: CC.gear.concat(CC.outfit), gold: 0, xp: 0, interview: QUESTIONS.map(function (q, i) { return { q: q, a: CC.answers[i] }; }).concat(CC.follow.map(function (q, i) { return { q: q, a: CC.followA[i] || '' }; })) };
-      applyChar(c); c.gear.forEach(function (g) { if (g.cat === 'clothing' && g.worn) wear(g); }); look.main = [0, look.main[1]]; look.off = [0, look.off[1]]; look.back = [0, look.back[1]]; saveChar(c); ccClose(); GMODE = 'design'; tab = 'Body'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); }
+      applyChar(c); c.gear.forEach(function (g) { if (g.cat === 'clothing' && g.worn) wear(g); }); look.main = [0, look.main[1]]; look.off = [0, look.off[1]]; look.back = [0, look.back[1]]; buildHero(); saveChar(c); ccClose(); GMODE = 'design'; tab = 'Body'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); }
       say('Crawler registered · ' + c.name, 'Last step: your body, face and hair. These are permanent, except a bathroom mirror lets you change your hair later. Confirm when you are ready.', 7000);
     }
   }
