@@ -174,9 +174,11 @@
     if (canBack(it) && CHAR.wield !== it.name) acts.push(CHAR.back === it.name ? ['unback', 'Take off back'] : ['back', 'Wear on back']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
-    acts = acts.concat(lampActs(it)); if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
-    if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); if (!it.box) acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
-    if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
+    acts = acts.concat(lampActs(it));
+    if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
+    if ((it.cat === 'consumable' && (it.heal || it.buff)) || it.throw || it.escape || burnsKnown(it)) acts.push(hotHas(it.name) ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
+    if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); }
+    if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       loreLine(it) + (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
       '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
@@ -195,7 +197,8 @@
     if (a === 'use') useItem(it);
     if (a === 'drop') dropBody(it);
     if (a === 'hot') { hotPut(it.name); }
-    if (a === 'unhot') { CHAR.hotbar = (CHAR.hotbar || []).map(function (n) { return n === it.name ? null : n; }); hotDraw(); }
+    if (a === 'unhot') hotOff(it.name);
+    if (a === 'light') { aimStart(it, true); return; }
     saveChar(CHAR); bagDraw(); wsetDraw();
   }
   // ---------- whole bodies: DCC-style, you can carry a corpse. Keeps it from the shrubs; drop it later as bait, or sell it ----------
@@ -220,7 +223,7 @@
     say('Dropped · ' + e.name, 'It flops onto the floor. Anything hungry nearby will notice.', 3500);
   }
   // ---------- consumables and the hot bar: four quick slots; in a fight using one is your bonus action ----------
-  var HOT_N = 4;
+  var HOT_N = 5;
   function heals(it) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal || ''); return (m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1) + healSkillBonus(it); }
   function useItem(it) {
     if (!CHAR || !it || CHAR.dead) return false;
@@ -236,27 +239,46 @@
     saveChar(CHAR); cbHUD(); hotDraw(); if (UI.bag) bagDraw(); if (CB.on && typeof cbShowMoves === 'function') cbMenuClose();
     return true;
   }
-  function hotPut(name) {
-    CHAR.hotbar = CHAR.hotbar || []; while (CHAR.hotbar.length < HOT_N) CHAR.hotbar.push(null);
-    if (CHAR.hotbar.indexOf(name) >= 0) return; var i = CHAR.hotbar.indexOf(null);
-    if (i < 0) { say('Hot bar full', 'Take something off the hot bar first (in your bag).', 2600); return; }
-    CHAR.hotbar[i] = name; saveChar(CHAR); hotDraw();
+  // two hot bars: Consumables (eat and drink: a bonus action) and Gear (throw, light, use: an action)
+  function hotKind(it) { return it && it.cat === 'consumable' && (it.heal || it.buff) && !it.throw && !it.escape ? 'eat' : 'gear'; }
+  function hotKey(kind) { return kind === 'eat' ? 'hotbar' : 'hotbar2'; }
+  function hotPut(name, quiet) {
+    var it = (CHAR.gear || []).filter(function (g) { return g.name === name; })[0], k = hotKey(hotKind(it)), o = k === 'hotbar' ? 'hotbar2' : 'hotbar';
+    CHAR[k] = CHAR[k] || []; while (CHAR[k].length < HOT_N) CHAR[k].push(null);
+    if (CHAR[o]) CHAR[o] = CHAR[o].map(function (n) { return n === name ? null : n; });
+    if (CHAR[k].indexOf(name) >= 0) return; var i = CHAR[k].indexOf(null);
+    if (i < 0) { if (!quiet) say('Hot bar full', 'Take something off the ' + (k === 'hotbar' ? 'Consumables' : 'Gear') + ' bar first (in your inventory).', 2600); return; }
+    CHAR[k][i] = name; saveChar(CHAR); hotDraw();
   }
-  function hotAuto() { // new consumables drop into empty slots on their own
-    if (!CHAR) return; (CHAR.gear || []).forEach(function (g) { if (g.cat === 'consumable' && g.heal && (CHAR.hotbar || []).indexOf(g.name) < 0 && (CHAR.hotbar || []).filter(Boolean).length < HOT_N) hotPut(g.name); });
+  function hotOff(name) { ['hotbar', 'hotbar2'].forEach(function (k) { CHAR[k] = (CHAR[k] || []).map(function (n) { return n === name ? null : n; }); }); hotDraw(); }
+  function hotHas(name) { return (CHAR.hotbar || []).indexOf(name) >= 0 || (CHAR.hotbar2 || []).indexOf(name) >= 0; }
+  function hotAuto() { // new consumables and throwables drop into empty slots on their own
+    if (!CHAR) return; (CHAR.gear || []).forEach(function (g) {
+      if (hotHas(g.name)) return; var k = hotKey(hotKind(g));
+      if (k === 'hotbar' ? !(g.cat === 'consumable' && g.heal) : !g.throw) return;
+      if ((CHAR[k] || []).filter(Boolean).length < HOT_N) hotPut(g.name, true); });
   }
-  function hotItem(i) { var n = CHAR && CHAR.hotbar && CHAR.hotbar[i]; return n ? (CHAR.gear || []).filter(function (g) { return g.name === n; })[0] || null : null; }
+  function hotItem(i, k) { var n = CHAR && CHAR[k || 'hotbar'] && CHAR[k || 'hotbar'][i]; return n ? (CHAR.gear || []).filter(function (g) { return g.name === n; })[0] || null : null; }
   function hotDraw() {
     var el = document.getElementById('hotbar');
-    if (!el) { el = document.createElement('div'); el.id = 'hotbar'; document.body.appendChild(el);
-      var css = document.createElement('style'); css.textContent = '#hotbar{position:fixed;left:168px;bottom:16px;z-index:6;display:flex;gap:6px}@media (max-width:700px){#hotbar{left:12px;bottom:auto;top:176px;flex-direction:column}}#hotbar button{position:relative;width:46px;height:46px;border-radius:9px;background:rgba(8,9,15,.8);border:1px solid rgba(61,242,224,.35);padding:2px;cursor:pointer}#hotbar button.ready{border-color:var(--neon)}#hotbar button:disabled{opacity:.35}#hotbar b{position:absolute;right:3px;bottom:1px;font-size:10px;color:#fff;text-shadow:0 1px 2px #000}#hotbar i{position:absolute;left:4px;top:1px;font-size:9px;font-style:normal;color:#9ab}#hotbar .ico{background:none}'; document.head.appendChild(css); }
-    var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead; el.style.display = show ? 'flex' : 'none'; if (!show) return;
-    var html = '';
-    for (var i = 0; i < HOT_N; i++) { var it = hotItem(i), can = it && (!CB.on || (cbMyTurn() && CB.res.bonus && !CB.busy));
-      html += '<button type="button" data-h="' + i + '" class="' + (can ? 'ready' : '') + '"' + (it ? '' : ' disabled') + ' aria-label="' + (it ? esc(it.name) : 'Empty hot bar slot') + '" title="' + (it ? esc(it.name) + ' · ' + esc(it.heal) + ' HP' : 'Empty: put consumables here from your bag') + '"><i>' + (i + 1) + '</i>' + (it ? itemIcon(it) + '<b>×' + (it.qty || 1) + '</b>' : '') + '</button>'; }
-    el.innerHTML = html;
-    el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); var it = hotItem(+b.dataset.h); if (it) useItem(it); }); });
+    if (!el) { el = document.createElement('div'); el.id = 'hotbar'; document.body.appendChild(el); }
+    var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead && !UI.bag && !(typeof CRAFT !== 'undefined' && CRAFT.open); el.style.display = show ? 'flex' : 'none'; if (!show) return;
+    var html = '', mine = !CB.on || (cbMyTurn() && !CB.busy);
+    [['hotbar', 'Consumables', 'bonus'], ['hotbar2', 'Gear', 'action']].forEach(function (bar, bi) {
+      html += '<div class="hb"><small>' + bar[1] + '<em>' + (bar[2] === 'bonus' ? 'bonus action' : 'action') + '</em></small><div class="hs">';
+      for (var i = 0; i < HOT_N; i++) { var it = hotItem(i, bar[0]), can = it && mine && (!CB.on || CB.res[bar[2]]), key = bi === 0 ? i + 1 : (i + 6) % 10;
+        var tip = it ? it.name + (it.heal ? ' · ' + it.heal + ' HP' : it.throw ? ' · throw' : burnsKnown(it) ? ' · light and throw' : '') : 'Empty: add things from your inventory';
+        html += '<button type="button" data-h="' + i + '" data-k="' + bar[0] + '" class="' + (can ? 'ready' : '') + (it && !it.throw && burnsKnown(it) ? ' fire' : '') + '"' + (it ? '' : ' disabled') + ' aria-label="' + esc(tip) + '" title="' + esc(tip) + '"><i>' + key + '</i>' + (it ? itemIcon(it) + '<b>×' + (it.usesLeft !== undefined ? it.usesLeft : it.qty || 1) + '</b><span class="hn">' + esc(it.name) + '</span>' : '') + '</button>'; }
+      html += '</div></div>';
+    });
+    if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html;
+      el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); hotUse(+b.dataset.h, b.dataset.k); }); }); }
   }
+  function hotUse(i, k) { var it = hotItem(i, k); if (!it) return; if (k === 'hotbar2' && canAim(it)) aimStart(it, !it.throw); else useItem(it); }
+  window.addEventListener('keydown', function (ev) {
+    if (!CHAR || ev.repeat || /INPUT|TEXTAREA/.test((ev.target || {}).tagName || '') || UI.bag || gearOpen) return; var d = '1234567890'.indexOf(ev.key); if (d < 0) return;
+    if (d < 5) hotUse(d, 'hotbar'); else hotUse(d - 5, 'hotbar2');
+  });
   setInterval(function () { if (typeof CHAR !== 'undefined') hotDraw(); }, 700);
   function invAdd(item, quiet) {
     if (!CHAR) return; CHAR.gear = CHAR.gear || [];
@@ -264,7 +286,7 @@
     if (same) same.qty = (same.qty || 1) + (item.qty || 1); else CHAR.gear.push(item);
     if (!quiet) saveChar(CHAR);
     if (UI.bag) bagDraw();
-    if (item.cat === 'consumable' && item.heal) hotAuto();
+    if ((item.cat === 'consumable' && item.heal) || item.throw) hotAuto();
   }
   // a wielded item from the inventory overrides the builder's weapon slot
   function gearWeapon() {

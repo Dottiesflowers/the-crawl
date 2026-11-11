@@ -7159,7 +7159,7 @@
     document.getElementById('cbBar').classList.toggle('on', CB.on); document.body.classList.toggle('cb', CB.on); if (typeof wsetDraw === 'function') wsetDraw();
     document.getElementById('bar').style.display = CB.on ? 'none' : '';
     document.getElementById('stick').style.display = CB.on ? 'none' : '';
-    document.getElementById('turns').classList.toggle('on', CB.on); document.getElementById('res').classList.toggle('on', CB.on && cbMyTurn() && !PC.down);
+    document.getElementById('turns').classList.toggle('on', CB.on); document.getElementById('res').classList.toggle('on', CB.on && !PC.down);
     if (!CB.on) { cbMenuClose(); return; }
     // show the real odds on the Attack button: d20 + your bonus against the nearest foe's armour
     var foe = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; }).sort(function (x, y) { return cheb(P.x, P.z, x.x, x.z) - cheb(P.x, P.z, y.x, y.z); })[0], ab = document.getElementById('cbAtk');
@@ -7171,7 +7171,7 @@
       return '<div class="ini' + (i === CB.idx ? ' cur' : '') + (me ? ' me' : '') + (dead ? ' dead' : '') + (c.calm ? ' calm' : '') + '" title="' + esc(me ? 'You' : c.name) + '"><span class="pf">' + face + '</span><span class="hp"><i style="width:' + Math.round(100 * hp) + '%"></i></span><small>' + esc(nm) + ' · ' + (me ? PC.init : c.init) + (c.prone ? ' · prone' : '') + '</small></div>';
     }).join('<span class="arr">›</span>') + (joining ? '<span class="arr">›</span><div class="ini join"><span class="pf">?</span><span class="hp"></span><small>Joining</small></div>' : '');
     var mine = cbMyTurn() && !CB.busy && !PC.down, r = CB.res;
-    document.getElementById('res').innerHTML = '<span class="' + (r.action ? 'on' : '') + '"><i class="pa"></i>Action</span><span class="' + (r.bonus ? 'on' : '') + '"><i class="pb"></i>Bonus</span><span class="' + (r.move ? 'on' : '') + '"><i class="pm"></i>' + (r.move * 5) + ' ft</span><span class="' + (r.swap ? 'on' : '') + '"><i class="ps"></i>Swap</span>' +
+    document.getElementById('res').innerHTML = (cbMyTurn() ? '<span class="on turnlbl">Your turn</span>' : '<span class="turnlbl">Their turn</span>') + '<span class="' + (r.action && cbMyTurn() ? 'on' : '') + '"><i class="pa"></i>Action</span><span class="' + (r.bonus && cbMyTurn() ? 'on' : '') + '"><i class="pb"></i>Bonus</span><span class="' + (r.move && cbMyTurn() ? 'on' : '') + '"><i class="pm"></i>' + (r.move * 5) + ' ft</span><span class="' + (r.swap ? 'on' : '') + '"><i class="ps"></i>Swap</span>' +
       (CB.disengage ? '<span class="on">Disengaged</span>' : '') + (CB.aim ? '<span class="on"><b>Tap a target</b></span>' : '');
     document.getElementById('cbAtk').disabled = !mine || !r.action; document.getElementById('cbActs').disabled = !mine; document.getElementById('cbBonus').disabled = !mine || !r.bonus;
     document.getElementById('cbEnd').disabled = !mine;
@@ -7767,7 +7767,7 @@
   }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, buffs: c.buffs || {}, swUsed: !!c.swUsed, cool: c.cool || {}, cups: c.cups || [], counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, lore: c.lore || {}, born: c.born || null, updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], hotbar2: c.hotbar2 || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, buffs: c.buffs || {}, swUsed: !!c.swUsed, cool: c.cool || {}, cups: c.cups || [], counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, lore: c.lore || {}, born: c.born || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
@@ -8621,9 +8621,11 @@
     if (canBack(it) && CHAR.wield !== it.name) acts.push(CHAR.back === it.name ? ['unback', 'Take off back'] : ['back', 'Wear on back']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
-    acts = acts.concat(lampActs(it)); if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
-    if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); if (!it.box) acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
-    if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
+    acts = acts.concat(lampActs(it));
+    if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
+    if ((it.cat === 'consumable' && (it.heal || it.buff)) || it.throw || it.escape || burnsKnown(it)) acts.push(hotHas(it.name) ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
+    if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); }
+    if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       loreLine(it) + (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
       '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
@@ -8642,7 +8644,8 @@
     if (a === 'use') useItem(it);
     if (a === 'drop') dropBody(it);
     if (a === 'hot') { hotPut(it.name); }
-    if (a === 'unhot') { CHAR.hotbar = (CHAR.hotbar || []).map(function (n) { return n === it.name ? null : n; }); hotDraw(); }
+    if (a === 'unhot') hotOff(it.name);
+    if (a === 'light') { aimStart(it, true); return; }
     saveChar(CHAR); bagDraw(); wsetDraw();
   }
   // ---------- whole bodies: DCC-style, you can carry a corpse. Keeps it from the shrubs; drop it later as bait, or sell it ----------
@@ -8667,7 +8670,7 @@
     say('Dropped · ' + e.name, 'It flops onto the floor. Anything hungry nearby will notice.', 3500);
   }
   // ---------- consumables and the hot bar: four quick slots; in a fight using one is your bonus action ----------
-  var HOT_N = 4;
+  var HOT_N = 5;
   function heals(it) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal || ''); return (m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1) + healSkillBonus(it); }
   function useItem(it) {
     if (!CHAR || !it || CHAR.dead) return false;
@@ -8683,27 +8686,46 @@
     saveChar(CHAR); cbHUD(); hotDraw(); if (UI.bag) bagDraw(); if (CB.on && typeof cbShowMoves === 'function') cbMenuClose();
     return true;
   }
-  function hotPut(name) {
-    CHAR.hotbar = CHAR.hotbar || []; while (CHAR.hotbar.length < HOT_N) CHAR.hotbar.push(null);
-    if (CHAR.hotbar.indexOf(name) >= 0) return; var i = CHAR.hotbar.indexOf(null);
-    if (i < 0) { say('Hot bar full', 'Take something off the hot bar first (in your bag).', 2600); return; }
-    CHAR.hotbar[i] = name; saveChar(CHAR); hotDraw();
+  // two hot bars: Consumables (eat and drink: a bonus action) and Gear (throw, light, use: an action)
+  function hotKind(it) { return it && it.cat === 'consumable' && (it.heal || it.buff) && !it.throw && !it.escape ? 'eat' : 'gear'; }
+  function hotKey(kind) { return kind === 'eat' ? 'hotbar' : 'hotbar2'; }
+  function hotPut(name, quiet) {
+    var it = (CHAR.gear || []).filter(function (g) { return g.name === name; })[0], k = hotKey(hotKind(it)), o = k === 'hotbar' ? 'hotbar2' : 'hotbar';
+    CHAR[k] = CHAR[k] || []; while (CHAR[k].length < HOT_N) CHAR[k].push(null);
+    if (CHAR[o]) CHAR[o] = CHAR[o].map(function (n) { return n === name ? null : n; });
+    if (CHAR[k].indexOf(name) >= 0) return; var i = CHAR[k].indexOf(null);
+    if (i < 0) { if (!quiet) say('Hot bar full', 'Take something off the ' + (k === 'hotbar' ? 'Consumables' : 'Gear') + ' bar first (in your inventory).', 2600); return; }
+    CHAR[k][i] = name; saveChar(CHAR); hotDraw();
   }
-  function hotAuto() { // new consumables drop into empty slots on their own
-    if (!CHAR) return; (CHAR.gear || []).forEach(function (g) { if (g.cat === 'consumable' && g.heal && (CHAR.hotbar || []).indexOf(g.name) < 0 && (CHAR.hotbar || []).filter(Boolean).length < HOT_N) hotPut(g.name); });
+  function hotOff(name) { ['hotbar', 'hotbar2'].forEach(function (k) { CHAR[k] = (CHAR[k] || []).map(function (n) { return n === name ? null : n; }); }); hotDraw(); }
+  function hotHas(name) { return (CHAR.hotbar || []).indexOf(name) >= 0 || (CHAR.hotbar2 || []).indexOf(name) >= 0; }
+  function hotAuto() { // new consumables and throwables drop into empty slots on their own
+    if (!CHAR) return; (CHAR.gear || []).forEach(function (g) {
+      if (hotHas(g.name)) return; var k = hotKey(hotKind(g));
+      if (k === 'hotbar' ? !(g.cat === 'consumable' && g.heal) : !g.throw) return;
+      if ((CHAR[k] || []).filter(Boolean).length < HOT_N) hotPut(g.name, true); });
   }
-  function hotItem(i) { var n = CHAR && CHAR.hotbar && CHAR.hotbar[i]; return n ? (CHAR.gear || []).filter(function (g) { return g.name === n; })[0] || null : null; }
+  function hotItem(i, k) { var n = CHAR && CHAR[k || 'hotbar'] && CHAR[k || 'hotbar'][i]; return n ? (CHAR.gear || []).filter(function (g) { return g.name === n; })[0] || null : null; }
   function hotDraw() {
     var el = document.getElementById('hotbar');
-    if (!el) { el = document.createElement('div'); el.id = 'hotbar'; document.body.appendChild(el);
-      var css = document.createElement('style'); css.textContent = '#hotbar{position:fixed;left:168px;bottom:16px;z-index:6;display:flex;gap:6px}@media (max-width:700px){#hotbar{left:12px;bottom:auto;top:176px;flex-direction:column}}#hotbar button{position:relative;width:46px;height:46px;border-radius:9px;background:rgba(8,9,15,.8);border:1px solid rgba(61,242,224,.35);padding:2px;cursor:pointer}#hotbar button.ready{border-color:var(--neon)}#hotbar button:disabled{opacity:.35}#hotbar b{position:absolute;right:3px;bottom:1px;font-size:10px;color:#fff;text-shadow:0 1px 2px #000}#hotbar i{position:absolute;left:4px;top:1px;font-size:9px;font-style:normal;color:#9ab}#hotbar .ico{background:none}'; document.head.appendChild(css); }
-    var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead; el.style.display = show ? 'flex' : 'none'; if (!show) return;
-    var html = '';
-    for (var i = 0; i < HOT_N; i++) { var it = hotItem(i), can = it && (!CB.on || (cbMyTurn() && CB.res.bonus && !CB.busy));
-      html += '<button type="button" data-h="' + i + '" class="' + (can ? 'ready' : '') + '"' + (it ? '' : ' disabled') + ' aria-label="' + (it ? esc(it.name) : 'Empty hot bar slot') + '" title="' + (it ? esc(it.name) + ' · ' + esc(it.heal) + ' HP' : 'Empty: put consumables here from your bag') + '"><i>' + (i + 1) + '</i>' + (it ? itemIcon(it) + '<b>×' + (it.qty || 1) + '</b>' : '') + '</button>'; }
-    el.innerHTML = html;
-    el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); var it = hotItem(+b.dataset.h); if (it) useItem(it); }); });
+    if (!el) { el = document.createElement('div'); el.id = 'hotbar'; document.body.appendChild(el); }
+    var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead && !UI.bag && !(typeof CRAFT !== 'undefined' && CRAFT.open); el.style.display = show ? 'flex' : 'none'; if (!show) return;
+    var html = '', mine = !CB.on || (cbMyTurn() && !CB.busy);
+    [['hotbar', 'Consumables', 'bonus'], ['hotbar2', 'Gear', 'action']].forEach(function (bar, bi) {
+      html += '<div class="hb"><small>' + bar[1] + '<em>' + (bar[2] === 'bonus' ? 'bonus action' : 'action') + '</em></small><div class="hs">';
+      for (var i = 0; i < HOT_N; i++) { var it = hotItem(i, bar[0]), can = it && mine && (!CB.on || CB.res[bar[2]]), key = bi === 0 ? i + 1 : (i + 6) % 10;
+        var tip = it ? it.name + (it.heal ? ' · ' + it.heal + ' HP' : it.throw ? ' · throw' : burnsKnown(it) ? ' · light and throw' : '') : 'Empty: add things from your inventory';
+        html += '<button type="button" data-h="' + i + '" data-k="' + bar[0] + '" class="' + (can ? 'ready' : '') + (it && !it.throw && burnsKnown(it) ? ' fire' : '') + '"' + (it ? '' : ' disabled') + ' aria-label="' + esc(tip) + '" title="' + esc(tip) + '"><i>' + key + '</i>' + (it ? itemIcon(it) + '<b>×' + (it.usesLeft !== undefined ? it.usesLeft : it.qty || 1) + '</b><span class="hn">' + esc(it.name) + '</span>' : '') + '</button>'; }
+      html += '</div></div>';
+    });
+    if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html;
+      el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); hotUse(+b.dataset.h, b.dataset.k); }); }); }
   }
+  function hotUse(i, k) { var it = hotItem(i, k); if (!it) return; if (k === 'hotbar2' && canAim(it)) aimStart(it, !it.throw); else useItem(it); }
+  window.addEventListener('keydown', function (ev) {
+    if (!CHAR || ev.repeat || /INPUT|TEXTAREA/.test((ev.target || {}).tagName || '') || UI.bag || gearOpen) return; var d = '1234567890'.indexOf(ev.key); if (d < 0) return;
+    if (d < 5) hotUse(d, 'hotbar'); else hotUse(d - 5, 'hotbar2');
+  });
   setInterval(function () { if (typeof CHAR !== 'undefined') hotDraw(); }, 700);
   function invAdd(item, quiet) {
     if (!CHAR) return; CHAR.gear = CHAR.gear || [];
@@ -8711,7 +8733,7 @@
     if (same) same.qty = (same.qty || 1) + (item.qty || 1); else CHAR.gear.push(item);
     if (!quiet) saveChar(CHAR);
     if (UI.bag) bagDraw();
-    if (item.cat === 'consumable' && item.heal) hotAuto();
+    if ((item.cat === 'consumable' && item.heal) || item.throw) hotAuto();
   }
   // a wielded item from the inventory overrides the builder's weapon slot
   function gearWeapon() {
@@ -9397,7 +9419,7 @@
       itemSpend(it); say(it.name, 'Thick smoke fills the room. When it clears, you are somewhere else. The audience boos.', 4500);
       CB.order = []; cbEnd(false); return true;
     }
-    if (it.throw) { var thr = throwItem(it, pickTarget(it)); if (thr !== false) loreFromThrow(it); return thr; }
+    if (it.throw) { aimStart(it, false); return true; }
     if (it.buff) { itemSpend(it); buffOn(it.buff, 10 * 60000); var b = BUFFS[it.buff]; say(it.name, b ? b.name + ': ' + b.desc : 'You feel different.', 3500); return true; }
     return false;
   }
@@ -9408,28 +9430,35 @@
   }
   function itemSpend(it) {
     if (it.uses) { it.usesLeft = (it.usesLeft === undefined ? it.uses : it.usesLeft) - 1; if (it.usesLeft > 0) { saveChar(CHAR); return; } }
-    it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; if ((CHAR.hotbar || []).indexOf(it.name) >= 0 && !CHAR.gear.some(function (g) { return g.name === it.name; })) CHAR.hotbar[CHAR.hotbar.indexOf(it.name)] = null; }
+    it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; if ((CHAR.hotbar || []).indexOf(it.name) >= 0 && !CHAR.gear.some(function (g) { return g.name === it.name; })) CHAR.hotbar[CHAR.hotbar.indexOf(it.name)] = null; if ((CHAR.hotbar2 || []).indexOf(it.name) >= 0 && !CHAR.gear.some(function (g) { return g.name === it.name; })) CHAR.hotbar2[CHAR.hotbar2.indexOf(it.name)] = null; }
     if (it.leaves) { var lv = item(it.leaves, { from: 'what was left' }); if (lv) invAdd(lv, true); }
     saveChar(CHAR); hotDraw(); if (UI.bag) bagDraw();
   }
-  function throwItem(it, e) {
-    if (!e) { say('No target', 'Nothing in range to throw that at' + (it.throw.vs === 'plant' ? ' (it only works on plants)' : '') + '.', 2600); return false; }
+  function throwItem(it, e, o) {
+    o = o || {}; var T = o.T || it.throw, spot = o.spot;
+    if (!e && !spot) { say('No target', 'Nothing in range to throw that at' + (T.vs === 'plant' ? ' (it only works on plants)' : '') + '.', 2600); return false; }
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', 'Throwing takes your action, on your turn.', 2500); return false; }
-    if (cheb(P.x, P.z, e.x, e.z) > 6) { say('Too far', 'You can throw about 30 feet.', 2400); return false; }
+    var tx = e ? e.x : spot.x, tz = e ? e.z : spot.z, Rg = throwRange();
+    if (cheb(P.x, P.z, tx, tz) > Rg.far) { say('Too far', 'You can throw ' + Rg.far * 5 + ' feet at most.', 2400); return false; }
     if (CB.on) CB.res.action = 0;
-    var T = it.throw, area = T.area || 0, notes = [], hit = true, R = null;
-    if (!area) { // single target: a ranged attack roll
-      var bon = PROF() + MOD.DEX + skillLv('Thrown Objects'), ac = acOf(e); R = roll20(false, false); var tot = R.r + bon; hit = R.r === 20 || (R.r !== 1 && tot >= ac);
-      diceShow({ who: 'You', vs: e.name, R: R, bonus: bon, tot: tot, ac: ac, hit: hit, why: ['thrown ' + it.name.toLowerCase()] });
+    var area = T.area || 0, notes = [], hit = true, R = null, dis = !!o.dis;
+    if (!area && e) { // single target: a ranged attack roll
+      var bon = PROF() + MOD.DEX + skillLv('Thrown Objects'), ac = acOf(e); R = roll20(false, dis); var tot = R.r + bon; hit = R.r === 20 || (R.r !== 1 && tot >= ac);
+      diceShow({ who: 'You', vs: e.name, R: R, bonus: bon, tot: tot, ac: ac, hit: hit, why: [(o.lit ? 'lit ' : 'thrown ') + it.name.toLowerCase()].concat(dis ? ['long range: disadvantage'] : []) });
     }
+    if (typeof cbFaceHero === 'function') cbFaceHero(tx, tz);
     kitOneShot('Punch_Jab'); itemSpend(it); skillCount('throw');
+    if (o.lit) floater(tx, 0.6, tz, 'FWOOMP', 'crit');
     if (hit) {
-      var targets = area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && cheb(q.x, q.z, e.x, e.z) <= area && (T.vs !== 'plant' || isPlant(q)); }) : [e];
+      var targets = area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && cheb(q.x, q.z, tx, tz) <= area && (T.vs !== 'plant' || isPlant(q)); }) : [e];
       targets.forEach(function (q) { var n = fxApply(T.fx, q); if (n) notes.push(n); });
+      if (area && !targets.length) notes.push('It splashes across the floor and hits nothing.');
     }
-    say('Thrown · ' + it.name, hit ? (notes.join(' ') || 'It lands. Nothing much happens.') : 'Missed. It skitters off into the dark.', 5000);
-    afterTrick(e); return true;
+    say((o.lit ? 'Lit and thrown · ' : 'Thrown · ') + it.name, hit ? (notes.join(' ') || 'It lands. Nothing much happens.') : 'Missed. It skitters off into the dark.', 5000);
+    var woke = e || (area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && !q.calm && cheb(q.x, q.z, tx, tz) <= area + 2; })[0] : null);
+    loreFromThrow(it); afterTrick(woke); return true;
   }
+
   function openBox(it) {
     var here = roomInfo(P.x, P.z); if (!here || here.type !== 'safe') { say(it.name, 'Loot boxes only open in a safe room. The System is very firm about this.', 3500); return false; }
     var R = rollContainer(it.box); itemSpend(it);
@@ -9665,6 +9694,92 @@
     craftApply(j, sel, r.idea);
   }
 
+  // ===================== Aim and throw: pick a thing, see your range, tap a target =====================
+  // Range comes from Strength: a normal person throws 30 feet (6 tiles) well and twice that badly
+  // (disadvantage). Each point of STR modifier adds 10 feet; Thrown Objects adds 5 feet a level.
+  // Anything flammable can be lit first if you have a flame (a lighter, a lit torch or a brazier next to you).
+  var AIM = { on: false, it: null, lit: false, ring: null, ring2: null, down: null };
+  function throwRange() { var n = Math.max(6, 6 + 2 * MOD.STR + skillLv('Thrown Objects')); return { near: n, far: n * 2 }; }
+  function fireSource() {
+    if (typeof sty === 'function' && sty('off') === 2) return 'your torch';
+    var g = (CHAR && CHAR.gear || []).filter(function (x) { return (x.tags || []).indexOf('fire') >= 0 || /lighter|match(es|book)?\b|zippo/i.test(x.name); })[0]; if (g) return 'your ' + g.name.toLowerCase();
+    for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) if (ch(P.x + dx, P.z + dz) === 'B') return 'the brazier';
+    return null;
+  }
+  function burnsKnown(it) { return (it.tags || []).indexOf('flammable') >= 0 && loreKnows(it, 'flammable'); }
+  function canAim(it) { return !!it && (!!it.throw || burnsKnown(it)); }
+  // what a lit thing does when it lands: whatever it did before, plus fire
+  function litThrow(it) {
+    var t = it.tags || [], fx = it.throw ? JSON.parse(JSON.stringify(it.throw.fx || [])) : [{ type: 'damage', dice: '1d4' }];
+    if (!fx.some(function (f) { return f.type === 'burn'; })) fx.push({ type: 'burn', dice: t.indexOf('sticky') >= 0 ? '1d6' : '1d4', turns: t.indexOf('sticky') >= 0 ? 3 : 2 });
+    var area = it.throw && it.throw.area ? it.throw.area : (t.indexOf('glass') >= 0 || t.indexOf('container') >= 0 || t.indexOf('slippery') >= 0 || t.indexOf('wet') >= 0) ? 1 : 0;
+    return { fx: fx, area: area };
+  }
+  // ---------- aim mode ----------
+  function aimStart(it, lit) {
+    if (!it || !CHAR) return;
+    if (!it.throw && !burnsKnown(it)) { say('Nothing to throw', 'That is not something you can usefully throw.', 2400); return; }
+    if (!it.throw) lit = true;
+    if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', CB.on && cbMyTurn() ? 'You have used your action this turn.' : 'Wait for your turn.', 2500); return; }
+    if (lit && !fireSource()) { say('No flame', 'You need a lighter, a lit torch or a brazier next to you to light it.', 3200); return; }
+    if (UI.bag) bagToggle(); if (typeof closeMenu === 'function') closeMenu();
+    AIM.on = true; AIM.it = it; AIM.lit = !!lit; aimRings(true); aimBanner();
+  }
+  function aimStop() { AIM.on = false; AIM.it = null; aimRings(false); var b = document.getElementById('aimBar'); if (b) b.classList.remove('on'); }
+  function aimRings(on) {
+    if (AIM.ring) { scene.remove(AIM.ring); scene.remove(AIM.ring2); AIM.ring = AIM.ring2 = null; }
+    if (!on) return; var R = throwRange();
+    var mk = function (r, op, col) { var m = new THREE.Mesh(new THREE.RingGeometry(r + 0.38, r + 0.6, 72), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, depthTest: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.set(P.px, 0.04, P.pz); m.renderOrder = 50; scene.add(m); return m; };
+    AIM.ring = mk(R.near, 0.75, 0xffc860); AIM.ring2 = mk(R.far, 0.35, 0xff7a50);
+  }
+  function aimBanner() {
+    var el = document.getElementById('aimBar'); if (!el) { el = document.createElement('div'); el.id = 'aimBar'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+    var it = AIM.it, R = throwRange(), fire = fireSource(), can = burnsKnown(it) && it.throw;
+    el.innerHTML = '<div><b>' + (AIM.lit ? 'Lit · ' : 'Throw · ') + esc(it.name) + '</b><span>Tap a target. ' + R.near * 5 + ' ft is a clean throw; out to ' + R.far * 5 + ' ft at disadvantage.' + (AIM.lit ? ' Lit with ' + esc(fire || 'nothing') + '.' : '') + '</span></div>' +
+      (can ? '<button type="button" id="aimLit" class="' + (AIM.lit ? 'on' : '') + '"' + (fire ? '' : ' disabled title="You need a flame"') + '>' + (AIM.lit ? 'Lit' : 'Light it first') + '</button>' : '') + '<button type="button" id="aimX">Cancel</button>';
+    el.classList.add('on');
+    document.getElementById('aimX').onclick = aimStop;
+    var lb = document.getElementById('aimLit'); if (lb) lb.onclick = function () { AIM.lit = !AIM.lit; aimBanner(); };
+  }
+  // the next tap on the world is the target
+  window.addEventListener('pointerdown', function (ev) { if (AIM.on && ev.target === canvas) AIM.down = { x: ev.clientX, y: ev.clientY }; }, true);
+  window.addEventListener('pointerup', function (ev) {
+    if (!AIM.on || ev.target !== canvas || !AIM.down) return; var d = AIM.down; AIM.down = null;
+    if (Math.abs(ev.clientX - d.x) + Math.abs(ev.clientY - d.y) > 14) return; // a drag to look around
+    ev.stopImmediatePropagation();
+    var best = null, bd = 46 * 46;
+    CB.enemies.forEach(function (e) { if (e.dead || e.npc || !e.obj.visible) return; var s = toScreen(e.px, (e.def.h || 1) * 0.5, e.pz), dx = s.x - ev.clientX, dy = s.y - ev.clientY, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = e; } });
+    var spot = null;
+    if (!best) { var r = canvas.getBoundingClientRect(); cbRay.setFromCamera(new THREE.Vector2((ev.clientX - r.left) / r.width * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1), cam); if (cbRay.ray.intersectPlane(cbPlane, cbHit)) spot = { x: Math.round(cbHit.x), z: Math.round(cbHit.z) }; }
+    aimAt(best, spot);
+  }, true);
+  window.addEventListener('keydown', function (ev) { if (AIM.on && ev.key === 'Escape') { aimStop(); ev.stopPropagation(); } }, true);
+  function aimAt(e, spot) {
+    var it = AIM.it, T = AIM.lit ? litThrow(it) : it.throw; if (!it) return aimStop();
+    var x = e ? e.x : spot && spot.x, z = e ? e.z : spot && spot.z; if (x === undefined || x === null) return;
+    if (!e && !T.area) { // a plain throw needs a creature; an area throw can land on a spot
+      var near = CB.enemies.filter(function (q) { return !q.dead && !q.npc && q.obj.visible && cheb(q.x, q.z, x, z) <= 1; })[0]; if (near) { e = near; x = e.x; z = e.z; }
+      else { say('Pick a target', 'Tap a creature. Only splash things can be thrown at the floor.', 2400); return; }
+    }
+    var R = throwRange(), dist = cheb(P.x, P.z, x, z);
+    if (visNow[x + ',' + z] === undefined && !(e && e.obj.visible)) { say('You cannot see there', 'You can only throw at what you can see.', 2400); return; }
+    if (dist > R.far) { say('Too far', 'That is ' + dist * 5 + ' feet away. You can throw ' + R.far * 5 + ' feet at most.', 2600); return; }
+    if (!los(P.x, P.z, x, z)) { say('No line of sight', 'Something solid is in the way.', 2400); return; }
+    var lit = AIM.lit; aimStop();
+    if (lit) { var src = fireSource(); if (!src) { say('No flame', 'You lost your light.', 2400); return; } loreLearn([[it, 'flammable']], ''); }
+    throwItem(it, e, { spot: e ? null : { x: x, z: z }, dis: dist > R.near, lit: lit, T: T });
+  }
+  // a thrown thing that lands on the floor still splashes whatever is next to it
+  function throwAt(x, z, area) { return CB.enemies.filter(function (q) { return !q.dead && !q.npc && cheb(q.x, q.z, x, z) <= area; }); }
+  setInterval(function () { if (AIM.on && AIM.ring) { AIM.ring.position.set(P.px, 0.04, P.pz); AIM.ring2.position.set(P.px, 0.04, P.pz); if (CB.on && (!cbMyTurn() || !CB.res.action)) aimStop(); } }, 100);
+  (function aimCSS() {
+    var c = document.createElement('style');
+    c.textContent = '#aimBar{position:fixed;left:50%;bottom:118px;transform:translateX(-50%);z-index:30;display:none;align-items:center;gap:10px;padding:8px 12px;background:linear-gradient(180deg,#3a3a3e,#1e1e22);border:1px solid #8a6a30;border-radius:6px;color:#F3E6CC;font-family:"EB Garamond",serif;box-shadow:0 4px 14px rgba(0,0,0,.6);max-width:calc(100vw - 24px)}' +
+      '#aimBar.on{display:flex}#aimBar b{display:block;font-family:Cinzel,serif;font-size:13px;color:#E0B868}#aimBar span{font-size:13.5px}#aimBar button{height:36px;padding:0 12px;border-radius:4px;border:1px solid #8a7a5a;background:#2a2a2e;color:#F3E6CC;font-family:Cinzel,serif;font-size:12px;white-space:nowrap}' +
+      '#aimBar #aimLit.on{background:radial-gradient(circle at 50% 30%,#d8702a,#7a2a10);border-color:#ffb060}#aimBar button:disabled{opacity:.45}';
+    document.head.appendChild(c);
+  })();
+
   // ===================== theme: Iron & Parchment (classic D&D chrome; the System keeps its own voice in the text) =====================
   (function () {
     var fl = document.createElement('link'); fl.rel = 'stylesheet';
@@ -9684,6 +9799,7 @@
       'body.cb #title{display:none}',
       // read-aloud / System box
       '#sys{top:52px;' + parch + 'border:0;border-left:4px solid ' + OX + ';border-right:4px solid ' + OX + ';border-radius:0;box-shadow:0 4px 12px rgba(0,0,0,.6);font-size:14.5px;line-height:1.3;font-style:italic;width:min(400px,60vw)}',
+      '@media (min-width:1000px) and (min-height:600px){#sys{width:min(620px,48vw) !important;font-size:18px !important;line-height:1.38 !important;padding:12px 18px !important}#sys .tag{font-size:15px !important}body.cb #sys{width:min(420px,28vw) !important;font-size:16px !important;max-height:150px !important}}',
       '#sys .tag{font-family:Cinzel,serif;font-style:normal;font-weight:800;color:' + OX + ';font-size:12px;letter-spacing:.06em;text-transform:none}',
       'body.cb #sys{top:auto;bottom:12px;left:12px;transform:none;width:min(234px,30vw);font-size:13px;max-height:78px;overflow:hidden}',
       // character card
@@ -9713,10 +9829,14 @@
       '#bar .act.on{background:#5a4420}#bar .act.held{border-color:#E0B868;color:#E0B868}',
       '#aInteract{order:9;width:62px !important;height:62px !important;background:radial-gradient(circle at 40% 35%,#a8302a,#5e1410) !important;border:3px solid #3a0c08 !important;color:#F3E6CC !important;font-size:10.5px !important;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,.6)}',
       // belt hot bar
-      '#hotbar{left:50% !important;transform:translateX(-50%);bottom:12px;padding:6px 10px;background:linear-gradient(180deg,#5a3a22,#3a2414);border:1px solid #1e130a;border-radius:4px;box-shadow:0 4px 10px rgba(0,0,0,.6)}',
-      '#hotbar button{' + parch + 'border:1px solid #1e130a !important;border-radius:4px !important}#hotbar button.ready{border-color:#E0B868 !important;box-shadow:0 0 0 1px #E0B868}',
-      '#hotbar b{color:' + INK + ';text-shadow:none;font-family:"EB Garamond",serif;font-size:13px}#hotbar i{color:#6b5a3a}',
-      '@media (max-width:620px){#hotbar{left:12px !important;transform:none}}',
+      '#hotbar{position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:10px;display:flex;gap:12px;padding:5px 10px 7px;background:linear-gradient(180deg,#5a3a22,#3a2414);border:1px solid #1e130a;border-radius:4px;box-shadow:0 4px 10px rgba(0,0,0,.6)}',
+      '#hotbar .hb small{display:block;font-family:Cinzel,serif;font-size:10px;letter-spacing:.06em;color:#E9DCC0;margin:0 0 3px 2px}#hotbar .hb small em{font-family:"EB Garamond",serif;font-style:italic;color:#C9B48A;margin-left:6px;letter-spacing:0}',
+      '#hotbar .hs{display:flex;gap:4px}#hotbar button{position:relative;width:54px;height:54px;padding:2px;' + parch + 'border:1px solid #1e130a;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center}',
+      '#hotbar button:disabled{opacity:.45;cursor:default}#hotbar button.ready{border-color:#E0B868;box-shadow:0 0 0 1px #E0B868}#hotbar button.fire{box-shadow:inset 0 -6px 10px -4px rgba(230,110,30,.75)}#hotbar button.fire.ready{box-shadow:0 0 0 1px #E0B868,inset 0 -6px 10px -4px rgba(230,110,30,.75)}',
+      '#hotbar svg{width:30px;height:30px}#hotbar b{position:absolute;right:3px;bottom:1px;color:' + INK + ';font-family:"EB Garamond",serif;font-size:13px}#hotbar i{position:absolute;left:4px;top:1px;font-style:normal;font-size:10px;color:#6b5a3a}#hotbar .hn{display:none}',
+      '@media (min-width:1000px) and (min-height:600px){#hotbar button{width:66px;height:66px}#hotbar svg{width:38px;height:38px}#hotbar .hb small{font-size:11.5px}#hotbar b{font-size:14px}}',
+      '@media (max-width:700px){#hotbar{left:8px;transform:none;bottom:auto;top:150px;padding:4px;gap:4px}#hotbar .hs{flex-direction:column}#hotbar button{width:46px;height:46px}#hotbar svg{width:26px;height:26px}#hotbar .hb small em{display:none}#hotbar .hb small{font-size:8px;max-width:46px;overflow:hidden}}',
+      'body.cb #hotbar{bottom:96px}',
       '#buffs{position:fixed;z-index:5;left:10px;top:96px;display:flex;flex-wrap:wrap;gap:4px;max-width:240px}',
       '#buffs .bf{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;' + iron + 'border:1px solid ' + BR + ';border-radius:12px;font-family:"EB Garamond",serif;font-size:12.5px}#buffs .bf b{font-size:12px}#buffs .bf i{font-style:normal;color:#C9B48A;font-size:11px}#buffs .bf.bad{border-color:#8a3a32;color:#f0b0a0}',
       '#buffs .bf.sw{' + parch + 'border:1px solid #2e2116;height:28px;font-weight:700;cursor:pointer}#buffs .bf.sw b{color:#7A1F1A}',
@@ -9724,7 +9844,6 @@
       // weapon set
       '#wset{position:fixed;z-index:6;right:16px;bottom:92px;width:150px;height:92px;pointer-events:none}',
       'body.cb #wset{right:auto;left:12px;bottom:96px}',
-      'body.cb #hotbar{left:256px !important;transform:none}',
       '#wset .wb{position:absolute;right:0;top:0;width:100px;padding:4px 7px;' + iron + 'border:1px solid #6b5a3a;border-radius:3px;transform:rotate(3deg);font-size:12px;line-height:1.15}',
       '#wset .wh{position:absolute;left:0;bottom:0;width:104px;padding:5px 7px;' + parch + 'border:2px solid #2e2116;border-radius:3px;box-shadow:0 3px 8px rgba(0,0,0,.6);line-height:1.1}',
       '#wset small{display:block;font-family:Cinzel,serif;font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:#C9B48A}#wset .wh small{color:' + OX + '}',
@@ -9745,7 +9864,7 @@
       '#turns span.arr{color:#6b5a3a;font-size:11px;padding:0;background:none;border:0}',
       '@media (min-width:1000px) and (min-height:600px){#turns{height:62px !important;padding:4px 12px !important;gap:6px !important;left:250px !important}#turns .rnd b{font-size:22px}#turns .rnd small{font-size:10px}#turns .ini{flex-direction:column;border-radius:8px !important;padding:2px 4px !important}#turns .ini .pf{width:38px;height:38px;font-size:16px}#turns .ini .pf svg{width:20px;height:20px}#turns .ini small,#turns .ini.cur small{display:block;margin:1px 0 0;font-family:Cinzel,serif;font-size:10px;color:#C9B48A;max-width:74px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#turns .ini.cur small{color:#E0B868}#turns .ini .hp{bottom:14px;height:3px}#turns span.arr{font-size:15px}}',
       '#res{left:236px !important;right:auto !important;top:36px !important;bottom:auto !important;transform:none;display:none;gap:12px;' + iron + 'border:1px solid #5A4A30 !important;border-radius:12px !important;padding:1px 10px !important;font-family:Cinzel,serif;font-size:9.5px !important;letter-spacing:.06em !important;text-transform:none !important;color:#6b5a3a !important}',
-      '#res.on{display:flex !important}#res span{display:flex;align-items:center;gap:5px}#res span.on{color:#E9DCC0}',
+      '#res .turnlbl{font-weight:800;color:#C9B48A}#res .turnlbl.on{color:#E0B868}#res.on{display:flex !important}@media (min-width:1000px) and (min-height:600px){#res{top:70px !important;left:250px !important;font-size:13px !important;padding:4px 14px !important;gap:16px !important}#res i{width:12px !important;height:12px !important}}#res span{display:flex;align-items:center;gap:5px}#res span.on{color:#E9DCC0}',
       '#res i{width:9px;height:9px;display:inline-block;opacity:.3}#res span.on i{opacity:1}#res .pa{border-radius:50%;background:#c0392b}#res .pb{transform:rotate(45deg);background:#c9952e}#res .pm{border-radius:2px;background:#8a8a90}#res .ps{border-radius:50%;background:none;border:2px solid #E0B868;width:8px;height:8px}',
       // combat action bar
       '#cbBar.on{display:grid !important;grid-template-columns:82px 82px 124px;grid-auto-rows:46px;gap:6px;max-width:none}',
@@ -10556,7 +10675,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { CB: CB, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { CB: CB, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

@@ -25,7 +25,7 @@
       itemSpend(it); say(it.name, 'Thick smoke fills the room. When it clears, you are somewhere else. The audience boos.', 4500);
       CB.order = []; cbEnd(false); return true;
     }
-    if (it.throw) { var thr = throwItem(it, pickTarget(it)); if (thr !== false) loreFromThrow(it); return thr; }
+    if (it.throw) { aimStart(it, false); return true; }
     if (it.buff) { itemSpend(it); buffOn(it.buff, 10 * 60000); var b = BUFFS[it.buff]; say(it.name, b ? b.name + ': ' + b.desc : 'You feel different.', 3500); return true; }
     return false;
   }
@@ -36,28 +36,35 @@
   }
   function itemSpend(it) {
     if (it.uses) { it.usesLeft = (it.usesLeft === undefined ? it.uses : it.usesLeft) - 1; if (it.usesLeft > 0) { saveChar(CHAR); return; } }
-    it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; if ((CHAR.hotbar || []).indexOf(it.name) >= 0 && !CHAR.gear.some(function (g) { return g.name === it.name; })) CHAR.hotbar[CHAR.hotbar.indexOf(it.name)] = null; }
+    it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; if ((CHAR.hotbar || []).indexOf(it.name) >= 0 && !CHAR.gear.some(function (g) { return g.name === it.name; })) CHAR.hotbar[CHAR.hotbar.indexOf(it.name)] = null; if ((CHAR.hotbar2 || []).indexOf(it.name) >= 0 && !CHAR.gear.some(function (g) { return g.name === it.name; })) CHAR.hotbar2[CHAR.hotbar2.indexOf(it.name)] = null; }
     if (it.leaves) { var lv = item(it.leaves, { from: 'what was left' }); if (lv) invAdd(lv, true); }
     saveChar(CHAR); hotDraw(); if (UI.bag) bagDraw();
   }
-  function throwItem(it, e) {
-    if (!e) { say('No target', 'Nothing in range to throw that at' + (it.throw.vs === 'plant' ? ' (it only works on plants)' : '') + '.', 2600); return false; }
+  function throwItem(it, e, o) {
+    o = o || {}; var T = o.T || it.throw, spot = o.spot;
+    if (!e && !spot) { say('No target', 'Nothing in range to throw that at' + (T.vs === 'plant' ? ' (it only works on plants)' : '') + '.', 2600); return false; }
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', 'Throwing takes your action, on your turn.', 2500); return false; }
-    if (cheb(P.x, P.z, e.x, e.z) > 6) { say('Too far', 'You can throw about 30 feet.', 2400); return false; }
+    var tx = e ? e.x : spot.x, tz = e ? e.z : spot.z, Rg = throwRange();
+    if (cheb(P.x, P.z, tx, tz) > Rg.far) { say('Too far', 'You can throw ' + Rg.far * 5 + ' feet at most.', 2400); return false; }
     if (CB.on) CB.res.action = 0;
-    var T = it.throw, area = T.area || 0, notes = [], hit = true, R = null;
-    if (!area) { // single target: a ranged attack roll
-      var bon = PROF() + MOD.DEX + skillLv('Thrown Objects'), ac = acOf(e); R = roll20(false, false); var tot = R.r + bon; hit = R.r === 20 || (R.r !== 1 && tot >= ac);
-      diceShow({ who: 'You', vs: e.name, R: R, bonus: bon, tot: tot, ac: ac, hit: hit, why: ['thrown ' + it.name.toLowerCase()] });
+    var area = T.area || 0, notes = [], hit = true, R = null, dis = !!o.dis;
+    if (!area && e) { // single target: a ranged attack roll
+      var bon = PROF() + MOD.DEX + skillLv('Thrown Objects'), ac = acOf(e); R = roll20(false, dis); var tot = R.r + bon; hit = R.r === 20 || (R.r !== 1 && tot >= ac);
+      diceShow({ who: 'You', vs: e.name, R: R, bonus: bon, tot: tot, ac: ac, hit: hit, why: [(o.lit ? 'lit ' : 'thrown ') + it.name.toLowerCase()].concat(dis ? ['long range: disadvantage'] : []) });
     }
+    if (typeof cbFaceHero === 'function') cbFaceHero(tx, tz);
     kitOneShot('Punch_Jab'); itemSpend(it); skillCount('throw');
+    if (o.lit) floater(tx, 0.6, tz, 'FWOOMP', 'crit');
     if (hit) {
-      var targets = area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && cheb(q.x, q.z, e.x, e.z) <= area && (T.vs !== 'plant' || isPlant(q)); }) : [e];
+      var targets = area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && cheb(q.x, q.z, tx, tz) <= area && (T.vs !== 'plant' || isPlant(q)); }) : [e];
       targets.forEach(function (q) { var n = fxApply(T.fx, q); if (n) notes.push(n); });
+      if (area && !targets.length) notes.push('It splashes across the floor and hits nothing.');
     }
-    say('Thrown · ' + it.name, hit ? (notes.join(' ') || 'It lands. Nothing much happens.') : 'Missed. It skitters off into the dark.', 5000);
-    afterTrick(e); return true;
+    say((o.lit ? 'Lit and thrown · ' : 'Thrown · ') + it.name, hit ? (notes.join(' ') || 'It lands. Nothing much happens.') : 'Missed. It skitters off into the dark.', 5000);
+    var woke = e || (area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && !q.calm && cheb(q.x, q.z, tx, tz) <= area + 2; })[0] : null);
+    loreFromThrow(it); afterTrick(woke); return true;
   }
+
   function openBox(it) {
     var here = roomInfo(P.x, P.z); if (!here || here.type !== 'safe') { say(it.name, 'Loot boxes only open in a safe room. The System is very firm about this.', 3500); return false; }
     var R = rollContainer(it.box); itemSpend(it);

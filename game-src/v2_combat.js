@@ -380,7 +380,7 @@
     document.getElementById('cbBar').classList.toggle('on', CB.on); document.body.classList.toggle('cb', CB.on); if (typeof wsetDraw === 'function') wsetDraw();
     document.getElementById('bar').style.display = CB.on ? 'none' : '';
     document.getElementById('stick').style.display = CB.on ? 'none' : '';
-    document.getElementById('turns').classList.toggle('on', CB.on); document.getElementById('res').classList.toggle('on', CB.on && cbMyTurn() && !PC.down);
+    document.getElementById('turns').classList.toggle('on', CB.on); document.getElementById('res').classList.toggle('on', CB.on && !PC.down);
     if (!CB.on) { cbMenuClose(); return; }
     // show the real odds on the Attack button: d20 + your bonus against the nearest foe's armour
     var foe = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; }).sort(function (x, y) { return cheb(P.x, P.z, x.x, x.z) - cheb(P.x, P.z, y.x, y.z); })[0], ab = document.getElementById('cbAtk');
@@ -392,7 +392,7 @@
       return '<div class="ini' + (i === CB.idx ? ' cur' : '') + (me ? ' me' : '') + (dead ? ' dead' : '') + (c.calm ? ' calm' : '') + '" title="' + esc(me ? 'You' : c.name) + '"><span class="pf">' + face + '</span><span class="hp"><i style="width:' + Math.round(100 * hp) + '%"></i></span><small>' + esc(nm) + ' · ' + (me ? PC.init : c.init) + (c.prone ? ' · prone' : '') + '</small></div>';
     }).join('<span class="arr">›</span>') + (joining ? '<span class="arr">›</span><div class="ini join"><span class="pf">?</span><span class="hp"></span><small>Joining</small></div>' : '');
     var mine = cbMyTurn() && !CB.busy && !PC.down, r = CB.res;
-    document.getElementById('res').innerHTML = '<span class="' + (r.action ? 'on' : '') + '"><i class="pa"></i>Action</span><span class="' + (r.bonus ? 'on' : '') + '"><i class="pb"></i>Bonus</span><span class="' + (r.move ? 'on' : '') + '"><i class="pm"></i>' + (r.move * 5) + ' ft</span><span class="' + (r.swap ? 'on' : '') + '"><i class="ps"></i>Swap</span>' +
+    document.getElementById('res').innerHTML = (cbMyTurn() ? '<span class="on turnlbl">Your turn</span>' : '<span class="turnlbl">Their turn</span>') + '<span class="' + (r.action && cbMyTurn() ? 'on' : '') + '"><i class="pa"></i>Action</span><span class="' + (r.bonus && cbMyTurn() ? 'on' : '') + '"><i class="pb"></i>Bonus</span><span class="' + (r.move && cbMyTurn() ? 'on' : '') + '"><i class="pm"></i>' + (r.move * 5) + ' ft</span><span class="' + (r.swap ? 'on' : '') + '"><i class="ps"></i>Swap</span>' +
       (CB.disengage ? '<span class="on">Disengaged</span>' : '') + (CB.aim ? '<span class="on"><b>Tap a target</b></span>' : '');
     document.getElementById('cbAtk').disabled = !mine || !r.action; document.getElementById('cbActs').disabled = !mine; document.getElementById('cbBonus').disabled = !mine || !r.bonus;
     document.getElementById('cbEnd').disabled = !mine;
