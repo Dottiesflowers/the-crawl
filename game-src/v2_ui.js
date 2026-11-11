@@ -110,7 +110,7 @@
     var acts = [];
     if (it.cat === 'weapon' && it.dmg) acts.push(CHAR.wield === it.name ? ['unwield', 'Put away'] : ['wield', 'Hold in hand']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
-    if (it.cat === 'consumable' && it.heal) acts.push(['use', 'Use (' + it.heal + ' HP)']);
+    if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
     return '<div class="big">' + itemIcon(it).replace('width="30" height="30"', 'width="72" height="72"') + '</div><h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       '<p><small>' + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + '</small></p>' +
       '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
@@ -121,27 +121,62 @@
     if (a === 'unwield') { CHAR.wield = null; buildHero(); }
     if (a === 'wear') wear(it);
     if (a === 'unwear') { it.worn = false; look[it.slot] = [0, 0]; buildHero(); saveLook(); }
-    if (a === 'use') {
-      if (CB.on && (!cbMyTurn() || !CB.res.bonus)) { say('Not now', 'Using an item in a fight takes your bonus action.', 2500); return; }
-      if (CB.on) CB.res.bonus = 0;
-      var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal), h = m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1, before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h);
-      say('Used · ' + it.name, '+' + (PC.hp - before) + ' HP.', 2600); it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; } cbHUD();
-    }
+    if (a === 'use') useItem(it);
+    if (a === 'hot') { hotPut(it.name); }
+    if (a === 'unhot') { CHAR.hotbar = (CHAR.hotbar || []).map(function (n) { return n === it.name ? null : n; }); hotDraw(); }
     saveChar(CHAR); bagDraw();
   }
+  // ---------- consumables and the hot bar: four quick slots; in a fight using one is your bonus action ----------
+  var HOT_N = 4;
+  function heals(it) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal || ''); return m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1; }
+  function useItem(it) {
+    if (!CHAR || !it || CHAR.dead) return false;
+    if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.bonus)) { say('Not now', 'In a fight, using an item takes your bonus action, on your turn.', 2500); return false; }
+    if (CB.on) CB.res.bonus = 0;
+    var h = heals(it), before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h);
+    if (typeof floater === 'function') floater(P.px, 1.6, P.pz, '+' + (PC.hp - before), 'heal'); kitOneShot('PickUp_Table');
+    say('Used · ' + it.name, '+' + (PC.hp - before) + ' HP' + (CB.on ? ' (bonus action).' : '.'), 2600);
+    it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; }
+    saveChar(CHAR); cbHUD(); hotDraw(); if (UI.bag) bagDraw(); if (CB.on && typeof cbShowMoves === 'function') cbMenuClose();
+    return true;
+  }
+  function hotPut(name) {
+    CHAR.hotbar = CHAR.hotbar || []; while (CHAR.hotbar.length < HOT_N) CHAR.hotbar.push(null);
+    if (CHAR.hotbar.indexOf(name) >= 0) return; var i = CHAR.hotbar.indexOf(null);
+    if (i < 0) { say('Hot bar full', 'Take something off the hot bar first (in your bag).', 2600); return; }
+    CHAR.hotbar[i] = name; saveChar(CHAR); hotDraw();
+  }
+  function hotAuto() { // new consumables drop into empty slots on their own
+    if (!CHAR) return; (CHAR.gear || []).forEach(function (g) { if (g.cat === 'consumable' && g.heal && (CHAR.hotbar || []).indexOf(g.name) < 0 && (CHAR.hotbar || []).filter(Boolean).length < HOT_N) hotPut(g.name); });
+  }
+  function hotItem(i) { var n = CHAR && CHAR.hotbar && CHAR.hotbar[i]; return n ? (CHAR.gear || []).filter(function (g) { return g.name === n; })[0] || null : null; }
+  function hotDraw() {
+    var el = document.getElementById('hotbar');
+    if (!el) { el = document.createElement('div'); el.id = 'hotbar'; document.body.appendChild(el);
+      var css = document.createElement('style'); css.textContent = '#hotbar{position:fixed;left:168px;bottom:16px;z-index:6;display:flex;gap:6px}@media (max-width:700px){#hotbar{left:12px;bottom:auto;top:176px;flex-direction:column}}#hotbar button{position:relative;width:46px;height:46px;border-radius:9px;background:rgba(8,9,15,.8);border:1px solid rgba(61,242,224,.35);padding:2px;cursor:pointer}#hotbar button.ready{border-color:var(--neon)}#hotbar button:disabled{opacity:.35}#hotbar b{position:absolute;right:3px;bottom:1px;font-size:10px;color:#fff;text-shadow:0 1px 2px #000}#hotbar i{position:absolute;left:4px;top:1px;font-size:9px;font-style:normal;color:#9ab}#hotbar .ico{background:none}'; document.head.appendChild(css); }
+    var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead; el.style.display = show ? 'flex' : 'none'; if (!show) return;
+    var html = '';
+    for (var i = 0; i < HOT_N; i++) { var it = hotItem(i), can = it && (!CB.on || (cbMyTurn() && CB.res.bonus && !CB.busy));
+      html += '<button type="button" data-h="' + i + '" class="' + (can ? 'ready' : '') + '"' + (it ? '' : ' disabled') + ' aria-label="' + (it ? esc(it.name) : 'Empty hot bar slot') + '" title="' + (it ? esc(it.name) + ' · ' + esc(it.heal) + ' HP' : 'Empty: put consumables here from your bag') + '"><i>' + (i + 1) + '</i>' + (it ? itemIcon(it) + '<b>×' + (it.qty || 1) + '</b>' : '') + '</button>'; }
+    el.innerHTML = html;
+    el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); var it = hotItem(+b.dataset.h); if (it) useItem(it); }); });
+  }
+  setInterval(function () { if (typeof CHAR !== 'undefined') hotDraw(); }, 700);
   function invAdd(item, quiet) {
     if (!CHAR) return; CHAR.gear = CHAR.gear || [];
     var same = item.cat === 'consumable' || item.cat === 'misc' ? CHAR.gear.filter(function (g) { return g.name === item.name; })[0] : null;
     if (same) same.qty = (same.qty || 1) + (item.qty || 1); else CHAR.gear.push(item);
     if (!quiet) saveChar(CHAR);
     if (UI.bag) bagDraw();
+    if (item.cat === 'consumable' && item.heal) hotAuto();
   }
   // a wielded item from the inventory overrides the builder's weapon slot
   function gearWeapon() {
     if (!CHAR || !CHAR.wield) return null; var it = (CHAR.gear || []).filter(function (g) { return g.name === CHAR.wield && g.dmg; })[0]; if (!it) return null;
     var m = /(\d+)d(\d+)/.exec(it.dmg), light = /knife|dagger|shear|scissor|blade|pick|opener|pen/i.test(it.name);
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat], dmgB: MOD[stat] };
+    var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam, dmgB: MOD[stat], fam: fam };
   }
 
   // ---------- wardrobe: you only wear what you own ----------

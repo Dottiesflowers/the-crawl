@@ -44,6 +44,7 @@
   });
   function tapRing(x, y) { var r = document.getElementById('tapRing'); r.style.left = x + 'px'; r.style.top = y + 'px'; r.style.opacity = 1; clearTimeout(tapRing.t); tapRing.t = setTimeout(function () { r.style.opacity = 0; }, 450); }
   function exploreTap(sx, sy) {
+    if (CHAR && CHAR.dead) return;
     // a creature under the finger wins
     var best = null, bd = 34 * 34;
     CB.enemies.forEach(function (e) { if (!e.obj.visible) return; var s = toScreen(e.px, (e.def.h || 1) * 0.5, e.pz), dx = s.x - sx, dy = s.y - sy, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = e; } });

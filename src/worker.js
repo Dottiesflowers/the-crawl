@@ -130,7 +130,7 @@ export class Campaign extends DurableObject {
       }
       if (p === '/api/party' && m === 'GET') {
         const rows = this.all('SELECT u.id, u.username, u.role, c.data, c.updated FROM users u LEFT JOIN characters c ON c.user_id = u.id ORDER BY u.id');
-        return json({ party: rows.map(r => { const c = r.data ? JSON.parse(r.data) : null; return { id: r.id, username: r.username, role: r.role, name: c && c.name, xp: c ? c.xp || 0 : 0, level: c ? c.level || 1 : 1, trait: c && c.trait, flaw: c && c.flaw, updated: r.updated }; }) });
+        return json({ party: rows.map(r => { const c = r.data ? JSON.parse(r.data) : null; return { id: r.id, username: r.username, role: r.role, name: c && c.name, xp: c ? c.xp || 0 : 0, level: c ? c.level || 1 : 1, trait: c && c.trait, flaw: c && c.flaw, dead: !!(c && c.dead), updated: r.updated }; }) });
       }
       if (p === '/api/board' && m === 'GET') {
         const room = parseInt(url.searchParams.get('room') || '0', 10);
@@ -159,6 +159,11 @@ export class Campaign extends DurableObject {
         if (p === '/api/dm/invites' && m === 'GET') return json({ invites: this.all('SELECT i.code, i.note, i.created, i.used_at, u.username AS used_by FROM invites i LEFT JOIN users u ON u.id = i.used_by ORDER BY i.created DESC') });
         if (p === '/api/dm/invites' && m === 'POST') { const code = inviteCode(); this.sql.exec('INSERT INTO invites (code, note, created_by, created) VALUES (?, ?, ?, ?)', code, String(body.note || '').slice(0, 60), u.id, Date.now()); return json({ code }); }
         if (p === '/api/dm/invites' && m === 'DELETE') { this.sql.exec('DELETE FROM invites WHERE code = ? AND used_by IS NULL', String(url.searchParams.get('code') || '')); return json({ ok: true }); }
+        if (p === '/api/dm/revive' && m === 'POST') { // stand-in for party revival until party play exists
+          const r = this.one('SELECT data FROM characters WHERE user_id = ?', parseInt(body.user_id, 10) || 0); if (!r) return json({ error: 'no_character' }, 404);
+          const c = JSON.parse(r.data); c.dead = null; c.revivedAt = Date.now();
+          this.sql.exec('UPDATE characters SET data = ?, updated = ? WHERE user_id = ?', JSON.stringify(c), Date.now(), parseInt(body.user_id, 10)); return json({ ok: true });
+        }
         if (p === '/api/dm/reset-password' && m === 'POST') {
           const t = this.one('SELECT id FROM users WHERE username = ?', String(body.username || '')); if (!t) return json({ error: 'no_user' }, 404);
           const temp = inviteCode(), h = await hashPassword(temp); this.sql.exec('UPDATE users SET pass = ?, salt = ? WHERE id = ?', h.hash, h.salt, t.id); this.sql.exec('DELETE FROM sessions WHERE user_id = ?', t.id);

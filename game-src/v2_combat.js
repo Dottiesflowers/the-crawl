@@ -5,28 +5,28 @@
   var CB = { on: false, enemies: [], order: [], idx: -1, busy: false, path: null, potions: 3, dodge: false, res: { move: 0, action: 0, bonus: 0 }, defs: {}, ready: false };
   var PC = { hp: 11, max: 11 };
   var BEAST = {
-    puglin: { name: 'Puglin', file: 'm_puglin', tex: 'puglin', ac: 10, hp: 6, speed: 5, atk: 2, dmg: [1, 4, 0], weapon: 'club', init: 1, str: 0, dex: 1, pp: 10, xp: 25, scale: 0.72, h: 0.62, attackClip: 'Sword_Attack',
+    puglin: { name: 'Puglin', file: 'm_puglin', tex: 'puglin', ac: 9, hp: 6, speed: 5, atk: 2, dmg: [1, 4, 0], weapon: 'club', init: 1, str: 0, dex: 1, pp: 10, xp: 25, scale: 0.72, h: 0.62, attackClip: 'Sword_Attack',
       lines: ['Puglins hunt in pairs and argue in threes.', 'A pig-faced goblin with a stick and something to prove.'] },
-    imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 12, hp: 13, speed: 6, atk: 3, dmg: [1, 6, 0], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
+    imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 11, hp: 13, speed: 6, atk: 3, dmg: [1, 6, 0], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
       lines: ['Hired muscle for the stairwell. Union rules: it does not leave its post until something walks past it.'] }
   };
   // monster families: tiers share a model and get bigger, tougher and nastier. base: which loaded model to use
   function variant(base, o) { var v = {}; for (var k in BEAST[base]) v[k] = BEAST[base][k]; for (k in o) v[k] = o[k]; v.base = base; return v; }
   BEAST.puglin.base = 'puglin'; BEAST.imp.base = 'imp'; BEAST.imp.name = 'Imp security guard';
-  BEAST.puglin_brute = variant('puglin', { name: 'Puglin brute', ac: 11, hp: 11, atk: 3, dmg: [1, 6, 0], str: 2, xp: 50, scale: 0.86, h: 0.74, tint: 0xd8b0a0, lines: ['Bigger, meaner, and it brought a bigger stick.'] });
+  BEAST.puglin_brute = variant('puglin', { name: 'Puglin brute', ac: 10, hp: 11, atk: 3, dmg: [1, 6, 0], str: 2, xp: 50, scale: 0.86, h: 0.74, tint: 0xd8b0a0, lines: ['Bigger, meaner, and it brought a bigger stick.'] });
   BEAST.puglin_chief = variant('puglin', { name: 'Puglin war-chief', ac: 12, hp: 18, atk: 4, dmg: [1, 6, 2], str: 3, dex: 1, xp: 120, scale: 1.0, h: 0.86, tint: 0xc08070, lines: ['Wears a bottle cap as a crown. Will fight you over it.'] });
   BEAST.grik = variant('puglin', { name: 'Grik, the Gristle King', ac: 14, hp: 48, atk: 6, dmg: [2, 6, 3], str: 4, dex: 1, init: 1, pp: 13, xp: 500, scale: 1.45, h: 1.25, tint: 0xb06050, boss: true, lines: ['The king of the Warrens. Fat on snacks, mean on principle. His minions scatter if he falls.'] });
-  BEAST.imp_intern = variant('imp', { name: 'Imp intern', ac: 10, hp: 7, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.56, h: 0.9, tint: 0xd0c0ff, lines: ['Unpaid. Furious about it.'] });
-  BEAST.imp_foreman = variant('imp', { name: 'Imp foreman', ac: 13, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0xffa080, lines: ['Clipboard in one hand, mace in the other. Both are for you.'] });
+  BEAST.imp_intern = variant('imp', { name: 'Imp intern', ac: 9, hp: 7, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.56, h: 0.9, tint: 0xd0c0ff, lines: ['Unpaid. Furious about it.'] });
+  BEAST.imp_foreman = variant('imp', { name: 'Imp foreman', ac: 12, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0xffa080, lines: ['Clipboard in one hand, mace in the other. Both are for you.'] });
   BEAST.steward = variant('imp', { name: 'The Shop Steward', ac: 15, hp: 58, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0xff6a5a, boss: true, lines: ['Head of the imp union. Has never lost a negotiation or a fistfight. Will not cross a picket line.'] });
   // placeholder families until their own models are imported: bog puglins in the Gardens, archive clerks (imps) in the Archive
-  BEAST.bog = variant('puglin', { name: 'Bog puglin', hp: 7, atk: 2, dmg: [1, 4, 0], xp: 30, tint: 0x8ab070, lines: ['A puglin that went feral in the reeds. Smells like a pond with opinions.'] });
-  BEAST.bog_brute = variant('puglin', { name: 'Reed stalker', ac: 12, hp: 12, atk: 3, dmg: [1, 6, 1], dex: 2, str: 1, xp: 60, scale: 0.86, h: 0.74, tint: 0x6a9a5a, lines: ['Moves through the reeds without a sound. You will hear it when it wants you to.'] });
+  BEAST.bog = variant('puglin', { name: 'Bog puglin', ac: 9, hp: 7, atk: 2, dmg: [1, 4, 0], xp: 30, tint: 0x8ab070, lines: ['A puglin that went feral in the reeds. Smells like a pond with opinions.'] });
+  BEAST.bog_brute = variant('puglin', { name: 'Reed stalker', ac: 11, hp: 12, atk: 3, dmg: [1, 6, 1], dex: 2, str: 1, xp: 60, scale: 0.86, h: 0.74, tint: 0x6a9a5a, lines: ['Moves through the reeds without a sound. You will hear it when it wants you to.'] });
   BEAST.bog_chief = variant('puglin', { name: 'Marsh warden', ac: 12, hp: 20, atk: 4, dmg: [1, 8, 1], str: 3, dex: 1, xp: 130, scale: 1.0, h: 0.86, tint: 0x5a8a4a, lines: ['Wears a crown of lily pads. It is not a joke to them.'] });
   BEAST.gardener = variant('puglin', { name: 'The Gardener', ac: 14, hp: 52, atk: 6, dmg: [2, 6, 3], str: 4, dex: 1, init: 1, pp: 13, xp: 550, scale: 1.5, h: 1.3, tint: 0x4a7a3a, boss: true, lines: ['Boss of the Drowned Gardens. It has been composting crawlers, and it is very proud of the results.'] });
-  BEAST.clerk = variant('imp', { name: 'Archive clerk', ac: 10, hp: 8, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.6, h: 0.95, tint: 0x9ab8e0, lines: ['A soggy imp with a stamp. It will file you under deceased.'] });
-  BEAST.clerk_mid = variant('imp', { name: 'Records keeper', ac: 12, hp: 14, atk: 3, dmg: [1, 6, 1], str: 1, dex: 2, xp: 90, scale: 0.72, h: 1.15, tint: 0x7a9ad0, lines: ['Knows where every file is and resents everyone who asks.'] });
-  BEAST.clerk_head = variant('imp', { name: 'Senior archivist', ac: 13, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0x5a7ac0, lines: ['Shushes you before it hits you. Both hurt.'] });
+  BEAST.clerk = variant('imp', { name: 'Archive clerk', ac: 9, hp: 8, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.6, h: 0.95, tint: 0x9ab8e0, lines: ['A soggy imp with a stamp. It will file you under deceased.'] });
+  BEAST.clerk_mid = variant('imp', { name: 'Records keeper', ac: 11, hp: 14, atk: 3, dmg: [1, 6, 1], str: 1, dex: 2, xp: 90, scale: 0.72, h: 1.15, tint: 0x7a9ad0, lines: ['Knows where every file is and resents everyone who asks.'] });
+  BEAST.clerk_head = variant('imp', { name: 'Senior archivist', ac: 12, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0x5a7ac0, lines: ['Shushes you before it hits you. Both hurt.'] });
   BEAST.archivist = variant('imp', { name: 'The Head Archivist', ac: 15, hp: 56, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0x4a6ab8, boss: true, lines: ['Boss of the Flooded Archive. It has a file on you, and the file is very thin.'] });
   // stand-ins for the Arena headliner (the ogre bugbear) and the Stairwell Gate's final boss (the dragon) until those models are in
   BEAST.headliner = variant('puglin', { name: 'The Headliner', ac: 15, hp: 70, atk: 7, dmg: [2, 8, 4], str: 5, dex: 0, init: 0, pp: 12, xp: 800, scale: 1.8, h: 1.6, tint: 0x9a6a4a, boss: true, lines: ['The Arena\'s main event. The crowd chants its name. It does not know yours yet.'] });
@@ -295,9 +295,9 @@
   function cbOptions(which) {
     var r = CB.res, adj = cbAdjacent(), Wt = cbThrowable();
     if (which === 'bonus') return [
-      { label: 'Drink a potion', tag: '2d4+2 · ×' + CB.potions, ok: r.bonus && CB.potions > 0, fn: cbPotion },
+    ].concat([0, 1, 2, 3].map(function (i) { var it = hotItem(i); return it ? { label: 'Use ' + it.name, tag: it.heal + ' HP · ×' + (it.qty || 1), ok: r.bonus, fn: function () { useItem(it); } } : null; }).filter(Boolean)).concat([
       { label: 'Off-hand dagger attack', tag: '1d4, no modifier', ok: r.bonus && sty('off') === 3 && sty('main') > 0 && adj.length > 0, fn: function () { cbAttackButton(true); } }
-    ];
+    ]);
     var near = CB.enemies.filter(function (e) { return !e.dead && !e.calm && !e.npc && cheb(P.x, P.z, e.x, e.z) <= 6; }).sort(function (a, b) { return cheb(P.x, P.z, a.x, a.z) - cheb(P.x, P.z, b.x, b.z); })[0];
     return [
       { label: 'Talk to ' + (near ? near.name : 'someone'), tag: 'free · say anything', ok: !!near, fn: function () { talkOpen(near); } },
@@ -328,13 +328,16 @@
 
   function cbHUD() {
     var a = pcAC();
-    document.getElementById('hpTxt').textContent = (PC.down ? 'DOWN · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : 'HP ' + PC.hp + '/' + PC.max) + ' · AC ' + a.ac + ' · Lv ' + (PC.level || 1) + ' (' + (PC.xp || 0) + '/' + nextLevelXP() + ')' + (PC.hidden ? ' · hidden' : '');
+    document.getElementById('hpTxt').textContent = (CHAR && CHAR.dead ? 'DEAD · waiting for your party' : PC.down ? 'DOWN · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : 'HP ' + PC.hp + '/' + PC.max) + ' · AC ' + a.ac + ' · Lv ' + (PC.level || 1) + ' (' + (PC.xp || 0) + '/' + nextLevelXP() + ')' + (PC.hidden ? ' · hidden' : '');
     document.getElementById('hpFill').style.width = Math.max(0, 100 * PC.hp / PC.max) + '%';
     document.getElementById('cbBar').classList.toggle('on', CB.on);
     document.getElementById('bar').style.display = CB.on ? 'none' : '';
     document.getElementById('stick').style.display = CB.on ? 'none' : '';
     document.getElementById('turns').classList.toggle('on', CB.on); document.getElementById('res').classList.toggle('on', CB.on && cbMyTurn() && !PC.down);
     if (!CB.on) { cbMenuClose(); return; }
+    // show the real odds on the Attack button: d20 + your bonus against the nearest foe's armour
+    var foe = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; }).sort(function (x, y) { return cheb(P.x, P.z, x.x, x.z) - cheb(P.x, P.z, y.x, y.z); })[0], ab = document.getElementById('cbAtk');
+    if (foe && ab) { var Wq = pcWeapon(), need = foe.def.ac - Wq.hit, pct = Math.round(Math.max(5, Math.min(95, (21 - need) * 5))); ab.innerHTML = 'Attack<small>+' + Wq.hit + ' · ' + pct + '% to hit</small>'; }
     document.getElementById('turns').innerHTML = CB.order.map(function (c, i) {
       var nm = c === 'pc' ? 'You' : c.name + (c.prone ? ' (prone)' : '') + (c.grappled ? ' (grappled)' : ''), dead = c !== 'pc' && c.dead;
       return '<span class="' + (i === CB.idx ? 'cur ' : '') + (dead ? 'dead' : '') + '">' + nm + ' · ' + (c === 'pc' ? PC.init : c.init) + '</span>';
@@ -354,7 +357,7 @@
 
   // ---------- starting and ending a fight ----------
   function cbStart(why, first) {
-    if (CB.on || !CB.ready) return;
+    if (CB.on || !CB.ready || (CHAR && CHAR.dead)) return;
     if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
     var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || (!e.def.timid && cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8))); });
     if (!foes.length) return;
@@ -571,9 +574,7 @@
   function cbDisengage() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.disengage = true; say('Disengage', 'You can walk away this turn without opportunity attacks.', 2600); cbHUD(); }
   function cbDodge() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.dodge = true; say('Dodge', 'Attacks against you have disadvantage until your next turn.', 2600); cbHUD(); }
   function cbPotion() {
-    if (!cbMyTurn() || CB.busy || !CB.res.bonus || CB.potions <= 0) return;
-    CB.res.bonus = 0; CB.potions--; var h = d(2, 4) + 2, before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h);
-    floater(P.px, 1.5, P.pz, '+' + (PC.hp - before), 'heal'); kitOneShot('PickUp_Table'); say('Potion of Healing · 2d4 + 2 = ' + h, 'Tastes like a sponsor. ' + CB.potions + ' left.', 3200); cbHUD();
+    var it = (CHAR && CHAR.gear || []).filter(function (g) { return /potion/i.test(g.name) && g.heal; })[0]; if (it) useItem(it); else say('No potions', 'You are out of healing potions.', 2400);
   }
   function cbKill(e) {
     e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
@@ -600,12 +601,39 @@
       cbNext();
     }, 1400);
   }
+  // once the campaign is live, death sticks: you lie where you fell until a party member revives you
+  function liveDown(stable) {
+    say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. You will come to where you fell, with 1 HP, once the fight moves on.' : 'The crowd goes silent. Your body stays where it fell. Only your party can bring you back now.', 7000);
+    setTimeout(function () {
+      cbEnd(false); CB.enemies.forEach(function (e) { if (!e.dead) { e.path = null; e.fought = false; cbPlay(e, 'Idle_Loop'); } });
+      if (stable) { PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; say('Back on your feet', '1 HP. The monsters lost interest. Find a safe room and something to eat.', 5000); }
+      else if (CHAR) { CHAR.dead = { at: Date.now(), x: P.x, z: P.z }; CHAR.pos = { x: P.x, z: P.z }; saveChar(CHAR); deadShow(); }
+      refreshFog(); cbHUD(); worldSave();
+    }, 3200);
+  }
+  function deadShow() {
+    var el = document.getElementById('deadBox');
+    if (!el) { el = document.createElement('div'); el.id = 'deadBox'; document.body.appendChild(el);
+      var css = document.createElement('style'); css.textContent = '#deadBox{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:25;max-width:360px;padding:16px 18px;border-radius:12px;background:rgba(10,4,8,.88);border:1px solid #ff3a5a;color:#f4dfe4;text-align:center;font-size:13px;line-height:1.45}#deadBox h2{margin:0 0 6px;color:#ff3a5a;letter-spacing:.2em;font-size:16px}'; document.head.appendChild(css); }
+    el.innerHTML = '<h2>YOU ARE DEAD</h2><p>Your body lies where you fell. Only a party member can revive you. You can still look around.</p><p><small>Party revival arrives with party play. Until then the DM can revive you from DM tools on the Sheet tab.</small></p>' + (NET.user && NET.user.role === 'dm' ? '<p><button type="button" class="ccBtn" id="deadRev">Revive me (DM)</button></p>' : '');
+    el.style.display = 'block'; PC.down = true; PC.hp = 0; PC.saves = PC.saves || { s: 0, f: 0 }; if (KIT) kitOneShot('Death01', true); cbHUD();
+    var b = document.getElementById('deadRev'); if (b) b.onclick = function () { api('dm/revive', { method: 'POST', body: { user_id: NET.uid } }).then(reviveMe, function (e) { say('Failed', e.message); }); };
+  }
+  function reviveMe() {
+    if (!CHAR) return; CHAR.dead = null; PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; var el = document.getElementById('deadBox'); if (el) el.style.display = 'none';
+    saveChar(CHAR); cbHUD(); say('Revived', 'You gasp back to life with 1 HP. The audience did not see that coming.', 5000);
+  }
+  function deadCheck() { // on load, and whenever we learn whether the campaign is live
+    if (!CHAR || !CHAR.dead) return;
+    if (NET.live) { if (CHAR.dead.x !== undefined && typeof heroTo === 'function') heroTo(CHAR.dead.x, CHAR.dead.z); deadShow(); } else if (NET.live === false) { reviveMe(); }
+  }
   function cbDie(stable) {
     CB.busy = true;
+    if (NET.live) { liveDown(stable); return; }
     say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. The monsters lose interest, and the System drags you to the nearest safe room.' :
       'The crowd goes silent. In the full game, death in the crawl is permanent. For this test, the System drags you to the nearest safe room. The monsters you killed stay dead.', 6500);
     setTimeout(function () {
-      cbEnd(false); PC.down = false; PC.hp = PC.max; CB.potions = Math.max(CB.potions, 1);
+      cbEnd(false); PC.down = false; PC.hp = PC.max; if (CHAR && !(CHAR.gear || []).some(function (g) { return /potion/i.test(g.name); })) invAdd({ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' }, true);
       if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
       var home = nearestSafe(P.x, P.z) || start; P.x = home.x; P.z = home.z; P.px = home.x; P.pz = home.z; if (KIT) { KIT.shot = null; }
       // the monsters that beat you keep their wounds (they patch up a little) and wander back toward their posts
@@ -732,7 +760,7 @@
   }
   // a monster that can see you, close by, starts the fight
   function cbAggro() {
-    if (CB.on || !CB.ready || inSafeRoom(P.x, P.z)) return;
+    if (CB.on || !CB.ready || inSafeRoom(P.x, P.z) || (CHAR && CHAR.dead)) return;
     for (var i = 0; i < CB.enemies.length; i++) {
       var e = CB.enemies[i]; if (e.dead || e.calm || e.def.timid) continue;
       var r = e.guard ? 2 : 3;

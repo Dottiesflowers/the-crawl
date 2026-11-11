@@ -40,7 +40,9 @@
     PC.xp = c.xp || 0; PC.level = Math.max(c.level || 1, levelFor(PC.xp)); c.level = PC.level; PC.max = maxHPFor(c, PC.level); PC.hp = PC.max;
     if (typeof cbHUD === 'function') cbHUD();
     if (typeof posRestore === 'function' && typeof P !== 'undefined' && P) setTimeout(posRestore, 0);
-    setTimeout(handsFromGear, 0);
+    setTimeout(handsFromGear, 0); setTimeout(deadCheck, 300);
+    if (!c.potionsGiven && !c.preset) { c.potionsGiven = true; c.gear = c.gear || []; c.gear.push({ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', qty: 3, desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP. Every crawler starts with three.', from: 'the System' }); }
+    setTimeout(function () { if (typeof hotAuto === 'function') { hotAuto(); hotDraw(); } }, 50);
   }
   // your hands and back only show what you actually own: no free swords, shields or bass guitars
   function handsFromGear() {
@@ -121,7 +123,7 @@
   }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
@@ -159,15 +161,15 @@
     if (c.look) { for (var k in c.look) if (look[k]) look[k] = c.look[k]; buildHero(); }
   }
   function signedIn(me) {
-    NET.user = me.user; NET.uid = me.user.id; NET.sample = serverSample; authClose(); api('campaign').then(function (j) { NET.live = !!(j.value && j.value.live); }, function () {});
+    NET.user = me.user; NET.uid = me.user.id; NET.sample = serverSample; authClose(); api('campaign').then(function (j) { NET.live = !!(j.value && j.value.live); deadCheck(); }, function () {});
     if (me.character && me.character.stats) { loadChar(me.character); say('Welcome back, ' + (me.character.name || me.user.username), 'Your character is right where you left it. The audience missed you. Mostly.', 4500); }
     else ccOpen();
     partyPoll();
   }
   function partyPoll() {
     clearTimeout(partyPoll.t);
-    api('party').then(function (j) { NET.party = j.party || []; if (gearOpen && tab === 'Sheet') drawRows(); }, function (e) { if (e.status === 401) authOpen(); })
-      .then(function () { partyPoll.t = setTimeout(partyPoll, 30000); });
+    api('party').then(function (j) { NET.party = j.party || []; var me = NET.party.filter(function (p) { return p.id === NET.uid; })[0]; if (CHAR && CHAR.dead && me && !me.dead && NET.live) reviveMe(); if (gearOpen && tab === 'Sheet') drawRows(); }, function (e) { if (e.status === 401) authOpen(); })
+      .then(function () { partyPoll.t = setTimeout(partyPoll, CHAR && CHAR.dead ? 10000 : 30000); });
   }
   // ---------- sign-in screen ----------
   (function authUI() {
@@ -214,7 +216,9 @@
         (used.length ? '<p>Used: ' + used.map(function (i) { return esc(i.used_by); }).join(', ') + '</p>' : '') +
         '<p><button type="button" class="ccBtn" id="dmTalk">Read recent NPC conversations</button></p><div id="dmLogs"></div>' +
         (CHAR && !NET.live ? '<p><button type="button" class="ccBtn" id="dmWard">' + (CHAR.freeWardrobe ? 'Lock my wardrobe again' : 'Unlock all clothes for me (DM testing)') + '</button></p>' : '') +
+        (NET.party.filter(function (p) { return p.dead; }).length ? '<h3>Fallen crawlers</h3>' + NET.party.filter(function (p) { return p.dead; }).map(function (p) { return '<p>' + esc(p.name || p.username) + ' is dead. <button type="button" class="ccBtn" data-rev="' + p.id + '">Revive</button></p>'; }).join('') + '<p><small>Stand-in until party members can revive each other.</small></p>' : '') +
         '<h3>Campaign</h3><p>' + (NET.live ? 'Live. Testing tools are locked for everyone (re-dressing, free wardrobe).' : 'Testing. Players can re-dress from their description and the DM can unlock clothes.') + '</p><p><button type="button" class="ccBtn" id="dmLive">' + (NET.live ? 'Back to testing mode' : 'Start the campaign (lock testing tools)') + '</button></p>';
+      box.querySelectorAll('[data-rev]').forEach(function (b) { b.onclick = function () { api('dm/revive', { method: 'POST', body: { user_id: +b.dataset.rev } }).then(function () { if (+b.dataset.rev === NET.uid) reviveMe(); partyPoll(); say('Revived', 'They are back, with 1 HP.', 3000); }, function (e) { say('Failed', e.message); }); }; });
       document.getElementById('dmLive').onclick = function () { if (!NET.live && !confirm('Start the campaign? Re-dressing and the free wardrobe lock for everyone.')) return; api('dm/campaign', { method: 'PUT', body: { live: !NET.live } }).then(function () { NET.live = !NET.live; if (NET.live && CHAR && CHAR.freeWardrobe) { CHAR.freeWardrobe = false; saveChar(CHAR); } drawRows(); }, function (e) { say('Failed', e.message); }); };
       if (document.getElementById('dmWard')) document.getElementById('dmWard').onclick = function () { CHAR.freeWardrobe = !CHAR.freeWardrobe; saveChar(CHAR); drawRows(); };
       document.getElementById('dmNew').onclick = function () { var note = prompt('Who is this invite for? (optional)') || ''; api('dm/invites', { method: 'POST', body: { note: note } }).then(sheetAfter, function (e) { say('Invite failed', e.message); }); };

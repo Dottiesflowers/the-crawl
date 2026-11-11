@@ -6371,28 +6371,28 @@
   var CB = { on: false, enemies: [], order: [], idx: -1, busy: false, path: null, potions: 3, dodge: false, res: { move: 0, action: 0, bonus: 0 }, defs: {}, ready: false };
   var PC = { hp: 11, max: 11 };
   var BEAST = {
-    puglin: { name: 'Puglin', file: 'm_puglin', tex: 'puglin', ac: 10, hp: 6, speed: 5, atk: 2, dmg: [1, 4, 0], weapon: 'club', init: 1, str: 0, dex: 1, pp: 10, xp: 25, scale: 0.72, h: 0.62, attackClip: 'Sword_Attack',
+    puglin: { name: 'Puglin', file: 'm_puglin', tex: 'puglin', ac: 9, hp: 6, speed: 5, atk: 2, dmg: [1, 4, 0], weapon: 'club', init: 1, str: 0, dex: 1, pp: 10, xp: 25, scale: 0.72, h: 0.62, attackClip: 'Sword_Attack',
       lines: ['Puglins hunt in pairs and argue in threes.', 'A pig-faced goblin with a stick and something to prove.'] },
-    imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 12, hp: 13, speed: 6, atk: 3, dmg: [1, 6, 0], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
+    imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 11, hp: 13, speed: 6, atk: 3, dmg: [1, 6, 0], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
       lines: ['Hired muscle for the stairwell. Union rules: it does not leave its post until something walks past it.'] }
   };
   // monster families: tiers share a model and get bigger, tougher and nastier. base: which loaded model to use
   function variant(base, o) { var v = {}; for (var k in BEAST[base]) v[k] = BEAST[base][k]; for (k in o) v[k] = o[k]; v.base = base; return v; }
   BEAST.puglin.base = 'puglin'; BEAST.imp.base = 'imp'; BEAST.imp.name = 'Imp security guard';
-  BEAST.puglin_brute = variant('puglin', { name: 'Puglin brute', ac: 11, hp: 11, atk: 3, dmg: [1, 6, 0], str: 2, xp: 50, scale: 0.86, h: 0.74, tint: 0xd8b0a0, lines: ['Bigger, meaner, and it brought a bigger stick.'] });
+  BEAST.puglin_brute = variant('puglin', { name: 'Puglin brute', ac: 10, hp: 11, atk: 3, dmg: [1, 6, 0], str: 2, xp: 50, scale: 0.86, h: 0.74, tint: 0xd8b0a0, lines: ['Bigger, meaner, and it brought a bigger stick.'] });
   BEAST.puglin_chief = variant('puglin', { name: 'Puglin war-chief', ac: 12, hp: 18, atk: 4, dmg: [1, 6, 2], str: 3, dex: 1, xp: 120, scale: 1.0, h: 0.86, tint: 0xc08070, lines: ['Wears a bottle cap as a crown. Will fight you over it.'] });
   BEAST.grik = variant('puglin', { name: 'Grik, the Gristle King', ac: 14, hp: 48, atk: 6, dmg: [2, 6, 3], str: 4, dex: 1, init: 1, pp: 13, xp: 500, scale: 1.45, h: 1.25, tint: 0xb06050, boss: true, lines: ['The king of the Warrens. Fat on snacks, mean on principle. His minions scatter if he falls.'] });
-  BEAST.imp_intern = variant('imp', { name: 'Imp intern', ac: 10, hp: 7, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.56, h: 0.9, tint: 0xd0c0ff, lines: ['Unpaid. Furious about it.'] });
-  BEAST.imp_foreman = variant('imp', { name: 'Imp foreman', ac: 13, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0xffa080, lines: ['Clipboard in one hand, mace in the other. Both are for you.'] });
+  BEAST.imp_intern = variant('imp', { name: 'Imp intern', ac: 9, hp: 7, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.56, h: 0.9, tint: 0xd0c0ff, lines: ['Unpaid. Furious about it.'] });
+  BEAST.imp_foreman = variant('imp', { name: 'Imp foreman', ac: 12, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0xffa080, lines: ['Clipboard in one hand, mace in the other. Both are for you.'] });
   BEAST.steward = variant('imp', { name: 'The Shop Steward', ac: 15, hp: 58, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0xff6a5a, boss: true, lines: ['Head of the imp union. Has never lost a negotiation or a fistfight. Will not cross a picket line.'] });
   // placeholder families until their own models are imported: bog puglins in the Gardens, archive clerks (imps) in the Archive
-  BEAST.bog = variant('puglin', { name: 'Bog puglin', hp: 7, atk: 2, dmg: [1, 4, 0], xp: 30, tint: 0x8ab070, lines: ['A puglin that went feral in the reeds. Smells like a pond with opinions.'] });
-  BEAST.bog_brute = variant('puglin', { name: 'Reed stalker', ac: 12, hp: 12, atk: 3, dmg: [1, 6, 1], dex: 2, str: 1, xp: 60, scale: 0.86, h: 0.74, tint: 0x6a9a5a, lines: ['Moves through the reeds without a sound. You will hear it when it wants you to.'] });
+  BEAST.bog = variant('puglin', { name: 'Bog puglin', ac: 9, hp: 7, atk: 2, dmg: [1, 4, 0], xp: 30, tint: 0x8ab070, lines: ['A puglin that went feral in the reeds. Smells like a pond with opinions.'] });
+  BEAST.bog_brute = variant('puglin', { name: 'Reed stalker', ac: 11, hp: 12, atk: 3, dmg: [1, 6, 1], dex: 2, str: 1, xp: 60, scale: 0.86, h: 0.74, tint: 0x6a9a5a, lines: ['Moves through the reeds without a sound. You will hear it when it wants you to.'] });
   BEAST.bog_chief = variant('puglin', { name: 'Marsh warden', ac: 12, hp: 20, atk: 4, dmg: [1, 8, 1], str: 3, dex: 1, xp: 130, scale: 1.0, h: 0.86, tint: 0x5a8a4a, lines: ['Wears a crown of lily pads. It is not a joke to them.'] });
   BEAST.gardener = variant('puglin', { name: 'The Gardener', ac: 14, hp: 52, atk: 6, dmg: [2, 6, 3], str: 4, dex: 1, init: 1, pp: 13, xp: 550, scale: 1.5, h: 1.3, tint: 0x4a7a3a, boss: true, lines: ['Boss of the Drowned Gardens. It has been composting crawlers, and it is very proud of the results.'] });
-  BEAST.clerk = variant('imp', { name: 'Archive clerk', ac: 10, hp: 8, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.6, h: 0.95, tint: 0x9ab8e0, lines: ['A soggy imp with a stamp. It will file you under deceased.'] });
-  BEAST.clerk_mid = variant('imp', { name: 'Records keeper', ac: 12, hp: 14, atk: 3, dmg: [1, 6, 1], str: 1, dex: 2, xp: 90, scale: 0.72, h: 1.15, tint: 0x7a9ad0, lines: ['Knows where every file is and resents everyone who asks.'] });
-  BEAST.clerk_head = variant('imp', { name: 'Senior archivist', ac: 13, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0x5a7ac0, lines: ['Shushes you before it hits you. Both hurt.'] });
+  BEAST.clerk = variant('imp', { name: 'Archive clerk', ac: 9, hp: 8, atk: 2, dmg: [1, 4, 0], str: 0, xp: 40, scale: 0.6, h: 0.95, tint: 0x9ab8e0, lines: ['A soggy imp with a stamp. It will file you under deceased.'] });
+  BEAST.clerk_mid = variant('imp', { name: 'Records keeper', ac: 11, hp: 14, atk: 3, dmg: [1, 6, 1], str: 1, dex: 2, xp: 90, scale: 0.72, h: 1.15, tint: 0x7a9ad0, lines: ['Knows where every file is and resents everyone who asks.'] });
+  BEAST.clerk_head = variant('imp', { name: 'Senior archivist', ac: 12, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0x5a7ac0, lines: ['Shushes you before it hits you. Both hurt.'] });
   BEAST.archivist = variant('imp', { name: 'The Head Archivist', ac: 15, hp: 56, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0x4a6ab8, boss: true, lines: ['Boss of the Flooded Archive. It has a file on you, and the file is very thin.'] });
   // stand-ins for the Arena headliner (the ogre bugbear) and the Stairwell Gate's final boss (the dragon) until those models are in
   BEAST.headliner = variant('puglin', { name: 'The Headliner', ac: 15, hp: 70, atk: 7, dmg: [2, 8, 4], str: 5, dex: 0, init: 0, pp: 12, xp: 800, scale: 1.8, h: 1.6, tint: 0x9a6a4a, boss: true, lines: ['The Arena\'s main event. The crowd chants its name. It does not know yours yet.'] });
@@ -6661,9 +6661,9 @@
   function cbOptions(which) {
     var r = CB.res, adj = cbAdjacent(), Wt = cbThrowable();
     if (which === 'bonus') return [
-      { label: 'Drink a potion', tag: '2d4+2 · ×' + CB.potions, ok: r.bonus && CB.potions > 0, fn: cbPotion },
+    ].concat([0, 1, 2, 3].map(function (i) { var it = hotItem(i); return it ? { label: 'Use ' + it.name, tag: it.heal + ' HP · ×' + (it.qty || 1), ok: r.bonus, fn: function () { useItem(it); } } : null; }).filter(Boolean)).concat([
       { label: 'Off-hand dagger attack', tag: '1d4, no modifier', ok: r.bonus && sty('off') === 3 && sty('main') > 0 && adj.length > 0, fn: function () { cbAttackButton(true); } }
-    ];
+    ]);
     var near = CB.enemies.filter(function (e) { return !e.dead && !e.calm && !e.npc && cheb(P.x, P.z, e.x, e.z) <= 6; }).sort(function (a, b) { return cheb(P.x, P.z, a.x, a.z) - cheb(P.x, P.z, b.x, b.z); })[0];
     return [
       { label: 'Talk to ' + (near ? near.name : 'someone'), tag: 'free · say anything', ok: !!near, fn: function () { talkOpen(near); } },
@@ -6694,13 +6694,16 @@
 
   function cbHUD() {
     var a = pcAC();
-    document.getElementById('hpTxt').textContent = (PC.down ? 'DOWN · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : 'HP ' + PC.hp + '/' + PC.max) + ' · AC ' + a.ac + ' · Lv ' + (PC.level || 1) + ' (' + (PC.xp || 0) + '/' + nextLevelXP() + ')' + (PC.hidden ? ' · hidden' : '');
+    document.getElementById('hpTxt').textContent = (CHAR && CHAR.dead ? 'DEAD · waiting for your party' : PC.down ? 'DOWN · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : 'HP ' + PC.hp + '/' + PC.max) + ' · AC ' + a.ac + ' · Lv ' + (PC.level || 1) + ' (' + (PC.xp || 0) + '/' + nextLevelXP() + ')' + (PC.hidden ? ' · hidden' : '');
     document.getElementById('hpFill').style.width = Math.max(0, 100 * PC.hp / PC.max) + '%';
     document.getElementById('cbBar').classList.toggle('on', CB.on);
     document.getElementById('bar').style.display = CB.on ? 'none' : '';
     document.getElementById('stick').style.display = CB.on ? 'none' : '';
     document.getElementById('turns').classList.toggle('on', CB.on); document.getElementById('res').classList.toggle('on', CB.on && cbMyTurn() && !PC.down);
     if (!CB.on) { cbMenuClose(); return; }
+    // show the real odds on the Attack button: d20 + your bonus against the nearest foe's armour
+    var foe = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; }).sort(function (x, y) { return cheb(P.x, P.z, x.x, x.z) - cheb(P.x, P.z, y.x, y.z); })[0], ab = document.getElementById('cbAtk');
+    if (foe && ab) { var Wq = pcWeapon(), need = foe.def.ac - Wq.hit, pct = Math.round(Math.max(5, Math.min(95, (21 - need) * 5))); ab.innerHTML = 'Attack<small>+' + Wq.hit + ' · ' + pct + '% to hit</small>'; }
     document.getElementById('turns').innerHTML = CB.order.map(function (c, i) {
       var nm = c === 'pc' ? 'You' : c.name + (c.prone ? ' (prone)' : '') + (c.grappled ? ' (grappled)' : ''), dead = c !== 'pc' && c.dead;
       return '<span class="' + (i === CB.idx ? 'cur ' : '') + (dead ? 'dead' : '') + '">' + nm + ' · ' + (c === 'pc' ? PC.init : c.init) + '</span>';
@@ -6720,7 +6723,7 @@
 
   // ---------- starting and ending a fight ----------
   function cbStart(why, first) {
-    if (CB.on || !CB.ready) return;
+    if (CB.on || !CB.ready || (CHAR && CHAR.dead)) return;
     if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
     var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || (!e.def.timid && cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8))); });
     if (!foes.length) return;
@@ -6937,9 +6940,7 @@
   function cbDisengage() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.disengage = true; say('Disengage', 'You can walk away this turn without opportunity attacks.', 2600); cbHUD(); }
   function cbDodge() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.dodge = true; say('Dodge', 'Attacks against you have disadvantage until your next turn.', 2600); cbHUD(); }
   function cbPotion() {
-    if (!cbMyTurn() || CB.busy || !CB.res.bonus || CB.potions <= 0) return;
-    CB.res.bonus = 0; CB.potions--; var h = d(2, 4) + 2, before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h);
-    floater(P.px, 1.5, P.pz, '+' + (PC.hp - before), 'heal'); kitOneShot('PickUp_Table'); say('Potion of Healing · 2d4 + 2 = ' + h, 'Tastes like a sponsor. ' + CB.potions + ' left.', 3200); cbHUD();
+    var it = (CHAR && CHAR.gear || []).filter(function (g) { return /potion/i.test(g.name) && g.heal; })[0]; if (it) useItem(it); else say('No potions', 'You are out of healing potions.', 2400);
   }
   function cbKill(e) {
     e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
@@ -6966,12 +6967,39 @@
       cbNext();
     }, 1400);
   }
+  // once the campaign is live, death sticks: you lie where you fell until a party member revives you
+  function liveDown(stable) {
+    say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. You will come to where you fell, with 1 HP, once the fight moves on.' : 'The crowd goes silent. Your body stays where it fell. Only your party can bring you back now.', 7000);
+    setTimeout(function () {
+      cbEnd(false); CB.enemies.forEach(function (e) { if (!e.dead) { e.path = null; e.fought = false; cbPlay(e, 'Idle_Loop'); } });
+      if (stable) { PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; say('Back on your feet', '1 HP. The monsters lost interest. Find a safe room and something to eat.', 5000); }
+      else if (CHAR) { CHAR.dead = { at: Date.now(), x: P.x, z: P.z }; CHAR.pos = { x: P.x, z: P.z }; saveChar(CHAR); deadShow(); }
+      refreshFog(); cbHUD(); worldSave();
+    }, 3200);
+  }
+  function deadShow() {
+    var el = document.getElementById('deadBox');
+    if (!el) { el = document.createElement('div'); el.id = 'deadBox'; document.body.appendChild(el);
+      var css = document.createElement('style'); css.textContent = '#deadBox{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:25;max-width:360px;padding:16px 18px;border-radius:12px;background:rgba(10,4,8,.88);border:1px solid #ff3a5a;color:#f4dfe4;text-align:center;font-size:13px;line-height:1.45}#deadBox h2{margin:0 0 6px;color:#ff3a5a;letter-spacing:.2em;font-size:16px}'; document.head.appendChild(css); }
+    el.innerHTML = '<h2>YOU ARE DEAD</h2><p>Your body lies where you fell. Only a party member can revive you. You can still look around.</p><p><small>Party revival arrives with party play. Until then the DM can revive you from DM tools on the Sheet tab.</small></p>' + (NET.user && NET.user.role === 'dm' ? '<p><button type="button" class="ccBtn" id="deadRev">Revive me (DM)</button></p>' : '');
+    el.style.display = 'block'; PC.down = true; PC.hp = 0; PC.saves = PC.saves || { s: 0, f: 0 }; if (KIT) kitOneShot('Death01', true); cbHUD();
+    var b = document.getElementById('deadRev'); if (b) b.onclick = function () { api('dm/revive', { method: 'POST', body: { user_id: NET.uid } }).then(reviveMe, function (e) { say('Failed', e.message); }); };
+  }
+  function reviveMe() {
+    if (!CHAR) return; CHAR.dead = null; PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; var el = document.getElementById('deadBox'); if (el) el.style.display = 'none';
+    saveChar(CHAR); cbHUD(); say('Revived', 'You gasp back to life with 1 HP. The audience did not see that coming.', 5000);
+  }
+  function deadCheck() { // on load, and whenever we learn whether the campaign is live
+    if (!CHAR || !CHAR.dead) return;
+    if (NET.live) { if (CHAR.dead.x !== undefined && typeof heroTo === 'function') heroTo(CHAR.dead.x, CHAR.dead.z); deadShow(); } else if (NET.live === false) { reviveMe(); }
+  }
   function cbDie(stable) {
     CB.busy = true;
+    if (NET.live) { liveDown(stable); return; }
     say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. The monsters lose interest, and the System drags you to the nearest safe room.' :
       'The crowd goes silent. In the full game, death in the crawl is permanent. For this test, the System drags you to the nearest safe room. The monsters you killed stay dead.', 6500);
     setTimeout(function () {
-      cbEnd(false); PC.down = false; PC.hp = PC.max; CB.potions = Math.max(CB.potions, 1);
+      cbEnd(false); PC.down = false; PC.hp = PC.max; if (CHAR && !(CHAR.gear || []).some(function (g) { return /potion/i.test(g.name); })) invAdd({ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' }, true);
       if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
       var home = nearestSafe(P.x, P.z) || start; P.x = home.x; P.z = home.z; P.px = home.x; P.pz = home.z; if (KIT) { KIT.shot = null; }
       // the monsters that beat you keep their wounds (they patch up a little) and wander back toward their posts
@@ -7098,7 +7126,7 @@
   }
   // a monster that can see you, close by, starts the fight
   function cbAggro() {
-    if (CB.on || !CB.ready || inSafeRoom(P.x, P.z)) return;
+    if (CB.on || !CB.ready || inSafeRoom(P.x, P.z) || (CHAR && CHAR.dead)) return;
     for (var i = 0; i < CB.enemies.length; i++) {
       var e = CB.enemies[i]; if (e.dead || e.calm || e.def.timid) continue;
       var r = e.guard ? 2 : 3;
@@ -7175,7 +7203,9 @@
     PC.xp = c.xp || 0; PC.level = Math.max(c.level || 1, levelFor(PC.xp)); c.level = PC.level; PC.max = maxHPFor(c, PC.level); PC.hp = PC.max;
     if (typeof cbHUD === 'function') cbHUD();
     if (typeof posRestore === 'function' && typeof P !== 'undefined' && P) setTimeout(posRestore, 0);
-    setTimeout(handsFromGear, 0);
+    setTimeout(handsFromGear, 0); setTimeout(deadCheck, 300);
+    if (!c.potionsGiven && !c.preset) { c.potionsGiven = true; c.gear = c.gear || []; c.gear.push({ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', qty: 3, desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP. Every crawler starts with three.', from: 'the System' }); }
+    setTimeout(function () { if (typeof hotAuto === 'function') { hotAuto(); hotDraw(); } }, 50);
   }
   // your hands and back only show what you actually own: no free swords, shields or bass guitars
   function handsFromGear() {
@@ -7256,7 +7286,7 @@
   }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
@@ -7294,15 +7324,15 @@
     if (c.look) { for (var k in c.look) if (look[k]) look[k] = c.look[k]; buildHero(); }
   }
   function signedIn(me) {
-    NET.user = me.user; NET.uid = me.user.id; NET.sample = serverSample; authClose(); api('campaign').then(function (j) { NET.live = !!(j.value && j.value.live); }, function () {});
+    NET.user = me.user; NET.uid = me.user.id; NET.sample = serverSample; authClose(); api('campaign').then(function (j) { NET.live = !!(j.value && j.value.live); deadCheck(); }, function () {});
     if (me.character && me.character.stats) { loadChar(me.character); say('Welcome back, ' + (me.character.name || me.user.username), 'Your character is right where you left it. The audience missed you. Mostly.', 4500); }
     else ccOpen();
     partyPoll();
   }
   function partyPoll() {
     clearTimeout(partyPoll.t);
-    api('party').then(function (j) { NET.party = j.party || []; if (gearOpen && tab === 'Sheet') drawRows(); }, function (e) { if (e.status === 401) authOpen(); })
-      .then(function () { partyPoll.t = setTimeout(partyPoll, 30000); });
+    api('party').then(function (j) { NET.party = j.party || []; var me = NET.party.filter(function (p) { return p.id === NET.uid; })[0]; if (CHAR && CHAR.dead && me && !me.dead && NET.live) reviveMe(); if (gearOpen && tab === 'Sheet') drawRows(); }, function (e) { if (e.status === 401) authOpen(); })
+      .then(function () { partyPoll.t = setTimeout(partyPoll, CHAR && CHAR.dead ? 10000 : 30000); });
   }
   // ---------- sign-in screen ----------
   (function authUI() {
@@ -7349,7 +7379,9 @@
         (used.length ? '<p>Used: ' + used.map(function (i) { return esc(i.used_by); }).join(', ') + '</p>' : '') +
         '<p><button type="button" class="ccBtn" id="dmTalk">Read recent NPC conversations</button></p><div id="dmLogs"></div>' +
         (CHAR && !NET.live ? '<p><button type="button" class="ccBtn" id="dmWard">' + (CHAR.freeWardrobe ? 'Lock my wardrobe again' : 'Unlock all clothes for me (DM testing)') + '</button></p>' : '') +
+        (NET.party.filter(function (p) { return p.dead; }).length ? '<h3>Fallen crawlers</h3>' + NET.party.filter(function (p) { return p.dead; }).map(function (p) { return '<p>' + esc(p.name || p.username) + ' is dead. <button type="button" class="ccBtn" data-rev="' + p.id + '">Revive</button></p>'; }).join('') + '<p><small>Stand-in until party members can revive each other.</small></p>' : '') +
         '<h3>Campaign</h3><p>' + (NET.live ? 'Live. Testing tools are locked for everyone (re-dressing, free wardrobe).' : 'Testing. Players can re-dress from their description and the DM can unlock clothes.') + '</p><p><button type="button" class="ccBtn" id="dmLive">' + (NET.live ? 'Back to testing mode' : 'Start the campaign (lock testing tools)') + '</button></p>';
+      box.querySelectorAll('[data-rev]').forEach(function (b) { b.onclick = function () { api('dm/revive', { method: 'POST', body: { user_id: +b.dataset.rev } }).then(function () { if (+b.dataset.rev === NET.uid) reviveMe(); partyPoll(); say('Revived', 'They are back, with 1 HP.', 3000); }, function (e) { say('Failed', e.message); }); }; });
       document.getElementById('dmLive').onclick = function () { if (!NET.live && !confirm('Start the campaign? Re-dressing and the free wardrobe lock for everyone.')) return; api('dm/campaign', { method: 'PUT', body: { live: !NET.live } }).then(function () { NET.live = !NET.live; if (NET.live && CHAR && CHAR.freeWardrobe) { CHAR.freeWardrobe = false; saveChar(CHAR); } drawRows(); }, function (e) { say('Failed', e.message); }); };
       if (document.getElementById('dmWard')) document.getElementById('dmWard').onclick = function () { CHAR.freeWardrobe = !CHAR.freeWardrobe; saveChar(CHAR); drawRows(); };
       document.getElementById('dmNew').onclick = function () { var note = prompt('Who is this invite for? (optional)') || ''; api('dm/invites', { method: 'POST', body: { note: note } }).then(sheetAfter, function (e) { say('Invite failed', e.message); }); };
@@ -7795,7 +7827,7 @@
     var acts = [];
     if (it.cat === 'weapon' && it.dmg) acts.push(CHAR.wield === it.name ? ['unwield', 'Put away'] : ['wield', 'Hold in hand']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
-    if (it.cat === 'consumable' && it.heal) acts.push(['use', 'Use (' + it.heal + ' HP)']);
+    if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
     return '<div class="big">' + itemIcon(it).replace('width="30" height="30"', 'width="72" height="72"') + '</div><h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       '<p><small>' + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + '</small></p>' +
       '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
@@ -7806,27 +7838,62 @@
     if (a === 'unwield') { CHAR.wield = null; buildHero(); }
     if (a === 'wear') wear(it);
     if (a === 'unwear') { it.worn = false; look[it.slot] = [0, 0]; buildHero(); saveLook(); }
-    if (a === 'use') {
-      if (CB.on && (!cbMyTurn() || !CB.res.bonus)) { say('Not now', 'Using an item in a fight takes your bonus action.', 2500); return; }
-      if (CB.on) CB.res.bonus = 0;
-      var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal), h = m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1, before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h);
-      say('Used · ' + it.name, '+' + (PC.hp - before) + ' HP.', 2600); it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; } cbHUD();
-    }
+    if (a === 'use') useItem(it);
+    if (a === 'hot') { hotPut(it.name); }
+    if (a === 'unhot') { CHAR.hotbar = (CHAR.hotbar || []).map(function (n) { return n === it.name ? null : n; }); hotDraw(); }
     saveChar(CHAR); bagDraw();
   }
+  // ---------- consumables and the hot bar: four quick slots; in a fight using one is your bonus action ----------
+  var HOT_N = 4;
+  function heals(it) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal || ''); return m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1; }
+  function useItem(it) {
+    if (!CHAR || !it || CHAR.dead) return false;
+    if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.bonus)) { say('Not now', 'In a fight, using an item takes your bonus action, on your turn.', 2500); return false; }
+    if (CB.on) CB.res.bonus = 0;
+    var h = heals(it), before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h);
+    if (typeof floater === 'function') floater(P.px, 1.6, P.pz, '+' + (PC.hp - before), 'heal'); kitOneShot('PickUp_Table');
+    say('Used · ' + it.name, '+' + (PC.hp - before) + ' HP' + (CB.on ? ' (bonus action).' : '.'), 2600);
+    it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; }
+    saveChar(CHAR); cbHUD(); hotDraw(); if (UI.bag) bagDraw(); if (CB.on && typeof cbShowMoves === 'function') cbMenuClose();
+    return true;
+  }
+  function hotPut(name) {
+    CHAR.hotbar = CHAR.hotbar || []; while (CHAR.hotbar.length < HOT_N) CHAR.hotbar.push(null);
+    if (CHAR.hotbar.indexOf(name) >= 0) return; var i = CHAR.hotbar.indexOf(null);
+    if (i < 0) { say('Hot bar full', 'Take something off the hot bar first (in your bag).', 2600); return; }
+    CHAR.hotbar[i] = name; saveChar(CHAR); hotDraw();
+  }
+  function hotAuto() { // new consumables drop into empty slots on their own
+    if (!CHAR) return; (CHAR.gear || []).forEach(function (g) { if (g.cat === 'consumable' && g.heal && (CHAR.hotbar || []).indexOf(g.name) < 0 && (CHAR.hotbar || []).filter(Boolean).length < HOT_N) hotPut(g.name); });
+  }
+  function hotItem(i) { var n = CHAR && CHAR.hotbar && CHAR.hotbar[i]; return n ? (CHAR.gear || []).filter(function (g) { return g.name === n; })[0] || null : null; }
+  function hotDraw() {
+    var el = document.getElementById('hotbar');
+    if (!el) { el = document.createElement('div'); el.id = 'hotbar'; document.body.appendChild(el);
+      var css = document.createElement('style'); css.textContent = '#hotbar{position:fixed;left:168px;bottom:16px;z-index:6;display:flex;gap:6px}@media (max-width:700px){#hotbar{left:12px;bottom:auto;top:176px;flex-direction:column}}#hotbar button{position:relative;width:46px;height:46px;border-radius:9px;background:rgba(8,9,15,.8);border:1px solid rgba(61,242,224,.35);padding:2px;cursor:pointer}#hotbar button.ready{border-color:var(--neon)}#hotbar button:disabled{opacity:.35}#hotbar b{position:absolute;right:3px;bottom:1px;font-size:10px;color:#fff;text-shadow:0 1px 2px #000}#hotbar i{position:absolute;left:4px;top:1px;font-size:9px;font-style:normal;color:#9ab}#hotbar .ico{background:none}'; document.head.appendChild(css); }
+    var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead; el.style.display = show ? 'flex' : 'none'; if (!show) return;
+    var html = '';
+    for (var i = 0; i < HOT_N; i++) { var it = hotItem(i), can = it && (!CB.on || (cbMyTurn() && CB.res.bonus && !CB.busy));
+      html += '<button type="button" data-h="' + i + '" class="' + (can ? 'ready' : '') + '"' + (it ? '' : ' disabled') + ' aria-label="' + (it ? esc(it.name) : 'Empty hot bar slot') + '" title="' + (it ? esc(it.name) + ' · ' + esc(it.heal) + ' HP' : 'Empty: put consumables here from your bag') + '"><i>' + (i + 1) + '</i>' + (it ? itemIcon(it) + '<b>×' + (it.qty || 1) + '</b>' : '') + '</button>'; }
+    el.innerHTML = html;
+    el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); var it = hotItem(+b.dataset.h); if (it) useItem(it); }); });
+  }
+  setInterval(function () { if (typeof CHAR !== 'undefined') hotDraw(); }, 700);
   function invAdd(item, quiet) {
     if (!CHAR) return; CHAR.gear = CHAR.gear || [];
     var same = item.cat === 'consumable' || item.cat === 'misc' ? CHAR.gear.filter(function (g) { return g.name === item.name; })[0] : null;
     if (same) same.qty = (same.qty || 1) + (item.qty || 1); else CHAR.gear.push(item);
     if (!quiet) saveChar(CHAR);
     if (UI.bag) bagDraw();
+    if (item.cat === 'consumable' && item.heal) hotAuto();
   }
   // a wielded item from the inventory overrides the builder's weapon slot
   function gearWeapon() {
     if (!CHAR || !CHAR.wield) return null; var it = (CHAR.gear || []).filter(function (g) { return g.name === CHAR.wield && g.dmg; })[0]; if (!it) return null;
     var m = /(\d+)d(\d+)/.exec(it.dmg), light = /knife|dagger|shear|scissor|blade|pick|opener|pen/i.test(it.name);
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat], dmgB: MOD[stat] };
+    var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam, dmgB: MOD[stat], fam: fam };
   }
 
   // ---------- wardrobe: you only wear what you own ----------
@@ -8070,6 +8137,7 @@
   });
   function tapRing(x, y) { var r = document.getElementById('tapRing'); r.style.left = x + 'px'; r.style.top = y + 'px'; r.style.opacity = 1; clearTimeout(tapRing.t); tapRing.t = setTimeout(function () { r.style.opacity = 0; }, 450); }
   function exploreTap(sx, sy) {
+    if (CHAR && CHAR.dead) return;
     // a creature under the finger wins
     var best = null, bd = 34 * 34;
     CB.enemies.forEach(function (e) { if (!e.obj.visible) return; var s = toScreen(e.px, (e.def.h || 1) * 0.5, e.pz), dx = s.x - sx, dy = s.y - sy, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = e; } });
@@ -8352,7 +8420,7 @@
   }
   function closeMenu() { menuOpen = false; menuEl.classList.remove('on'); document.getElementById('aInteract').classList.remove('held'); }
   function openMenu(t0) {
-    if (gearOpen) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
+    if (gearOpen || (CHAR && CHAR.dead)) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
     var t = t0 || findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
     menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : nameOf(t); menuEl.appendChild(hd);
     (t.e ? enemyActs(t.e) : ACTS[t.c]).forEach(function (a, i) {
@@ -8414,6 +8482,7 @@
   }
   function moveHero(dt) {
     if (CB.on) { cbMove(dt); return; }
+    if (CHAR && CHAR.dead) { P.speed = 0; P.path = null; return; }
     if (PC.timeout && performance.now() < PC.timeout) { P.speed = 0; return; }
     var sx = joy.x, sy = joy.y;
     if (keys.L) sx -= 1; if (keys.R) sx += 1; if (keys.U) sy -= 1; if (keys.D) sy += 1;
