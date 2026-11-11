@@ -11,7 +11,7 @@
     var now = Date.now();
     if (PC.hp >= PC.max) { say('Eat', 'You are already at full health. You eat a grape anyway. The audience respects it.', 3500); return; }
     if (PC.fedUntil && now < PC.fedUntil) { say('Too full', 'You are stuffed. You can eat again in ' + Math.ceil((PC.fedUntil - now) / 1000) + ' seconds.', 3500); return; }
-    var got = PC.max - PC.hp; PC.hp = PC.max; PC.fedUntil = now + FED_MS; if (typeof cbHUD === 'function') cbHUD();
+    var got = PC.max - PC.hp; PC.hp = PC.max; PC.fedUntil = now + FED_MS; setTimeout(function () { achieve('free_lunch', 'Free Lunch', 'You ate the sponsors\' food. They own a small part of you now.', 10); }, 4600); if (typeof cbHUD === 'function') cbHUD();
     kitOneShot('PickUp_Table'); say('Free food', 'You eat like the sponsors are paying, because they are. +' + got + ' HP. You are full for the next two minutes.', 4500);
   }
   // ---------- where you are and what you have explored, saved per character ----------
@@ -52,7 +52,8 @@
   var LIT = { bazaar: 4, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1 }; // well-lit places let you see farther
   function refreshFog() {
     streamChunks();
-    var S = SIGHTS[sightI], here = roomInfo(P.x, P.z), R = S.r + ((here && LIT[here.theme]) || 0); visNow = {};
+    sightI = sightNow(); var S = SIGHTS[sightI], here = roomInfo(P.x, P.z); var sl = document.getElementById('sight'); if (sl) sl.textContent = 'Sight: ' + S.name;
+    var R = S.r + ((here && LIT[here.theme]) || 0); visNow = {};
     for (var z = P.z - R; z <= P.z + R; z++) for (var x = P.x - R; x <= P.x + R; x++) {
       if (x < 0 || z < 0 || x >= W || z >= H) continue;
       var d = Math.sqrt((x - P.x) * (x - P.x) + (z - P.z) * (z - P.z));
@@ -98,7 +99,7 @@
     var info = roomInfo(P.x, P.z); if (!info) return; var id = info.id; if (id === lastRoom) return; lastRoom = id;
     var hood = info.hood !== undefined ? LEVEL.hoods[info.hood] : null;
     document.getElementById('region').textContent = info.name;
-    if (hood && !seenRooms['h' + info.hood]) { seenRooms['h' + info.hood] = 1; say('Zone discovered: ' + hood.name, hood.line, 6000); }
+    if (hood && !seenRooms['h' + info.hood]) { seenRooms['h' + info.hood] = 1; var newZ = CHAR && !(CHAR.zones && CHAR.zones[info.hood]); say('Zone discovered: ' + hood.name, hood.line + (newZ ? ' +25 XP for finding it.' : ''), 6000); if (newZ) { CHAR.zones = CHAR.zones || {}; CHAR.zones[info.hood] = 1; grantXP(25); } }
     else if (!seenRooms[id] && info.type !== 'corridor') { seenRooms[id] = 1; say((info.type === 'safe' ? 'Safe room: ' : info.type === 'boss' ? 'Boss room: ' : info.type === 'hidden' ? 'Secret found: ' : 'Discovered: ') + info.name, info.line, 4500); }
     // a sharp-eyed crawler notices odd walls nearby
     var pp = 10 + MOD.WIS + skillLv('Perception');
@@ -242,15 +243,16 @@
       done[t.key + 'snack'] = true; invAdd({ name: 'Craft services sandwich', cat: 'consumable', heal: 4, desc: 'Free, wrapped, and surprisingly good. Heals 4 HP.', from: 'a catering table' });
       say('Pocket a snack', 'One sandwich for the road. It heals 4 HP when you eat it from your bag.', 3500); return;
     }
-    if (a.auto === 'torch') { sightI = 1; document.getElementById('sight').textContent = 'Sight: Torch'; look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say(a.label, a.text); return; }
+    if (a.auto === 'torch') { if (CHAR) { CHAR.torch = true; cbSaveChar(); } look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say(a.label, a.text + ' Use the Torch button to raise or lower it.'); return; }
     if (!a.stat) { say(a.label, a.text); return; }
     var roll = 1 + Math.floor(Math.random() * 20), bonus = chkBonus(a), total = roll + bonus;
     var ok = roll === 20 || (roll !== 1 && total >= a.dc);
     var line = 'd20 ' + roll + ' + ' + bonus + ' = ' + total + ' vs DC ' + a.dc + (roll === 20 ? ' · natural 20' : (roll === 1 ? ' · natural 1' : ''));
     say((ok ? 'Success' : 'Failure') + ' · ' + a.label + ' · ' + line, ok ? a.win : a.lose, 6500);
+    if (ok && a.skill) skillUse(a.skill[0]);
     if (ok && a.flag) {
       done[t.key + a.flag] = true;
-      if (a.flag === 'calm' && t.e) { t.e.calm = true; cbHUD(); }
+      if (a.flag === 'calm' && t.e) { t.e.calm = true; cbHUD(); overcome(t.e); }
       if (a.flag === 'calm') { tiles.forEach(function (q) { if (q.mob && q.glow && q.x === t.x && q.z === t.z) q.base.set(0x40ff70); }); refreshFog(); }
       if (a.flag === 'open') { tiles.forEach(function (q) { if (q.x === t.x && q.z === t.z && q.lid) { q.mesh.position.y += 0.2; q.mesh.position.z -= 0.2; } }); lootSpot(t.x, t.z, 'chest'); }
       if (a.flag === 'loot') lootSpot(t.x, t.z, 'small');
@@ -301,7 +303,7 @@
     hero.rotation.y += d * Math.min(1, dt * 14);
     var tx = Math.round(P.px), tz = Math.round(P.pz);
     if (tx !== P.x || tz !== P.z) { P.x = tx; P.z = tz; refreshFog(); enterRoom(); cbAggro(); }
-    if (!achieved && walked > 3) { achieved = true; say('New achievement: Bipedal', 'You walked three whole tiles. Reward: nothing. The bar will be raised.'); }
+    if (!achieved && walked > 3) { achieved = true; achieve('bipedal', 'Bipedal', 'You walked three whole tiles. The bar will be raised.', 10); }
   }
   function jump() { if (CB.on) return; if (jumpT < 0 && !gearOpen) { jumpT = 0; if (crouch) toggleCrouch(); } }
   function toggleCrouch() {
@@ -321,11 +323,13 @@
   stick.addEventListener('pointermove', function (e) { if (e.pointerId === stickId) stickMove(e); });
   stick.addEventListener('pointerup', stickEnd); stick.addEventListener('pointercancel', stickEnd);
   function tap(id, fn) { var el = document.getElementById(id); el.addEventListener('pointerdown', function (e) { e.preventDefault(); el.classList.add('on'); fn(); }); ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (n) { el.addEventListener(n, function () { el.classList.remove('on'); }); }); }
+  // what you can see comes from your body and your hands: human eyes, a torch if you are holding one, darkvision only if you have it
+  function sightNow() { return hasTrait('Darkvision') ? 2 : sty('off') === 2 ? 1 : 0; }
   function cycleSight() {
     if (gearOpen) return;
-    sightI = (sightI + 1) % SIGHTS.length; var S = SIGHTS[sightI];
-    document.getElementById('sight').textContent = 'Sight: ' + S.name; refreshFog();
-    say('Sight: ' + S.name, S.dark ? 'You see ' + S.r + ' tiles in the dark, in shades of blue. Your friends see less. Tell them what is out there.' : 'You see ' + S.r + ' tiles before the dark takes over.', 3200);
+    if (sty('off') === 2) { look.off = [0, look.off[1]]; buildHero(); saveLook(); refreshFog(); say('Torch lowered', 'You lower your torch. Human eyes: you see ' + SIGHTS[sightNow()].r + ' tiles, more in well-lit places.', 3200); return; }
+    if (CHAR && CHAR.torch) { look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say('Torch raised', 'You hold up your torch. You see ' + SIGHTS[1].r + ' tiles, and it takes your off hand.', 3200); return; }
+    say('No torch', 'You do not have a torch. Light one at any brazier (walk up to one and interact). Your eyes are what they are.', 3800);
   }
   tap('aInteract', openMenu); tap('aJump', jump); tap('aCrouch', toggleCrouch); tap('aSight', cycleSight);
   var KEYS = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R', w: 'U', s: 'D', a: 'L', d: 'R', W: 'U', S: 'D', A: 'L', D: 'R' };
@@ -526,7 +530,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, spend: spendPoint, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

@@ -127,7 +127,8 @@
     var note = j.used_roll ? roll.skill + ' d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total : '';
     e.talk.lines.push({ who: 'them', text: String(j.say || '…').slice(0, 400), note: note });
     bubble(e, String(j.say || '…').replace(/\*[^*]*\*/g, '').trim().slice(0, 220) || '…', TALK.whisper);
-    if (j.outcome === 'calm' && !e.calm) { e.calm = true; e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : e.name) + ' will not fight you.' }); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
+    if (j.used_roll && roll && roll.total >= 13) skillUse(roll.skill);
+    if (j.outcome === 'calm' && !e.calm) { setTimeout(function () { overcome(e); }, 1500); e.calm = true; e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : e.name) + ' will not fight you.' }); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
     if (j.outcome === 'fight' && !e.npc) { e.calm = false; e.talk.mood = 'hostile'; talkDraw(); talkStore(e); setTimeout(function () { talkClose(); if (!CB.on) cbStart('Words failed. Steel next.', e); }, 1400); return; }
     talkStore(e); if (TALK.e === e) talkDraw();
   }

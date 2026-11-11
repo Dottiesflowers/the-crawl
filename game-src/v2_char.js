@@ -37,14 +37,55 @@
   function applyChar(c) {
     CHAR = c; STATS.forEach(function (k) { MOD[k] = Math.floor((c.stats[k] - 10) / 2); });
     // crawlers start tougher than a 5e level 1: the show wants you alive for a while
-    PC.max = 16 + MOD.CON + (c.trait === 'Tough' || c.traitFx === 'Tough' ? 3 : 0); PC.hp = PC.max; PC.xp = c.xp || 0;
+    PC.xp = c.xp || 0; PC.level = Math.max(c.level || 1, levelFor(PC.xp)); c.level = PC.level; PC.max = maxHPFor(c, PC.level); PC.hp = PC.max;
     if (typeof cbHUD === 'function') cbHUD();
     if (typeof posRestore === 'function' && typeof P !== 'undefined' && P) setTimeout(posRestore, 0);
   }
-  function cbSaveChar() { if (!CHAR) return; CHAR.xp = PC.xp || 0; saveChar(CHAR); }
+  function cbSaveChar() { if (!CHAR) return; CHAR.xp = PC.xp || 0; CHAR.level = PC.level || 1; saveChar(CHAR); }
+  // ---------- experience, levels, achievements and skills that grow with use ----------
+  // Monster XP is shared: everyone inside a fight's reach gets the full amount (party play will hand it to each
+  // crawler there). Achievements and discoveries are personal. Talking a monster down counts as beating it.
+  var XP_LEVELS = [0, 300, 900, 2200, 5000, 9000, 14000, 20000];
+  function levelFor(xp) { var l = 1; while (l < XP_LEVELS.length && xp >= XP_LEVELS[l]) l++; return l; }
+  function nextLevelXP() { return XP_LEVELS[Math.min(XP_LEVELS.length - 1, PC.level || 1)]; }
+  function PROF() { return (PC.level || 1) >= 5 ? 3 : 2; }
+  function maxHPFor(c, lvl) { return 16 + MOD.CON + (c.trait === 'Tough' || c.traitFx === 'Tough' ? 3 : 0) + (lvl - 1) * Math.max(1, 5 + MOD.CON); }
+  function grantXP(n) {
+    if (!n) return; PC.xp = (PC.xp || 0) + n;
+    if (typeof floater === 'function' && typeof P !== 'undefined') floater(P.px, 2.0, P.pz, '+' + n + ' XP', 'xp');
+    var nl = levelFor(PC.xp), ups = 0; while ((PC.level || 1) < nl) { levelUp(++ups); }
+    cbSaveChar(); if (typeof cbHUD === 'function') cbHUD();
+  }
+  function levelUp(k) {
+    var c = CHAR || MICHAEL, was = PC.max; PC.level = (PC.level || 1) + 1; c.level = PC.level;
+    PC.max = maxHPFor(c, PC.level); PC.hp = Math.min(PC.max, PC.hp + (PC.max - was));
+    c.skillPts = (c.skillPts || 0) + 1; var stat = PC.level % 2 === 0; if (stat) c.statPts = (c.statPts || 0) + 1; c.gold = (c.gold || 0) + 10 * PC.level;
+    var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon).' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : '';
+    setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'The crowd goes wild. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
+  }
+  function achieve(id, title, text, xp) {
+    var c = CHAR; if (!c) return; c.ach = c.ach || {}; if (c.ach[id]) return; c.ach[id] = Date.now();
+    say('New achievement: ' + title, text + (xp ? ' +' + xp + ' XP.' : ''), 5500); if (xp) grantXP(xp); else cbSaveChar();
+  }
+  function overcome(e) { // a monster beaten without killing it
+    if (!e || e.counted || e.npc || CB.on) return; e.counted = true; grantXP(e.def.xp);
+    achieve('talker', 'Use Your Words', 'You talked a monster out of a fight. The viewers are confused but intrigued.', 50);
+  }
+  function skillUse(name) { // every success with a skill is practice; enough practice and it levels up on its own
+    var c = CHAR; if (!c || !name) return; c.skillXP = c.skillXP || {}; var lv = c.skills[name] || 0; if (lv >= 10) return;
+    c.skillXP[name] = (c.skillXP[name] || 0) + 1;
+    if (c.skillXP[name] >= (lv + 1) * 3) { c.skillXP[name] = 0; c.skills[name] = lv + 1; cbSaveChar(); setTimeout(function () { say('Skill up · ' + name + ' ' + (lv + 1), 'Practice pays. ' + name + ' now adds +' + (lv + 1) + ' to the rolls that use it.', 4500); }, 2600); }
+  }
+  function spendPoint(kind, key) {
+    var c = CHAR; if (!c) return;
+    if (kind === 'stat' && (c.statPts || 0) > 0 && c.stats[key] < 20) { c.stats[key]++; c.statPts--; MOD[key] = Math.floor((c.stats[key] - 10) / 2); if (key === 'CON') { var was = PC.max; PC.max = maxHPFor(c, PC.level); PC.hp += PC.max - was; } }
+    else if (kind === 'skill' && (c.skillPts || 0) > 0 && (c.skills[key] || 0) < 3 + PC.level) { c.skills[key] = (c.skills[key] || 0) + 1; c.skillPts--; }
+    else return;
+    cbSaveChar(); if (typeof cbHUD === 'function') cbHUD(); if (typeof drawRows === 'function') drawRows();
+  }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
@@ -153,13 +194,15 @@
     var tr = TRAITS.filter(function (t) { return t[0] === c.trait; })[0] || [c.trait, ''], fl = FLAWS.filter(function (t) { return t[0] === c.flaw; })[0] || [c.flaw, ''];
     var party = NET.party.filter(function (p) { return p.id !== NET.uid; });
     var gear = (c.gear || []).map(function (g) { return '<li><b>' + esc(g.name) + '</b>' + (g.dmg ? ' · ' + esc(g.dmg) : '') + (g.desc ? '<br><small>' + esc(g.desc) + '</small>' : '') + '</li>'; }).join('');
-    return '<div class="sheet"><h3>' + esc(c.name || 'Crawler') + ' · Human · Level 1 · ' + (PC.xp || 0) + ' XP</h3>' +
-      '<div class="stats">' + STATS.map(function (k) { var m = Math.floor((c.stats[k] - 10) / 2); return '<span><b>' + c.stats[k] + '</b>' + k + ' ' + (m >= 0 ? '+' : '') + m + '</span>'; }).join('') + '</div>' +
-      '<p>HP ' + PC.max + ' · AC ' + a.ac + ' (' + a.why + ') · Proficiency +2</p>' +
-      '<h3>Skills</h3><ul>' + sk.map(function (k) { return '<li>' + esc(k) + ' ' + c.skills[k] + '</li>'; }).join('') + '</ul>' +
+    var sp = c.statPts || 0, kp = c.skillPts || 0, achs = Object.keys(c.ach || {}).length;
+    return '<div class="sheet"><h3>' + esc(c.name || 'Crawler') + ' · Human · Level ' + (PC.level || 1) + ' · ' + (PC.xp || 0) + ' / ' + nextLevelXP() + ' XP</h3>' +
+      (sp ? '<p class="pts">' + sp + ' stat point' + (sp > 1 ? 's' : '') + ' to spend: tap + on a stat.</p>' : '') +
+      '<div class="stats">' + STATS.map(function (k) { var m = Math.floor((c.stats[k] - 10) / 2); return '<span><b>' + c.stats[k] + '</b>' + k + ' ' + (m >= 0 ? '+' : '') + m + (sp && c.stats[k] < 20 ? ' <button type="button" class="plus" onclick="window.__crawl.spend(\'stat\',\'' + k + '\')" aria-label="Raise ' + k + '">+</button>' : '') + '</span>'; }).join('') + '</div>' +
+      '<p>HP ' + PC.max + ' · AC ' + a.ac + ' (' + a.why + ') · Proficiency +' + PROF() + ' · Achievements ' + achs + '</p>' +
+      '<h3>Skills</h3>' + (kp ? '<p class="pts">' + kp + ' skill point' + (kp > 1 ? 's' : '') + ' to spend: tap + on any skill.</p>' : '') + '<ul>' + (kp ? SKILLS.map(function (s) { return s[0]; }) : sk).map(function (k) { var lv = c.skills[k] || 0, prog = (c.skillXP || {})[k] || 0; return '<li>' + esc(k) + ' ' + lv + (prog ? ' <small>(' + prog + '/' + (lv + 1) * 3 + ' practice)</small>' : '') + (kp && lv < 3 + (PC.level || 1) ? ' <button type="button" class="plus" onclick="window.__crawl.spend(\'skill\',\'' + k + '\')" aria-label="Raise ' + esc(k) + '">+</button>' : '') + '</li>'; }).join('') + '</ul>' +
       '<h3>Trait: ' + esc(c.trait) + '</h3><p>' + esc(c.traitDesc || tr[1]) + '</p><h3>Flaw: ' + esc(c.flaw) + '</h3><p>' + esc(c.flawDesc || fl[1]) + '</p>' +
       (gear ? '<h3>Brought from home</h3><ul class="gear">' + gear + '</ul>' : '') +
-      '<h3>Class</h3><p>Not chosen yet. Unlocks deeper in the crawl.</p>' +
+      '<h3>Class</h3><p>' + ((PC.level || 1) >= 3 ? 'Unlocked. The class choice is coming soon; the System is watching what you train.' : 'Unlocks at level 3, offered from the weapons and skills you actually use.') + '</p>' +
       (party.length ? '<h3>Party</h3><ul>' + party.map(function (p) { return '<li>' + esc(p.name || p.username) + (p.name ? ' <small>(' + esc(p.username) + ')</small>' : ' <small>(no character yet)</small>') + ' · ' + (p.xp || 0) + ' XP</li>'; }).join('') + '</ul>' : '') +
       '<p><button type="button" class="ccBtn" onclick="window.__crawl.newChar()">' + (CHAR ? 'Make a new character' : 'Create your character') + '</button></p>' +
       creditsHTML() + (NET.user ? '<div id="dmBox"></div><p>Signed in as ' + esc(NET.user.username) + (NET.user.role === 'dm' ? ' (DM)' : '') + ' <button type="button" class="ccBtn" onclick="window.__crawl.logOut()">Log out</button></p>' : '') + '</div>';

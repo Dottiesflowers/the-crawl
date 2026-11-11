@@ -92,7 +92,7 @@
     var W = [{ name: 'fists', n: 1, s: 1, b: 1 + MOD.STR, stat: 'STR', clip: 'Punch_Jab' }, { name: 'sword', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' }, { name: 'axe', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' },
       { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'The crowd loves it, so it hits with Charisma.' }][m];
     if (!m && sty('off') === 3) W = { name: 'dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', clip: 'Punch_Jab' };
-    W.hit = 2 + MOD[W.stat]; W.dmgB = W.b !== undefined ? W.b : MOD[W.stat]; return W;
+    W.hit = PROF() + MOD[W.stat]; W.dmgB = W.b !== undefined ? W.b : MOD[W.stat]; return W;
   }
 
   // ---------- monsters ----------
@@ -230,7 +230,7 @@
       '#res{position:fixed;z-index:6;right:18px;bottom:128px;display:none;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#cfe;background:rgba(20,22,34,.82);padding:5px 8px;border-radius:6px;border:1px solid rgba(61,242,224,.3)}#res.on{display:block}#res b{color:#ffd34a}' +
       '#hpbox{position:fixed;z-index:5;left:16px;top:44px;width:150px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#cfe}#hpbox .hb{height:8px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:3px;border:1px solid rgba(255,255,255,.18)}#hpbox .hb i{display:block;height:100%;background:linear-gradient(90deg,#d33,#f66)}' +
       '.ebar{position:fixed;z-index:4;width:54px;transform:translate(-50%,-100%);display:none;pointer-events:none;font-size:8.5px;letter-spacing:.04em;color:#fcc;text-align:center;text-shadow:0 1px 2px #000}.ebar i{display:block;height:5px;border-radius:3px;background:#f44;box-shadow:0 0 0 1px rgba(0,0,0,.6);margin-bottom:2px}' +
-      '.floater{position:fixed;z-index:8;transform:translate(-50%,-50%);pointer-events:none;font-weight:700;font-size:15px;color:#fff;text-shadow:0 2px 3px #000,0 0 6px #000;white-space:nowrap}.floater.dmg{color:#ff6b6b}.floater.pdmg{color:#ffb14a}.floater.miss{color:#9ab}.floater.heal{color:#7dff9a}.floater.crit{color:#ffd34a;font-size:19px}';
+      '.floater{position:fixed;z-index:8;transform:translate(-50%,-50%);pointer-events:none;font-weight:700;font-size:15px;color:#fff;text-shadow:0 2px 3px #000,0 0 6px #000;white-space:nowrap}.floater.dmg{color:#ff6b6b}.floater.pdmg{color:#ffb14a}.floater.miss{color:#9ab}.floater.heal{color:#7dff9a}.floater.crit{color:#ffd34a;font-size:19px}.floater.xp{color:#ffd34a;font-size:13px;letter-spacing:.06em}.sheet .plus{margin-left:4px;padding:0 7px;border-radius:5px;border:1px solid var(--neon);background:none;color:var(--neon);font:inherit;cursor:pointer}.sheet .pts{color:var(--hot)}';
     document.head.appendChild(css);
     css.textContent += '#cbMenu{position:fixed;z-index:7;right:16px;bottom:98px;width:min(300px,60vw);display:none;background:rgba(14,16,26,.94);border:1px solid rgba(61,242,224,.5);border-radius:10px;padding:6px}#cbMenu.on{display:block}' +
       '#cbMenu .mh{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hot);padding:3px 5px 6px}#cbMenu button{display:flex;width:100%;justify-content:space-between;gap:8px;text-align:left;padding:8px 7px;background:none;border:0;border-top:1px solid rgba(255,255,255,.08);color:#e8f4f4;font:inherit;font-size:12px;cursor:pointer}' +
@@ -283,7 +283,7 @@
 
   function cbHUD() {
     var a = pcAC();
-    document.getElementById('hpTxt').textContent = (PC.down ? 'DOWN · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : 'HP ' + PC.hp + ' / ' + PC.max) + ' · AC ' + a.ac + (PC.hidden ? ' · hidden' : '');
+    document.getElementById('hpTxt').textContent = (PC.down ? 'DOWN · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : 'HP ' + PC.hp + ' / ' + PC.max) + ' · AC ' + a.ac + ' · Lv ' + (PC.level || 1) + ' · ' + (PC.xp || 0) + '/' + nextLevelXP() + ' XP' + (PC.hidden ? ' · hidden' : '');
     document.getElementById('hpFill').style.width = Math.max(0, 100 * PC.hp / PC.max) + '%';
     document.getElementById('cbBar').classList.toggle('on', CB.on);
     document.getElementById('bar').style.display = CB.on ? 'none' : '';
@@ -315,7 +315,7 @@
     if (!foes.length) return;
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
     CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
-    foes.forEach(function (e) { e.react = true; e.prone = false; e.grappled = false; });
+    foes.forEach(function (e) { e.react = true; e.prone = false; e.grappled = false; e.fought = true; });
     var pcInit = d20() + MOD.DEX - (hasTrait('Distractible') ? 2 : 0); CB.order = [{ init: pcInit, who: 'pc' }].concat(foes.map(function (e) { e.init = d20() + e.def.init; return { init: e.init, who: e }; }))
       .sort(function (a, b) { return b.init - a.init; }).map(function (o) { return o.who; });
     PC.init = pcInit;
@@ -337,7 +337,7 @@
   }
   function cbJoin(e, why) {
     if (!CB.on || CB.order.indexOf(e) >= 0 || e.dead || e.calm) return;
-    e.init = d20() + e.def.init; e.react = true; e.prone = false; e.grappled = false;
+    e.init = d20() + e.def.init; e.react = true; e.prone = false; e.grappled = false; e.fought = true;
     var initOf = function (c) { return c === 'pc' ? PC.init : c.init; }, at = CB.order.length;
     for (var i = 0; i < CB.order.length; i++) if (e.init > initOf(CB.order[i])) { at = i; break; }
     CB.order.splice(at, 0, e); if (at <= CB.idx) CB.idx++; // the current turn stays the current turn
@@ -357,8 +357,19 @@
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
     CB.enemies.forEach(function (e) { e.grappled = false; if (e.prone && !e.dead) { e.prone = false; } if (!e.dead) cbPlay(e, 'Idle_Loop'); });
-    if (win) { var xp = CB.enemies.filter(function (e) { return e.dead && !e.counted; }).reduce(function (s, e) { e.counted = true; return s + e.def.xp; }, 0);
-      PC.xp = (PC.xp || 0) + xp; cbSaveChar(); say('Victory · +' + xp + ' XP', 'The cameras zoom in on your face. Viewers voted you "most likely to survive floor one." Total XP: ' + PC.xp + '.', 6500); }
+    // XP for every monster beaten in this fight: killed, or talked into giving up
+    var beaten = CB.enemies.filter(function (e) { return (e.dead || e.calm) && e.fought && !e.counted && !e.npc; }), xp = 0;
+    beaten.forEach(function (e) { e.counted = true; xp += e.def.xp; });
+    if (xp) {
+      var talked = beaten.filter(function (e) { return !e.dead; }).length;
+      say('Victory · +' + xp + ' XP', (talked ? talked + ' of them talked down, which counts. ' : '') + 'The cameras zoom in on your face. Viewers voted you "most likely to survive floor one."', 6500); grantXP(xp);
+      var later = 0; function ach(id, t, x, n) { setTimeout(function () { achieve(id, t, x, n); }, 2400 + 2600 * later++); }
+      if (beaten.some(function (e) { return e.dead; }) && !(CHAR && CHAR.ach && CHAR.ach.first_blood)) ach('first_blood', 'First Blood', 'Your first kill on camera. Your mother would be so proud.', 50);
+      if (talked && !(CHAR && CHAR.ach && CHAR.ach.talker)) ach('talker', 'Use Your Words', 'You talked a monster out of a fight. The viewers are confused but intrigued.', 50);
+      if (beaten.some(function (e) { return e.dead && e.def.base === 'shrub'; }) && !(CHAR && CHAR.ach && CHAR.ach.weed)) ach('weed', 'Weed Whacker', 'You killed a shrub. Gardeners everywhere salute you.', 10);
+      if (beaten.some(function (e) { return e.dead && e.def.lvl === 4; })) ach('thornmaw', 'Should Have Stepped On It', 'You killed a Thornmaw. Somebody let it get that big.', 150);
+      if (beaten.some(function (e) { return e.dead && e.boss; })) ach('boss_' + beaten.filter(function (e) { return e.boss; })[0].kind, 'Boss Down', 'You beat ' + beaten.filter(function (e) { return e.boss; })[0].name + '. The audience is on its feet.', 100);
+    }
   }
   function cbNext() {
     if (!CB.on) return;
@@ -381,7 +392,7 @@
     var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; });
     var near = foes.some(function (e) { var dd = cheb(e.x, e.z, P.x, P.z); return dd <= 5 || (dd <= 8 && los(e.x, e.z, P.x, P.z)); });
     if (near || PC.down) return false;
-    CB.order = []; cbEnd(false); say('You got away', 'You ran and they lost track of you. The audience is split between booing and respecting it. No XP for running.', 5000);
+    CB.order = []; cbEnd(false); setTimeout(function () { achieve('got_away', 'Strategic Retreat', 'You ran away and lived. That counts as a skill on this show.', 10); }, 5200); say('You got away', 'You ran and they lost track of you. The audience is split between booing and respecting it. No XP for running.', 5000);
     return true;
   }
   function cbEndTurn() { if (!cbMyTurn() || CB.busy || PC.down) return; CB.res = { move: 0, action: 0, bonus: 0 }; CB.aim = null; cbShowMoves(); cbNext(); }
@@ -457,7 +468,7 @@
     if (offhand ? !CB.res.bonus : !CB.res.action) return;
     if (offhand) CB.res.bonus = 0; else CB.res.action = 0;
     var Wp = offhand ? { name: 'off-hand dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', clip: 'Punch_Jab' } : pcWeapon();
-    if (offhand) { Wp.hit = 2 + MOD[Wp.stat]; Wp.dmgB = 0; }
+    if (offhand) { Wp.hit = PROF() + MOD[Wp.stat]; Wp.dmgB = 0; }
     CB.busy = true; cbFaceHero(e.x, e.z); cbFace(e, P.x, P.z); kitOneShot(Wp.clip); cbHUD();
     setTimeout(function () { cbResolve(e, Wp); cbAfterMyMove(); }, 420);
   }
@@ -467,7 +478,7 @@
     if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can throw up to ' + Wt.long + '.', 2600); return; }
     if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is between you and ' + e.name + '.', 2600); return; }
     CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); kitOneShot('Spell_Simple_Shoot'); cbHUD();
-    var Wp = { name: 'thrown ' + Wt.name.replace(/^(your|a) /, ''), n: Wt.n, s: Wt.s, hit: (Wt.prof ? 2 : 0) + MOD[Wt.stat], dmgB: MOD[Wt.stat], range: Wt.range };
+    var Wp = { name: 'thrown ' + Wt.name.replace(/^(your|a) /, ''), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat], dmgB: MOD[Wt.stat], range: Wt.range };
     setTimeout(function () {
       cbResolve(e, Wp, { ranged: true });
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }

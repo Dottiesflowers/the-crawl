@@ -141,7 +141,7 @@
     if (!CHAR || !CHAR.wield) return null; var it = (CHAR.gear || []).filter(function (g) { return g.name === CHAR.wield && g.dmg; })[0]; if (!it) return null;
     var m = /(\d+)d(\d+)/.exec(it.dmg), light = /knife|dagger|shear|scissor|blade|pick|opener|pen/i.test(it.name);
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: 2 + MOD[stat], dmgB: MOD[stat] };
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat], dmgB: MOD[stat] };
   }
 
   // ---------- wardrobe: you only wear what you own ----------
@@ -337,5 +337,5 @@
   lootSpot.done = {};
   function revealHidden(x, z) {
     if (ch(x, z) !== 'H') return; MAP[z] = MAP[z].substr(0, x) + 'D' + MAP[z].substr(x + 1);
-    rebuildChunks(); refreshFog();
+    rebuildChunks(); refreshFog(); grantXP(75); setTimeout(function () { achieve('secret', 'Secret Agent', 'You found a hidden room. The producers did not think anyone would.', 25); }, 2600);
   }
