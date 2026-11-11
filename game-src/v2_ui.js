@@ -79,7 +79,7 @@
   setInterval(function () { if (typeof P === 'undefined') return; var m = document.getElementById('mini'); m.style.display = gearOpen || CC || AUTH.open ? 'none' : ''; if (m.style.display !== 'none') mapDraw(m, false); if (UI.map) mapDraw(document.getElementById('mapC'), true); }, 250);
 
   // ---------- inventory ----------
-  var CATS = [['all', 'All'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['valuable', 'Valuables'], ['misc', 'Misc']];
+  var CATS = [['all', 'All'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['valuable', 'Valuables'], ['body', 'Bodies'], ['misc', 'Misc']];
   function bagItems() { return CHAR && CHAR.gear ? CHAR.gear : []; }
   function bagToggle() {
     UI.bag = !UI.bag; if (UI.bag && UI.map) mapToggle(); document.getElementById('bag').classList.toggle('on', UI.bag);
@@ -110,6 +110,7 @@
     var acts = [];
     if (it.cat === 'weapon' && it.dmg) acts.push(CHAR.wield === it.name ? ['unwield', 'Put away'] : ['wield', 'Hold in hand']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
+    if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
     return '<div class="big">' + itemIcon(it).replace('width="30" height="30"', 'width="72" height="72"') + '</div><h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       '<p><small>' + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + '</small></p>' +
@@ -122,9 +123,30 @@
     if (a === 'wear') wear(it);
     if (a === 'unwear') { it.worn = false; look[it.slot] = [0, 0]; buildHero(); saveLook(); }
     if (a === 'use') useItem(it);
+    if (a === 'drop') dropBody(it);
     if (a === 'hot') { hotPut(it.name); }
     if (a === 'unhot') { CHAR.hotbar = (CHAR.hotbar || []).map(function (n) { return n === it.name ? null : n; }); hotDraw(); }
     saveChar(CHAR); bagDraw();
+  }
+  // ---------- whole bodies: DCC-style, you can carry a corpse. Keeps it from the shrubs; drop it later as bait, or sell it ----------
+  function stashBody(e) {
+    if (!CHAR || !e || !e.dead || e.eaten || e.npc) return;
+    var L = e.lootStore ? e.lootStore : (LOOT[e.kind] || LOOT[e.def.base] || function () { return { gold: 0, items: [] }; })();
+    e.eaten = true; e.claimed = false; e.obj.visible = false; e.bar.style.display = 'none'; e.looted = true;
+    (L.items || []).forEach(function (it) { it.from = it.from || e.name; invAdd(it, true); }); CHAR.gold = (CHAR.gold || 0) + (L.gold || 0);
+    CHAR.gear.push({ name: e.name + ' (body)', cat: 'body', body: e.n, desc: 'A whole ' + e.name.toLowerCase() + ', folded to fit. Shrubs would kill for it. Someone in the Underbazaar might pay for it. Drop it to use it as bait.' });
+    kitOneShot('PickUp_Table'); saveChar(CHAR); if (typeof worldSave === 'function') worldSave();
+    var got = (L.items || []).length + (L.gold ? 1 : 0);
+    say('Stashed · ' + e.name, 'Into the bag it goes' + (got ? ', along with what it was carrying' + (L.gold ? ' (' + L.gold + ' gold)' : '') : '') + '. The System approves: nothing wasted.', 4500);
+  }
+  function dropBody(it) {
+    var e = CB.enemies.filter(function (q) { return q.n === it.body; })[0]; if (!e) return;
+    var spot = null; for (var r = 1; r <= 2 && !spot; r++) for (var dz = -r; dz <= r && !spot; dz++) for (var dx = -r; dx <= r && !spot; dx++) { var x = P.x + dx, z = P.z + dz; if ((dx || dz) && !blocksMove(x, z) && !enemyAt(x, z)) spot = [x, z]; }
+    if (!spot) { say('No room', 'There is nowhere to put it down here.', 2500); return; }
+    e.x = spot[0]; e.z = spot[1]; e.px = spot[0]; e.pz = spot[1]; e.obj.position.set(spot[0], 0, spot[1]); e.eaten = false; e.claimed = false; e.path = null;
+    if (e.mixer && e.clips && e.clips.Death01) { e.cur = ''; cbPlay(e, 'Death01', true); }
+    CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; saveChar(CHAR); if (typeof worldSave === 'function') worldSave(); refreshFog();
+    say('Dropped · ' + e.name, 'It flops onto the floor. Anything hungry nearby will notice.', 3500);
   }
   // ---------- consumables and the hot bar: four quick slots; in a fight using one is your bonus action ----------
   var HOT_N = 4;
