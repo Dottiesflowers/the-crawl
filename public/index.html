@@ -442,6 +442,13 @@
     });
     [westway, eastway, upper, lower].forEach(function (b) { for (var k = 0; k < 2; k++) for (var t = 0; t < 30; t++) { var xx = ri(b.x0, b.x1), zz = ri(b.z0, b.z1); if (g[zz][xx] === '.' && !taken[xx + ',' + zz]) { taken[xx + ',' + zz] = 1; spawns.push({ kind: 'shrub', sub: 'shrub1', x: xx, z: zz, room: b.id }); break; } } });
 
+    // ---------- rats: packs of one to three in the hallways and along the boulevards ----------
+    [[PCZ, 3], [WRZ, 5], [UHZ, 4], [ARZ, 4], [AZ, 2], [GZ, 3]].forEach(function (zn) {
+      var list = zn[0].rooms.filter(function (r) { return r.type === 'corridor'; }); if (!list.length) list = zn[0].rooms.filter(function (r) { return r.type === 'room'; }); if (!list.length) return;
+      var used = {}; for (var k = 0; k < zn[1]; k++) { var cr = pick(list); if (used[cr.id] && list.length > k) cr = pick(list); if (used[cr.id]) continue; used[cr.id] = 1; var n = 1 + Math.floor(rnd() * 2); for (var j = 0; j < n; j++) spawnIn(cr, 'rat', { sub: 'rat' }); }
+    });
+    [westway, eastway, upper, lower].forEach(function (b) { for (var k = 0; k < 2; k++) { var n = 1 + Math.floor(rnd() * 2); for (var t = 0; t < 30 && n > 0; t++) { var xx = ri(b.x0, b.x1), zz = ri(b.z0, b.z1); if (g[zz][xx] === '.' && !taken[xx + ',' + zz]) { taken[xx + ',' + zz] = 1; spawns.push({ kind: 'rat', sub: 'rat', x: xx, z: zz, room: b.id }); n--; } } } });
+
     // ---------- gates: zones open onto the boulevards ----------
     gate(PCZ, 'E', pc.hz0 + 1, 'Processing Exit'); gate(PCZ, 'N', pc.hx0 + 1, 'Processing North Doors');
     gate(WRZ, 'W', 205, 'Warren Mouth'); gate(WRZ, 'N', 120, 'Warren Burrow'); gate(WRZ, 'E', 200, 'Warren Back Door');
@@ -6505,6 +6512,12 @@
     return { gold: diceRoll(R.gold), items: items };
   }
 
+  // who the crawlers are, as far as the System is concerned. Goes into every AI prompt that speaks as or for the System.
+  var CREW_LORE = 'Background the System knows about this crawl: the crawlers are a real group of friends who call themselves the SGC, the Strong Guys Club. ' +
+    'The name is an inside joke from a comedy sketch (someone caught with a screen full of buff bodybuilders pretends not to know what they are: "what are these, like strong guys or something?!") and has nothing to do with strength. ' +
+    'They play D&D together, love Magic: The Gathering and play a lot of video games. The System recruited them partly because "Strong Guys Club" sounded like a legitimate fighting outfit. ' +
+    'It has since realised they are not especially strong, even for humans, and privately expects them to die quickly. It may tease them about the name or its own recruiting mistake now and then (sparingly, not every line), and is quietly delighted when they survive anyway.';
+
   // ===================== skills, DCC style: dozens of them, most obscure, earned by doing things =====================
   // Each level adds +1 to rolls that use the skill (weapon skills: +1 to hit per 2 levels). Skills appear when you do
   // something often enough (the System notices), when the System rules that something you tried deserves one, or at
@@ -6679,6 +6692,31 @@
   BEAST.gatekeeper = variant('imp', { name: 'The Gatekeeper', ac: 16, hp: 90, atk: 7, dmg: [2, 10, 4], str: 5, dex: 2, init: 3, pp: 15, xp: 1200, scale: 1.4, h: 2.2, tint: 0xff4a3a, boss: true, lines: ['Guardian of the stairs down. It has read your file and it is not impressed.'] });
   // shrubs: tiny, easy to kill, nearly worthless... and they eat the dead. Every body they eat makes them bigger and nastier.
   var SHRUB = { base: 'shrub', prop: 'Bush_Common', tex: 'puglin', init: 0, pp: 9, attackClip: 'Sword_Attack', weapon: 'thorny twigs', str: 0, dex: 0 };
+  // rats: level 1 hallway vermin. Four hit points, cheap XP, they come back a while after you clear them.
+  BEAST.rat = { base: 'rat', build: 'rat', lvl: 1, name: 'Dungeon rat', ac: 10, hp: 4, speed: 6, init: 2, pp: 11, atk: 2, dmg: [1, 3, 0], xp: 10, h: 0.32, weapon: 'yellow teeth', str: -2, dex: 2, attackClip: 'Bite',
+    lines: ['A rat the size of a cat. It looks at you like you are the snack.', 'It squeaks. Somewhere in the walls, something squeaks back.', 'Its tail is longer than your arm and it is very proud of that.'] };
+  function ratBuild() {
+    var g = new THREE.Group(), fur = new THREE.MeshLambertMaterial({ color: 0x5e5046 }), pink = new THREE.MeshLambertMaterial({ color: 0xc7898a }), eye = new THREE.MeshBasicMaterial({ color: 0xff3a2a });
+    var body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), fur); body.scale.set(1, 0.72, 1.55); body.position.y = 0.13; g.add(body);
+    var head = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.24, 8), fur); head.rotation.x = Math.PI / 2; head.position.set(0, 0.15, 0.3); g.add(head); g.userData.head = head;
+    var nose = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 5), pink); nose.position.set(0, 0.15, 0.42); g.add(nose);
+    [-1, 1].forEach(function (s) {
+      var ear = new THREE.Mesh(new THREE.CircleGeometry(0.05, 8), pink); ear.position.set(0.06 * s, 0.24, 0.24); ear.rotation.y = s * 0.5; ear.material.side = THREE.DoubleSide; g.add(ear);
+      var ey = new THREE.Mesh(new THREE.SphereGeometry(0.016, 6, 5), eye); ey.position.set(0.05 * s, 0.19, 0.33); g.add(ey);
+      [0.14, -0.12].forEach(function (zz) { var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.1, 5), pink); leg.position.set(0.09 * s, 0.05, zz); g.add(leg); });
+    });
+    var tail = new THREE.Group(); tail.position.set(0, 0.11, -0.24); g.add(tail); var seg = tail, segs = [];
+    for (var i = 0; i < 5; i++) { var t = new THREE.Group(), m = new THREE.Mesh(new THREE.CylinderGeometry(0.014 - i * 0.002, 0.018 - i * 0.002, 0.1, 5), pink); m.rotation.x = Math.PI / 2; m.position.z = -0.05; t.add(m); t.position.z = i ? -0.1 : 0; seg.add(t); segs.push(t); seg = t; }
+    g.userData.tail = segs; g.traverse(function (o) { if (o.isMesh) o.castShadow = true; }); return g;
+  }
+  function ratAnim(e, dt) {
+    var T = performance.now() / 1000, b = e.body, u = b.userData;
+    if (e.dead) { b.rotation.z += (Math.PI / 2 - b.rotation.z) * Math.min(1, dt * 6); b.position.y = 0.04; return; }
+    b.rotation.z = 0; var moving = !!e.path;
+    b.position.y = moving ? Math.abs(Math.sin(T * 22)) * 0.03 : 0;
+    if (u.head) u.head.position.y = 0.15 + (moving ? 0 : Math.max(0, Math.sin(T * 7 + e.n)) * 0.02);
+    (u.tail || []).forEach(function (s, i) { s.rotation.y = Math.sin(T * (moving ? 14 : 3) + i * 0.8 + e.n) * (moving ? 0.35 : 0.18); });
+  }
   function shrubDef(o) { var v = {}; for (var k in SHRUB) v[k] = SHRUB[k]; for (k in o) v[k] = o[k]; return v; }
   BEAST.shrub1 = shrubDef({ lvl: 1, name: 'Mulch shrub', ac: 8, hp: 3, speed: 4, atk: 1, dmg: [1, 2, 0], xp: 5, scale: 0.22, h: 0.42, timid: true, lines: ['A little shrub with a mouth. It cleans up after fights. Squash it now and it is worth almost nothing; leave it alone and it grows.'] });
   BEAST.shrub2 = shrubDef({ lvl: 2, name: 'Hungry shrub', ac: 10, hp: 9, speed: 4, atk: 3, dmg: [1, 4, 1], xp: 20, scale: 0.34, h: 0.6, timid: true, prop: 'Bush_Common_Flowers', lines: ['It has eaten something recently. It has opinions now, and roots like fingers.'] });
@@ -6782,6 +6820,7 @@
   // monsters only get a real model (skinned mesh, materials, animations) once a crawler comes near them
   function cbMaterialize(e) {
     if (e.mixer) return; var B = e.def, sp = e.sp;
+    if (B.build === 'rat') { var gr = ratBuild(); e.obj.add(gr); e.body = gr; e.mixer = { update: function () {} }; e.clips = {}; return; }
     if (B.prop) { // a plant: no skeleton, it bobs and lunges in code
       if (!propsOn()) return; var g2 = new THREE.Group(); propInto(g2, B.prop, { s: B.scale }); e.obj.add(g2); e.body = g2;
       g2.traverse(function (o) { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set(e.lvl >= 3 ? 0xb0c890 : 0xffffff); } });
@@ -6806,20 +6845,32 @@
   function zoneOf(e) { var r = LEVEL.rooms[e.room]; return r && r.hood !== undefined ? r.hood : 'free'; }
   function worldState() {
     var dead = [], eaten = [], calm = [], hp = {};
-    CB.enemies.forEach(function (e) { if (e.npc) return; if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
-    return { dead: dead, eaten: eaten, calm: calm, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), at: Date.now() };
+    var rats = []; CB.enemies.forEach(function (e) { if (e.npc) return; if (e.def.base === 'rat') { if (e.dead) rats.push([e.n, e.diedAt || Date.now()]); return; } if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
+    return { dead: dead, eaten: eaten, calm: calm, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, at: Date.now() };
   }
   function worldSave() {
     if (!CB.ready || !WORLD.loaded) return; var st = worldState();
     try { localStorage.setItem(worldKey(), JSON.stringify(st)); } catch (x) {}
     if (NET.mode === 'server' && NET.uid) { clearTimeout(worldSave.t); worldSave.t = setTimeout(function () { api('kv/world', { method: 'PUT', body: { value: st } }).catch(function () {}); }, 2000); }
   }
+  var RAT_BACK = 8 * 60000; // cleared rats come back after this long, somewhere you aren't looking
+  setInterval(function () {
+    if (!CB.ready || CB.on) return; var now = Date.now(), any = false;
+    CB.enemies.forEach(function (e) {
+      if (e.def.base !== 'rat' || !e.dead || !e.diedAt || now - e.diedAt < RAT_BACK) return;
+      if (cheb(P.x, P.z, e.sx, e.sz) < 14 || cheb(P.x, P.z, e.x, e.z) < 10) return;
+      e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.looted = false; e.lootStore = null; e.calm = false; e.hp = e.max; e.diedAt = 0; e.path = null;
+      e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; any = true;
+    });
+    if (any) worldSave();
+  }, 20000);
   function worldApply(st) {
     var byN = {}; CB.enemies.forEach(function (e) { byN[e.n] = e; });
     (st.dead || []).concat(st.eaten || []).forEach(function (n) { var e = byN[n]; if (!e) return; e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; }); // bodies from earlier sessions are gone
     (st.calm || []).forEach(function (n) { if (byN[n]) byN[n].calm = true; });
     Object.keys(st.hp || {}).forEach(function (n) { if (byN[n] && !byN[n].dead) byN[n].hp = Math.max(1, st.hp[n]); });
     (st.shrubs || []).forEach(function (s) { var e = byN[s[0]]; if (e && !e.dead) { e.def = BEAST['shrub' + s[1]]; e.kind = 'shrub' + s[1]; e.lvl = s[1]; e.name = e.def.name; e.max = e.def.hp; e.hp = Math.min(e.hp, e.max); } });
+    (st.rats || []).forEach(function (r) { var e = byN[r[0]]; if (e && Date.now() - r[1] < RAT_BACK) { e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; e.diedAt = r[1]; } });
     if (st.reserve) WORLD.reserve = st.reserve;
   }
   function worldLoad() {
@@ -7235,6 +7286,7 @@
     var it = (CHAR && CHAR.gear || []).filter(function (g) { return /potion/i.test(g.name) && g.heal; })[0]; if (it) useItem(it); else say('No potions', 'You are out of healing potions.', 2400);
   }
   function cbKill(e) {
+    if (e.def.base === 'rat') e.diedAt = Date.now();
     if (/shrub/.test(e.def.base || e.kind || '')) skillCount('shrub');
     if (e.boss) logEvent('Killed ' + e.name + ', boss of ' + ((LEVEL.hoods[(roomInfo(e.x, e.z) || {}).hood] || {}).name || 'the floor'), 'boss'); else if (/chief|foreman|head|warden/.test(e.kind)) logEvent('Killed a ' + e.name, 'kill');
     e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
@@ -7365,7 +7417,7 @@
       return;
     }
     if (e.path) return;
-    if (e.body) { // shrubs smell the dead from a long way off
+    if (e.body && e.def.base === 'shrub') { // shrubs smell the dead from a long way off
       var best = null, bd = 15;
       CB.enemies.forEach(function (q) { if (q.dead && !q.eaten && q !== e && !q.claimed) { var d2 = cheb(q.x, q.z, e.x, e.z); if (d2 < bd) { bd = d2; best = q; } } });
       if (best && bd <= 1) { e.eating = { t: now, body: best }; best.claimed = true; cbFace(e, best.x, best.z); if (visNow[e.x + ',' + e.z] !== undefined) floater(e.px, e.def.h + 0.3, e.pz, 'munch', 'miss'); return; }
@@ -7403,7 +7455,7 @@
       if (!e.mixer) return;
       e.mixer.update(dt);
       if (!CB.on || CB.order.indexOf(e) < 0) cbRoam(e, dt);
-      if (e.body) cbShrubAnim(e, dt);
+      if (e.body) { if (e.def.base === 'rat') ratAnim(e, dt); else cbShrubAnim(e, dt); }
       if (CB.on && CB.order.indexOf(e) < 0 && cheb(e.x, e.z, P.x, P.z) <= 14) { if (e.path && e.roaming) { e.path = null; cbPlay(e, 'Idle_Loop'); } return; } // frozen on turn time
       if (e.path) {
         var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = (e.roaming ? (e.body ? 1.8 : 1.3) : 3.2) * dt;
@@ -7479,7 +7531,7 @@
     ['De-escalation', 'CHA', 'Talking people (and monsters) down'], ['Performance', 'CHA', 'Music, showmanship, playing to the cameras'], ['Haggling', 'CHA', 'Prices, deals, sponsors'],
     ['Intimidation', 'CHA', 'Making things back off'], ['Deception', 'CHA', 'Lying convincingly']
   ];
-  var TRAITS = [['Living Map', 'Your explored map never dims and you reveal a wider area.'], ['Tough', '+2 maximum HP.'], ['Lucky', 'Once per fight, reroll a d20 you hate (coming soon).'],
+  var TRAITS = [['Living Map', 'Your map fills in the whole room you are in and a few steps past your light, never dims, marks safe rooms in every zone you have entered, and you can sense the stairwell.'], ['Tough', '+2 maximum HP.'], ['Lucky', 'Once per fight, reroll a d20 you hate (coming soon).'],
     ['Silver Tongue', '+2 to Charisma checks that talk someone into or out of something.'], ['Quick Hands', 'Drinking a potion never costs your bonus action (coming soon).'], ['Crowd Favorite', 'Sponsors notice you first (coming soon).']];
   var FLAWS = [['Curse of Knowledge', 'Your Help action gives allies no bonus.'], ['Loudmouth', '-2 to Stealth.'], ['Distractible', '-2 to initiative.'],
     ['Bad Back', '-2 to Athletics contests (shove, grapple).'], ['Night Blind', 'You see one tile less in the dark (coming soon).'], ['Big Spender', 'Loot boxes cost you more (coming soon).']];
@@ -7815,7 +7867,7 @@
   function ccAsk(kind) {
     var qa = QUESTIONS.map(function (q, i) { return 'Q: ' + q + '\nA: ' + (CC.answers[i] || '(no answer)'); }).join('\n\n');
     var fa = CC.follow.map(function (q, i) { return 'Q: ' + q + '\nA: ' + (CC.followA[i] || '(no answer)'); }).join('\n\n');
-    var head = 'You are "the System", the sardonic alien host of a dungeon-crawl reality show (in the spirit of Dungeon Crawler Carl). A new human crawler named ' + CC.name + ' is being processed: one of five humans chosen to represent all of humanity in an intergalactic dungeon crawl. Rules are D&D 5e plus DCC-style skills. Characters must reflect the real person, weaknesses included: they should not be universally competent.\n\nInterview so far:\n' + qa + (fa ? '\n\nFollow-ups:\n' + fa : '');
+    var head = 'You are "the System", the sardonic alien host of a dungeon-crawl reality show (in the spirit of Dungeon Crawler Carl). A new human crawler named ' + CC.name + ' is being processed: one of five humans chosen to represent all of humanity in an intergalactic dungeon crawl. Rules are D&D 5e plus DCC-style skills. Characters must reflect the real person, weaknesses included: they should not be universally competent.\n\nInterview so far:\n' + qa + (fa ? '\n\nFollow-ups:\n' + fa : '') + ' ' + CREW_LORE;
     var prompt = kind === 'followups' ? head + '\n\nAsk up to 3 short, pointed follow-up questions tailored to what they said, that would best decide their ability scores, skills, weaknesses and what gear they had on them. Reply with JSON only: {"comment": one dry sentence from the System about what you have heard so far, "questions": [strings]}'
       : head + '\n\nBuild their level-1 human sheet from real-life evidence. Ability scores use the 5e 27-point buy exactly (each score 8-15; costs 8=0,9=1,10=2,11=3,12=4,13=5,14=7,15=9; total exactly 27). Skills come only from this list: ' + SKILL_DEFS.map(function (s) { return s[0]; }).join(', ') +
         '. Give 4 to 6 skills, levels 1-3, total points at most ' + SKILL_BUDGET + '. Invent one personal trait and one personal flaw drawn from their real life (funny, specific, consequential). Each must use one game effect: trait effect from ' + TRAITS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') + '. Flaw effect from ' + FLAWS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') +
@@ -7987,7 +8039,7 @@
       '\n\nTHE PLAYER: ' + (c.name || 'a crawler') + ', human, level 1, one of humanity\'s five representatives. Charisma ' + c.stats.CHA + '. Notable skills: ' + Object.keys(c.skills).join(', ') + '. Trait: ' + c.trait + '. Flaw: ' + c.flaw + '. Carrying: ' + ((c.gear || []).map(function (g) { return g.name; }).join(', ') || 'nothing much') + '. HP ' + PC.hp + '/' + PC.max + '. Holding: ' + ((typeof pcWeapon === 'function') ? pcWeapon().name : 'nothing') + '.' +
       (CB.on ? '\nA fight is happening right now.' : '') + (whisper ? '\nThe player is WHISPERING this line so only you can hear; answer quietly.' : '\nThe player is speaking out loud; anyone nearby can hear.') +
       '\n\nThis line the player rolled ' + roll.skill + ': d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total + '. If the player is trying to persuade, trick, scare, bribe or charm you, judge the attempt against DC 10 (easy ask) / 13 (real favor) / 16 (against your interests) and let the roll decide whether it works, but a clever or funny line can lower the DC by 2 and an insult raises it. A natural 1 backfires; a natural 20 works if at all possible. If they are just chatting, ignore the roll.' +
-      '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree to stop fighting or not to fight them: any truce, deal, bribe accepted, surrender or promise to leave them alone counts as calm, and you must then honor it),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or ""}';
+      '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree to stop fighting or not to fight them: any truce, deal, bribe accepted, surrender or promise to leave them alone counts as calm, and you must then honor it),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or ""}' + ' ' + CREW_LORE + ' Monsters do not know any of this unless they work for the System (clerks, registrars, imps on the payroll), in which case they may have heard the joke.';
     var msgs = [{ role: 'user', content: sys + '\n\n[Conversation begins.' + (text ? '' : ' The player has just walked up. Greet them in character.') + ']' }];
     e.talk.lines.slice(-14).forEach(function (l) { msgs.push({ role: l.who === 'me' ? 'user' : 'assistant', content: l.who === 'me' ? 'Player says: ' + l.text : JSON.stringify({ say: l.text }) }); });
     if (msgs[msgs.length - 1].role !== 'user') msgs.push({ role: 'user', content: 'Player says nothing and waits.' });
@@ -8129,7 +8181,7 @@
     LEVEL.rooms.forEach(function (rm) {
       if (rm.type === 'corridor') return; var key = rm.type === 'safe' || rm.type === 'boss' || rm.type === 'stairs' || rm.type === 'hidden';
       var w = Math.max(rm.x1 - rm.x0, rm.z1 - rm.z0) + 1; if (!key && (zoneView || tpx * w < 70)) return; // ordinary rooms only once they're big enough on screen
-      if (!seenRoom(rm)) return;
+      if (!seenRoom(rm) && !(key && rm.type === 'safe' && hasTrait('Living Map') && CHAR && CHAR.zones && CHAR.zones[rm.hood])) return;
       var icon = rm.type === 'safe' ? '✚' : rm.type === 'boss' ? '☠' : rm.type === 'stairs' ? '▼' : rm.type === 'hidden' ? '★' : '';
       var t = key && tpx < 6 ? icon : (icon ? icon + ' ' : '') + rm.name; // far out, key rooms shrink to their icon
       L.push({ t: t, x: (rm.x0 + rm.x1) / 2, z: (rm.z0 + rm.z1) / 2, pri: rm.type === 'boss' || rm.type === 'stairs' ? 4 : key ? 3 : 1, size: key && tpx < 6 ? 13 : 10.5, bold: key,
@@ -8759,7 +8811,7 @@
     var go = function (j) { tryApply(j, ctx, text); };
     TRY.busy = true; say('The System is considering it', '"' + text.slice(0, 120) + '"', 9000);
     if (!NET.sample) { go(tryCanned(text, ctx)); return; }
-    serverSample([{ role: 'user', content: sys + '\n\nThe crawler says: "' + text + '"' }], { modelTier: 'complex', maxTokens: 500 }).then(function (r) {
+    serverSample([{ role: 'user', content: sys + '\n\n' + CREW_LORE + '\n\nThe crawler says: "' + text + '"' }], { modelTier: 'complex', maxTokens: 500 }).then(function (r) {
       var j = null; try { j = JSON.parse((r.text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {} go(j || tryCanned(text, ctx));
     }, function () { go(tryCanned(text, ctx)); });
   }
@@ -8812,7 +8864,8 @@
   function buffDraw() {
     var el = document.getElementById('buffs'); if (!el) return; var b = buffs(), now = Date.now(), c = CHAR;
     var sw = c && !c.swUsed && !c.dead ? '<button type="button" class="bf sw" id="bfSW" title="Second Wind: heal 1d10 + your level. Once, then rest to recharge."><b>✚</b>Second Wind</button>' : '';
-    el.innerHTML = Object.keys(b).map(function (k) { var d = BUFFS[k] || { name: k, icon: '•', desc: '' }, m = Math.max(1, Math.ceil((b[k] - now) / 60000)); return '<span class="bf' + (k === 'jitters' ? ' bad' : '') + '" title="' + esc(d.name + ': ' + d.desc) + '"><b>' + d.icon + '</b>' + esc(d.name) + ' <i>' + m + 'm</i></span>'; }).join('') + sw;
+    var html = Object.keys(b).map(function (k) { var d = BUFFS[k] || { name: k, icon: '•', desc: '' }, m = Math.max(1, Math.ceil((b[k] - now) / 60000)); return '<span class="bf' + (k === 'jitters' ? ' bad' : '') + '" title="' + esc(d.name + ': ' + d.desc) + '"><b>' + d.icon + '</b>' + esc(d.name) + ' <i>' + m + 'm</i></span>'; }).join('') + sw;
+    if (el.dataset.h !== html) { el.innerHTML = html; el.dataset.h = html; }
     var s = document.getElementById('bfSW'); if (s) s.onclick = secondWind;
     el.style.display = !CHAR || gearOpen || CC || AUTH.open ? 'none' : '';
   }
@@ -8967,7 +9020,7 @@
       '#wset .wh b{display:block;font-size:13px}#wset .wh span{font-size:11.5px;color:#5a4430}#wset i{color:#9a8a6a}',
       '#wSwap{pointer-events:auto;position:absolute;right:0;bottom:0;width:44px;height:44px;border-radius:50%;' + iron + 'border:2px solid #E0B868;display:flex;align-items:center;justify-content:center}#wSwap:disabled{opacity:.4;border-color:#6b5a3a}',
       // combat: initiative bar
-      '#turns{left:50% !important;top:0 !important;transform:translateX(-50%);flex-direction:row !important;align-items:center !important;gap:2px !important;padding:3px 8px;' + iron + 'border:1px solid ' + BR + ';border-top:0;border-radius:0 0 6px 6px;box-shadow:0 3px 8px rgba(0,0,0,.5);text-transform:none !important;letter-spacing:0 !important;max-width:calc(100vw - 480px);overflow-x:auto;height:34px}',
+      '#turns{left:236px !important;top:0 !important;transform:none;flex-direction:row !important;align-items:center !important;gap:2px !important;padding:3px 8px;' + iron + 'border:1px solid ' + BR + ';border-top:0;border-radius:0 0 6px 6px;box-shadow:0 3px 8px rgba(0,0,0,.5);text-transform:none !important;letter-spacing:0 !important;max-width:calc(100vw - 556px);overflow-x:auto;height:34px}',
       '#turns .rnd{display:flex;align-items:baseline;gap:3px;padding-right:6px;margin-right:2px;border-right:1px solid #5A4A30;font-family:Cinzel,serif}#turns .rnd small{font-size:8px;letter-spacing:.12em;color:#C9B48A;text-transform:uppercase}#turns .rnd b{font-size:14px;line-height:1;color:' + LT + '}',
       '#turns .ini{position:relative;display:flex;align-items:center;padding:1px;border-radius:50%;border:1px solid transparent}',
       '#turns .ini .pf{width:24px;height:24px;border-radius:50%;border:2px solid #8a3a32;background:#2a1614;display:flex;align-items:center;justify-content:center;color:#e08a78;font-family:Cinzel,serif;font-weight:800;font-size:11px}#turns .ini .pf svg{width:13px;height:13px}',
@@ -8979,7 +9032,7 @@
       '#turns .ini.dead{opacity:.35}#turns .ini.dead .pf{filter:grayscale(1)}#turns .ini.calm .pf{border-color:#5a8a5a;color:#9ad09a}',
       '#turns .ini.join{opacity:.7}#turns .ini.join .pf{border-style:dashed;border-color:#6b5a3a;color:#C9B48A}',
       '#turns span.arr{color:#6b5a3a;font-size:11px;padding:0;background:none;border:0}',
-      '#res{left:50% !important;right:auto !important;top:36px !important;bottom:auto !important;transform:translateX(-50%);display:none;gap:12px;' + iron + 'border:1px solid #5A4A30 !important;border-radius:12px !important;padding:1px 10px !important;font-family:Cinzel,serif;font-size:9.5px !important;letter-spacing:.06em !important;text-transform:none !important;color:#6b5a3a !important}',
+      '#res{left:236px !important;right:auto !important;top:36px !important;bottom:auto !important;transform:none;display:none;gap:12px;' + iron + 'border:1px solid #5A4A30 !important;border-radius:12px !important;padding:1px 10px !important;font-family:Cinzel,serif;font-size:9.5px !important;letter-spacing:.06em !important;text-transform:none !important;color:#6b5a3a !important}',
       '#res.on{display:flex !important}#res span{display:flex;align-items:center;gap:5px}#res span.on{color:#E9DCC0}',
       '#res i{width:9px;height:9px;display:inline-block;opacity:.3}#res span.on i{opacity:1}#res .pa{border-radius:50%;background:#c0392b}#res .pb{transform:rotate(45deg);background:#c9952e}#res .pm{border-radius:2px;background:#8a8a90}#res .ps{border-radius:50%;background:none;border:2px solid #E0B868;width:8px;height:8px}',
       // combat action bar
@@ -9048,7 +9101,7 @@
     dc.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); dc.classList.remove('on'); });
     var sy = document.getElementById('sys'); if (sy) sy.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); sy.classList.remove('on'); });
     setInterval(function () { var el = document.getElementById('wset'); if (el) el.style.display = !CHAR || gearOpen || CC || AUTH.open || UI.bag || UI.map || (typeof CS !== 'undefined' && CS.open) ? 'none' : ''; }, 300);
-    setInterval(function () { if (typeof CB !== 'undefined' && !CB.on && typeof cbHUD === 'function') try { cbHUD(); } catch (e) {} }, 1000);
+    setInterval(function () { if (typeof CB !== 'undefined' && !CB.on && typeof cbHUD === 'function') try { cbHUD(); } catch (e) {} try { buffDraw(); } catch (e) {} }, 1000);
     setTimeout(wsetDraw, 0);
   })();
 
@@ -9243,6 +9296,7 @@
   var visNow = {}, tmp = new THREE.Color();
   var FOG = { total: 0, seen: 0 };
   var LIT = { bazaar: 4, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1 }; // well-lit places let you see farther
+  function roomLit(r) { return r.type === 'safe' || r.type === 'boss' || r.type === 'stairs' || r.lit || (r.type !== 'corridor' && (LIT[r.theme] || 0) >= 2); }
   function refreshFog() {
     streamChunks();
     sightI = sightNow(); var S = SIGHTS[sightI], here = roomInfo(P.x, P.z); var sl = document.getElementById('sight'); if (sl) sl.textContent = 'Sight: ' + S.name;
@@ -9251,6 +9305,21 @@
       if (x < 0 || z < 0 || x >= W || z >= H) continue;
       var d = Math.sqrt((x - P.x) * (x - P.x) + (z - P.z) * (z - P.z));
       if (d <= R + 0.4 && los(P.x, P.z, x, z)) { visNow[x + ',' + z] = d; if (!tileState[z * W + x]) { tileState[z * W + x] = 1; if (FOG.total && MAP[z].charAt(x) !== '#') FOG.seen++; } }
+    }
+    // a lit room shows itself: standing inside one, you see all of it that's in line of sight (up to 14 tiles), not just your torch radius
+    if (here && roomLit(here)) {
+      var LR = 14;
+      for (z = Math.max(here.z0 - 1, P.z - LR); z <= Math.min(here.z1 + 1, P.z + LR); z++) for (x = Math.max(here.x0 - 1, P.x - LR); x <= Math.min(here.x1 + 1, P.x + LR); x++) {
+        if (x < 0 || z < 0 || x >= W || z >= H || visNow[x + ',' + z] !== undefined) continue;
+        var d3 = Math.sqrt((x - P.x) * (x - P.x) + (z - P.z) * (z - P.z));
+        if (los(P.x, P.z, x, z)) { visNow[x + ',' + z] = Math.min(d3, R) * 0.55; if (!tileState[z * W + x]) { tileState[z * W + x] = 1; if (FOG.total && MAP[z].charAt(x) !== '#') FOG.seen++; } }
+      }
+    }
+    // Living Map: you always know the shape of the room you're in and the ground a few steps past your light
+    if (hasTrait('Living Map')) {
+      var LM = R + 4;
+      for (z = P.z - LM; z <= P.z + LM; z++) for (x = P.x - LM; x <= P.x + LM; x++) if (x >= 0 && z >= 0 && x < W && z < H && !tileState[z * W + x] && (x - P.x) * (x - P.x) + (z - P.z) * (z - P.z) <= LM * LM) { tileState[z * W + x] = 1; if (FOG.total && MAP[z].charAt(x) !== '#') FOG.seen++; }
+      if (here && here.type !== 'corridor' && (here.x1 - here.x0) * (here.z1 - here.z0) < 900) for (z = here.z0 - 1; z <= here.z1 + 1; z++) for (x = here.x0 - 1; x <= here.x1 + 1; x++) if (x >= 0 && z >= 0 && x < W && z < H && !tileState[z * W + x]) { tileState[z * W + x] = 1; if (FOG.total && MAP[z].charAt(x) !== '#') FOG.seen++; }
     }
     if (!FOG.total) { for (var i = 0; i < W * H; i++) if (MAP[(i / W) | 0].charAt(i % W) !== '#') { FOG.total++; if (tileState[i]) FOG.seen++; } }
     document.getElementById('explored').textContent = 'Explored ' + (Math.round(1000 * FOG.seen / FOG.total) / 10) + '%';

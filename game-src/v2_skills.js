@@ -1,4 +1,10 @@
 
+  // who the crawlers are, as far as the System is concerned. Goes into every AI prompt that speaks as or for the System.
+  var CREW_LORE = 'Background the System knows about this crawl: the crawlers are a real group of friends who call themselves the SGC, the Strong Guys Club. ' +
+    'The name is an inside joke from a comedy sketch (someone caught with a screen full of buff bodybuilders pretends not to know what they are: "what are these, like strong guys or something?!") and has nothing to do with strength. ' +
+    'They play D&D together, love Magic: The Gathering and play a lot of video games. The System recruited them partly because "Strong Guys Club" sounded like a legitimate fighting outfit. ' +
+    'It has since realised they are not especially strong, even for humans, and privately expects them to die quickly. It may tease them about the name or its own recruiting mistake now and then (sparingly, not every line), and is quietly delighted when they survive anyway.';
+
   // ===================== skills, DCC style: dozens of them, most obscure, earned by doing things =====================
   // Each level adds +1 to rolls that use the skill (weapon skills: +1 to hit per 2 levels). Skills appear when you do
   // something often enough (the System notices), when the System rules that something you tried deserves one, or at

@@ -50,6 +50,7 @@
   var visNow = {}, tmp = new THREE.Color();
   var FOG = { total: 0, seen: 0 };
   var LIT = { bazaar: 4, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1 }; // well-lit places let you see farther
+  function roomLit(r) { return r.type === 'safe' || r.type === 'boss' || r.type === 'stairs' || r.lit || (r.type !== 'corridor' && (LIT[r.theme] || 0) >= 2); }
   function refreshFog() {
     streamChunks();
     sightI = sightNow(); var S = SIGHTS[sightI], here = roomInfo(P.x, P.z); var sl = document.getElementById('sight'); if (sl) sl.textContent = 'Sight: ' + S.name;
@@ -58,6 +59,21 @@
       if (x < 0 || z < 0 || x >= W || z >= H) continue;
       var d = Math.sqrt((x - P.x) * (x - P.x) + (z - P.z) * (z - P.z));
       if (d <= R + 0.4 && los(P.x, P.z, x, z)) { visNow[x + ',' + z] = d; if (!tileState[z * W + x]) { tileState[z * W + x] = 1; if (FOG.total && MAP[z].charAt(x) !== '#') FOG.seen++; } }
+    }
+    // a lit room shows itself: standing inside one, you see all of it that's in line of sight (up to 14 tiles), not just your torch radius
+    if (here && roomLit(here)) {
+      var LR = 14;
+      for (z = Math.max(here.z0 - 1, P.z - LR); z <= Math.min(here.z1 + 1, P.z + LR); z++) for (x = Math.max(here.x0 - 1, P.x - LR); x <= Math.min(here.x1 + 1, P.x + LR); x++) {
+        if (x < 0 || z < 0 || x >= W || z >= H || visNow[x + ',' + z] !== undefined) continue;
+        var d3 = Math.sqrt((x - P.x) * (x - P.x) + (z - P.z) * (z - P.z));
+        if (los(P.x, P.z, x, z)) { visNow[x + ',' + z] = Math.min(d3, R) * 0.55; if (!tileState[z * W + x]) { tileState[z * W + x] = 1; if (FOG.total && MAP[z].charAt(x) !== '#') FOG.seen++; } }
+      }
+    }
+    // Living Map: you always know the shape of the room you're in and the ground a few steps past your light
+    if (hasTrait('Living Map')) {
+      var LM = R + 4;
+      for (z = P.z - LM; z <= P.z + LM; z++) for (x = P.x - LM; x <= P.x + LM; x++) if (x >= 0 && z >= 0 && x < W && z < H && !tileState[z * W + x] && (x - P.x) * (x - P.x) + (z - P.z) * (z - P.z) <= LM * LM) { tileState[z * W + x] = 1; if (FOG.total && MAP[z].charAt(x) !== '#') FOG.seen++; }
+      if (here && here.type !== 'corridor' && (here.x1 - here.x0) * (here.z1 - here.z0) < 900) for (z = here.z0 - 1; z <= here.z1 + 1; z++) for (x = here.x0 - 1; x <= here.x1 + 1; x++) if (x >= 0 && z >= 0 && x < W && z < H && !tileState[z * W + x]) { tileState[z * W + x] = 1; if (FOG.total && MAP[z].charAt(x) !== '#') FOG.seen++; }
     }
     if (!FOG.total) { for (var i = 0; i < W * H; i++) if (MAP[(i / W) | 0].charAt(i % W) !== '#') { FOG.total++; if (tileState[i]) FOG.seen++; } }
     document.getElementById('explored').textContent = 'Explored ' + (Math.round(1000 * FOG.seen / FOG.total) / 10) + '%';

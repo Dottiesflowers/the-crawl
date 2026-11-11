@@ -315,6 +315,13 @@
     });
     [westway, eastway, upper, lower].forEach(function (b) { for (var k = 0; k < 2; k++) for (var t = 0; t < 30; t++) { var xx = ri(b.x0, b.x1), zz = ri(b.z0, b.z1); if (g[zz][xx] === '.' && !taken[xx + ',' + zz]) { taken[xx + ',' + zz] = 1; spawns.push({ kind: 'shrub', sub: 'shrub1', x: xx, z: zz, room: b.id }); break; } } });
 
+    // ---------- rats: packs of one to three in the hallways and along the boulevards ----------
+    [[PCZ, 3], [WRZ, 5], [UHZ, 4], [ARZ, 4], [AZ, 2], [GZ, 3]].forEach(function (zn) {
+      var list = zn[0].rooms.filter(function (r) { return r.type === 'corridor'; }); if (!list.length) list = zn[0].rooms.filter(function (r) { return r.type === 'room'; }); if (!list.length) return;
+      var used = {}; for (var k = 0; k < zn[1]; k++) { var cr = pick(list); if (used[cr.id] && list.length > k) cr = pick(list); if (used[cr.id]) continue; used[cr.id] = 1; var n = 1 + Math.floor(rnd() * 2); for (var j = 0; j < n; j++) spawnIn(cr, 'rat', { sub: 'rat' }); }
+    });
+    [westway, eastway, upper, lower].forEach(function (b) { for (var k = 0; k < 2; k++) { var n = 1 + Math.floor(rnd() * 2); for (var t = 0; t < 30 && n > 0; t++) { var xx = ri(b.x0, b.x1), zz = ri(b.z0, b.z1); if (g[zz][xx] === '.' && !taken[xx + ',' + zz]) { taken[xx + ',' + zz] = 1; spawns.push({ kind: 'rat', sub: 'rat', x: xx, z: zz, room: b.id }); n--; } } } });
+
     // ---------- gates: zones open onto the boulevards ----------
     gate(PCZ, 'E', pc.hz0 + 1, 'Processing Exit'); gate(PCZ, 'N', pc.hx0 + 1, 'Processing North Doors');
     gate(WRZ, 'W', 205, 'Warren Mouth'); gate(WRZ, 'N', 120, 'Warren Burrow'); gate(WRZ, 'E', 200, 'Warren Back Door');

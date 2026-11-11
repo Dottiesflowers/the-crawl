@@ -100,7 +100,7 @@
     LEVEL.rooms.forEach(function (rm) {
       if (rm.type === 'corridor') return; var key = rm.type === 'safe' || rm.type === 'boss' || rm.type === 'stairs' || rm.type === 'hidden';
       var w = Math.max(rm.x1 - rm.x0, rm.z1 - rm.z0) + 1; if (!key && (zoneView || tpx * w < 70)) return; // ordinary rooms only once they're big enough on screen
-      if (!seenRoom(rm)) return;
+      if (!seenRoom(rm) && !(key && rm.type === 'safe' && hasTrait('Living Map') && CHAR && CHAR.zones && CHAR.zones[rm.hood])) return;
       var icon = rm.type === 'safe' ? '✚' : rm.type === 'boss' ? '☠' : rm.type === 'stairs' ? '▼' : rm.type === 'hidden' ? '★' : '';
       var t = key && tpx < 6 ? icon : (icon ? icon + ' ' : '') + rm.name; // far out, key rooms shrink to their icon
       L.push({ t: t, x: (rm.x0 + rm.x1) / 2, z: (rm.z0 + rm.z1) / 2, pri: rm.type === 'boss' || rm.type === 'stairs' ? 4 : key ? 3 : 1, size: key && tpx < 6 ? 13 : 10.5, bold: key,

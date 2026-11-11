@@ -64,7 +64,7 @@
       '#wset .wh b{display:block;font-size:13px}#wset .wh span{font-size:11.5px;color:#5a4430}#wset i{color:#9a8a6a}',
       '#wSwap{pointer-events:auto;position:absolute;right:0;bottom:0;width:44px;height:44px;border-radius:50%;' + iron + 'border:2px solid #E0B868;display:flex;align-items:center;justify-content:center}#wSwap:disabled{opacity:.4;border-color:#6b5a3a}',
       // combat: initiative bar
-      '#turns{left:50% !important;top:0 !important;transform:translateX(-50%);flex-direction:row !important;align-items:center !important;gap:2px !important;padding:3px 8px;' + iron + 'border:1px solid ' + BR + ';border-top:0;border-radius:0 0 6px 6px;box-shadow:0 3px 8px rgba(0,0,0,.5);text-transform:none !important;letter-spacing:0 !important;max-width:calc(100vw - 480px);overflow-x:auto;height:34px}',
+      '#turns{left:236px !important;top:0 !important;transform:none;flex-direction:row !important;align-items:center !important;gap:2px !important;padding:3px 8px;' + iron + 'border:1px solid ' + BR + ';border-top:0;border-radius:0 0 6px 6px;box-shadow:0 3px 8px rgba(0,0,0,.5);text-transform:none !important;letter-spacing:0 !important;max-width:calc(100vw - 556px);overflow-x:auto;height:34px}',
       '#turns .rnd{display:flex;align-items:baseline;gap:3px;padding-right:6px;margin-right:2px;border-right:1px solid #5A4A30;font-family:Cinzel,serif}#turns .rnd small{font-size:8px;letter-spacing:.12em;color:#C9B48A;text-transform:uppercase}#turns .rnd b{font-size:14px;line-height:1;color:' + LT + '}',
       '#turns .ini{position:relative;display:flex;align-items:center;padding:1px;border-radius:50%;border:1px solid transparent}',
       '#turns .ini .pf{width:24px;height:24px;border-radius:50%;border:2px solid #8a3a32;background:#2a1614;display:flex;align-items:center;justify-content:center;color:#e08a78;font-family:Cinzel,serif;font-weight:800;font-size:11px}#turns .ini .pf svg{width:13px;height:13px}',
@@ -76,7 +76,7 @@
       '#turns .ini.dead{opacity:.35}#turns .ini.dead .pf{filter:grayscale(1)}#turns .ini.calm .pf{border-color:#5a8a5a;color:#9ad09a}',
       '#turns .ini.join{opacity:.7}#turns .ini.join .pf{border-style:dashed;border-color:#6b5a3a;color:#C9B48A}',
       '#turns span.arr{color:#6b5a3a;font-size:11px;padding:0;background:none;border:0}',
-      '#res{left:50% !important;right:auto !important;top:36px !important;bottom:auto !important;transform:translateX(-50%);display:none;gap:12px;' + iron + 'border:1px solid #5A4A30 !important;border-radius:12px !important;padding:1px 10px !important;font-family:Cinzel,serif;font-size:9.5px !important;letter-spacing:.06em !important;text-transform:none !important;color:#6b5a3a !important}',
+      '#res{left:236px !important;right:auto !important;top:36px !important;bottom:auto !important;transform:none;display:none;gap:12px;' + iron + 'border:1px solid #5A4A30 !important;border-radius:12px !important;padding:1px 10px !important;font-family:Cinzel,serif;font-size:9.5px !important;letter-spacing:.06em !important;text-transform:none !important;color:#6b5a3a !important}',
       '#res.on{display:flex !important}#res span{display:flex;align-items:center;gap:5px}#res span.on{color:#E9DCC0}',
       '#res i{width:9px;height:9px;display:inline-block;opacity:.3}#res span.on i{opacity:1}#res .pa{border-radius:50%;background:#c0392b}#res .pb{transform:rotate(45deg);background:#c9952e}#res .pm{border-radius:2px;background:#8a8a90}#res .ps{border-radius:50%;background:none;border:2px solid #E0B868;width:8px;height:8px}',
       // combat action bar
@@ -145,7 +145,7 @@
     dc.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); dc.classList.remove('on'); });
     var sy = document.getElementById('sys'); if (sy) sy.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); sy.classList.remove('on'); });
     setInterval(function () { var el = document.getElementById('wset'); if (el) el.style.display = !CHAR || gearOpen || CC || AUTH.open || UI.bag || UI.map || (typeof CS !== 'undefined' && CS.open) ? 'none' : ''; }, 300);
-    setInterval(function () { if (typeof CB !== 'undefined' && !CB.on && typeof cbHUD === 'function') try { cbHUD(); } catch (e) {} }, 1000);
+    setInterval(function () { if (typeof CB !== 'undefined' && !CB.on && typeof cbHUD === 'function') try { cbHUD(); } catch (e) {} try { buffDraw(); } catch (e) {} }, 1000);
     setTimeout(wsetDraw, 0);
   })();
 

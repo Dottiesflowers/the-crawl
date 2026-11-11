@@ -138,7 +138,7 @@
     var go = function (j) { tryApply(j, ctx, text); };
     TRY.busy = true; say('The System is considering it', '"' + text.slice(0, 120) + '"', 9000);
     if (!NET.sample) { go(tryCanned(text, ctx)); return; }
-    serverSample([{ role: 'user', content: sys + '\n\nThe crawler says: "' + text + '"' }], { modelTier: 'complex', maxTokens: 500 }).then(function (r) {
+    serverSample([{ role: 'user', content: sys + '\n\n' + CREW_LORE + '\n\nThe crawler says: "' + text + '"' }], { modelTier: 'complex', maxTokens: 500 }).then(function (r) {
       var j = null; try { j = JSON.parse((r.text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {} go(j || tryCanned(text, ctx));
     }, function () { go(tryCanned(text, ctx)); });
   }

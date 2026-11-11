@@ -33,6 +33,31 @@
   BEAST.gatekeeper = variant('imp', { name: 'The Gatekeeper', ac: 16, hp: 90, atk: 7, dmg: [2, 10, 4], str: 5, dex: 2, init: 3, pp: 15, xp: 1200, scale: 1.4, h: 2.2, tint: 0xff4a3a, boss: true, lines: ['Guardian of the stairs down. It has read your file and it is not impressed.'] });
   // shrubs: tiny, easy to kill, nearly worthless... and they eat the dead. Every body they eat makes them bigger and nastier.
   var SHRUB = { base: 'shrub', prop: 'Bush_Common', tex: 'puglin', init: 0, pp: 9, attackClip: 'Sword_Attack', weapon: 'thorny twigs', str: 0, dex: 0 };
+  // rats: level 1 hallway vermin. Four hit points, cheap XP, they come back a while after you clear them.
+  BEAST.rat = { base: 'rat', build: 'rat', lvl: 1, name: 'Dungeon rat', ac: 10, hp: 4, speed: 6, init: 2, pp: 11, atk: 2, dmg: [1, 3, 0], xp: 10, h: 0.32, weapon: 'yellow teeth', str: -2, dex: 2, attackClip: 'Bite',
+    lines: ['A rat the size of a cat. It looks at you like you are the snack.', 'It squeaks. Somewhere in the walls, something squeaks back.', 'Its tail is longer than your arm and it is very proud of that.'] };
+  function ratBuild() {
+    var g = new THREE.Group(), fur = new THREE.MeshLambertMaterial({ color: 0x5e5046 }), pink = new THREE.MeshLambertMaterial({ color: 0xc7898a }), eye = new THREE.MeshBasicMaterial({ color: 0xff3a2a });
+    var body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), fur); body.scale.set(1, 0.72, 1.55); body.position.y = 0.13; g.add(body);
+    var head = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.24, 8), fur); head.rotation.x = Math.PI / 2; head.position.set(0, 0.15, 0.3); g.add(head); g.userData.head = head;
+    var nose = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 5), pink); nose.position.set(0, 0.15, 0.42); g.add(nose);
+    [-1, 1].forEach(function (s) {
+      var ear = new THREE.Mesh(new THREE.CircleGeometry(0.05, 8), pink); ear.position.set(0.06 * s, 0.24, 0.24); ear.rotation.y = s * 0.5; ear.material.side = THREE.DoubleSide; g.add(ear);
+      var ey = new THREE.Mesh(new THREE.SphereGeometry(0.016, 6, 5), eye); ey.position.set(0.05 * s, 0.19, 0.33); g.add(ey);
+      [0.14, -0.12].forEach(function (zz) { var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.1, 5), pink); leg.position.set(0.09 * s, 0.05, zz); g.add(leg); });
+    });
+    var tail = new THREE.Group(); tail.position.set(0, 0.11, -0.24); g.add(tail); var seg = tail, segs = [];
+    for (var i = 0; i < 5; i++) { var t = new THREE.Group(), m = new THREE.Mesh(new THREE.CylinderGeometry(0.014 - i * 0.002, 0.018 - i * 0.002, 0.1, 5), pink); m.rotation.x = Math.PI / 2; m.position.z = -0.05; t.add(m); t.position.z = i ? -0.1 : 0; seg.add(t); segs.push(t); seg = t; }
+    g.userData.tail = segs; g.traverse(function (o) { if (o.isMesh) o.castShadow = true; }); return g;
+  }
+  function ratAnim(e, dt) {
+    var T = performance.now() / 1000, b = e.body, u = b.userData;
+    if (e.dead) { b.rotation.z += (Math.PI / 2 - b.rotation.z) * Math.min(1, dt * 6); b.position.y = 0.04; return; }
+    b.rotation.z = 0; var moving = !!e.path;
+    b.position.y = moving ? Math.abs(Math.sin(T * 22)) * 0.03 : 0;
+    if (u.head) u.head.position.y = 0.15 + (moving ? 0 : Math.max(0, Math.sin(T * 7 + e.n)) * 0.02);
+    (u.tail || []).forEach(function (s, i) { s.rotation.y = Math.sin(T * (moving ? 14 : 3) + i * 0.8 + e.n) * (moving ? 0.35 : 0.18); });
+  }
   function shrubDef(o) { var v = {}; for (var k in SHRUB) v[k] = SHRUB[k]; for (k in o) v[k] = o[k]; return v; }
   BEAST.shrub1 = shrubDef({ lvl: 1, name: 'Mulch shrub', ac: 8, hp: 3, speed: 4, atk: 1, dmg: [1, 2, 0], xp: 5, scale: 0.22, h: 0.42, timid: true, lines: ['A little shrub with a mouth. It cleans up after fights. Squash it now and it is worth almost nothing; leave it alone and it grows.'] });
   BEAST.shrub2 = shrubDef({ lvl: 2, name: 'Hungry shrub', ac: 10, hp: 9, speed: 4, atk: 3, dmg: [1, 4, 1], xp: 20, scale: 0.34, h: 0.6, timid: true, prop: 'Bush_Common_Flowers', lines: ['It has eaten something recently. It has opinions now, and roots like fingers.'] });
@@ -136,6 +161,7 @@
   // monsters only get a real model (skinned mesh, materials, animations) once a crawler comes near them
   function cbMaterialize(e) {
     if (e.mixer) return; var B = e.def, sp = e.sp;
+    if (B.build === 'rat') { var gr = ratBuild(); e.obj.add(gr); e.body = gr; e.mixer = { update: function () {} }; e.clips = {}; return; }
     if (B.prop) { // a plant: no skeleton, it bobs and lunges in code
       if (!propsOn()) return; var g2 = new THREE.Group(); propInto(g2, B.prop, { s: B.scale }); e.obj.add(g2); e.body = g2;
       g2.traverse(function (o) { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set(e.lvl >= 3 ? 0xb0c890 : 0xffffff); } });
@@ -160,20 +186,32 @@
   function zoneOf(e) { var r = LEVEL.rooms[e.room]; return r && r.hood !== undefined ? r.hood : 'free'; }
   function worldState() {
     var dead = [], eaten = [], calm = [], hp = {};
-    CB.enemies.forEach(function (e) { if (e.npc) return; if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
-    return { dead: dead, eaten: eaten, calm: calm, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), at: Date.now() };
+    var rats = []; CB.enemies.forEach(function (e) { if (e.npc) return; if (e.def.base === 'rat') { if (e.dead) rats.push([e.n, e.diedAt || Date.now()]); return; } if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
+    return { dead: dead, eaten: eaten, calm: calm, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, at: Date.now() };
   }
   function worldSave() {
     if (!CB.ready || !WORLD.loaded) return; var st = worldState();
     try { localStorage.setItem(worldKey(), JSON.stringify(st)); } catch (x) {}
     if (NET.mode === 'server' && NET.uid) { clearTimeout(worldSave.t); worldSave.t = setTimeout(function () { api('kv/world', { method: 'PUT', body: { value: st } }).catch(function () {}); }, 2000); }
   }
+  var RAT_BACK = 8 * 60000; // cleared rats come back after this long, somewhere you aren't looking
+  setInterval(function () {
+    if (!CB.ready || CB.on) return; var now = Date.now(), any = false;
+    CB.enemies.forEach(function (e) {
+      if (e.def.base !== 'rat' || !e.dead || !e.diedAt || now - e.diedAt < RAT_BACK) return;
+      if (cheb(P.x, P.z, e.sx, e.sz) < 14 || cheb(P.x, P.z, e.x, e.z) < 10) return;
+      e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.looted = false; e.lootStore = null; e.calm = false; e.hp = e.max; e.diedAt = 0; e.path = null;
+      e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; any = true;
+    });
+    if (any) worldSave();
+  }, 20000);
   function worldApply(st) {
     var byN = {}; CB.enemies.forEach(function (e) { byN[e.n] = e; });
     (st.dead || []).concat(st.eaten || []).forEach(function (n) { var e = byN[n]; if (!e) return; e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; }); // bodies from earlier sessions are gone
     (st.calm || []).forEach(function (n) { if (byN[n]) byN[n].calm = true; });
     Object.keys(st.hp || {}).forEach(function (n) { if (byN[n] && !byN[n].dead) byN[n].hp = Math.max(1, st.hp[n]); });
     (st.shrubs || []).forEach(function (s) { var e = byN[s[0]]; if (e && !e.dead) { e.def = BEAST['shrub' + s[1]]; e.kind = 'shrub' + s[1]; e.lvl = s[1]; e.name = e.def.name; e.max = e.def.hp; e.hp = Math.min(e.hp, e.max); } });
+    (st.rats || []).forEach(function (r) { var e = byN[r[0]]; if (e && Date.now() - r[1] < RAT_BACK) { e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; e.diedAt = r[1]; } });
     if (st.reserve) WORLD.reserve = st.reserve;
   }
   function worldLoad() {
@@ -589,6 +627,7 @@
     var it = (CHAR && CHAR.gear || []).filter(function (g) { return /potion/i.test(g.name) && g.heal; })[0]; if (it) useItem(it); else say('No potions', 'You are out of healing potions.', 2400);
   }
   function cbKill(e) {
+    if (e.def.base === 'rat') e.diedAt = Date.now();
     if (/shrub/.test(e.def.base || e.kind || '')) skillCount('shrub');
     if (e.boss) logEvent('Killed ' + e.name + ', boss of ' + ((LEVEL.hoods[(roomInfo(e.x, e.z) || {}).hood] || {}).name || 'the floor'), 'boss'); else if (/chief|foreman|head|warden/.test(e.kind)) logEvent('Killed a ' + e.name, 'kill');
     e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
@@ -719,7 +758,7 @@
       return;
     }
     if (e.path) return;
-    if (e.body) { // shrubs smell the dead from a long way off
+    if (e.body && e.def.base === 'shrub') { // shrubs smell the dead from a long way off
       var best = null, bd = 15;
       CB.enemies.forEach(function (q) { if (q.dead && !q.eaten && q !== e && !q.claimed) { var d2 = cheb(q.x, q.z, e.x, e.z); if (d2 < bd) { bd = d2; best = q; } } });
       if (best && bd <= 1) { e.eating = { t: now, body: best }; best.claimed = true; cbFace(e, best.x, best.z); if (visNow[e.x + ',' + e.z] !== undefined) floater(e.px, e.def.h + 0.3, e.pz, 'munch', 'miss'); return; }
@@ -757,7 +796,7 @@
       if (!e.mixer) return;
       e.mixer.update(dt);
       if (!CB.on || CB.order.indexOf(e) < 0) cbRoam(e, dt);
-      if (e.body) cbShrubAnim(e, dt);
+      if (e.body) { if (e.def.base === 'rat') ratAnim(e, dt); else cbShrubAnim(e, dt); }
       if (CB.on && CB.order.indexOf(e) < 0 && cheb(e.x, e.z, P.x, P.z) <= 14) { if (e.path && e.roaming) { e.path = null; cbPlay(e, 'Idle_Loop'); } return; } // frozen on turn time
       if (e.path) {
         var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = (e.roaming ? (e.body ? 1.8 : 1.3) : 3.2) * dt;
