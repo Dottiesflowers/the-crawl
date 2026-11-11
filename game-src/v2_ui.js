@@ -135,14 +135,25 @@
     var list = items.map(function (it, i) { return { it: it, i: i }; }).filter(function (o) { return (UI.cat === 'all' || o.it.cat === UI.cat) && (!q || (o.it.name + ' ' + (o.it.desc || '')).toLowerCase().indexOf(q) >= 0); });
     if (UI.sel !== null && !items[UI.sel]) UI.sel = null;
     var sel = UI.sel !== null ? items[UI.sel] : null;
-    el.innerHTML = '<header><b>Inventory · ' + items.length + ' items · ' + (CHAR && CHAR.gold || 0) + ' gold</b><button type="button" class="xbtn" id="bagX">Close</button></header>' +
-      '<div id="bagTools"><input id="bagQ" type="search" placeholder="Search items" aria-label="Search items" value="' + esc(UI.q) + '">' +
+    var worn = function (slot) { return items.filter(function (g) { return g.worn && g.slot === slot; })[0]; }, w = wieldItem(), bk = backItem();
+    var slotBtn = function (lbl, it, cls, empty) { var i = it ? items.indexOf(it) : -1; return '<button type="button" class="eqs ' + (cls || '') + (it ? '' : ' empty') + (i >= 0 && UI.sel === i ? ' on' : '') + '"' + (i >= 0 ? ' data-i="' + i + '"' : ' disabled') + '><small>' + lbl + '</small>' + (it ? esc(it.name) + (it.dmg ? '<em>' + esc(it.dmg) + '</em>' : '') : '<em>' + (empty || 'empty') + '</em>') + '</button>'; };
+    el.innerHTML = '<header><b>Gear &amp; Pack</b><span class="gp">' + (CHAR && CHAR.gold || 0) + ' gp</span><button type="button" class="xbtn" id="bagSheet">Character sheet</button><button type="button" class="xbtn" id="bagX">Close</button></header>' +
+      '<div id="bagBody"><div class="eq">' +
+        '<div class="eqL">' + slotBtn('Head', worn('kHead')) + slotBtn('Body', worn('kTop')) + slotBtn('Legs', worn('kPants')) + slotBtn('Feet', worn('kBoots')) + '</div>' +
+        '<div class="eqC"><canvas id="heroPic" width="180" height="270" role="img" aria-label="Your crawler as they look now"></canvas><span class="eqStat">AC ' + pcAC().ac + ' · HP ' + PC.hp + '/' + PC.max + '</span></div>' +
+        '<div class="eqR">' + slotBtn('Main hand', w, 'main', 'fists') + '<button type="button" class="eqSwap" id="bagSwap"' + (bk ? '' : ' disabled') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M7 4v14l-3-3M17 20V6l3 3"/></svg>Swap</button>' + slotBtn('On back', bk, '', 'nothing') +
+          '<div class="eqs empty"><small>Off hand</small><em>' + (typeof sty === 'function' && sty('off') === 2 ? 'Torch (lit)' : 'empty') + '</em></div></div>' +
+        '<p class="eqHint">Tap an item, then Wield or Wear on back. Swap is free once a turn.</p></div>' +
+      '<div class="pk"><div id="bagTools"><input id="bagQ" type="search" placeholder="Search" aria-label="Search items" value="' + esc(UI.q) + '">' +
       CATS.map(function (c) { return '<button type="button" class="chip2' + (UI.cat === c[0] ? ' on' : '') + '" data-cat="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>' +
-      '<div id="bagBody"><div id="bagList">' + (list.length ? list.map(function (o) {
-        var t = o.it.worn ? 'worn' : (CHAR.wield === o.it.name ? 'in hand' : '');
-        return '<button type="button" data-i="' + o.i + '" class="' + (UI.sel === o.i ? 'on' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + (o.it.qty > 1 ? ' ×' + o.it.qty : '') + '<br><small>' + esc(catName(o.it.cat)) + (o.it.dmg ? ' · ' + esc(o.it.dmg) : '') + '</small></span>' + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
-      }).join('') : '<p style="padding:10px;color:#9ab">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
-      '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div>';
+      '<div id="bagList">' + (list.length ? list.map(function (o) {
+        var t = o.it.worn ? 'worn' : (CHAR.wield === o.it.name ? 'in hand' : CHAR.back === o.it.name ? 'on back' : '');
+        return '<button type="button" data-i="' + o.i + '" class="' + (UI.sel === o.i ? 'on' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + (o.it.qty > 1 ? ' ×' + o.it.qty : '') + '</span>' + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
+      }).join('') : '<p style="padding:10px">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
+      '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div></div>';
+    document.getElementById('bagSwap').onclick = swapWeapons;
+    document.getElementById('bagSheet').onclick = function () { bagToggle(); if (typeof toggleGear === 'function') { if (!gearOpen) toggleGear(); GMODE = 'normal'; tab = 'Sheet'; drawTabs(); drawRows(); } };
+    setTimeout(function () { var cv = document.getElementById('heroPic'); if (cv) heroShot(cv); }, 30);
     document.getElementById('bagX').onclick = bagToggle;
     var qi = document.getElementById('bagQ'); qi.oninput = function () { UI.q = qi.value; var pos = qi.selectionStart; bagDraw(); var n = document.getElementById('bagQ'); n.focus(); n.setSelectionRange(pos, pos); };
     qi.addEventListener('keydown', function (ev) { ev.stopPropagation(); });
@@ -153,17 +164,20 @@
   function catName(c) { var f = CATS.filter(function (x) { return x[0] === c; })[0]; return f ? f[1].replace(/s$/, '') : 'Misc'; }
   function bagInfo(it) {
     var acts = [];
-    if (it.cat === 'weapon' && it.dmg) acts.push(CHAR.wield === it.name ? ['unwield', 'Put away'] : ['wield', 'Hold in hand']);
+    if (it.cat === 'weapon' && it.dmg) acts.push(CHAR.wield === it.name ? ['unwield', 'Put away'] : ['wield', 'Wield']);
+    if (canBack(it) && CHAR.wield !== it.name) acts.push(CHAR.back === it.name ? ['unback', 'Take off back'] : ['back', 'Wear on back']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
-    return '<div class="big">' + itemIcon(it).replace('width="30" height="30"', 'width="72" height="72"') + '</div><h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
+    return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       '<p><small>' + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + '</small></p>' +
       '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
   }
   function bagAct(a, it) {
     if (!it) return;
-    if (a === 'wield') { CHAR.wield = it.name; buildHero(); say('In hand · ' + it.name, 'You will fight with it: ' + it.dmg + ' damage.', 3000); }
+    if (a === 'back') { CHAR.back = it.name; buildHero(); say('On your back · ' + it.name, 'Swap to it any time. In a fight the first swap each turn is free.', 3000); }
+    if (a === 'unback') { CHAR.back = null; buildHero(); }
+    if (a === 'wield') { if (CHAR.back === it.name) CHAR.back = CHAR.wield || null; CHAR.wield = it.name; buildHero(); say('In hand · ' + it.name, 'You will fight with it: ' + it.dmg + ' damage.', 3000); }
     if (a === 'unwield') { CHAR.wield = null; buildHero(); }
     if (a === 'wear') wear(it);
     if (a === 'unwear') { it.worn = false; look[it.slot] = [0, 0]; buildHero(); saveLook(); }
@@ -171,7 +185,7 @@
     if (a === 'drop') dropBody(it);
     if (a === 'hot') { hotPut(it.name); }
     if (a === 'unhot') { CHAR.hotbar = (CHAR.hotbar || []).map(function (n) { return n === it.name ? null : n; }); hotDraw(); }
-    saveChar(CHAR); bagDraw();
+    saveChar(CHAR); bagDraw(); wsetDraw();
   }
   // ---------- whole bodies: DCC-style, you can carry a corpse. Keeps it from the shrubs; drop it later as bait, or sell it ----------
   function stashBody(e) {
@@ -244,6 +258,33 @@
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
     var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
     return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam, dmgB: MOD[stat], fam: fam };
+  }
+
+  // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------
+  function backItem() { if (!CHAR || !CHAR.back) return null; return (CHAR.gear || []).filter(function (g) { return g.name === CHAR.back; })[0] || null; }
+  function wieldItem() { if (!CHAR || !CHAR.wield) return null; return (CHAR.gear || []).filter(function (g) { return g.name === CHAR.wield; })[0] || null; }
+  function canBack(it) { return it && (it.cat === 'weapon' || /shield/i.test(it.name || '')); }
+  function swapWeapons() {
+    if (!CHAR) return; if (!CHAR.back && !CHAR.wield) { say('Nothing to swap', 'Put a weapon on your back from the bag first.', 2600); return; }
+    if (!CHAR.back) { say('Nothing on your back', 'Pick a weapon in the bag and choose Wear on back.', 2600); return; }
+    if (CB.on) {
+      if (!cbMyTurn() || CB.busy || PC.down) return;
+      if (CB.res.swap) CB.res.swap = 0;
+      else if (CB.res.action) { CB.res.action = 0; say('Second swap', 'Your free swap is used up, so this one costs your action.', 2600); }
+      else { say('No time', 'You already swapped this turn and have no action left.', 2600); return; }
+    }
+    var t = CHAR.wield; CHAR.wield = CHAR.back; CHAR.back = t || null;
+    buildHero(); saveChar(CHAR); if (typeof kitOneShot === 'function') kitOneShot('PickUp_Table');
+    say('Swapped · ' + CHAR.wield, (CHAR.back ? CHAR.back + ' goes on your back.' : 'Your back is empty now.') + (CB.on && CB.res.action ? ' Free swap used.' : ''), 2600);
+    if (CB.on) cbHUD(); wsetDraw(); if (UI.bag) bagDraw();
+  }
+  function wsetDraw() {
+    var el = document.getElementById('wset'); if (!el) return; var w = wieldItem(), b = backItem();
+    el.style.display = !CHAR || gearOpen || CC || AUTH.open ? 'none' : '';
+    el.innerHTML = '<div class="wb"><small>On back</small>' + (b ? esc(b.name) + (b.dmg ? ' · ' + esc(b.dmg) : '') : '<i>nothing</i>') + '</div>' +
+      '<div class="wh"><small>In hand</small><b>' + (w ? esc(w.name) : 'Fists') + '</b><span>' + (w && w.dmg ? esc(w.dmg) : '1 + STR') + '</span></div>' +
+      '<button type="button" id="wSwap" aria-label="Swap weapons"' + (b ? '' : ' disabled') + '><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>';
+    document.getElementById('wSwap').onclick = swapWeapons;
   }
 
   // ---------- wardrobe: you only wear what you own ----------

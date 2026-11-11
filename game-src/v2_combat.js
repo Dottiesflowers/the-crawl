@@ -331,9 +331,11 @@
 
   function cbHUD() {
     var a = pcAC();
-    document.getElementById('hpTxt').textContent = (CHAR && CHAR.dead ? 'DEAD · waiting for your party' : PC.down ? 'DOWN · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : 'HP ' + PC.hp + '/' + PC.max) + ' · AC ' + a.ac + ' · Lv ' + (PC.level || 1) + ' (' + (PC.xp || 0) + '/' + nextLevelXP() + ')' + (PC.hidden ? ' · hidden' : '');
+    var hpLine = CHAR && CHAR.dead ? 'Dead · waiting for your party' : PC.down ? 'Down · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : PC.hp + ' / ' + PC.max;
+    document.getElementById('hpTxt').innerHTML = '<span class="nm">' + esc(CHAR && CHAR.name || 'Crawler') + '</span><span class="lv">Level ' + (PC.level || 1) + (PC.hidden ? ' · hidden' : '') + '</span>' +
+      '<span class="hpn"><b>HP</b> ' + hpLine + '</span><span class="ac"><b>' + a.ac + '</b>AC</span><span class="xp"><b>XP</b> ' + (PC.xp || 0) + ' / ' + nextLevelXP() + '<i style="width:' + Math.min(100, Math.round(100 * (PC.xp || 0) / nextLevelXP())) + '%"></i></span>';
     document.getElementById('hpFill').style.width = Math.max(0, 100 * PC.hp / PC.max) + '%';
-    document.getElementById('cbBar').classList.toggle('on', CB.on);
+    document.getElementById('cbBar').classList.toggle('on', CB.on); document.body.classList.toggle('cb', CB.on); if (typeof wsetDraw === 'function') wsetDraw();
     document.getElementById('bar').style.display = CB.on ? 'none' : '';
     document.getElementById('stick').style.display = CB.on ? 'none' : '';
     document.getElementById('turns').classList.toggle('on', CB.on); document.getElementById('res').classList.toggle('on', CB.on && cbMyTurn() && !PC.down);
@@ -341,13 +343,15 @@
     // show the real odds on the Attack button: d20 + your bonus against the nearest foe's armour
     var foe = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; }).sort(function (x, y) { return cheb(P.x, P.z, x.x, x.z) - cheb(P.x, P.z, y.x, y.z); })[0], ab = document.getElementById('cbAtk');
     if (foe && ab) { var Wq = pcWeapon(), need = acOf(foe) - Wq.hit, pct = Math.round(Math.max(5, Math.min(95, (21 - need) * 5))); ab.innerHTML = 'Attack<small>+' + Wq.hit + ' · ' + pct + '% to hit</small>'; }
-    document.getElementById('turns').innerHTML = CB.order.map(function (c, i) {
-      var nm = c === 'pc' ? 'You' : c.name + (c.prone ? ' (prone)' : '') + (c.grappled ? ' (grappled)' : ''), dead = c !== 'pc' && c.dead;
-      return '<span class="' + (i === CB.idx ? 'cur ' : '') + (dead ? 'dead' : '') + '">' + nm + ' · ' + (c === 'pc' ? PC.init : c.init) + '</span>';
-    }).join('');
+    var joining = CB.enemies.some(function (e) { return !e.dead && !e.calm && e.joining; });
+    document.getElementById('turns').innerHTML = '<div class="rnd"><small>Round</small><b>' + (CB.round || 1) + '</b></div>' + CB.order.map(function (c, i) {
+      var me = c === 'pc', dead = !me && c.dead, hp = me ? PC.hp / PC.max : Math.max(0, c.hp) / (c.max || 1), nm = me ? 'You' : c.name.split(',')[0];
+      var face = me ? '<b>' + esc((CHAR && CHAR.name || 'Y').charAt(0)) + '</b>' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="11" r="6"/><path d="M9.5 10h.01M14.5 10h.01M9.5 14c1.5 1 3.5 1 5 0"/></svg>';
+      return '<div class="ini' + (i === CB.idx ? ' cur' : '') + (me ? ' me' : '') + (dead ? ' dead' : '') + (c.calm ? ' calm' : '') + '" title="' + esc(me ? 'You' : c.name) + '"><span class="pf">' + face + '</span><span class="hp"><i style="width:' + Math.round(100 * hp) + '%"></i></span><small>' + esc(nm) + ' · ' + (me ? PC.init : c.init) + (c.prone ? ' · prone' : '') + '</small></div>';
+    }).join('<span class="arr">›</span>') + (joining ? '<span class="arr">›</span><div class="ini join"><span class="pf">?</span><span class="hp"></span><small>Joining</small></div>' : '');
     var mine = cbMyTurn() && !CB.busy && !PC.down, r = CB.res;
-    document.getElementById('res').innerHTML = 'Move <b>' + r.move + '</b> · Action <b>' + (r.action ? '1' : '0') + '</b> · Bonus <b>' + (r.bonus ? '1' : '0') + '</b> · Reaction <b>' + (PC.react ? '1' : '0') + '</b>' +
-      (CB.disengage ? ' · disengaged' : '') + (CB.aim ? ' · <b>tap a target</b>' : '');
+    document.getElementById('res').innerHTML = '<span class="' + (r.action ? 'on' : '') + '"><i class="pa"></i>Action</span><span class="' + (r.bonus ? 'on' : '') + '"><i class="pb"></i>Bonus</span><span class="' + (r.move ? 'on' : '') + '"><i class="pm"></i>' + (r.move * 5) + ' ft</span><span class="' + (r.swap ? 'on' : '') + '"><i class="ps"></i>Swap</span>' +
+      (CB.disengage ? '<span class="on">Disengaged</span>' : '') + (CB.aim ? '<span class="on"><b>Tap a target</b></span>' : '');
     document.getElementById('cbAtk').disabled = !mine || !r.action; document.getElementById('cbActs').disabled = !mine; document.getElementById('cbBonus').disabled = !mine || !r.bonus;
     document.getElementById('cbEnd').disabled = !mine;
   }
@@ -372,7 +376,7 @@
     PC.init = pcInit;
     var names = CB.order.map(function (c) { return (c === 'pc' ? 'You ' + pcInit : c.name + ' ' + c.init); }).join(', ');
     say('Combat · Roll for initiative', why + ' Turn order: ' + names + '.', 6000);
-    CB.idx = -1; foes.forEach(function (e) { cbFace(e, P.x, P.z); });
+    CB.idx = -1; CB.round = 0; foes.forEach(function (e) { cbFace(e, P.x, P.z); });
     setTimeout(cbNext, 700); cbHUD();
   }
   // ---------- the fight has a reach: anything hostile that comes inside it rolls initiative and joins ----------
@@ -428,12 +432,12 @@
     if (!CB.on) return;
     if (!CB.enemies.some(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; })) { cbEnd(true); return; }
     CB.idx = (CB.idx + 1) % CB.order.length;
-    if (CB.idx === 0) cbJoinCheck();
+    if (CB.idx === 0) { CB.round = (CB.round || 0) + 1; cbJoinCheck(); }
     var c = CB.order[CB.idx];
     if (c !== 'pc' && (c.dead || c.calm)) { cbNext(); return; }
     if (c === 'pc' && cbEscaped()) return;
     if (c === 'pc') {
-      CB.res = { move: 6, action: 1, bonus: 1 }; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
+      CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
       if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
       if (PC.down) { cbRingsUpdate(); cbHUD(); setTimeout(cbDeathSave, 700); return; }
       cbShowMoves();
@@ -448,7 +452,7 @@
     CB.order = []; cbEnd(false); setTimeout(function () { achieve('got_away', 'Strategic Retreat', 'You ran away and lived. That counts as a skill on this show.', 10); }, 5200); say('You got away', 'You ran and they lost track of you. Living counts. No XP for running.', 5000);
     return true;
   }
-  function cbEndTurn() { if (!cbMyTurn() || CB.busy || PC.down) return; CB.res = { move: 0, action: 0, bonus: 0 }; CB.aim = null; cbShowMoves(); cbNext(); }
+  function cbEndTurn() { if (!cbMyTurn() || CB.busy || PC.down) return; CB.res = { move: 0, action: 0, bonus: 0, swap: 0 }; CB.aim = null; cbShowMoves(); cbNext(); }
 
   // ---------- your turn ----------
   function cbFaceHero(x, z) { hero.rotation.y = Math.atan2(x - P.px, z - P.pz); }
@@ -511,11 +515,12 @@
     var line = R.txt + ' + ' + Wp.hit + ' = ' + tot + ' vs AC ' + ac + (cover ? ' (half cover)' : '') + (why.length ? ' · ' + why.join(', ') : '');
     if (PC.hidden) { PC.hidden = false; }
     if (hit) {
-      var dm = Math.max(1, d(crit ? Wp.n * 2 : Wp.n, Wp.s) + Wp.dmgB); e.hp -= dm;
+      var raw = d(crit ? Wp.n * 2 : Wp.n, Wp.s), dm = Math.max(1, raw + Wp.dmgB); e.hp -= dm;
+      diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, dd: (crit ? Wp.n * 2 : Wp.n) + 'd' + Wp.s, ds: Wp.s, raw: raw, db: Wp.dmgB, dm: dm, why: why });
       floater(e.px, e.def.h + 0.25, e.pz, (crit ? 'CRIT ' : '') + '-' + dm, crit ? 'crit' : 'dmg');
       say((opt.label || (crit ? 'Critical hit' : 'Hit')) + ' · ' + Wp.name + ' · ' + line, e.name + ' takes ' + dm + ' damage' + (e.hp <= 0 ? ' and goes down.' : ' (' + Math.max(0, e.hp) + ' / ' + e.max + ' left).') + (Wp.note ? ' ' + Wp.note : ''), 5200);
       if (e.hp <= 0) cbKill(e); else if (!e.prone) cbPlay(e, 'Hit_Chest', true);
-    } else { floater(e.px, e.def.h + 0.25, e.pz, R.r === 1 ? 'FUMBLE' : 'MISS', 'miss'); say((opt.label || 'Miss') + ' · ' + Wp.name + ' · ' + line, R.r === 1 ? 'A natural 1. The replay will be shown at halftime.' : e.name + ' twists away.', 4200); }
+    } else { diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: false, why: why }); floater(e.px, e.def.h + 0.25, e.pz, R.r === 1 ? 'FUMBLE' : 'MISS', 'miss'); say((opt.label || 'Miss') + ' · ' + Wp.name + ' · ' + line, R.r === 1 ? 'A natural 1. The replay will be shown at halftime.' : e.name + ' twists away.', 4200); }
     return hit;
   }
   function cbAttack(e, offhand) {
@@ -679,11 +684,12 @@
       var line = R.txt + ' + ' + e.def.atk + ' = ' + tot + ' vs your AC ' + ac + (why.length ? ' · ' + why.join(', ') : '');
       var tag = opportunity ? 'Opportunity attack · ' : '';
       if (hit) {
-        var dm = d(crit ? e.def.dmg[0] * 2 : e.def.dmg[0], e.def.dmg[1]) + e.def.dmg[2]; PC.hp = Math.max(0, PC.hp - dm);
+        var raw = d(crit ? e.def.dmg[0] * 2 : e.def.dmg[0], e.def.dmg[1]), dm = raw + e.def.dmg[2]; PC.hp = Math.max(0, PC.hp - dm);
+        diceShow({ who: e.name, vs: 'you', R: R, bonus: e.def.atk, tot: tot, ac: ac, hit: true, crit: crit, dd: (crit ? e.def.dmg[0] * 2 : e.def.dmg[0]) + 'd' + e.def.dmg[1], ds: e.def.dmg[1], raw: raw, db: e.def.dmg[2], dm: dm, why: why, foe: true });
         floater(P.px, 1.5, P.pz, '-' + dm, crit ? 'crit' : 'pdmg'); kitOneShot('Hit_Chest');
         say(tag + e.name + ' hits · ' + e.def.weapon + ' · ' + line, (opportunity ? 'You turned your back on it. ' : '') + 'You take ' + dm + ' damage. ' + (PC.hp > 0 ? PC.hp + ' HP left.' : ''), 4600);
         if (PC.hp <= 0) cbFall();
-      } else { floater(P.px, 1.5, P.pz, 'MISS', 'miss'); say(tag + e.name + ' misses · ' + line, CB.dodge ? 'Your dodge pays off.' : 'Its ' + e.def.weapon + ' whistles past your ear.', 3600); }
+      } else { diceShow({ who: e.name, vs: 'you', R: R, bonus: e.def.atk, tot: tot, ac: ac, hit: false, why: why, foe: true }); floater(P.px, 1.5, P.pz, 'MISS', 'miss'); say(tag + e.name + ' misses · ' + line, CB.dodge ? 'Your dodge pays off.' : 'Its ' + e.def.weapon + ' whistles past your ear.', 3600); }
       cbHUD(); if (then) then();
     }, 480);
   }

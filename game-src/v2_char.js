@@ -42,13 +42,14 @@
     if (typeof posRestore === 'function' && typeof P !== 'undefined' && P) setTimeout(posRestore, 0);
     setTimeout(handsFromGear, 0); setTimeout(deadCheck, 300);
     if (!c.potionsGiven && !c.preset) { c.potionsGiven = true; c.gear = c.gear || []; DROPS.sources.starting.forEach(function (s) { var it = item(s[0], { qty: s[1], from: 'the System' }); if (it) c.gear.push(it); }); }
-    setTimeout(function () { if (typeof hotAuto === 'function') { hotAuto(); hotDraw(); } }, 50);
+    setTimeout(function () { if (typeof hotAuto === 'function') { hotAuto(); if (typeof wsetDraw === "function") setTimeout(wsetDraw, 0); hotDraw(); } }, 50);
   }
   // your hands and back only show what you actually own: no free swords, shields or bass guitars
   function handsFromGear() {
     var c = CHAR; if (!c || c.preset || c.freeWardrobe || typeof look === 'undefined') return;
     var names = (c.gear || []).map(function (g) { return (g.name || '').toLowerCase(); }).join(' | '), has = function (re) { return re.test(names); }, before = JSON.stringify([look.main, look.off, look.back]);
     if (look.main && look.main[0] && !c.wield) look.main = [0, look.main[1]];
+    if (c.back && !(c.gear || []).some(function (g) { return g.name === c.back; })) c.back = null;
     if (look.off && look.off[0]) { var o = look.off[0]; if ((o === 1 && !has(/shield/)) || (o === 2 && !c.torch) || (o === 3 && !has(/dagger|knife/))) look.off = [0, look.off[1]]; }
     if (look.back && look.back[0]) { var b = look.back[0]; if ((b === 1 && !has(/backpack|bag|pack\b/)) || (b === 2 && !has(/quiver/)) || (b === 3 && !has(/guitar|bass/))) look.back = [0, look.back[1]]; }
     if (JSON.stringify([look.main, look.off, look.back]) !== before) { if (typeof buildHero === 'function') buildHero(); if (typeof saveLook === 'function') saveLook(); }
@@ -123,7 +124,7 @@
   }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
