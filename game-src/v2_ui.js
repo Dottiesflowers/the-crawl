@@ -134,7 +134,9 @@
     var el = document.getElementById('bag'), items = bagItems(), q = UI.q.toLowerCase();
     var list = items.map(function (it, i) { return { it: it, i: i }; }).filter(function (o) { return (UI.cat === 'all' || o.it.cat === UI.cat) && (!q || (o.it.name + ' ' + (o.it.desc || '')).toLowerCase().indexOf(q) >= 0); });
     // identical things stack into one tile with a count (worn clothes stay separate)
-    var groups = {}, glist = []; list.forEach(function (o) { var k = o.it.worn ? 'w' + o.i : o.it.name; if (groups[k]) { groups[k].n += (o.it.qty || 1); groups[k].all.push(o.i); if (UI.sel === o.i) groups[k].i = o.i; } else { groups[k] = { it: o.it, i: o.i, n: o.it.qty || 1, all: [o.i] }; glist.push(groups[k]); } });
+    // the one in your hand and the one on your back peel off the stack and stand alone
+    var wIt = wieldItem(), bIt = backItem();
+    var groups = {}, glist = []; list.forEach(function (o) { var k = o.it.worn ? 'w' + o.i : o.it === wIt ? '#hand' : o.it === bIt ? '#back' : o.it.name; if (groups[k]) { groups[k].n += (o.it.qty || 1); groups[k].all.push(o.i); if (UI.sel === o.i) groups[k].i = o.i; } else { groups[k] = { it: o.it, i: o.i, n: o.it.qty || 1, all: [o.i], k: k }; glist.push(groups[k]); } });
     list = glist;
     if (UI.sel !== null && !items[UI.sel]) UI.sel = null;
     var sel = UI.sel !== null ? items[UI.sel] : null;
@@ -150,7 +152,7 @@
       '<div class="pk"><div id="bagTools"><input id="bagQ" type="search" placeholder="Search" aria-label="Search items" value="' + esc(UI.q) + '">' +
       CATS.map(function (c) { return '<button type="button" class="chip2' + (UI.cat === c[0] ? ' on' : '') + '" data-cat="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>' +
       '<div id="bagList">' + (list.length ? list.map(function (o) {
-        var t = o.it.worn ? 'worn' : (CHAR.wield === o.it.name ? 'in hand' : CHAR.back === o.it.name ? 'on back' : '');
+        var t = o.it.worn ? 'worn' : o.k === '#hand' ? 'in hand' : o.k === '#back' ? 'on back' : '';
         return '<button type="button" data-i="' + o.i + '" class="' + (o.all.indexOf(UI.sel) >= 0 ? 'on' : '') + (o.it.rarity ? ' r-' + String(o.it.rarity).toLowerCase() : '') + (o.it.bonus ? ' magic' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + '</span>' + (o.n > 1 ? '<b class="qn">×' + o.n + '</b>' : '') + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
       }).join('') : '<p style="padding:10px">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
       '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div></div>';
@@ -181,9 +183,9 @@
   }
   function bagAct(a, it) {
     if (!it) return;
-    if (a === 'back') { CHAR.back = it.name; buildHero(); say('On your back · ' + it.name, 'Swap to it any time. In a fight the first swap each turn is free.', 3000); }
+    if (a === 'back') { if (CHAR.wield === it.name && (CHAR.gear || []).filter(function (g) { return g.name === it.name; }).length < 2) CHAR.wield = null; CHAR.back = it.name; buildHero(); say('On your back · ' + it.name, 'Swap to it any time. In a fight the first swap each turn is free.', 3000); }
     if (a === 'unback') { CHAR.back = null; buildHero(); }
-    if (a === 'wield') { if (CHAR.back === it.name) CHAR.back = CHAR.wield || null; CHAR.wield = it.name; buildHero(); say('In hand · ' + it.name, 'You will fight with it: ' + it.dmg + ' damage.', 3000); }
+    if (a === 'wield') { if (CHAR.back === it.name && (CHAR.gear || []).filter(function (g) { return g.name === it.name; }).length < 2) CHAR.back = CHAR.wield || null; CHAR.wield = it.name; buildHero(); say('In hand · ' + it.name, 'You will fight with it: ' + it.dmg + ' damage.', 3000); }
     if (a === 'unwield') { CHAR.wield = null; buildHero(); }
     if (a === 'wear') wear(it);
     if (a === 'unwear') { it.worn = false; look[it.slot] = [0, 0]; buildHero(); saveLook(); }
@@ -272,7 +274,7 @@
   }
 
   // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------
-  function backItem() { if (!CHAR || !CHAR.back) return null; return (CHAR.gear || []).filter(function (g) { return g.name === CHAR.back; })[0] || null; }
+  function backItem() { if (!CHAR || !CHAR.back) return null; var w = wieldItem(); return (CHAR.gear || []).filter(function (g) { return g.name === CHAR.back && g !== w; })[0] || null; }
   function wieldItem() { if (!CHAR || !CHAR.wield) return null; return (CHAR.gear || []).filter(function (g) { return g.name === CHAR.wield; })[0] || null; }
   function canBack(it) { return it && (it.cat === 'weapon' || /shield/i.test(it.name || '')); }
   function swapWeapons() {
