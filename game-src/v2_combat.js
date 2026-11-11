@@ -129,7 +129,7 @@
       e.room = sp.room; e.boss = !!B.boss;
       CB.enemies.push(e); cbPlay(e, 'Idle_Loop');
     });
-    CB.ready = true; refreshFog();
+    CB.ready = true; refreshFog(); worldLoad();
   }
   // monsters only get a real model (skinned mesh, materials, animations) once a crawler comes near them
   function cbMaterialize(e) {
@@ -150,6 +150,51 @@
     root.scale.setScalar(B.scale * (sp.npc ? 0.62 : 1)); e.obj.add(root);
     e.mixer = new THREE.AnimationMixer(root); e.clips = cbClipsFor(root); var want = e.want || (e.dead ? 'Death01' : 'Idle_Loop'); e.cur = ''; cbPlay(e, want, e.dead);
     if (e.dead && e.act) { e.act.time = e.clips.Death01 ? e.clips.Death01.duration : 0; }
+  }
+  // ---------- the world remembers: who is dead stays dead; each zone has a few replacements, then it is cleared ----------
+  // Saved per crawler for now (party play will make this one shared world). Bosses never come back.
+  var WORLD = { key: '', reserve: null, loaded: false };
+  function worldKey() { return 'crawl-world-v1-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : '') + '-' + SPAWNS.length; }
+  function zoneOf(e) { var r = LEVEL.rooms[e.room]; return r && r.hood !== undefined ? r.hood : 'free'; }
+  function worldState() {
+    var dead = [], eaten = [], calm = [], hp = {};
+    CB.enemies.forEach(function (e) { if (e.npc) return; if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
+    return { dead: dead, eaten: eaten, calm: calm, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), at: Date.now() };
+  }
+  function worldSave() {
+    if (!CB.ready || !WORLD.loaded) return; var st = worldState();
+    try { localStorage.setItem(worldKey(), JSON.stringify(st)); } catch (x) {}
+    if (NET.mode === 'server' && NET.uid) { clearTimeout(worldSave.t); worldSave.t = setTimeout(function () { api('kv/world', { method: 'PUT', body: { value: st } }).catch(function () {}); }, 2000); }
+  }
+  function worldApply(st) {
+    var byN = {}; CB.enemies.forEach(function (e) { byN[e.n] = e; });
+    (st.dead || []).concat(st.eaten || []).forEach(function (n) { var e = byN[n]; if (!e) return; e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; }); // bodies from earlier sessions are gone
+    (st.calm || []).forEach(function (n) { if (byN[n]) byN[n].calm = true; });
+    Object.keys(st.hp || {}).forEach(function (n) { if (byN[n] && !byN[n].dead) byN[n].hp = Math.max(1, st.hp[n]); });
+    (st.shrubs || []).forEach(function (s) { var e = byN[s[0]]; if (e && !e.dead) { e.def = BEAST['shrub' + s[1]]; e.kind = 'shrub' + s[1]; e.lvl = s[1]; e.name = e.def.name; e.max = e.def.hp; e.hp = Math.min(e.hp, e.max); } });
+    if (st.reserve) WORLD.reserve = st.reserve;
+  }
+  function worldLoad() {
+    if (!CB.ready || !CHAR) return; var k = worldKey(); if (WORLD.key === k) return; WORLD.key = k; WORLD.loaded = false;
+    // replacements per zone: about a third of its regular monsters, never bosses
+    var res = {}; CB.enemies.forEach(function (e) { if (e.npc || e.boss || e.guard) return; var z = zoneOf(e); res[z] = (res[z] || 0) + 1; }); Object.keys(res).forEach(function (z) { res[z] = Math.ceil(res[z] / 3); }); WORLD.reserve = res;
+    var local = null; try { local = JSON.parse(localStorage.getItem(k) || 'null'); } catch (x) {}
+    var done = function (st) { if (st) worldApply(st); WORLD.loaded = true; refreshFog(); };
+    if (NET.mode === 'server' && NET.uid) api('kv/world').then(function (j) { var sv = j.value; done(sv && (!local || sv.at >= local.at) ? sv : local); }, function () { done(local); });
+    else done(local);
+  }
+  // every few minutes one dead regular monster in a zone with replacements left comes back, out of sight
+  setInterval(function () {
+    if (!CB.ready || !WORLD.loaded || CB.on || !WORLD.reserve) return;
+    var cands = CB.enemies.filter(function (e) { return e.dead && !e.npc && !e.boss && !e.guard && (WORLD.reserve[zoneOf(e)] || 0) > 0 && cheb(e.sx, e.sz, P.x, P.z) > 14 && visNow[e.sx + ',' + e.sz] === undefined && !enemyAt(e.sx, e.sz); });
+    if (!cands.length) return; var e = cands[Math.floor(Math.random() * cands.length)], z = zoneOf(e);
+    WORLD.reserve[z]--; if (e.def.base === 'shrub') { e.def = BEAST.shrub1; e.kind = 'shrub1'; e.lvl = 1; e.name = e.def.name; if (e.body) { e.obj.remove(e.body); e.body = null; e.mixer = null; } }
+    e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.fought = false; e.looted = false; e.lootStore = null; e.calm = false; e.hp = e.def.hp; e.max = e.def.hp;
+    e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.rotation.set(0, Math.PI * 0.75, 0); e.path = null; if (e.mixer && e.mixer.stopAllAction) e.mixer.stopAllAction(); e.cur = ''; cbPlay(e, 'Idle_Loop');
+    worldSave();
+  }, 240000);
+  function nearestSafe(x, z) { // the closest safe-room tile to a spot
+    var best = null, bd = 1e9; LEVEL.rooms.forEach(function (r) { if (r.type !== 'safe') return; var c = [(r.x0 + r.x1) >> 1, (r.z0 + r.z1) >> 1]; for (var t = 0; t < 30; t++) { var cx = c[0] + Math.round((Math.random() - 0.5) * 2 * Math.min(3, (r.x1 - r.x0) >> 1)), cz = c[1] + Math.round((Math.random() - 0.5) * 2 * Math.min(3, (r.z1 - r.z0) >> 1)); if (!blocksMove(cx, cz) && inSafeRoom(cx, cz)) { var d = Math.abs(cx - x) + Math.abs(cz - z); if (d < bd) { bd = d; best = { x: cx, z: cz }; } break; } } }); return best;
   }
   function cbPlay(e, name, once) {
     if (!e.mixer) { e.want = name; return; }
@@ -354,13 +399,15 @@
     });
   }
   function cbEnd(win) {
+    setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
     CB.enemies.forEach(function (e) { e.grappled = false; if (e.prone && !e.dead) { e.prone = false; } if (!e.dead) cbPlay(e, 'Idle_Loop'); });
     // XP for every monster beaten in this fight: killed, or talked into giving up
     var beaten = CB.enemies.filter(function (e) { return (e.dead || e.calm) && e.fought && !e.counted && !e.npc; }), xp = 0;
     beaten.forEach(function (e) { e.counted = true; xp += e.def.xp; });
-    if (xp) {
+    if (xp && !win) { grantXP(xp); }
+    if (xp && win) {
       var talked = beaten.filter(function (e) { return !e.dead; }).length;
       say('Victory · +' + xp + ' XP', (talked ? talked + ' of them talked down, which counts. ' : '') + 'The cameras zoom in on your face. Viewers voted you "most likely to survive floor one."', 6500); grantXP(xp);
       var later = 0; function ach(id, t, x, n) { setTimeout(function () { achieve(id, t, x, n); }, 2400 + 2600 * later++); }
@@ -555,14 +602,15 @@
   }
   function cbDie(stable) {
     CB.busy = true;
-    say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. The monsters lose interest, and the System drags you back to your cell.' :
-      'The crowd goes silent. In the full game, death in the crawl is permanent. For this test, the System rewinds you to your cell.', 6500);
+    say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. The monsters lose interest, and the System drags you to the nearest safe room.' :
+      'The crowd goes silent. In the full game, death in the crawl is permanent. For this test, the System drags you to the nearest safe room. The monsters you killed stay dead.', 6500);
     setTimeout(function () {
       cbEnd(false); PC.down = false; PC.hp = PC.max; CB.potions = Math.max(CB.potions, 1);
       if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
-      P.x = start.x; P.z = start.z; P.px = start.x; P.pz = start.z; if (KIT) { KIT.shot = null; }
-      CB.enemies.forEach(function (e) { if (e.dead) return; e.hp = e.max; e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.path = null; e.prone = false; cbPlay(e, 'Idle_Loop'); });
-      refreshFog(); enterRoom(); cbHUD();
+      var home = nearestSafe(P.x, P.z) || start; P.x = home.x; P.z = home.z; P.px = home.x; P.pz = home.z; if (KIT) { KIT.shot = null; }
+      // the monsters that beat you keep their wounds (they patch up a little) and wander back toward their posts
+      CB.enemies.forEach(function (e) { if (e.dead) return; e.hp = Math.min(e.max, e.hp + Math.ceil((e.max - e.hp) * 0.25)); e.path = null; e.prone = false; e.fought = false; cbPlay(e, 'Idle_Loop'); });
+      refreshFog(); enterRoom(); cbHUD(); worldSave();
     }, 3200);
   }
 
@@ -617,7 +665,7 @@
     var now = performance.now();
     if (e.eating) { // munching: the body shrinks away, the shrub grows
       if (now - e.eating.t < 2600) return; var body = e.eating.body; e.eating = null;
-      if (body.dead && !body.eaten) { body.eaten = true; body.obj.visible = false; body.bar.style.display = 'none'; shrubGrow(e, body); }
+      if (body.dead && !body.eaten) { body.eaten = true; body.obj.visible = false; body.bar.style.display = 'none'; shrubGrow(e, body); worldSave(); }
       return;
     }
     if (e.path) return;

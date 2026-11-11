@@ -30,10 +30,10 @@
     FOG.total = 0; FOG.seen = 0;
   }
   var lastSavedPos = '';
-  function posRestore() { if (!CHAR) return; fogLoad(); if (CHAR.pos && heroTo(CHAR.pos.x, CHAR.pos.z)) { refreshFog(); enterRoom(); } }
+  function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); if (CHAR.pos && heroTo(CHAR.pos.x, CHAR.pos.z)) { refreshFog(); enterRoom(); } }
   function posSave(force) {
     if (!CHAR || CB.on) return; var k = P.x + ',' + P.z; if (!force && k === lastSavedPos) return; lastSavedPos = k;
-    CHAR.pos = { x: P.x, z: P.z }; fogSave(); saveChar(CHAR);
+    CHAR.pos = { x: P.x, z: P.z }; fogSave(); saveChar(CHAR); worldSave();
   }
   setInterval(function () { posSave(false); }, 30000);
   if (CHAR) setTimeout(posRestore, 0);
@@ -530,7 +530,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();
