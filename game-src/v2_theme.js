@@ -152,6 +152,7 @@
       '#craft label{font-family:Cinzel,serif;font-size:11px;color:#5a4430;margin-top:4px}#craft input{height:38px;padding:0 10px;border:1px solid #6b5a3a;border-radius:3px;background:rgba(255,250,235,.7);font-family:"EB Garamond",serif;font-size:15px}',
       '#craft .go{height:44px;border:0;border-radius:3px;background:radial-gradient(circle at 50% 30%,#a8302a,#5e1410);color:#F3E6CC;font-family:Cinzel,serif;font-weight:800;font-size:14px}#craft .go:disabled{opacity:.45}',
       '#craft .hint{margin:0;font-style:italic;font-size:12.5px;color:#5a4430}',
+      '@media (min-width:1000px) and (min-height:600px){.ebar{width:120px !important;font-size:13.5px !important;font-family:Cinzel,serif;font-weight:700;letter-spacing:.03em !important;color:#ffe6d8 !important;text-shadow:0 1px 3px #000,0 0 6px #000 !important;white-space:nowrap}.ebar i{width:80px !important;height:7px !important;margin:0 auto 3px !important}}',
       '#craft .ctools{display:flex;flex-wrap:wrap;gap:5px;align-items:center}#craft .ctools input{flex:1 1 220px;min-width:0}#craft .chip2{height:30px;padding:0 10px;border:1px solid #6b5a3a;border-radius:15px;background:rgba(255,250,235,.45);font-family:"EB Garamond",serif;font-size:13px;color:' + INK + '}#craft .chip2.on{background:#2b1d12;color:#F3E6CC}',
       '#craft .cgrid{flex:1;min-height:120px;overflow-y:auto;align-content:start}#craft .cgrid button{position:relative}#craft .cgrid button:disabled{opacity:.4}#craft .cgrid .qn{position:absolute;right:4px;bottom:2px;font-size:11px;color:#7A1F1A}',
       '#craft .cbottom{display:flex;flex-direction:column;gap:6px;border-top:1px solid rgba(43,29,18,.25);padding-top:6px}',
@@ -172,7 +173,7 @@
     dc.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); dc.classList.remove('on'); });
     var sy = document.getElementById('sys'); if (sy) sy.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); sy.classList.remove('on'); });
     setInterval(function () { var el = document.getElementById('wset'); if (el) el.style.display = !CHAR || gearOpen || CC || AUTH.open || UI.bag || UI.map || (typeof CS !== 'undefined' && CS.open) ? 'none' : ''; }, 300);
-    setInterval(function () { if (typeof CB !== 'undefined' && !CB.on && typeof cbHUD === 'function') try { cbHUD(); } catch (e) {} try { buffDraw(); } catch (e) {} }, 1000);
+    setInterval(function () { if (typeof CB !== 'undefined' && !CB.on && typeof cbHUD === 'function') try { cbHUD(); } catch (e) {} try { buffDraw(); } catch (e) {} try { var sb = document.getElementById('aSight'), t = lampWorn() ? (lampLit() ? 'Lamp off' : 'Lamp on') : 'Torch'; if (sb && sb.textContent !== t) sb.textContent = t; } catch (e) {} }, 1000);
     setTimeout(wsetDraw, 0);
   })();
 

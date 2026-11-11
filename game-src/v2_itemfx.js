@@ -74,3 +74,31 @@
     for (var i = 0; i < n * 3 && items.length < n; i++) { var nm = lootPick(R.pool); if (seen[nm] && Math.random() < 0.8) continue; seen[nm] = 1; var x = item(nm, { from: R.from }); if (x) items.push(x); }
     return { gold: diceRoll(R.gold), items: items };
   }
+
+  // ---------- head lamps: wear it, switch it on and off, it drains, swap the batteries ----------
+  function isLamp(it) { return !!it && (it.head || /headlamp|head lamp|miner'?s lamp/i.test(it.name || '')); }
+  function lampWorn() { return (CHAR && CHAR.gear || []).filter(function (g) { return isLamp(g) && g.worn; })[0] || null; }
+  function lampLit() { var l = lampWorn(); return !!(l && l.lit && (l.charge === undefined ? 100 : l.charge) > 0); }
+  function batteryItem() { return (CHAR && CHAR.gear || []).filter(function (g) { return (g.tags || []).indexOf('battery') >= 0 || /^AA batteries$/i.test(g.name); })[0] || null; }
+  function lampAct(a, it) {
+    if (a === 'lampwear') { (CHAR.gear || []).forEach(function (g) { if (isLamp(g)) g.worn = false; }); it.worn = true; if (it.charge === undefined) it.charge = 100; it.lit = it.charge > 0; say('Headlamp on', it.lit ? 'Strapped on and switched on. You see like you are holding a torch, and both hands stay free.' : 'Strapped on, but the batteries are dead.', 3400); }
+    if (a === 'lampoff') { it.worn = false; it.lit = false; say('Headlamp off your head', 'Back in the bag.', 2000); }
+    if (a === 'lamptog') { if (!it.lit && (it.charge || 0) <= 0) { say('Dead batteries', batteryItem() ? 'Swap in fresh ones first.' : 'You need batteries. Desks and shelves sometimes have them.', 3000); } else { it.lit = !it.lit; say(it.lit ? 'Click. Light.' : 'Click. Dark.', it.lit ? 'Battery ' + it.charge + '%.' : 'Saving the batteries.', 2200); } }
+    if (a === 'lampbat') { var b = batteryItem(); if (!b) return; itemSpend(b); it.charge = 100; it.lit = !!it.worn; say('Fresh batteries', 'Full charge. The old ones go in your pocket out of guilt.', 3000); skillCount('jury'); }
+    refreshFog(); if (typeof cbSaveChar === 'function') cbSaveChar();
+  }
+  function lampActs(it) {
+    if (!isLamp(it)) return [];
+    var out = [it.worn ? ['lampoff', 'Take off'] : ['lampwear', 'Wear on head']];
+    if (it.worn) out.push(['lamptog', it.lit ? 'Switch off' : 'Switch on']);
+    var b = batteryItem(); if (b && (it.charge === undefined ? 100 : it.charge) < 100) out.push(['lampbat', 'Replace batteries']);
+    return out;
+  }
+  // a lit lamp drains one percent every 30 seconds (about 50 minutes on a set of batteries)
+  setInterval(function () {
+    var l = lampWorn(); if (!l || !l.lit) return; if (l.charge === undefined) l.charge = 100;
+    l.charge = Math.max(0, l.charge - 1);
+    if (l.charge === 10) say('Headlamp flickering', 'Battery at 10%. ' + (batteryItem() ? 'You have spares in your bag.' : 'You have no spares.'), 3600);
+    if (l.charge === 0) { l.lit = false; say('Headlamp dies', 'The light fades to nothing. ' + (batteryItem() ? 'Swap the batteries in your bag.' : 'You need new batteries.'), 4200); refreshFog(); }
+    if (l.charge % 5 === 0 && typeof cbSaveChar === 'function') cbSaveChar();
+  }, 30000);

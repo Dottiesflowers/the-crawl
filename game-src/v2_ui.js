@@ -144,7 +144,7 @@
     var slotBtn = function (lbl, it, cls, empty) { var i = it ? items.indexOf(it) : -1; return '<button type="button" class="eqs ' + (cls || '') + (it ? '' : ' empty') + (i >= 0 && UI.sel === i ? ' on' : '') + '"' + (i >= 0 ? ' data-i="' + i + '"' : ' disabled') + '><small>' + lbl + '</small>' + (it ? esc(it.name) + (it.dmg ? '<em>' + esc(it.dmg) + '</em>' : '') : '<em>' + (empty || 'empty') + '</em>') + '</button>'; };
     el.innerHTML = '<header><b>Inventory</b><span class="gp">' + (CHAR && CHAR.gold || 0) + ' gp</span><button type="button" class="xbtn" id="bagCraft">Jury-rig</button><button type="button" class="xbtn" id="bagSheet">Character</button><button type="button" class="xbtn" id="bagX">Close</button></header>' +
       '<div id="bagBody"><div class="eq">' +
-        '<div class="eqL">' + slotBtn('Head', worn('kHead')) + slotBtn('Body', worn('kTop')) + slotBtn('Legs', worn('kPants')) + slotBtn('Feet', worn('kBoots')) + '</div>' +
+        '<div class="eqL">' + slotBtn('Head', worn('kHead')) + slotBtn('Body', worn('kTop')) + slotBtn('Legs', worn('kPants')) + slotBtn('Feet', worn('kBoots')) + (function () { var l = lampWorn(), i = l ? items.indexOf(l) : -1; return '<button type="button" class="eqs' + (l ? '' : ' empty') + (i >= 0 && UI.sel === i ? ' on' : '') + '"' + (i >= 0 ? ' data-i="' + i + '"' : ' disabled') + '><small>Head light</small>' + (l ? esc(l.name) + '<em>' + (l.lit ? 'on' : 'off') + ' · ' + (l.charge === undefined ? 100 : l.charge) + '%</em>' : '<em>none</em>') + '</button>'; })() + '</div>' +
         '<div class="eqC"><canvas id="heroPic" width="180" height="270" role="img" aria-label="Your crawler as they look now"></canvas><span class="eqStat">AC ' + pcAC().ac + ' · HP ' + PC.hp + '/' + PC.max + '</span></div>' +
         '<div class="eqR">' + slotBtn('Main hand', w, 'main', 'fists') + '<button type="button" class="eqSwap" id="bagSwap"' + (bk ? '' : ' disabled') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M7 4v14l-3-3M17 20V6l3 3"/></svg>Swap</button>' + slotBtn('On back', bk, '', 'nothing') +
           '<div class="eqs empty"><small>Off hand</small><em>' + (typeof sty === 'function' && sty('off') === 2 ? 'Torch (lit)' : 'empty') + '</em></div></div>' +
@@ -174,11 +174,12 @@
     if (canBack(it) && CHAR.wield !== it.name) acts.push(CHAR.back === it.name ? ['unback', 'Take off back'] : ['back', 'Wear on back']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
+    acts = acts.concat(lampActs(it));
     if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); if (!it.box) acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); acts.push((CHAR.hotbar || []).indexOf(it.name) >= 0 ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on hot bar']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
-      '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + '</small></p>' +
+      '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
       '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
   }
   function bagAct(a, it) {
@@ -189,6 +190,7 @@
     if (a === 'unwield') { CHAR.wield = null; buildHero(); }
     if (a === 'wear') wear(it);
     if (a === 'unwear') { it.worn = false; look[it.slot] = [0, 0]; buildHero(); saveLook(); }
+    if (/^lamp/.test(a)) lampAct(a, it);
     if (a === 'use') useItem(it);
     if (a === 'drop') dropBody(it);
     if (a === 'hot') { hotPut(it.name); }
@@ -410,7 +412,14 @@
   // ---------- item visuals: bag icons and the model in your hand ----------
   function itemKind(it) {
     var n = (it.name || '').toLowerCase();
+    if (it.icon && ICON[it.icon]) return it.icon;
     if (it.cat === 'clothing') return 'cloth_' + ({ kTop: 'top', kPants: 'pants', kBoots: 'shoes', kHead: 'hat', kNeck: 'scarf', kShoulder: 'top' }[it.slot] || 'top');
+    var K0 = [['spear', /spear|pike|lance|javelin|trident|halberd|glaive/], ['bomb', /bomb|grenade|cocktail|molotov|explosive|firework|hob-lobber/], ['headlamp', /headlamp|head lamp/], ['battery', /batter(y|ies)\b|\baa\b/],
+      ['horn', /horn\b|horns|antler|tusk/], ['slime', /slime|goo\b|ooze|jelly/], ['tail', /tail\b/], ['grease', /grease|lard|\bwax\b|\btub\b/], ['sap', /\bsap\b|resin|amber|honey|syrup/], ['ink', /\bink\b|inkwell/],
+      ['emptybottle', /empty bottle|\bjar\b|vial/], ['potion', /potion|elixir|tonic|antidote/], ['pages', /page|paper|document|\bfile\b|\bform\b|letter\b|\bmap\b|\bnote|receipt|coupon|sticky notes|toilet paper/],
+      ['pan', /skillet|\bpan\b|\bpot\b|\bwok\b/], ['helmet', /helmet|hard hat|\bhelm\b/], ['sword', /sword|saber|sabre|machete|katana|cleaver/], ['axe', /\baxe\b|hatchet/], ['lootbox', /loot box|\bchest\b|\bcrate\b/],
+      ['bone', /bone|skull|gristle/], ['flower', /flower|rose\b|tulip|bouquet|herb|petal|seed/], ['shield', /shield|trash can lid/], ['gem', /\bgem|jewel|crystal|diamond|ruby|emerald/]];
+    for (var j = 0; j < K0.length; j++) if (K0[j][1].test(n)) return K0[j][0];
     var K = [['shears', /shear|scissor|clipper|pruner|snip/], ['knife', /knife|blade|cutter|dagger|razor|scalpel/], ['hammer', /hammer|mallet/], ['mace', /mace|morning star/], ['wrench', /wrench|spanner/],
       ['bat', /bat\b|club|stick|pipe|crowbar|cane|rod|pole|broom|mop/], ['phone', /phone|tablet|ipad/], ['laptop', /laptop|computer/], ['keys', /key/], ['tape', /tape|zip tie/], ['pick', /pick\b|picks|plectrum/],
       ['bandage', /gauze|bandage|band-aid|first aid/], ['snack', /snack|bar\b|food|jerky|apple|sandwich|gum|candy|chip/], ['drink', /bottle|flask|water|coffee|drink|can\b|potion/], ['opener', /opener|corkscrew/],
@@ -420,6 +429,28 @@
     return { weapon: 'bat', tool: 'wrench', consumable: 'drink', valuable: 'coin', misc: 'box' }[it.cat] || 'box';
   }
   var ICON = {
+    spear: '<path d="M5 25L19 11" stroke="#8a5a30" stroke-width="2.6" stroke-linecap="round"/><path d="M18 12l2-7 6-2-2 6z" fill="#dfe6ea" stroke="#8a939d" stroke-width=".7"/><path d="M15.5 13.5l3 3" stroke="#3a3a3a" stroke-width="2.2"/>',
+    bomb: '<circle cx="13" cy="17" r="7" fill="#2a2a2a" stroke="#555"/><path d="M17 11l3-3" stroke="#8a7a5a" stroke-width="2"/><path d="M20 8l2-2M21 5h3M22 9l2 1" stroke="#ff9a2a" stroke-width="1.6"/><circle cx="10.5" cy="14.5" r="1.6" fill="#777"/>',
+    headlamp: '<path d="M5 16c0-7 18-7 18 0" fill="none" stroke="#3a3a3a" stroke-width="3"/><rect x="10" y="12" width="8" height="7" rx="2" fill="#555" stroke="#888" stroke-width=".6"/><circle cx="14" cy="15.5" r="2.4" fill="#ffe27a"/><path d="M12 20l-4 6M16 20l4 6" stroke="rgba(255,226,122,.6)" stroke-width="1.4"/>',
+    battery: '<rect x="9" y="6" width="10" height="18" rx="1.5" fill="#2a2a2a" stroke="#888"/><rect x="12" y="4" width="4" height="2" fill="#bbb"/><rect x="9.5" y="6.5" width="9" height="5" fill="#d8a020"/><path d="M14 14v6M11 17h6" stroke="#ddd" stroke-width="1.4"/>',
+    horn: '<path d="M6 24c1-10 8-17 18-19-4 5-6 10-6 16z" fill="#d9c8a0" stroke="#7a6040" stroke-width="1.2"/><path d="M9 20c3-1 6-1 8 0M11 15c3-1 5-1 7 0M14 10c2-1 4-1 5 0" stroke="#7a6040" stroke-width="1"/>',
+    slime: '<path d="M5 22c0-6 4-12 9-12s9 6 9 12c0 2-2 3-4 2-1 2-3 2-5 1-2 1-4 1-5-1-2 1-4 0-4-2z" fill="#6ab04a" stroke="#3a7a2a"/><circle cx="11" cy="16" r="1.7" fill="#d4ecb8"/><circle cx="17.5" cy="14" r="1" fill="#d4ecb8"/>',
+    tail: '<path d="M6 8c6 0 6 6 10 8s8 0 9 5" fill="none" stroke="#d4a090" stroke-width="2.6" stroke-linecap="round"/><path d="M4 5l4 5" stroke="#7a5a50" stroke-width="3.4" stroke-linecap="round"/>',
+    grease: '<path d="M7 11h14l-2 13H9z" fill="#7a6a4a" stroke="#4a3a20"/><ellipse cx="14" cy="11" rx="7" ry="2.4" fill="#c8b070"/><path d="M11 10c1-3 5-3 6 0" fill="#e8d088"/>',
+    sap: '<path d="M14 4c4 6 7 10 7 14a7 7 0 0 1-14 0c0-4 3-8 7-14z" fill="#d8962a" stroke="#8a5a10"/><path d="M11 17c0 2 1 3 2 4" stroke="#f8d888" stroke-width="1.6"/>',
+    ink: '<path d="M9 12h10v11a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2z" fill="#23304a" stroke="#6a7a9a"/><rect x="11" y="8" width="6" height="4" fill="#4a3a2a"/><path d="M18 9l6-6-3 8z" fill="#efe6d4" stroke="#8a7a5a" stroke-width=".6"/>',
+    emptybottle: '<path d="M12 4h4v5l3 4v10a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2V13l3-4z" fill="rgba(170,210,220,.35)" stroke="#7aa8b2" stroke-width="1.4"/><path d="M11 15v6" stroke="rgba(255,255,255,.7)" stroke-width="1.2"/>',
+    potion: '<path d="M12 5h4v5l5 7a5 5 0 0 1-4 8h-6a5 5 0 0 1-4-8l5-7z" fill="#c0302a" stroke="#6a1410"/><rect x="11" y="3" width="6" height="3" rx="1" fill="#8a6a40"/><path d="M9.5 18h9" stroke="#ff9a8a" stroke-width="1.2"/>',
+    pages: '<path d="M7 5h11l4 4v15H7z" fill="#ece0c4" stroke="#8a7a5a"/><path d="M18 5v4h4" fill="none" stroke="#8a7a5a"/><path d="M10 12h9M10 15h9M10 18h7M10 21h8" stroke="#8a7a5a" stroke-width="1"/>',
+    pan: '<circle cx="12" cy="15" r="7.5" fill="#2e2e2e" stroke="#666" stroke-width="1.4"/><circle cx="12" cy="15" r="5" fill="#3a3a3a"/><path d="M18 10l7-5" stroke="#2e2e2e" stroke-width="3.2" stroke-linecap="round"/>',
+    helmet: '<path d="M5 19c0-7 4-12 9-12s9 5 9 12z" fill="#d8b020" stroke="#8a6a10"/><path d="M14 7v12" stroke="#8a6a10" stroke-width="1.2"/><path d="M3 19h22v3H3z" fill="#c8a010" stroke="#8a6a10"/>',
+    sword: '<path d="M8 20L21 7l2-3-3 2L7 19z" fill="#dfe6ea" stroke="#8a939d" stroke-width=".7"/><path d="M5 17l6 6" stroke="#b08a40" stroke-width="2.4"/><path d="M4 24l3-3" stroke="#4a3020" stroke-width="2.8"/>',
+    axe: '<path d="M8 25l11-15" stroke="#8a5a30" stroke-width="3"/><path d="M15 6c5-1 9 2 9 7l-6-1-3-2z" fill="#9aa3ad" stroke="#5a636d" stroke-width=".7"/>',
+    lootbox: '<rect x="5" y="12" width="18" height="11" rx="1.5" fill="#a87a30" stroke="#5a3a10"/><path d="M5 12l2-5h14l2 5z" fill="#c8963a" stroke="#5a3a10"/><rect x="12" y="13" width="4" height="4" fill="#f0d070" stroke="#5a3a10" stroke-width=".6"/>',
+    bone: '<path d="M8 20l12-12" stroke="#ece2cc" stroke-width="3.4"/><circle cx="7" cy="19" r="2.4" fill="#ece2cc"/><circle cx="9" cy="22" r="2.4" fill="#ece2cc"/><circle cx="19" cy="6" r="2.4" fill="#ece2cc"/><circle cx="22" cy="9" r="2.4" fill="#ece2cc"/>',
+    flower: '<path d="M14 25V13" stroke="#3a7a2a" stroke-width="2"/><path d="M14 19c-4 0-6-2-6-4 3 0 5 1 6 4z" fill="#5aa03a"/><circle cx="10" cy="9" r="2.6" fill="#e05a7a"/><circle cx="18" cy="9" r="2.6" fill="#e05a7a"/><circle cx="14" cy="5" r="2.6" fill="#e05a7a"/><circle cx="14" cy="13" r="2.6" fill="#e05a7a"/><circle cx="14" cy="9" r="2.6" fill="#f0c040"/>',
+    shield: '<path d="M14 4l9 3v7c0 6-4 10-9 12-5-2-9-6-9-12V7z" fill="#7a5a3a" stroke="#3a2a1a"/><path d="M14 8v14M8 13h12" stroke="#c8a060" stroke-width="1.6"/>',
+    gem: '<path d="M8 10l3-4h6l3 4-6 13z" fill="#5ac0e0" stroke="#2a6a8a"/><path d="M8 10h12M11 6l3 4 3-4M14 10v13" stroke="#2a6a8a" stroke-width=".8"/>',
     shears: '<path d="M9 21l7-9M19 21l-7-9" stroke="#cfd6dc" stroke-width="2.4"/><path d="M14 12l-3-8M14 12l3-8" stroke="#e8eef2" stroke-width="2"/><circle cx="8" cy="23" r="3.2" fill="none" stroke="#c03030" stroke-width="2.4"/><circle cx="20" cy="23" r="3.2" fill="none" stroke="#c03030" stroke-width="2.4"/>',
     knife: '<path d="M6 22l10-10 6-6-2 8-10 10z" fill="#dfe6ea"/><path d="M4 24l4-4 2 2-4 4z" fill="#4a3020"/>',
     hammer: '<path d="M8 25l10-12" stroke="#8a5a30" stroke-width="3"/><path d="M14 6l9 4-3 5-9-4z" fill="#9aa3ad"/>',
@@ -465,6 +496,11 @@
     else if (k === 'bat') { cyl(g, 0.03, 0.02, 0.5, /pipe|crowbar|rod/i.test(it.name) ? METAL_D : WOOD, 0, 0.2, 0, 8); }
     else if (k === 'phone') { part(g, 0.07, 0.14, 0.01, DARK, 0, 0.06, 0.02); part(g, 0.06, 0.12, 0.002, 0x3a6ea8, 0, 0.06, 0.026, true); }
     else if (k === 'keys') { part(g, 0.04, 0.04, 0.006, GOLD, 0, 0.03, 0, 'metal'); part(g, 0.012, 0.06, 0.004, GOLD, 0.01, 0.07, 0, 'metal'); part(g, 0.012, 0.05, 0.004, METAL, -0.012, 0.06, 0, 'metal'); }
+    else if (k === 'spear') { cyl(g, 0.016, 0.016, 0.9, WOOD, 0, 0.3, 0, 8); part(g, 0.05, 0.13, 0.008, STEEL, 0, 0.8, 0, 'metal'); part(g, 0.035, 0.05, 0.035, 0x3a3a3a, 0, 0.72, 0); }
+    else if (k === 'sword') { part(g, 0.026, 0.1, 0.026, 0x4a3020, 0, 0, 0, 'wood'); part(g, 0.1, 0.016, 0.03, GOLD, 0, 0.06, 0, 'metal'); part(g, 0.032, 0.42, 0.008, STEEL, 0, 0.28, 0, 'metal'); }
+    else if (k === 'axe') { part(g, 0.028, 0.36, 0.028, WOOD, 0, 0.13, 0, 'wood'); part(g, 0.1, 0.09, 0.014, STEEL, 0.05, 0.28, 0, 'metal'); }
+    else if (k === 'pan') { part(g, 0.024, 0.16, 0.016, DARK, 0, 0.06, 0); cyl(g, 0.11, 0.11, 0.025, 0x2e2e2e, 0, 0.24, 0, 14); }
+    else if (k === 'bomb') { var bm = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshStandardMaterial({ color: 0x2a2a2a })); bm.position.y = 0.05; g.add(bm); }
     else if (k === 'light') { cyl(g, 0.022, 0.022, 0.16, 0x333333, 0, 0.05, 0, 8); cyl(g, 0.032, 0.024, 0.04, 0xffd34a, 0, 0.15, 0, 8); }
     else { part(g, 0.05, 0.08, 0.04, 0x8a7a6a, 0, 0.04, 0); }
   }

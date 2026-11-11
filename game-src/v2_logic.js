@@ -362,9 +362,10 @@
   stick.addEventListener('pointerup', stickEnd); stick.addEventListener('pointercancel', stickEnd);
   function tap(id, fn) { var el = document.getElementById(id); el.addEventListener('pointerdown', function (e) { e.preventDefault(); el.classList.add('on'); fn(); }); ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (n) { el.addEventListener(n, function () { el.classList.remove('on'); }); }); }
   // what you can see comes from your body and your hands: human eyes, a torch if you are holding one, darkvision only if you have it
-  function sightNow() { return hasTrait('Darkvision') ? 2 : sty('off') === 2 ? 1 : 0; }
+  function sightNow() { return hasTrait('Darkvision') ? 2 : sty('off') === 2 || lampLit() ? 1 : 0; }
   function cycleSight() {
     if (gearOpen) return;
+    var lamp = lampWorn(); if (lamp && sty('off') !== 2) { lampAct('lamptog', lamp); return; }
     if (sty('off') === 2) { look.off = [0, look.off[1]]; buildHero(); saveLook(); refreshFog(); say('Torch lowered', 'You lower your torch. Human eyes: you see ' + SIGHTS[sightNow()].r + ' tiles, more in well-lit places.', 3200); return; }
     if (CHAR && (CHAR.torch || hasLight())) { look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say('Torch raised', 'You hold up your torch. You see ' + SIGHTS[1].r + ' tiles, and it takes your off hand.', 3200); return; }
     say('No torch', 'You do not have a torch. Light one at any brazier (walk up to one and interact). Your eyes are what they are.', 3800);

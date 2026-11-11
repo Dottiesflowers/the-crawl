@@ -69,7 +69,8 @@
     'Lighter': { cat: 'tool', tags: ['fire'], level: 1, desc: 'Three clicks to light. Always three.' },
     'Ball of twine': { cat: 'tool', tags: ['stringy', 'flammable'], level: 1, desc: 'Long enough to find your way back. Maybe.' },
     'Floral foam brick': { cat: 'tool', tags: ['absorbent'], level: 1, desc: 'Green, crumbly, and weirdly satisfying to squeeze. Soaks up liquids.' },
-    'Headlamp': { cat: 'tool', light: true, level: 1, desc: 'Light that keeps both hands free. Counts as a torch.' },
+    'Headlamp': { cat: 'tool', light: true, head: true, battery: true, level: 1, desc: 'Wear it on your head and switch it on: torch-level sight with both hands free. Eats batteries.' },
+    'AA batteries': { cat: 'tool', tags: ['conductive', 'battery'], level: 1, common: true, desc: 'Two AAs in a blister pack. Full charge for a headlamp, or a very small shock for a very small enemy.' },
     'Roll of aluminum foil': { cat: 'tool', tags: ['conductive'], level: 1, desc: 'Ari will want this for unrelated reasons.' },
     'Bungee cords': { cat: 'tool', tags: ['elastic'], level: 1, desc: 'Will absolutely snap back at your face once.' },
     'Zip ties (10)': { cat: 'tool', tags: ['binding'], level: 1, desc: 'The answer to most problems, and the cause of several.' },
@@ -167,11 +168,11 @@
       gatekeeper: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Gatekeeper\'s Keyring'] }
     },
     containers: {
-      chest: { gold: '3d6', picks: [2, 3], from: 'a loot box', pool: ['Healing potion', 'Crowbar', 'Roll of duct tape', 'Flashlight', 'Energy bar', 'Bronze loot box coupon', 'Hard hat', 'Plain white tee', 'Grey hoodie', 'Black jeans', 'Cowboy hat', 'Work boots', 'Healing potion', 'Chef\'s knife', 'Golf club (7 iron)', 'Cast iron skillet', 'Headlamp', 'Fire extinguisher', 'Bluetooth speaker', 'Smoke bomb', 'Goblin hob-lobber', 'Tennis racket', 'WD-40', 'Bungee cords', 'Protein bar', 'Hot sauce', 'Silver loot box', 'EpiPen'] },
+      chest: { gold: '3d6', picks: [2, 3], from: 'a loot box', pool: ['AA batteries', 'Healing potion', 'Crowbar', 'Roll of duct tape', 'Flashlight', 'Energy bar', 'Bronze loot box coupon', 'Hard hat', 'Plain white tee', 'Grey hoodie', 'Black jeans', 'Cowboy hat', 'Work boots', 'Healing potion', 'Chef\'s knife', 'Golf club (7 iron)', 'Cast iron skillet', 'Headlamp', 'Fire extinguisher', 'Bluetooth speaker', 'Smoke bomb', 'Goblin hob-lobber', 'Tennis racket', 'WD-40', 'Bungee cords', 'Protein bar', 'Hot sauce', 'Silver loot box', 'EpiPen'] },
       small: { gold: '1d4', picks: [1, 1], from: 'a search', pool: ['Energy bar', 'Bottle of water', 'Rusty key', 'Lighter', 'Ball of twine', 'Band-aids', 'Roll of toilet paper', 'Breath mints', 'Box cutter', 'Bungee cords', 'Zip ties (10)', 'Empty bottle', 'Wallet ($14 and a punch card)', 'Ibuprofen'] },
       silver: { gold: '4d6', picks: [2, 4], from: 'a silver loot box', pool: ['Greater healing potion', 'Healing potion', 'Goblin hob-lobber', 'Smoke bomb', 'Jumper cables', 'Pallet jack', 'Headlamp', 'EpiPen', 'Golf club (7 iron)', 'Chef\'s knife', 'Cast iron skillet', 'Meat tenderizer'] },
-      small_office: { gold: '1d6', picks: [1, 2], from: 'a desk', pool: ['Stapler', 'Letter opener', 'Sticky notes', 'Archive pages', 'Ergonomic keyboard', 'Laminated visitor badge', '"World\'s Best Boss" mug', 'Breath mints', 'Lint roller', 'Ibuprofen', 'Box cutter'] },
-      small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
+      small_office: { gold: '1d6', picks: [1, 2], from: 'a desk', pool: ['AA batteries', 'Stapler', 'Letter opener', 'Sticky notes', 'Archive pages', 'Ergonomic keyboard', 'Laminated visitor badge', '"World\'s Best Boss" mug', 'Breath mints', 'Lint roller', 'Ibuprofen', 'Box cutter'] },
+      small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['AA batteries', 'Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
       small_garden: { gold: '1d4', picks: [1, 2], from: 'the potting shed', pool: ['Rake', 'Hedge trimmers', 'Weed killer', 'Bug spray', 'Cordless leaf blower', 'Shrub sap', 'Bog slime', 'Floral foam brick', 'Bottle of water'] },
       small_bazaar: { gold: '2d4', picks: [1, 2], from: 'a stall', pool: ['Hot sauce', 'Can of cooking spray', 'Chef\'s knife', 'Rolling pin', 'Meat tenderizer', 'Cast iron skillet', 'Protein bar', 'Energy bar', 'Roll of aluminum foil', 'Bottle of water'] },
       small_arena: { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] }
