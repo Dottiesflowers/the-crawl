@@ -15,6 +15,7 @@
   }
   var visNow = {}, tmp = new THREE.Color();
   function refreshFog() {
+    streamChunks();
     var S = SIGHTS[sightI], R = S.r; visNow = {};
     for (var z = P.z - R; z <= P.z + R; z++) for (var x = P.x - R; x <= P.x + R; x++) {
       if (x < 0 || z < 0 || x >= W || z >= H) continue;
@@ -58,20 +59,25 @@
     gate: 'The stairs down are close. So is whatever is guarding them.'
   };
   function enterRoom() {
-    var id = roomAt(P.x, P.z); if (id === lastRoom) return; lastRoom = id;
-    document.getElementById('region').textContent = ROOMS[id].name;
-    if (!seenRooms[id]) { seenRooms[id] = 1; say('Neighborhood discovered: ' + ROOMS[id].name, ROOM_LINES[id]); }
+    var info = roomInfo(P.x, P.z); if (!info) return; var id = info.id; if (id === lastRoom) return; lastRoom = id;
+    var hood = info.hood !== undefined ? LEVEL.hoods[info.hood] : null;
+    document.getElementById('region').textContent = info.name;
+    if (hood && !seenRooms['h' + info.hood]) { seenRooms['h' + info.hood] = 1; say('Neighborhood discovered: ' + hood.name, hood.line, 6000); }
+    else if (!seenRooms[id] && info.type !== 'corridor') { seenRooms[id] = 1; say((info.type === 'safe' ? 'Safe room: ' : info.type === 'boss' ? 'Boss room: ' : info.type === 'hidden' ? 'Secret found: ' : 'Discovered: ') + info.name, info.line, 4500); }
+    // a sharp-eyed crawler notices odd walls nearby
+    var pp = 10 + MOD.WIS + skillLv('Perception');
+    for (var dz = -2; dz <= 2; dz++) for (var dx = -2; dx <= 2; dx++) if (ch(P.x + dx, P.z + dz) === 'H' && pp >= 12 && !seenRooms['H' + (P.x + dx) + ',' + (P.z + dz)]) { seenRooms['H' + (P.x + dx) + ',' + (P.z + dz)] = 1; say('Perception · passive ' + pp, 'One of the walls near you does not look quite right.', 4500); }
   }
 
   // ---------- interact: D&D-style options and skill checks ----------
   var MOD = { STR: 0, DEX: 1, CON: 1, INT: 1, WIS: 2, CHA: 1 };
   var done = {}, menuEl = document.getElementById('menu'), menuOpen = false, menuAt = null;
   function stairsHint() {
-    var dx = 23 - P.px, dz = 13 - P.pz, sxs = dx - dz, sys = dx + dz, n = Math.round(Math.sqrt(dx * dx + dz * dz));
+    var dx = LEVEL.stairs.x - P.px, dz = LEVEL.stairs.z - P.pz, sxs = dx - dz, sys = dx + dz, n = Math.round(Math.sqrt(dx * dx + dz * dz));
     var v = sys > 2 ? 'down' : (sys < -2 ? 'up' : ''), h = sxs > 2 ? 'right' : (sxs < -2 ? 'left' : '');
     return n < 2 ? 'You are standing next to it.' : 'The stairwell is ' + n + ' tiles away, toward the ' + ((v + ' ' + h).trim() || 'middle') + ' of your screen.';
   }
-  var NAMES = { C: 'Loot box (Bronze)', M: 'Cellar Grub, level 1', B: 'Brazier', P: 'Pillar', S: 'Stairwell', D: 'Doorway', K: 'Crate', R: 'Barrel', '#': 'Wall', area: 'Your surroundings' };
+  var NAMES = { X: 'Bathroom', H: 'Wall', T: 'Table', W: 'Weapon rack', U: 'Training dummy', b: 'Sack', h: 'Shelf', c: 'Candle stand', q: 'Cauldron', k: 'Book stand', g: 'Cage', v: 'Vase', C: 'Loot box (Bronze)', M: 'Cellar Grub, level 1', B: 'Brazier', P: 'Pillar', S: 'Stairwell', D: 'Doorway', K: 'Crate', R: 'Barrel', '#': 'Wall', area: 'Your surroundings' };
   var ACTS = {
     C: [
       { label: 'Examine', text: 'A bronze loot box. Sealed. You are being filmed looking at it.' },
@@ -118,8 +124,24 @@
     ],
     '#': [
       { label: 'Examine', text: 'It is a wall.' },
-      { label: 'Search for a hidden door', stat: 'INT', dc: 15, win: 'A hairline seam. Not a door yet, but the builders left room for one.', lose: 'Solid.' }
+      { label: 'Search for a hidden door', stat: 'WIS', skill: ['Perception', 0], dc: 13, win: 'You run your hands over every stone. It really is just a wall.', lose: 'Solid.' }
     ],
+    H: [
+      { label: 'Examine', text: 'It is a wall. Probably.' },
+      { label: 'Search for a hidden door', stat: 'WIS', skill: ['Perception', 0], dc: 13, flag: 'found', win: 'A seam, a click, and the wall swings inward. The audience gasps on cue.', lose: 'Solid. Or you missed something.' }
+    ],
+    X: [{ label: 'Use the mirror (change hair and facial hair)', auto: 'mirror' }, { label: 'Read the stall wall', auto: 'board' }, { label: 'Write on the stall wall (only your party can read it)', auto: 'write' },
+      { label: 'Examine', text: 'A safe room bathroom. Clean, by dungeon standards. The stall walls are covered in messages from crawlers.' }],
+    T: [{ label: 'Examine', text: 'A table set for someone. The food is plastic. The plastic is also food.' }, { label: 'Search it', stat: 'INT', dc: 11, win: 'A crumpled napkin with a note: "the stairs are south of the ring". Helpful.', lose: 'Crumbs.' }],
+    W: [{ label: 'Examine', text: 'A weapon rack. Every slot is empty except for a sign that says TAKE ONE.' }],
+    U: [{ label: 'Examine', text: 'A training dummy with a crawler\'s face drawn on it. Not yours. Yet.' }, { label: 'Practice on it', stat: 'STR', dc: 8, win: 'Thwack. You feel slightly more dangerous.', lose: 'You miss a stationary target. On camera.' }],
+    b: [{ label: 'Search it', stat: 'INT', dc: 10, flag: 'loot', win: 'You rummage through it.', lose: 'Old rags and something that bit you.' }],
+    h: [{ label: 'Search it', stat: 'INT', dc: 11, flag: 'loot', win: 'Behind the bottles, something useful.', lose: 'Dusty bottles. All empty.' }],
+    c: [{ label: 'Examine', text: 'A tall iron candle stand. The candles never burn down.' }],
+    q: [{ label: 'Examine', text: 'A cauldron of something green that occasionally says "hello".' }, { label: 'Taste it', stat: 'CON', dc: 12, win: 'Tastes like soup. You feel fine. Mostly.', lose: 'You throw up a little. The audience loves it.' }],
+    k: [{ label: 'Read it', stat: 'INT', dc: 10, win: 'A field guide page: "Puglins flee when their leader falls. Imps will not cross a picket line."', lose: 'The handwriting is terrible.' }],
+    g: [{ label: 'Examine', text: 'A small cage. The door is open. Whatever was inside is not.' }],
+    v: [{ label: 'Smash it', stat: 'STR', dc: 6, flag: 'loot', win: 'Crash. Something rolls out of the shards.', lose: 'It bounces. Embarrassing.' }],
     area: [
       { label: 'Search the area', stat: 'WIS', dc: 12, win: 'Scuffed footprints, not yours, heading for the stairwell.', lose: 'Nothing catches your eye.' },
       { label: 'Sense the stairwell (Living Map)', auto: 'map' },
@@ -137,13 +159,13 @@
     return { c: 'area', key: 'area' };
   }
   function closeMenu() { menuOpen = false; menuEl.classList.remove('on'); document.getElementById('aInteract').classList.remove('held'); }
-  function openMenu() {
-    if (gearOpen) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen) { closeMenu(); return; }
-    var t = findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
-    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · HP ' + t.e.hp + '/' + t.e.max + (t.e.calm ? ' · friendly' : '') : NAMES[t.c]; menuEl.appendChild(hd);
+  function openMenu(t0) {
+    if (gearOpen) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
+    var t = t0 || findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
+    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : NAMES[t.c]; menuEl.appendChild(hd);
     (t.e ? enemyActs(t.e) : ACTS[t.c]).forEach(function (a, i) {
       var b = document.createElement('button'); b.type = 'button';
-      var spent = a.flag && done[t.key + a.flag];
+      var spent = a.flag && done[t.key + a.flag] && a.flag !== 'open' && a.flag !== 'loot';
       var bonus = a.stat ? chkBonus(a) : 0;
       b.innerHTML = '<span>' + (i + 1) + '. ' + a.label + '</span>' + (spent ? '<i>done</i>' : (a.stat ? '<i>' + a.stat + (a.skill ? ' + ' + a.skill[0] : '') + ' +' + bonus + '</i>' : ''));
       if (spent) b.disabled = true;
@@ -154,8 +176,11 @@
   }
   function act(t, a) {
     closeMenu();
+    if ((a.flag === 'open' || a.flag === 'loot') && done[t.key + a.flag]) { lootSpot(t.x, t.z, a.flag === 'open' ? 'chest' : 'small'); return; }
     kitOneShot(a.stat ? 'Interact' : 'PickUp_Table');
     if (a.auto === 'map') { say('Living Map', stairsHint()); return; }
+    if (a.auto === 'mirror') { GMODE = 'mirror'; tab = 'Face'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); } return; }
+    if (a.auto === 'board' || a.auto === 'write') { boardOpen(roomInfo(t.x, t.z), a.auto === 'write'); return; }
     if (a.talk) { talkOpen(t.e); return; }
     if (a.loot) { lootBody(t.e); return; }
     if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); t.e.calm = false; cbStart(t.e.calm ? '' : 'You started it.', t.e); return; }
@@ -170,7 +195,9 @@
       done[t.key + a.flag] = true;
       if (a.flag === 'calm' && t.e) { t.e.calm = true; cbHUD(); }
       if (a.flag === 'calm') { tiles.forEach(function (q) { if (q.mob && q.glow && q.x === t.x && q.z === t.z) q.base.set(0x40ff70); }); refreshFog(); }
-      if (a.flag === 'open') tiles.forEach(function (q) { if (q.x === t.x && q.z === t.z && q.lid) { q.mesh.position.y += 0.2; q.mesh.position.z -= 0.2; } });
+      if (a.flag === 'open') { tiles.forEach(function (q) { if (q.x === t.x && q.z === t.z && q.lid) { q.mesh.position.y += 0.2; q.mesh.position.z -= 0.2; } }); lootSpot(t.x, t.z, 'chest'); }
+      if (a.flag === 'loot') lootSpot(t.x, t.z, 'small');
+      if (a.flag === 'found') { revealHidden(t.x, t.z); }
     }
   }
 
@@ -187,17 +214,28 @@
   }
   function moveHero(dt) {
     if (CB.on) { cbMove(dt); return; }
+    if (PC.timeout && performance.now() < PC.timeout) { P.speed = 0; return; }
     var sx = joy.x, sy = joy.y;
     if (keys.L) sx -= 1; if (keys.R) sx += 1; if (keys.U) sy -= 1; if (keys.D) sy += 1;
-    var m = Math.sqrt(sx * sx + sy * sy);
-    if (gearOpen || m < 0.15) { P.speed = 0; return; }
-    if (menuOpen && Math.abs(P.px - menuAt.x) + Math.abs(P.pz - menuAt.z) > 0.4) closeMenu();
-    if (m > 1) { sx /= m; sy /= m; m = 1; }
-    var wx = (sx + sy) * 0.7071, wz = (sy - sx) * 0.7071; // screen direction to floor direction
+    var m = Math.sqrt(sx * sx + sy * sy), wx, wz;
+    if (m >= 0.15) P.path = null;
+    if (P.path && !gearOpen) { // walking to a tapped spot
+      var nt = P.path[0], ddx = nt[0] - P.px, ddz = nt[1] - P.pz, dl = Math.sqrt(ddx * ddx + ddz * ddz);
+      if (dl <= Math.max(0.1, (crouch ? 1.5 : 3.3) * dt)) { P.px = nt[0]; P.pz = nt[1]; P.path.shift();
+        if (!P.path.length) { P.path = null; P.speed = 0; var arrive = P.onArrive; P.onArrive = null; var tx0 = Math.round(P.px), tz0 = Math.round(P.pz); if (tx0 !== P.x || tz0 !== P.z) { P.x = tx0; P.z = tz0; refreshFog(); enterRoom(); cbAggro(); } if (arrive && !CB.on) arrive(); return; }
+        nt = P.path[0]; ddx = nt[0] - P.px; ddz = nt[1] - P.pz; dl = Math.sqrt(ddx * ddx + ddz * ddz); }
+      wx = ddx / dl; wz = ddz / dl; m = 1;
+    } else {
+      if (gearOpen || m < 0.15) { P.speed = 0; return; }
+      if (m > 1) { sx /= m; sy /= m; m = 1; }
+      wx = (sx + sy) * 0.7071; wz = (sy - sx) * 0.7071; // screen direction to floor direction
+    }
+    if (menuOpen && Math.abs(P.px - menuAt.x) + Math.abs(P.pz - menuAt.z) > 0.4 && !P.path) closeMenu();
     var top = crouch ? 1.5 : 3.3; P.speed = top * m;
     var nx = P.px + wx * top * dt, nz = P.pz + wz * top * dt, ox = P.px, oz = P.pz;
+    if (P.path) { P.px = nx; P.pz = nz; } else {
     if (!solidNear(nx, P.pz)) P.px = nx;
-    if (!solidNear(P.px, nz)) P.pz = nz;
+    if (!solidNear(P.px, nz)) P.pz = nz; }
     walked += Math.abs(P.px - ox) + Math.abs(P.pz - oz);
     var want = Math.atan2(wx, wz), d = want - hero.rotation.y;
     while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
@@ -233,6 +271,7 @@
   tap('aInteract', openMenu); tap('aJump', jump); tap('aCrouch', toggleCrouch); tap('aSight', cycleSight);
   var KEYS = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R', w: 'U', s: 'D', a: 'L', d: 'R', W: 'U', S: 'D', A: 'L', D: 'R' };
   window.addEventListener('keydown', function (e) {
+    if (LOOTW.open) { if (e.key === 'Escape') lootClose(); return; }
     if (TALK.open || CC || AUTH.open) return;
     if (e.key === 'i' || e.key === 'I') { bagToggle(); return; } if (e.key === 'm' || e.key === 'M') { mapToggle(); return; }
     if (e.key === 'Escape' && (UI.bag || UI.map)) { if (UI.bag) bagToggle(); if (UI.map) mapToggle(); return; }
@@ -252,11 +291,22 @@
 
   // ---------- character builder ----------
   var rowsEl = document.getElementById('rows'), tabsEl = document.getElementById('tabs'), tab = 'Body', autoSpin = true;
-  var TABS = ['Body', 'Face', 'Clothes', 'Gear', 'Sheet'];
+  var TABS = ['Body', 'Face', 'Clothes', 'Gear', 'Sheet'], GMODE = 'normal';
+  // which tabs show: designing a new character, at a bathroom mirror, or normal play (clothes you own, your sheet)
+  function tabsNow() {
+    if (GMODE === 'design') return ['Body', 'Face', 'Clothes'];
+    if (GMODE === 'mirror') return ['Face'];
+    if (!CHAR || CHAR.freeWardrobe) return TABS;
+    return ['Clothes', 'Sheet'];
+  }
+  var MIRROR_KEYS = { kHair: 1, kBeard: 1, kBrows: 1, hair: 1, beard: 1 };
   function saveLook() { try { localStorage.setItem('crawl-look7', JSON.stringify(look)); } catch (e) {} saveLookRemote(); }
   function drawTabs() {
     tabsEl.innerHTML = '';
-    TABS.forEach(function (t) {
+    var TT = tabsNow(); if (TT.indexOf(tab) < 0) tab = TT[0];
+    document.getElementById('closeGear').textContent = GMODE === 'design' ? 'Confirm and enter the dungeon' : GMODE === 'mirror' ? 'Done' : 'Back to the crawl';
+    document.getElementById('randBtn').style.display = GMODE === 'design' || !CHAR ? '' : 'none';
+    TT.forEach(function (t) {
       var b = document.createElement('button'); b.type = 'button'; b.textContent = t; if (t === tab) b.className = 'on';
       b.onclick = function () { tab = t; if (t === 'Face') { autoSpin = false; spin = Math.PI / 4 - hero.rotation.y; } drawTabs(); drawRows(); }; tabsEl.appendChild(b);
     });
@@ -265,7 +315,7 @@
     rowsEl.innerHTML = '';
     if (tab === 'Sheet') { rowsEl.innerHTML = sheetHTML(); sheetAfter(); return; }
     if (tab === 'Clothes' && kitMode() && clothesLocked()) { wardrobeRows(rowsEl); return; }
-    SLOTS.filter(function (s) { return s.tab === tab && !(s.hand && kitMode()) && !(s.kit && !kitMode()); }).forEach(function (s) {
+    SLOTS.filter(function (s) { return s.tab === tab && (GMODE !== 'mirror' || MIRROR_KEYS[s.key]) && !(s.hand && kitMode()) && !(s.kit && !kitMode()); }).forEach(function (s) {
       var row = document.createElement('div'); row.className = 'row';
       var lab = document.createElement('span'); lab.className = 'slot'; lab.textContent = s.label; row.appendChild(lab);
       var multi = s.styles.length > 1;
@@ -292,6 +342,9 @@
     buildHero(); saveLook(); drawRows();
   }
   function toggleGear() {
+    if (!gearOpen && CB.on) { say('Not now', 'No changing clothes in the middle of a fight.', 2400); return; }
+    if (gearOpen && GMODE === 'design') { GMODE = 'normal'; if (CHAR) { CHAR.designed = true; saveChar(CHAR); } setTimeout(function () { say('Welcome to the crawl', 'You wake up in a Safe Room. A nervous imp with a clipboard is waiting for you. Tap things to look at them, or walk up and press Interact.', 8000); }, 600); }
+    else if (gearOpen && GMODE === 'mirror') { GMODE = 'normal'; if (CHAR) saveChar(CHAR); }
     gearOpen = !gearOpen; joy.x = joy.y = 0; closeMenu();
     document.getElementById('gear').classList.toggle('on', gearOpen);
     document.getElementById('stick').style.display = gearOpen ? 'none' : '';
@@ -359,7 +412,7 @@
     blob.material.opacity = 0.3 - jy * 0.3;
     // living world: flames, firelight, water, the grub breathing
     for (var i = 0; i < flames.length; i++) { var f = flames[i], k = 0.8 + 0.3 * Math.sin(T * 9 + f.ph) + 0.15 * Math.sin(T * 23 + f.ph * 2); f.m.scale.y = f.h * k; f.m.position.y = f.y + f.h * k / 2; f.m.scale.x = f.m.scale.z = f.w * (1.1 - 0.2 * k); }
-    for (i = 0; i < fireLights.length; i++) fireLights[i].l.intensity = 1.0 + 0.2 * Math.sin(T * 11 + fireLights[i].ph) + 0.12 * Math.sin(T * 27 + fireLights[i].ph);
+    for (i = 0; i < fireLights.length; i++) fireLights[i].l.intensity = !fireLights[i].on ? 0 : 1.0 + 0.2 * Math.sin(T * 11 + fireLights[i].ph) + 0.12 * Math.sin(T * 27 + fireLights[i].ph);
     if (torchLight.intensity > 0) torchLight.intensity = 0.85 + 0.15 * Math.sin(T * 13);
     for (i = 0; i < waterTex.length; i++) { waterTex[i].offset.x = T * 0.035; waterTex[i].offset.y = Math.sin(T * 0.5 + i) * 0.04; }
     for (i = 0; i < mobParts.length; i++) { var mp = mobParts[i], sq = 1 + 0.07 * Math.sin(T * 2.2 + mp.ph); mp.t.mesh.scale.y = mp.round ? sq : mp.h * sq; mp.t.mesh.position.y = mp.h * sq / 2 + (mp.head ? 0.1 : 0.02); }
@@ -371,7 +424,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

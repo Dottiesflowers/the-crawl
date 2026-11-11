@@ -84,6 +84,7 @@ export class Campaign extends DurableObject {
       CREATE TABLE IF NOT EXISTS invites (code TEXT PRIMARY KEY, note TEXT, created_by INTEGER, created INTEGER, used_by INTEGER, used_at INTEGER);
       CREATE TABLE IF NOT EXISTS characters (user_id INTEGER PRIMARY KEY, data TEXT, updated INTEGER);
       CREATE TABLE IF NOT EXISTS kv (user_id INTEGER, k TEXT, v TEXT, updated INTEGER, PRIMARY KEY (user_id, k));
+      CREATE TABLE IF NOT EXISTS board (id INTEGER PRIMARY KEY, user_id INTEGER, room INTEGER, text TEXT, created INTEGER);
       CREATE TABLE IF NOT EXISTS ai_usage (user_id INTEGER, day TEXT, calls INTEGER, PRIMARY KEY (user_id, day));
     `);
   }
@@ -130,6 +131,15 @@ export class Campaign extends DurableObject {
       if (p === '/api/party' && m === 'GET') {
         const rows = this.all('SELECT u.id, u.username, u.role, c.data, c.updated FROM users u LEFT JOIN characters c ON c.user_id = u.id ORDER BY u.id');
         return json({ party: rows.map(r => { const c = r.data ? JSON.parse(r.data) : null; return { id: r.id, username: r.username, role: r.role, name: c && c.name, xp: c ? c.xp || 0 : 0, level: c ? c.level || 1 : 1, trait: c && c.trait, flaw: c && c.flaw, updated: r.updated }; }) });
+      }
+      if (p === '/api/board' && m === 'GET') {
+        const room = parseInt(url.searchParams.get('room') || '0', 10);
+        return json({ messages: this.all('SELECT b.text, b.created, u.username FROM board b JOIN users u ON u.id = b.user_id WHERE b.room = ? ORDER BY b.created DESC LIMIT 40', room).reverse() });
+      }
+      if (p === '/api/board' && m === 'POST') {
+        const text = String(body.text || '').trim().slice(0, 400); if (!text) return json({ error: 'empty' }, 400);
+        this.sql.exec('INSERT INTO board (user_id, room, text, created) VALUES (?, ?, ?, ?)', u.id, parseInt(body.room, 10) || 0, text, Date.now());
+        return json({ ok: true });
       }
       if (p.startsWith('/api/kv/')) {
         const k = decodeURIComponent(p.slice(8)).slice(0, 80);

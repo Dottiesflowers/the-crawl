@@ -126,6 +126,149 @@
   function fail(msg) { errBox.textContent = msg; errBox.style.display = 'flex'; }
   if (!window.THREE) { fail('The 3D library did not load. Check your connection and reload.'); return; }
 
+  // ===================== Level One generator =====================
+  // One fixed seed, so every player gets the same floor. Layout: a central Safe Room inside a ring corridor;
+  // four monster neighborhoods in the corners, each a cluster of rooms joined by tunnels with a boss room at
+  // the far end; a feast hall to the north, the stairwell to the south, extra safe rooms on the ring, and a few
+  // hidden rooms behind walls that only a good Perception check finds.
+  // Map characters: # wall · . floor · , moss floor · ~ water · D door · H hidden door · S stairs · @ start
+  //   P pillar · B brazier · C loot box · K crate · R barrel · T table · W weapon rack · U training dummy
+  //   b sack · h shelf · c candle stand · q cauldron · k book stand · g cage · v vase
+  function genLevel(seed) {
+    var Wd = 90, Hd = 90, s = seed >>> 0;
+    function rnd() { s = (s + 0x6D2B79F5) >>> 0; var t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+    function ri(a, b) { return a + Math.floor(rnd() * (b - a + 1)); }
+    var g = [], reg = [], rooms = [], spawns = [], i, x, z;
+    for (z = 0; z < Hd; z++) { g.push([]); reg.push([]); for (x = 0; x < Wd; x++) { g[z].push('#'); reg[z].push(-1); } }
+    function inb(x, z) { return x > 0 && z > 0 && x < Wd - 1 && z < Hd - 1; }
+    function room(o) { o.id = rooms.length; rooms.push(o); return o; }
+    function carveRect(r, floor) {
+      for (var zz = r.z0; zz <= r.z1; zz++) for (var xx = r.x0; xx <= r.x1; xx++) if (inb(xx, zz)) { g[zz][xx] = floor || '.'; reg[zz][xx] = r.id; }
+    }
+    function free(x0, z0, x1, z1) { for (var zz = z0 - 1; zz <= z1 + 1; zz++) for (var xx = x0 - 1; xx <= x1 + 1; xx++) { if (!inb(xx, zz) || g[zz][xx] !== '#') return false; } return true; }
+    function carveTile(x, z, rid, floor) { if (!inb(x, z)) return; if (g[z][x] === '#') { g[z][x] = floor || '.'; reg[z][x] = rid; } }
+    // an L-shaped tunnel; where it breaks into a room through its wall it leaves a doorway
+    function tunnel(ax, az, bx, bz, rid, wide, floor) {
+      var horizFirst = rnd() < 0.5, pts = horizFirst ? [[ax, az], [bx, az], [bx, bz]] : [[ax, az], [ax, bz], [bx, bz]];
+      for (var k = 0; k < 2; k++) {
+        var p = pts[k], q = pts[k + 1], dx = Math.sign(q[0] - p[0]), dz = Math.sign(q[1] - p[1]), x = p[0], z = p[1];
+        while (true) {
+          carveTile(x, z, rid, floor); if (wide) { carveTile(x + (dz ? 1 : 0), z + (dx ? 1 : 0), rid, floor); }
+          if (x === q[0] && z === q[1]) break; x += dx; z += dz;
+        }
+      }
+    }
+    function center(r) { return [Math.floor((r.x0 + r.x1) / 2), Math.floor((r.z0 + r.z1) / 2)]; }
+    function scatter(r, chars, n) { // decor on free floor inside a room, away from its edges
+      for (var k = 0; k < n; k++) for (var t = 0; t < 12; t++) {
+        var x = ri(r.x0 + 1, r.x1 - 1), z = ri(r.z0 + 1, r.z1 - 1);
+        if (g[z][x] === '.' || g[z][x] === ',') { g[z][x] = chars[Math.floor(rnd() * chars.length)]; break; }
+      }
+    }
+    // ----- hub: the Safe Room and the ring corridor -----
+    var C = 45, hub = room({ name: 'Safe Room', theme: 'crypt', type: 'safe', x0: C - 4, z0: C - 4, x1: C + 4, z1: C + 4, line: 'Your holding cell. No violence of any kind; the System takes this very seriously, and so does its teleporter.' });
+    carveRect(hub);
+    var ring = room({ name: 'The Ring', theme: 'hall', type: 'corridor', x0: C - 15, z0: C - 15, x1: C + 15, z1: C + 15, line: 'A long loop of corridor. Quiet. Mostly.' });
+    for (x = ring.x0; x <= ring.x1; x++) for (var w = 0; w < 2; w++) { carveTile(x, ring.z0 + w, ring.id); carveTile(x, ring.z1 - w, ring.id); }
+    for (z = ring.z0; z <= ring.z1; z++) for (w = 0; w < 2; w++) { carveTile(ring.x0 + w, z, ring.id); carveTile(ring.x1 - w, z, ring.id); }
+    // hub doors out to the ring on all four sides
+    [[C, C - 5, 0, -1], [C, C + 5, 0, 1], [C - 5, C, -1, 0], [C + 5, C, 1, 0]].forEach(function (d) {
+      g[d[1]][d[0]] = 'D'; reg[d[1]][d[0]] = hub.id;
+      tunnel(d[0] + d[2], d[1] + d[3], d[2] ? (d[2] < 0 ? ring.x0 + 1 : ring.x1 - 1) : d[0], d[3] ? (d[3] < 0 ? ring.z0 + 1 : ring.z1 - 1) : d[1], ring.id);
+    });
+    g[C - 3][C - 1] = 'X'; g[C][C - 2] = '@'; g[C - 3][C - 3] = 'c'; g[C - 3][C + 3] = 'c'; g[C + 3][C - 3] = 'v'; g[C + 3][C + 3] = 'g'; g[C - 2][C + 2] = 'B';
+    spawns.push({ kind: 'imp', npc: 'pip', x: C + 1, z: C + 1 });
+    // ----- the ring's own rooms: two more safe rooms, the feast hall north, the stairwell south -----
+    function sideRoom(o, door) {
+      var r = room(o); carveRect(r); var d = door; g[d[1]][d[0]] = 'D'; reg[d[1]][d[0]] = r.id;
+      var ox = Math.sign(d[0] - C) * (Math.abs(d[0] - C) > 2 ? 1 : 0), oz = Math.sign(d[1] - C) * (Math.abs(d[1] - C) > 2 ? 1 : 0); carveTile(d[0] - ox, d[1] - oz, ring.id); return r;
+    }
+    var safeW = sideRoom({ name: 'Safe Room (West Ring)', theme: 'crypt', type: 'safe', x0: C - 24, z0: C - 3, x1: C - 18, z1: C + 3, line: 'Another safe room. The vending machine is out of everything.' }, [C - 17, C]);
+    g[C][C - 21] = 'B'; g[C - 2][C - 23] = 'c'; g[C + 2][C - 23] = 'X';
+    var safeE = sideRoom({ name: 'Safe Room (East Ring)', theme: 'crypt', type: 'safe', x0: C + 18, z0: C - 3, x1: C + 24, z1: C + 3, line: 'A safe room with a broken toilet and a working fire.' }, [C + 17, C]);
+    g[C][C + 21] = 'B'; g[C + 2][C + 23] = 'c'; g[C - 2][C + 23] = 'X';
+    var feast = sideRoom({ name: 'The Feast Hall', theme: 'hall', type: 'hall', x0: C - 9, z0: C - 27, x1: C + 9, z1: C - 18, line: 'A banquet laid out for a crowd that never came. Pillars block your line of sight.' }, [C, C - 17]);
+    for (x = feast.x0 + 2; x <= feast.x1 - 2; x += 4) { g[feast.z0 + 2][x] = 'P'; g[feast.z1 - 2][x] = 'P'; }
+    g[C - 23][C - 1] = 'T'; g[C - 23][C + 3] = 'T'; g[C - 22][C - 6] = 'W'; g[C - 20][C + 6] = 'U'; g[C - 25][C] = 'B'; scatter(feast, 'RKR', 3);
+    var stair = sideRoom({ name: 'Stairwell Approach', theme: 'gate', type: 'stairs', x0: C - 6, z0: C + 18, x1: C + 6, z1: C + 25, line: 'The stairs down are here. So is whatever is guarding them.' }, [C, C + 17]);
+    g[C + 24][C] = 'S'; g[C + 22][C - 4] = 'q'; g[C + 20][C + 5] = 'k'; g[C + 24][C + 5] = 'c'; g[C + 19][C - 5] = 'B'; g[C + 19][C + 5] = 'B';
+    spawns.push({ kind: 'imp', tier: 2, x: C + 1, z: C + 22, guard: true, name: 'Imp, stairwell guard' });
+    // ----- four neighborhoods -----
+    var HOODS = [
+      { name: 'The Puglin Warrens', theme: 'moss', fam: 'puglin', x0: 2, z0: 2, x1: 28, z1: 28, gate: [C - 15, C - 8], tunnels: 'Warren tunnels', boss: 'Grik\'s Throne Room',
+        line: 'Puglin territory. Something has been watering the moss, and something has been eating the gardeners.', decor: 'bbKRv', roomNames: ['Gnawing Pit', 'Moss Den', 'Bone Garden', 'Snack Larder', 'Mud Nursery', 'Sentry Nook', 'Rag Pile', 'Root Cellar'] },
+      { name: 'Imp Union Hall', theme: 'gate', fam: 'imp', x0: 62, z0: 2, x1: 87, z1: 28, gate: [C + 15, C - 8], tunnels: 'Service corridors', boss: 'The Steward\'s Office',
+        line: 'Imp territory. Every door has a sign-in sheet. Every sign-in sheet is blank.', decor: 'KRhTB', roomNames: ['Break Room', 'Locker Room', 'Grievance Office', 'Time Clock', 'Supply Closet', 'Night Shift Lounge', 'Union Archive', 'Overtime Pit'] },
+      { name: 'The Gnawed Cellars', theme: 'store', fam: 'puglin', x0: 2, z0: 62, x1: 28, z1: 87, gate: [C - 15, C + 8], tunnels: 'Cellar passages', boss: 'The Butcher\'s Block',
+        line: 'Storerooms the puglins took over. The crates are full of things that used to be other crates.', decor: 'KKRRbh', roomNames: ['Pantry', 'Wine Cellar', 'Crate Maze', 'Cold Store', 'Spice Room', 'Coal Bin', 'Old Larder', 'Barrel Room'] },
+      { name: 'The Flooded Archive', theme: 'water', fam: 'imp', x0: 62, z0: 62, x1: 87, z1: 87, gate: [C + 15, C + 8], tunnels: 'Drowned stacks', boss: 'The Records Vault',
+        line: 'Ankle-deep water over a records archive. The imps say the paperwork is load-bearing.', decor: 'hkKR', roomNames: ['Reading Pool', 'Wet Stacks', 'Card Catalog', 'Filing Sump', 'Microfiche Bog', 'Index Pond', 'Damp Annex', 'Ledger Room'] }
+    ];
+    var BOSSNAME = { puglin: ['grik', 'puglin_chief'], imp: ['steward', 'imp_foreman'] };
+    HOODS.forEach(function (H, hi) {
+      var floor = H.theme === 'moss' ? ',' : '.', tun = room({ name: H.tunnels, theme: H.theme, type: 'corridor', hood: hi, x0: H.x0, z0: H.z0, x1: H.x1, z1: H.z1, line: H.line });
+      var list = [], gx = H.gate[0], gz = H.gate[1], farX = gx < C ? H.x0 : H.x1, farZ = gz < C ? H.z0 : H.z1;
+      // boss room at the far corner
+      var bw = ri(10, 12), bh = ri(9, 11), bx0 = farX === H.x0 ? H.x0 + 1 : H.x1 - bw - 1, bz0 = farZ === H.z0 ? H.z0 + 1 : H.z1 - bh - 1;
+      var boss = room({ name: H.boss, theme: H.theme, type: 'boss', hood: hi, x0: bx0, z0: bz0, x1: bx0 + bw, z1: bz0 + bh, line: 'A big room that smells like a boss fight.' });
+      carveRect(boss, floor); list.push(boss);
+      for (x = boss.x0 + 2; x <= boss.x1 - 2; x += 4) { g[boss.z0 + 2][x] = 'P'; g[boss.z1 - 2][x] = 'P'; }
+      g[boss.z0 + 1][boss.x0 + 1] = 'B'; g[boss.z1 - 1][boss.x1 - 1] = 'B'; g[boss.z0 + 1][boss.x1 - 1] = 'B'; g[boss.z1 - 1][boss.x0 + 1] = 'B';
+      var bc = center(boss), behind = [bc[0] + (farX === H.x0 ? -3 : 3), bc[1] + (farZ === H.z0 ? -2 : 2)]; g[behind[1]][behind[0]] = 'C';
+      spawns.push({ kind: H.fam, boss: true, sub: BOSSNAME[H.fam][0], x: bc[0], z: bc[1], room: boss.id });
+      spawns.push({ kind: H.fam, sub: BOSSNAME[H.fam][1], x: bc[0] + 2, z: bc[1] + 1, room: boss.id }); spawns.push({ kind: H.fam, tier: 2, x: bc[0] - 2, z: bc[1] - 1, room: boss.id });
+      // other rooms
+      var names = H.roomNames.slice(), tries = 0;
+      while (list.length < 8 && tries++ < 400) {
+        var rw = ri(4, 8), rh = ri(4, 7), rx = ri(H.x0 + 1, H.x1 - rw - 1), rz = ri(H.z0 + 1, H.z1 - rh - 1);
+        if (!free(rx, rz, rx + rw, rz + rh)) continue;
+        var r = room({ name: names.shift() || 'Side Room', theme: H.theme, type: 'room', hood: hi, x0: rx, z0: rz, x1: rx + rw, z1: rz + rh, line: H.line });
+        carveRect(r, floor); list.push(r);
+      }
+      // join them: a spanning tree by distance plus one extra loop
+      var joined = [list[list.length - 1]], left = list.slice(0, list.length - 1);
+      while (left.length) {
+        var best = null, bd = 1e9;
+        left.forEach(function (a) { joined.forEach(function (b) { var ca = center(a), cb = center(b), dd = Math.abs(ca[0] - cb[0]) + Math.abs(ca[1] - cb[1]); if (dd < bd) { bd = dd; best = [a, b]; } }); });
+        var ca = center(best[0]), cb = center(best[1]); tunnel(ca[0], ca[1], cb[0], cb[1], tun.id, false, floor);
+        joined.push(best[0]); left.splice(left.indexOf(best[0]), 1);
+      }
+      if (list.length > 3) { var e1 = center(list[1]), e2 = center(list[list.length - 2]); tunnel(e1[0], e1[1], e2[0], e2[1], tun.id, false, floor); }
+      // the neighborhood's mouth: the room nearest the ring gate tunnels out to the ring
+      var near = list.slice(1).sort(function (a, b) { var A = center(a), B = center(b); return (Math.abs(A[0] - gx) + Math.abs(A[1] - gz)) - (Math.abs(B[0] - gx) + Math.abs(B[1] - gz)); })[0] || boss;
+      var cn = center(near); tunnel(cn[0], cn[1], gx, gz, tun.id, true, '.');
+      // dress the rooms and fill them with the neighborhood's monster family
+      list.forEach(function (r, k) {
+        if (r === boss) return;
+        scatter(r, H.decor, ri(1, 3)); if (rnd() < 0.35) scatter(r, 'C', 1);
+        var n = ri(1, 3); if (r === near) n = 1;
+        for (var m = 0; m < n; m++) { var c2 = center(r); spawns.push({ kind: H.fam, tier: rnd() < 0.18 ? 3 : rnd() < 0.45 ? 2 : 1, x: c2[0] + ri(-1, 1), z: c2[1] + ri(-1, 1), room: r.id }); }
+      });
+      H.rooms = list; H.tun = tun; H.bossRoom = boss;
+    });
+    // ----- hidden rooms: a short dead-end off a corridor behind a wall that hides a door -----
+    var hidden = 0;
+    for (var t = 0; t < 400 && hidden < 4; t++) {
+      var hx = ri(4, Wd - 12), hz = ri(4, Hd - 12), hw = ri(3, 4), hh = ri(3, 4);
+      if (!free(hx, hz, hx + hw, hz + hh)) continue;
+      // find a corridor tile two steps from one side
+      var sides = [[hx - 2, hz + 1, hx - 1, hz + 1], [hx + hw + 2, hz + 1, hx + hw + 1, hz + 1], [hx + 1, hz - 2, hx + 1, hz - 1], [hx + 1, hz + hh + 2, hx + 1, hz + hh + 1]], ok = null;
+      sides.forEach(function (sd) { if (!ok && inb(sd[0], sd[1]) && g[sd[1]][sd[0]] !== '#' && rooms[reg[sd[1]][sd[0]]] && rooms[reg[sd[1]][sd[0]]].type === 'corridor') ok = sd; });
+      if (!ok) continue;
+      var hr = room({ name: ['A Forgotten Closet', 'The Secret Stash', 'A Smugglers\' Nook', 'The Producer\'s Hideout'][hidden], theme: 'store', type: 'hidden', x0: hx, z0: hz, x1: hx + hw, z1: hz + hh, line: 'A hidden room. The audience gasps on cue.' });
+      carveRect(hr); g[ok[3]][ok[2]] = 'H'; reg[ok[3]][ok[2]] = hr.id; var hc = center(hr); g[hc[1]][hc[0]] = 'C'; hidden++;
+    }
+    // drop spawns that landed on non-floor
+    spawns = spawns.filter(function (sp) { var c = g[sp.z] && g[sp.z][sp.x]; return c === '.' || c === ','; });
+    // ----- water floors in the archive: pools inside rooms, with dry walkways -----
+    rooms.forEach(function (r) {
+      if (r.theme !== 'water' || r.type === 'corridor') return;
+      for (var zz = r.z0 + 1; zz <= r.z1 - 1; zz++) for (var xx = r.x0 + 1; xx <= r.x1 - 1; xx++) if (g[zz][xx] === '.' && (xx + zz) % 3 !== 0 && rnd() < 0.7) g[zz][xx] = '~';
+    });
+    var map = g.map(function (row) { return row.join(''); }), start = { x: C - 2, z: C };
+    return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start, hoods: HOODS, stairs: { x: C, z: C + 24 } };
+  }
+
   // ---------- small helpers ----------
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function hexs(n) { return '#' + ('000000' + (n >>> 0).toString(16)).slice(-6); }
@@ -231,33 +374,16 @@
   }
 
   // ---------- map ----------
-  var MAP = [
-    '##########################',
-    '#......#.........#,,,,,,,#',
-    '#..B...#.........#,,P,,,,#',
-    '#......D....P....D,,,,,C,#',
-    '#..@...#.........#,,,,,,,#',
-    '#......#....P....#,,P,,,,#',
-    '#......#.........#,,,,,,,#',
-    '####D###.........####D####',
-    '#......#####D#####.......#',
-    '#.C..K.#~~~~~~~~~#...M...#',
-    '#....KR#~~~~~~~~~#.......#',
-    '#......D~~~P~~~~~D....B..#',
-    '#......#~~~~~~~~~#.......#',
-    '#..B...#~~~~~~~~~#.....S.#',
-    '#R.....#~~~~~~~~~#.......#',
-    '##########################'
-  ];
+  var LEVEL = genLevel(1970), MAP = LEVEL.map;
   var H = MAP.length, W = MAP[0].length;
-  function roomAt(x, z) {
-    if (z <= 7 && x <= 7) return 'crypt';
-    if (z <= 7 && x <= 17) return 'hall';
-    if (z <= 7) return 'moss';
-    if (x <= 7) return 'store';
-    if (x <= 17) return 'water';
-    return 'gate';
+  // the room (from the generator) a tile belongs to; walls borrow a neighbouring room's look
+  function roomInfo(x, z) {
+    var r = LEVEL.reg[z] && LEVEL.reg[z][x];
+    if (r >= 0) return LEVEL.rooms[r];
+    for (var k = 0; k < 8; k++) { var dx = [1, -1, 0, 0, 1, 1, -1, -1][k], dz = [0, 0, 1, -1, 1, -1, 1, -1][k], q = LEVEL.reg[z + dz] && LEVEL.reg[z + dz][x + dx]; if (q >= 0) return LEVEL.rooms[q]; }
+    return null;
   }
+  function roomAt(x, z) { var r = roomInfo(x, z); return r ? r.theme : 'hall'; }
   var ROOMS = {
     crypt: { name: 'Safe Room', floor: [0x6a655c, 0x746e63, 0x5f5a52], wall: 0x7d7468 },
     hall:  { name: 'Pillar Hall', floor: [0x8a7256, 0x7a6449, 0x8f7a60], wall: 0x8f7a5e },
@@ -267,9 +393,9 @@
     gate:  { name: 'Stairwell Approach', floor: [0x70403c, 0x7c4742, 0x643a36], wall: 0x8a5a56 }
   };
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
-  var SOLID = { '#': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1 };
+  var SOLID = { 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
   function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z); }
-  function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P'; }
+  function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P' || c === 'H'; }
 
   function floorTex(id, v) {
     return tex('fl' + id + v, 64, 64, function (g) {
@@ -377,7 +503,9 @@
   function reg(mesh, x, z, opt) {
     opt = opt || {};
     var t = { mesh: mesh, x: x, z: z, base: opt.glow ? mesh.material.color.clone() : WHITE, wall: !!opt.wall, fade: !!opt.fade, mob: !!opt.mob, glow: !!opt.glow, hang: !!opt.hang };
-    mesh.visible = false; mesh.castShadow = !opt.glow && !opt.noShadow; mesh.receiveShadow = !opt.glow; scene.add(mesh); tiles.push(t); return t;
+    mesh.visible = false; mesh.castShadow = !opt.glow && !opt.noShadow; mesh.receiveShadow = !opt.glow; scene.add(mesh);
+    if (curChunk) curChunk.push(t); else { var ck = chunks[Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK)]; if (ck) ck.push(t); tiles.push(t); }
+    return t;
   }
   // box(): one block of the world. opt.kind picks the painted surface, opt.tex overrides it.
   function box(w, h, d, color, x, y, z, tx, tz, opt) {
@@ -388,7 +516,7 @@
       var top = h < 0.09, pw = clamp(Math.round(Math.max(w, d) * 68), 2, 68), ph = clamp(Math.round((top ? Math.min(w, d) : h) * 68), 2, 96);
       mat = new THREE.MeshLambertMaterial({ map: opt.tex || surf(opt.kind || 'stone', color, pw, ph, opt.seed || 0), transparent: !!opt.fade });
     }
-    var rg = opt.round ? roundGeo(w, h, d, Math.min(w, h, d) * opt.round, 4) : null;
+    var rg = opt.round ? roundGeo(w, h, d, Math.min(w, h, d) * opt.round, 4) : null; if (rg) rg.userData.own = true;
     m = new THREE.Mesh(rg || opt.geo || boxG, mat);
     if (!opt.geo && !rg) m.scale.set(w, h, d);
     m.position.set(x, y, z); return reg(m, tx, tz, opt);
@@ -401,14 +529,16 @@
     });
   }
 
-  var start = { x: 3, z: 4 }, c8 = new THREE.CylinderGeometry(0.5, 0.5, 1, 10), c16 = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
-  for (var z = 0; z < H; z++) for (var x = 0; x < W; x++) {
-    var c = ch(x, z), rid = roomAt(x, z), room = ROOMS[rid], r = hash(x, z), r2 = hash(x + 31, z + 17), v = Math.floor(r * 4);
+  var start = LEVEL.start, c8 = new THREE.CylinderGeometry(0.5, 0.5, 1, 10), c16 = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
+  function nearFloor(x, z) { for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { var q = ch(x + dx, z + dz); if (q !== '#' && q !== 'H') return true; } return false; }
+  function buildTile(x, z) {
+    var c = ch(x, z); if (c === 'H') c = '#'; if (c === '#' && !nearFloor(x, z)) return;
+    var rid = roomAt(x, z), room = ROOMS[rid], r = hash(x, z), r2 = hash(x + 31, z + 17), v = Math.floor(r * 4);
     if (c === '#') {
       var wh = 1.5 + r * 0.25;
       box(1, wh, 1, room.wall, x, wh / 2, z, x, z, { wall: true, tex: wallTex(rid, v) }).h = wh;
       // things that hang on a wall face looking toward the camera side
-      var south = ch(x, z + 1) !== '#' && z + 1 < H, east = ch(x + 1, z) !== '#' && x + 1 < W;
+      var south = ch(x, z + 1) !== '#' && ch(x, z + 1) !== 'H' && z + 1 < H, east = ch(x + 1, z) !== '#' && ch(x + 1, z) !== 'H' && x + 1 < W;
       if (south && r2 > 0.8) { // banner
         var bc = [0x7a1f1f, 0x1f3a6a, 0x4a2a6a, 0x2f5a34][Math.floor(r * 4)];
         box(0.5, 0.06, 0.06, 0x3a2a1c, x, 1.3, z + 0.53, x, z, { hang: true, kind: 'wood' });
@@ -424,7 +554,7 @@
         for (var vi = 0; vi < 3; vi++) { var vx = south ? x - 0.3 + vi * 0.3 : x + 0.52, vz = south ? z + 0.52 : z - 0.3 + vi * 0.3, vl = 0.4 + hash(x + vi, z * 3) * 0.7;
           box(0.07, vl, 0.04, [0x4f7f3a, 0x3d6a2e, 0x6a9a48][vi], vx, wh - vl / 2 - 0.05, vz, x, z, { hang: true, kind: 'cloth', seed: vi, noShadow: true }); }
       }
-      continue;
+      return;
     }
     if (c === '@') start = { x: x, z: z };
     if (c === 'S') { // stairs sink below the floor
@@ -433,7 +563,7 @@
       box(0.14, 1.5, 0.14, 0x5a5a64, x - 0.5, 0.75, z - 0.5, x, z, { fade: true }); box(0.14, 1.5, 0.14, 0x5a5a64, x + 0.5, 0.75, z - 0.5, x, z, { fade: true });
       box(1.3, 0.16, 0.18, 0x4a4a52, x, 1.56, z - 0.5, x, z, { fade: true }); box(0.16, 0.16, 0.05, 0x3df2e0, x, 1.56, z - 0.4, x, z, { glow: true });
       box(0.3, 0.03, 0.03, 0x3df2e0, x, 1.38, z - 0.41, x, z, { glow: true });
-      continue;
+      return;
     }
     var ft = floorTex(rid, rid === 'hall' ? ((x + z) % 2) + 2 * Math.floor(r * 2) : v);
     if (rid === 'water' && waterTex.indexOf(ft) < 0) { ft.wrapS = ft.wrapT = THREE.RepeatWrapping; waterTex.push(ft); }
@@ -456,8 +586,13 @@
       box(0.5, 0.1, 0.5, 0x3a3a44, x, 0.55, z, x, z, { kind: 'metal' }); box(0.6, 0.08, 0.6, 0x44444e, x, 0.64, z, x, z, { kind: 'metal' });
       box(0.46, 0.05, 0.46, 0x5a1a08, x, 0.69, z, x, z, { glow: true }); box(0.2, 0.05, 0.2, 0xff5a10, x + 0.06, 0.7, z - 0.04, x, z, { glow: true });
       flame(x, 0.7, z, x, z, 1);
-      var pl = new THREE.PointLight(0xff9a40, 1.1, 5.5, 1.4); pl.position.set(x, 1.1, z); scene.add(pl); fireLights.push({ l: pl, ph: x * 2 + z });
-    } else if (c === 'C') {
+    } else if (c === 'X') { // the safe room bathroom: a little stall with a sign and a mirror
+      box(0.9, 1.25, 0.06, 0x5a6a72, x, 0.625, z - 0.42, x, z, { kind: 'metal' }); box(0.06, 1.25, 0.86, 0x5a6a72, x - 0.42, 0.625, z, x, z, { kind: 'metal' }); box(0.06, 1.25, 0.86, 0x5a6a72, x + 0.42, 0.625, z, x, z, { kind: 'metal' });
+      box(0.8, 1.1, 0.04, 0x6f8088, x + 0.02, 0.6, z + 0.4, x, z, { kind: 'metal', fade: true }); box(0.3, 0.16, 0.02, 0x3df2e0, x, 1.32, z + 0.43, x, z, { glow: true });
+      box(0.22, 0.3, 0.02, 0xd8e8f0, x - 0.25, 0.95, z + 0.43, x, z, { kind: 'metal' });
+    } else if ('TWUbhcqkgv'.indexOf(c) >= 0) {
+      if (!propsOn()) box(0.5, 0.5, 0.5, 0x6b5a44, x, 0.25, z, x, z, { kind: 'wood' });
+    } else if (c === 'C' && !propsOn()) {
       box(0.66, 0.34, 0.46, 0x6b4423, x, 0.17, z, x, z, { kind: 'wood' });
       [-0.24, 0.24].forEach(function (o) { box(0.07, 0.36, 0.48, 0x5a5f66, x + o, 0.17, z, x, z, { kind: 'metal' }); });
       box(0.5, 0.02, 0.32, 0x140e06, x, 0.345, z, x, z, { noShadow: true });
@@ -466,12 +601,12 @@
       lid.push(box(0.12, 0.16, 0.05, 0xe0c060, x, 0.38, z + 0.24, x, z, { kind: 'metal' })); lid.push(box(0.04, 0.05, 0.02, 0x1a1208, x, 0.36, z + 0.27, x, z));
       lid.forEach(function (t) { t.lid = true; });
       [-0.36, 0.36].forEach(function (o) { box(0.03, 0.08, 0.14, 0x5a5f66, x + o, 0.22, z, x, z, { kind: 'metal' }); });
-    } else if (c === 'K') {
+    } else if (c === 'K' && !propsOn()) {
       var ks = 0.72 + r * 0.14;
       box(ks, ks, ks, 0x8a6a3c, x, ks / 2, z, x, z, { kind: 'wood', seed: v });
       [-1, 1].forEach(function (o) { box(ks + 0.03, 0.1, ks + 0.03, 0x6a4e2a, x, ks / 2 + o * (ks / 2 - 0.05), z, x, z, { kind: 'wood' }); box(0.1, ks, 0.1, 0x6a4e2a, x + o * (ks / 2 - 0.04), ks / 2, z + ks / 2 - 0.03, x, z, { kind: 'wood' }); box(0.1, ks, 0.1, 0x6a4e2a, x + ks / 2 - 0.03, ks / 2, z + o * (ks / 2 - 0.04), x, z, { kind: 'wood' }); });
       if (r > 0.4) box(0.4, 0.3, 0.4, 0x9a7a48, x - 0.05, ks + 0.15, z + 0.05, x, z, { kind: 'wood', seed: 5 });
-    } else if (c === 'R') {
+    } else if (c === 'R' && !propsOn()) {
       var bm = function (rad, hh, col, yy, kind) { var t = box(1, 1, 1, col, x, yy, z, x, z, { geo: c8, kind: kind, seed: 2 }); t.mesh.scale.set(rad * 2, hh, rad * 2); return t; };
       bm(0.3, 0.2, 0x7a5430, 0.1, 'wood'); bm(0.35, 0.36, 0x86602f, 0.38, 'wood'); bm(0.3, 0.2, 0x7a5430, 0.66, 'wood');
       bm(0.325, 0.05, 0x4a4f56, 0.2, 'metal'); bm(0.325, 0.05, 0x4a4f56, 0.56, 'metal'); bm(0.26, 0.02, 0x4a3018, 0.765, 'wood');
@@ -501,6 +636,40 @@
       } else if (rid === 'store' && r2 > 0.86) { box(0.32, 0.2, 0.26, 0xb09a6a, x + 0.1, 0.1, z, x, z, { kind: 'cloth', seed: 4 }); box(0.1, 0.07, 0.1, 0xb09a6a, x + 0.1, 0.23, z, x, z, { kind: 'cloth' }); box(0.12, 0.02, 0.12, 0x6a4e2a, x + 0.1, 0.2, z, x, z); }
     }
   }
+
+  // ---------- streaming: only the chunks around the hero exist in the scene ----------
+  // The floor is far bigger than a phone can draw at once; the camera only ever shows about ten tiles
+  // around the hero, so chunks are built as you approach and torn down behind you.
+  var CHUNK = 8, CH_R = 15, chunks = {}, curChunk = null, chunkAt = '';
+  var BRAZ = []; for (var bz = 0; bz < H; bz++) for (var bx = 0; bx < W; bx++) if (MAP[bz].charAt(bx) === 'B') BRAZ.push({ x: bx, z: bz });
+  for (var fl = 0; fl < 4; fl++) { var plx = new THREE.PointLight(0xff9a40, 0, 5.5, 1.4); scene.add(plx); fireLights.push({ l: plx, ph: fl * 2.3, on: false }); }
+  function buildChunk(cx, cz) {
+    var list = []; curChunk = list;
+    for (var z = cz * CHUNK; z < Math.min(H, (cz + 1) * CHUNK); z++) for (var x = cx * CHUNK; x < Math.min(W, (cx + 1) * CHUNK); x++) { buildTile(x, z); if (typeof buildTileProps === 'function') buildTileProps(x, z); }
+    curChunk = null; chunks[cx + ',' + cz] = list;
+  }
+  function unloadChunk(key) {
+    var list = chunks[key]; if (!list) return; delete chunks[key];
+    list.forEach(function (t) { scene.remove(t.mesh); if (t.mesh.material && !t.mesh.material.userData.shared) t.mesh.material.dispose(); if (t.mesh.geometry && t.mesh.geometry.userData.own) t.mesh.geometry.dispose(); });
+  }
+  function rebuildChunks() { Object.keys(chunks).forEach(unloadChunk); chunkAt = ''; streamChunks(true); }
+  function streamChunks(force) {
+    var px = (typeof P !== 'undefined') ? P.x : start.x, pz = (typeof P !== 'undefined') ? P.z : start.z, key = Math.floor(px / 4) + ',' + Math.floor(pz / 4);
+    if (!force && key === chunkAt) return; chunkAt = key;
+    var need = {};
+    for (var cz = Math.floor((pz - CH_R) / CHUNK); cz <= Math.floor((pz + CH_R) / CHUNK); cz++) for (var cx = Math.floor((px - CH_R) / CHUNK); cx <= Math.floor((px + CH_R) / CHUNK); cx++) {
+      if (cx < 0 || cz < 0 || cx * CHUNK >= W || cz * CHUNK >= H) continue; need[cx + ',' + cz] = 1; if (!chunks[cx + ',' + cz]) buildChunk(cx, cz);
+    }
+    Object.keys(chunks).forEach(function (k) { if (!need[k]) unloadChunk(k); });
+    tiles.length = 0; Object.keys(chunks).forEach(function (k) { Array.prototype.push.apply(tiles, chunks[k]); });
+    for (var i = flames.length - 1; i >= 0; i--) if (!flames[i].m.parent) flames.splice(i, 1);
+    for (i = mobParts.length - 1; i >= 0; i--) if (!mobParts[i].t.mesh.parent) mobParts.splice(i, 1);
+    // the four nearest braziers get the real lights
+    var near = BRAZ.filter(function (b) { return Math.abs(b.x - px) + Math.abs(b.z - pz) < 16; }).sort(function (a, b) { return (Math.abs(a.x - px) + Math.abs(a.z - pz)) - (Math.abs(b.x - px) + Math.abs(b.z - pz)); });
+    fireLights.forEach(function (f, n) { var b = near[n]; f.on = !!b; if (b) f.l.position.set(b.x, 1.1, b.z); else f.l.intensity = 0; });
+  }
+  streamChunks(true);
+  function propsOn() { return typeof PROPS !== 'undefined' && !!PROPS && PROPS.ready; }
 
   // ---------- character ----------
   var PAL = [0x8b1e1e, 0x1e3f8b, 0x2f6b3a, 0x2b2b2f, 0xd8d2c4, 0x7a4a22, 0x6a2f8b, 0xc9a227, 0x1f7a7a, 0xb4532a, 0x55606b, 0xc46a8f];
@@ -1321,8 +1490,9 @@
     if (back === 3) { var bg = new THREE.Group(); bg.position.set(-0.05, 0.6, bz + 0.02); bg.rotation.z = -0.65; bg.rotation.y = Math.PI; backG.add(bg); bass(bg, bk);
       tube(rig, T, darkM, { y0: 0.68, y1: 0.725, grow: gf + 0.006, na: 32, ny: 1, tilt: 0.13 }); bead(0.3, 0.74, gf + 0.008, 0.016, goldM); }
     // ----- hands: main and off -----
-    var main = sty('main'), mc = col('main');
-    if (main) {
+    var main = sty('main'), mc = col('main'), gw = (typeof CHAR !== 'undefined' && CHAR && CHAR.wield) ? (CHAR.gear || []).filter(function (x) { return x.name === CHAR.wield; })[0] : null;
+    if (gw) { var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); AR.el.add(wg); held.push({ g: wg, el: AR.el, side: 1, t: lean(0.35, 0.1) }); gearModel(wg, gw); main = 0; }
+    else if (main) {
       var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); AR.el.add(wg);
       if (main === 5) { wg.rotation.x = 1.0; kitHold.bass = wg; } else held.push({ g: wg, el: AR.el, side: 1, t: lean(main === 3 ? 0.06 : 0.5, 0.12) });
       if (main === 1) { part(wg, 0.03, 0.1, 0.03, DARK, 0, 0, 0); part(wg, 0.035, 0.02, 0.035, GOLD, 0, 0.03, 0); part(wg, 0.035, 0.02, 0.035, GOLD, 0, -0.03, 0); part(wg, 0.15, 0.025, 0.04, mc, 0, 0.06, 0, 'metal'); part(wg, 0.03, 0.04, 0.045, mc, -0.08, 0.06, 0, 'metal'); part(wg, 0.03, 0.04, 0.045, mc, 0.08, 0.06, 0, 'metal');
@@ -5794,47 +5964,30 @@
     group.add(holder); return true;
   }
 
-  function propsReady() {
-    PROPS.ready = true;
-    // swap the block-built loot boxes, crates and barrels for the real things
-    for (var i = tiles.length - 1; i >= 0; i--) { var t = tiles[i], c = ch(t.x, t.z); if ('CKR'.indexOf(c) >= 0 && !t.wall && t.mesh.position.y > -0.01) { scene.remove(t.mesh); tiles.splice(i, 1); } }
-    for (var z = 0; z < H; z++) for (var x = 0; x < W; x++) {
-      var c2 = ch(x, z), r = hash(x, z), r2 = hash(x + 31, z + 17);
-      if (c2 === 'C') place('Chest_Wood', x, z, { fit: 0.78, rot: 0, lid: true });
-      if (c2 === 'K') place(r > 0.5 ? 'Crate_Wooden' : 'Crate_Metal', x, z, { fit: 0.82, rot: (r2 - 0.5) * 0.5 });
-      if (c2 === 'R') place(r > 0.6 ? 'Barrel_Apples' : 'Barrel', x, z, { fit: 0.62, rot: r * 6 });
-      // the overgrowth: ferns, grasses, mushrooms and pebbles on the mossy floor
-      if (roomAt(x, z) === 'moss' && c2 === ',') {
-        var nearDoor = (x === 18 && z === 3) || (x === 21 && z === 6);
-        if (!nearDoor && r > 0.5) place(['Grass_Wispy_Short', 'Clover_1', 'Fern_1', 'Plant_1', 'Grass_Common_Short', 'Plant_7'][Math.floor(r2 * 6)], x + (r2 - 0.5) * 0.5, z + (r - 0.75) * 0.6, { fit: 0.45 + r2 * 0.3, rot: r * 9, noShadow: true });
-        if (r2 > 0.72) place(r > 0.5 ? 'Mushroom_Common' : 'Mushroom_Laetiporus', x - (r - 0.5) * 0.4, z + (r2 - 0.86) * 1.2, { fit: 0.26 + r * 0.14, rot: r2 * 7 });
-        if (r < 0.18) place('Pebble_Round_' + (1 + Math.floor(r2 * 3)), x + 0.25, z - 0.2, { fit: 0.24, rot: r2 * 5, noShadow: true });
-      }
-    }
-    // the Undercroft: candles for the dead, chains and a cage
-    place('CandleStick_Stand', 1.2, 1.2, { h: 1.0, block: true }); place('CandleStick_Stand', 5.8, 1.2, { h: 1.0, block: true });
-    place('Cage_Small', 5.8, 5.7, { fit: 0.7, rot: 0.3, block: true }); place('Chain_Coil', 1.3, 4.6, { fit: 0.55, noShadow: true });
-    place('Vase_Rubble_Medium', 4.9, 5.6, { fit: 0.55, rot: 1.1, noShadow: true }); place('Vase_2', 1.25, 6.0, { fit: 0.42, block: true });
-    // Pillar Hall: a long table laid for a feast nobody came to, a bench, a weapon rack and a training dummy
-    place('Table_Large', 14.5, 1.45, { fit: 1.95, block: true, tx: 14, tz: 1 }); PROPBLOCK['15,1'] = 1;
-    place('Bench', 14.5, 2.35, { fit: 1.8, tx: 14, tz: 2 });
-    var ty = 0.815 * 0.685;
-    place('Mug', 13.9, 1.3, { y: ty, s: 0.6 }); place('Mug', 15.1, 1.55, { y: ty, s: 0.6, rot: 2 }); place('CandleStick_Triple', 14.5, 1.3, { y: ty, s: 0.6 });
-    place('Book_Stack_1', 13.7, 1.6, { y: ty, s: 0.6, rot: 0.4 }); place('Coin_Pile_2', 15.3, 1.3, { y: ty, s: 0.6 });
-    place('WeaponStand', 9.2, 1.25, { fit: 1.0, block: true }); place('Dummy', 10.2, 5.8, { h: 1.3, block: true, rot: 0.6 });
-    place('Barrel', 8.3, 6.3, { fit: 0.6, block: true, rot: 1 }); place('Barrel', 9.1, 6.5, { fit: 0.55, block: true, tx: 9, tz: 6 });
-    // the Storeroom: shelves, sacks, a workbench, buckets
-    place('Shelf_Small_Bottles', 1.0, 11.5, { fit: 0.95, rot: Math.PI / 2, tx: 1, tz: 11 }); PROPBLOCK['1,11'] = 1;
-    place('Bag', 1.35, 12.6, { fit: 0.45, rot: 0.5, block: true }); place('Bag', 4.0, 9.25, { fit: 0.42, rot: 2.6, block: true });
-    place('Workbench', 5.5, 13.6, { fit: 1.35, block: true, tx: 5, tz: 13 }); PROPBLOCK['6,13'] = 1; place('Bucket_Wooden_1', 6.3, 14.4, { fit: 0.28 });
-    place('FarmCrate_Apple', 3.6, 14.4, { fit: 0.55, rot: 0.2, block: true, tx: 4, tz: 14 }); place('Rope_1', 3.2, 11.2, { fit: 0.4, noShadow: true }); place('Pouch_Large', 5.6, 13.45, { y: 0.895 * 0.67, s: 0.6 });
-    // Stairwell Approach: a hedge-witch's corner by the stairs
-    place('Cauldron', 19.2, 13.3, { fit: 0.72, block: true }); place('BookStand', 19.3, 9.3, { h: 1.0, block: true, rot: 0.8 });
-    place('Shelf_Small_Bottles', 24.0, 10.5, { fit: 0.95, rot: -Math.PI / 2, tx: 24, tz: 10 }); PROPBLOCK['24,10'] = 1;
-    place('Potion_2', 18.5, 12.6, { s: 0.6 }); place('Potion_4', 18.7, 12.4, { s: 0.6 }); place('Potion_1', 18.45, 12.3, { s: 0.6 });
-    place('CandleStick_Stand', 24.0, 13.9, { h: 1.0, block: true }); place('Scroll_1', 20.3, 13.6, { s: 0.7, rot: 0.6 }); place('Coin_Pile', 22.6, 13.5, { s: 0.7 });
-    place('Book_Stack_2', 18.3, 9.9, { s: 0.65, rot: 1.2 });
-    buildHero(); refreshFog();
+  function propsReady() { PROPS.ready = true; rebuildChunks(); buildHero(); refreshFog(); }
+  // props for one tile, built with its chunk
+  function buildTileProps(x, z) {
+    if (!propsOn()) return;
+    var c = ch(x, z), r = hash(x, z), r2 = hash(x + 31, z + 17), th = roomAt(x, z);
+    if (c === 'C') place('Chest_Wood', x, z, { fit: 0.78, rot: 0, lid: true });
+    else if (c === 'K') place(r > 0.5 ? 'Crate_Wooden' : 'Crate_Metal', x, z, { fit: 0.82, rot: (r2 - 0.5) * 0.5 });
+    else if (c === 'R') place(r > 0.6 ? 'Barrel_Apples' : 'Barrel', x, z, { fit: 0.62, rot: r * 6 });
+    else if (c === 'T') { place('Table_Large', x, z, { fit: 1.25, rot: r > 0.5 ? 0 : Math.PI / 2 }); var ty = 0.815 * 0.44; place('Mug', x - 0.2, z - 0.1, { y: ty, s: 0.5 }); place(r2 > 0.5 ? 'CandleStick_Triple' : 'Coin_Pile_2', x + 0.15, z, { y: ty, s: 0.5 }); }
+    else if (c === 'W') place('WeaponStand', x, z, { fit: 1.0, rot: r * 2 });
+    else if (c === 'U') place('Dummy', x, z, { h: 1.3, rot: r * 6 });
+    else if (c === 'b') place('Bag', x, z, { fit: 0.45, rot: r * 6 });
+    else if (c === 'h') place('Shelf_Small_Bottles', x, z, { fit: 0.95, rot: Math.round(r * 4) * Math.PI / 2 });
+    else if (c === 'c') place('CandleStick_Stand', x, z, { h: 1.0 });
+    else if (c === 'q') place('Cauldron', x, z, { fit: 0.72 });
+    else if (c === 'k') place('BookStand', x, z, { h: 1.0, rot: r * 3 });
+    else if (c === 'g') place('Cage_Small', x, z, { fit: 0.7, rot: r * 2 });
+    else if (c === 'v') place(r > 0.5 ? 'Vase_2' : 'Vase_4', x, z, { fit: 0.42 });
+    else if (th === 'moss' && c === ',') {
+      if (r > 0.5) place(['Grass_Wispy_Short', 'Clover_1', 'Fern_1', 'Plant_1', 'Grass_Common_Short', 'Plant_7'][Math.floor(r2 * 6)], x + (r2 - 0.5) * 0.5, z + (r - 0.75) * 0.6, { fit: 0.45 + r2 * 0.3, rot: r * 9, noShadow: true, tx: x, tz: z });
+      if (r2 > 0.72) place(r > 0.5 ? 'Mushroom_Common' : 'Mushroom_Laetiporus', x - (r - 0.5) * 0.4, z + (r2 - 0.86) * 1.2, { fit: 0.26 + r * 0.14, rot: r2 * 7, tx: x, tz: z });
+      if (r < 0.18) place('Pebble_Round_' + (1 + Math.floor(r2 * 3)), x + 0.25, z - 0.2, { fit: 0.24, rot: r2 * 5, noShadow: true, tx: x, tz: z });
+    } else if (c === '.' && th === 'store' && r > 0.94) place(r2 > 0.5 ? 'Bucket_Wooden_1' : 'Rope_1', x + (r2 - 0.5) * 0.4, z, { fit: 0.3, rot: r * 5, noShadow: true, tx: x, tz: z });
+    else if (c === '.' && th === 'crypt' && r > 0.95) place('Chain_Coil', x, z, { fit: 0.45, noShadow: true });
   }
   propLoad();
 
@@ -5849,7 +6002,18 @@
     imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 12, hp: 16, speed: 6, atk: 3, dmg: [1, 6, 2], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
       lines: ['Hired muscle for the stairwell. Union rules: it does not leave its post until something walks past it.'] }
   };
-  var SPAWNS = [{ kind: 'puglin', x: 21, z: 9 }, { kind: 'puglin', x: 19, z: 10 }, { kind: 'imp', x: 22, z: 12, guard: true }, { kind: 'imp', x: 5, z: 5, npc: 'pip' }];
+  // monster families: tiers share a model and get bigger, tougher and nastier. base: which loaded model to use
+  function variant(base, o) { var v = {}; for (var k in BEAST[base]) v[k] = BEAST[base][k]; for (k in o) v[k] = o[k]; v.base = base; return v; }
+  BEAST.puglin.base = 'puglin'; BEAST.imp.base = 'imp'; BEAST.imp.name = 'Imp security guard';
+  BEAST.puglin_brute = variant('puglin', { name: 'Puglin brute', ac: 12, hp: 13, atk: 4, dmg: [1, 6, 2], str: 2, xp: 50, scale: 0.86, h: 0.74, tint: 0xd8b0a0, lines: ['Bigger, meaner, and it brought a bigger stick.'] });
+  BEAST.puglin_chief = variant('puglin', { name: 'Puglin war-chief', ac: 13, hp: 22, atk: 5, dmg: [1, 8, 3], str: 3, dex: 1, xp: 120, scale: 1.0, h: 0.86, tint: 0xc08070, lines: ['Wears a bottle cap as a crown. Will fight you over it.'] });
+  BEAST.grik = variant('puglin', { name: 'Grik, the Gristle King', ac: 14, hp: 48, atk: 6, dmg: [2, 6, 3], str: 4, dex: 1, init: 1, pp: 13, xp: 500, scale: 1.45, h: 1.25, tint: 0xb06050, boss: true, lines: ['The king of the Warrens. Fat on snacks, mean on principle. His minions scatter if he falls.'] });
+  BEAST.imp_intern = variant('imp', { name: 'Imp intern', ac: 11, hp: 9, atk: 3, dmg: [1, 4, 1], str: 0, xp: 40, scale: 0.56, h: 0.9, tint: 0xd0c0ff, lines: ['Unpaid. Furious about it.'] });
+  BEAST.imp_foreman = variant('imp', { name: 'Imp foreman', ac: 14, hp: 26, atk: 5, dmg: [1, 8, 3], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0xffa080, lines: ['Clipboard in one hand, mace in the other. Both are for you.'] });
+  BEAST.steward = variant('imp', { name: 'The Shop Steward', ac: 15, hp: 58, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0xff6a5a, boss: true, lines: ['Head of the imp union. Has never lost a negotiation or a fistfight. Will not cross a picket line.'] });
+  var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'] };
+  var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? 'imp' : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
+  function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
 
   function d(n, s) { var t = 0; for (var i = 0; i < n; i++) t += 1 + Math.floor(Math.random() * s); return t; }
   function d20() { return 1 + Math.floor(Math.random() * 20); }
@@ -5862,6 +6026,23 @@
     var dx = Math.abs(bx - ax), dz = Math.abs(bz - az), sx = ax < bx ? 1 : -1, sz = az < bz ? 1 : -1, e = dx - dz, x = ax, z = az;
     while (x !== bx || z !== bz) { var e2 = 2 * e; if (e2 > -dz) { e -= dz; x += sx; } if (e2 < dx) { e += dx; z += sz; } if (x === bx && z === bz) break; if (ch(x, z) === 'P' || PROPBLOCK[x + ',' + z]) return true; }
     return false;
+  }
+  // DCC rule: violence in a safe room gets you teleported out and put in a timeout
+  function safeRoomPenalty() {
+    var r = roomInfo(P.x, P.z), best = null;
+    for (var dz = -12; dz <= 12; dz++) for (var dx = -12; dx <= 12; dx++) { var x = P.x + dx, z = P.z + dz; if (!r || !walkable(x, z, 'pc') || inSafeRoom(x, z)) continue; var dd = Math.abs(dx) + Math.abs(dz); if (!best || dd < best[2]) best = [x, z, dd]; }
+    say('SAFE ROOM VIOLATION', 'Aggression is not permitted in a safe room. You have been relocated and placed in a timeout. The audience boos.', 6000);
+    if (best) { P.x = best[0]; P.z = best[1]; P.px = best[0]; P.pz = best[1]; refreshFog(); enterRoom(); }
+    PC.timeout = performance.now() + 15000;
+  }
+  // D&D style: you never see exact hit points, just how hurt it looks
+  function healthState(e) {
+    var r = e.hp / e.max; if (e.dead || r <= 0) return ['Dead', '#666'];
+    return r >= 0.99 ? ['Unhurt', '#3fd46a'] : r >= 0.6 ? ['Scratched', '#8ad43f'] : r >= 0.3 ? ['Wounded', '#e8c23a'] : ['Badly hurt', '#e8453a'];
+  }
+  function examineText(e) {
+    if (e.npc) return 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile.';
+    return e.def.lines[0] + ' It looks ' + healthState(e)[0].toLowerCase() + (e.calm ? ' and has no interest in fighting you.' : '.') + (e.boss ? ' This is a neighborhood boss.' : '');
   }
   function cheb(ax, az, bx, bz) { return Math.max(Math.abs(ax - bx), Math.abs(az - bz)); }
 
@@ -5912,20 +6093,21 @@
     for (var i = tiles.length - 1; i >= 0; i--) if (tiles[i].mob) { scene.remove(tiles[i].mesh); tiles.splice(i, 1); }
     mobParts.length = 0; SOLID.M = 0;
     SPAWNS.forEach(function (sp, n) {
-      var B = BEAST[sp.kind], root = THREE.SkeletonUtils.clone(CB.defs[sp.kind]), holder = new THREE.Group();
+      var B = BEAST[sp.kind], root = THREE.SkeletonUtils.clone(CB.defs[B.base || sp.kind]), holder = new THREE.Group();
       root.traverse(function (o) {
         if (!o.isMesh) return;
         var m = kitMat(B.tex + '_' + (n % 3) + '.jpg', B.tex + '_n.jpg', B.tex + '_orm.jpg');
         m.emissiveMap = kitTex(B.tex + '_e.jpg'); m.emissive = new THREE.Color(0xffffff); m.skinning = !!o.isSkinnedMesh;
-        o.material = m; o.castShadow = true; o.frustumCulled = false;
+        if (B.tint) m.color.set(B.tint).multiplyScalar(1.25); o.material = m; o.castShadow = true; o.frustumCulled = false;
       });
       if (sp.npc) root.traverse(function (o) { if (/Mace|Chains|SpikedCollar/.test(o.name)) o.visible = false; });
       root.scale.setScalar(B.scale * (sp.npc ? 0.62 : 1)); holder.add(root); scene.add(holder);
-      var e = { kind: sp.kind, def: B, name: B.name + (sp.kind === 'puglin' ? ' ' + ['A', 'B', 'C'][n] : ''), x: sp.x, z: sp.z, sx: sp.x, sz: sp.z, px: sp.x, pz: sp.z, hp: B.hp, max: B.hp, dead: false, calm: !!sp.npc, npc: sp.npc || null, guard: !!sp.guard,
+      var e = { kind: sp.kind, def: B, name: sp.name || B.name, x: sp.x, z: sp.z, sx: sp.x, sz: sp.z, px: sp.x, pz: sp.z, hp: B.hp, max: B.hp, dead: false, calm: !!sp.npc, npc: sp.npc || null, guard: !!sp.guard,
         obj: holder, mixer: new THREE.AnimationMixer(root), clips: cbClipsFor(root), path: null, act: null, cur: '' };
       holder.position.set(sp.x, 0, sp.z); holder.rotation.y = Math.PI * 0.75;
       e.bar = document.createElement('div'); e.bar.className = 'ebar'; e.bar.innerHTML = '<i></i><span></span>'; document.body.appendChild(e.bar);
       if (sp.npc) { e.name = 'Pip'; holder.rotation.y = -Math.PI * 0.6; }
+      e.room = sp.room; e.boss = !!B.boss;
       CB.enemies.push(e); cbPlay(e, 'Idle_Loop');
     });
     CB.ready = true; refreshFog();
@@ -5943,6 +6125,7 @@
   // ---------- grid paths (8 directions, no cutting corners) ----------
   function walkable(x, z, who) {
     if (x < 0 || z < 0 || x >= W || z >= H || blocksMove(x, z)) return false;
+    if (who && who !== 'pc' && inSafeRoom(x, z)) return false;
     var e = enemyAt(x, z); if (e && e !== who) return false;
     if (who && who !== 'pc' && x === P.x && z === P.z) return false;
     return true;
@@ -6087,6 +6270,7 @@
   // ---------- starting and ending a fight ----------
   function cbStart(why, first) {
     if (CB.on || !CB.ready) return;
+    if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
     var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8)); });
     if (!foes.length) return;
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
@@ -6339,6 +6523,7 @@
   // ---------- every frame ----------
   function cbUpdate(dt) {
     CB.enemies.forEach(function (e) {
+      if (cheb(e.x, e.z, P.x, P.z) > 16 && !e.path) { if (e.obj.visible) { e.obj.visible = false; e.bar.style.display = 'none'; } return; }
       e.mixer.update(dt);
       if (e.path) {
         var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = 3.2 * dt;
@@ -6352,7 +6537,7 @@
       e.obj.visible = seen || (e.dead && !!tileState[e.z * W + e.x]);
       if (!e.dead && !e.npc && seen && (CB.on || e.hp < e.max)) {
         var s = toScreen(e.px, e.def.h + 0.32, e.pz); e.bar.style.display = 'block'; e.bar.style.left = s.x + 'px'; e.bar.style.top = s.y + 'px';
-        e.bar.firstChild.style.width = Math.max(0, 54 * e.hp / e.max) + 'px'; e.bar.lastChild.textContent = e.name;
+        var hs = healthState(e); e.bar.firstChild.style.width = '54px'; e.bar.firstChild.style.background = hs[1]; e.bar.lastChild.textContent = e.name + ' · ' + hs[0];
       } else e.bar.style.display = 'none';
     });
     for (var i = floaters.length - 1; i >= 0; i--) {
@@ -6364,7 +6549,7 @@
   }
   // a monster that can see you, close by, starts the fight
   function cbAggro() {
-    if (CB.on || !CB.ready) return;
+    if (CB.on || !CB.ready || inSafeRoom(P.x, P.z)) return;
     for (var i = 0; i < CB.enemies.length; i++) {
       var e = CB.enemies[i]; if (e.dead || e.calm) continue;
       var r = e.guard ? 2 : 3;
@@ -6388,7 +6573,8 @@
       { label: 'Examine', text: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile. Not a threat to anyone, least of all you.' },
       { label: 'Read their mood', stat: 'WIS', dc: 8, win: 'Overworked, underpaid, and quietly rooting for you.', lose: 'Hard to tell under all that sweating.' }];
     return [talk,
-      { label: 'Examine', text: e.def.lines[0] + ' AC ' + e.def.ac + ', HP ' + e.hp + '/' + e.max + ', ' + e.def.weapon + ' (+' + e.def.atk + ', ' + e.def.dmg[0] + 'd' + e.def.dmg[1] + '+' + e.def.dmg[2] + ').' },
+      { label: 'Examine', text: examineText(e) },
+      { label: 'Study its fighting style', stat: 'INT', skill: ['Lore', 0], dc: 12, win: 'Armor about AC ' + e.def.ac + '. It fights with a ' + e.def.weapon + ' and hits roughly ' + e.def.dmg[0] + 'd' + e.def.dmg[1] + '+' + e.def.dmg[2] + '.', lose: 'It fights like something that wants you dead. That is all you learn.' },
       { label: 'Read its mood', stat: 'WIS', dc: 10, win: e.kind === 'imp' ? 'Bored and paid by the hour. It wants an excuse not to fight.' : 'Hungry, nervous, and showing off for the other one.', lose: 'It stares back. You learn nothing.' },
       { label: 'Talk it down', stat: 'CHA', skill: ['De-escalation', 2], dc: e.kind === 'imp' ? 15 : 12, flag: 'calm', win: 'You tell it "no, man" until it gives up. It sits down and watches you go by.', lose: 'It is not in the mood to be talked to.' },
       { label: 'Play it a bass line', stat: 'CHA', skill: ['Performance', 3], dc: e.kind === 'imp' ? 14 : 11, flag: 'calm', win: 'It sways. Somewhere, viewer numbers tick up. It will not fight you now.', lose: 'It prefers treble.' },
@@ -6649,8 +6835,8 @@
     if (s === 5) {
       var tp = (CC.cTrait && CC.cTrait[0] === CC.trait) ? CC.cTrait : (TRAITS.filter(function (t) { return t[0] === CC.trait; })[0] || [CC.trait, '', CC.trait]), fp = (CC.cFlaw && CC.cFlaw[0] === CC.flaw) ? CC.cFlaw : (FLAWS.filter(function (t) { return t[0] === CC.flaw; })[0] || [CC.flaw, '', CC.flaw]);
       var c = { name: CC.name, stats: CC.stats, skills: CC.skills, trait: tp[0], traitDesc: tp[1], traitFx: tp[2] || tp[0], flaw: fp[0], flawDesc: fp[1], flawFx: fp[2] || fp[0], gear: CC.gear.concat(CC.outfit), gold: 0, xp: 0, interview: QUESTIONS.map(function (q, i) { return { q: q, a: CC.answers[i] }; }).concat(CC.follow.map(function (q, i) { return { q: q, a: CC.followA[i] || '' }; })) };
-      applyChar(c); c.gear.forEach(function (g) { if (g.cat === 'clothing' && g.worn) wear(g); }); saveChar(c); ccClose(); if (!gearOpen) toggleGear(); tab = 'Body'; drawTabs(); drawRows();
-      say('Crawler registered · ' + c.name, 'Now set your body, face and hair. Your clothes are what you walked in with; check the Bag for your gear.', 6000);
+      applyChar(c); c.gear.forEach(function (g) { if (g.cat === 'clothing' && g.worn) wear(g); }); look.main = [0, look.main[1]]; look.off = [0, look.off[1]]; look.back = [0, look.back[1]]; saveChar(c); ccClose(); GMODE = 'design'; tab = 'Body'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); }
+      say('Crawler registered · ' + c.name, 'Last step: your body, face and hair. These are permanent, except a bathroom mirror lets you change your hair later. Confirm when you are ready.', 7000);
     }
   }
   // ask Claude (through the page's sample capability) to play the System for the interview
@@ -6875,7 +7061,7 @@
       '#bagTools .chip2{padding:6px 9px;border-radius:14px;border:1px solid rgba(255,255,255,.2);background:none;color:#cde;font:inherit;font-size:11.5px;cursor:pointer}#bagTools .chip2.on{border-color:var(--hot);color:#fff;background:rgba(255,62,165,.14)}' +
       '#bagBody{flex:1;display:flex;min-height:0}#bagList{flex:1.2;overflow-y:auto;padding:6px}#bagList button{display:flex;width:100%;gap:8px;align-items:center;text-align:left;background:none;border:1px solid transparent;border-radius:8px;color:#e8f4f4;padding:7px 8px;font:inherit;cursor:pointer}' +
       '#bagList button.on{border-color:var(--neon);background:rgba(61,242,224,.08)}#bagList small{color:#8ab}#bagList .tag{margin-left:auto;font-size:10px;color:var(--hot);text-transform:uppercase;letter-spacing:.08em}' +
-      '#bagInfo{flex:1;overflow-y:auto;padding:10px 14px;border-left:1px solid rgba(255,255,255,.06)}#bagInfo h3{margin:0 0 4px;color:var(--hot);font-size:13px}#bagInfo p{margin:4px 0 10px;line-height:1.45;color:#cde}#bagInfo .acts{display:flex;gap:6px;flex-wrap:wrap}' +
+      '.ico{flex:0 0 auto;background:rgba(255,255,255,.05);border-radius:6px;padding:2px}#bagInfo .big .ico{padding:6px;margin-bottom:6px}#bagInfo{flex:1;overflow-y:auto;padding:10px 14px;border-left:1px solid rgba(255,255,255,.06)}#bagInfo h3{margin:0 0 4px;color:var(--hot);font-size:13px}#bagInfo p{margin:4px 0 10px;line-height:1.45;color:#cde}#bagInfo .acts{display:flex;gap:6px;flex-wrap:wrap}' +
       '.bub{position:fixed;z-index:7;transform:translate(-50%,-100%);max-width:220px;padding:6px 9px;border-radius:10px;background:rgba(255,255,255,.94);color:#14151c;font-size:12px;line-height:1.35;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.5)}' +
       '.bub:after{content:"";position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:rgba(255,255,255,.94)}.bub.npc{background:rgba(255,236,250,.95)}.bub.npc:after{border-top-color:rgba(255,236,250,.95)}' +
       '.bub.lt{transform:translate(-88%,-100%)}.bub.lt:after{left:88%}.bub.wh{background:rgba(30,32,44,.92);color:#bcd;font-style:italic;border:1px dashed rgba(255,255,255,.3)}.bub.wh:after{border-top-color:rgba(30,32,44,.92)}' +
@@ -6888,7 +7074,7 @@
     var mini = document.createElement('canvas'); mini.id = 'mini'; mini.setAttribute('aria-label', 'Minimap: tap for the full map'); mini.onclick = function () { mapToggle(); }; document.body.appendChild(mini);
     var mf = document.createElement('div'); mf.id = 'mapFull'; mf.setAttribute('role', 'dialog'); mf.setAttribute('aria-label', 'Floor map');
     mf.innerHTML = '<header><b>Floor 1 map</b><button type="button" class="xbtn" id="mapX">Close</button></header><canvas id="mapC"></canvas>' +
-      '<div id="mapLeg"><span><i style="background:#3df2e0"></i>You</span><span><i style="background:#ff4a6a"></i>Hostile</span><span><i style="background:#5f6"></i>Friendly</span><span><i style="background:#ffd34a"></i>Stairs</span><span><i style="background:#c98a4a"></i>Door</span><span><i style="background:#3a6ea8"></i>Water</span></div>';
+      '<div id="mapLeg"><span><i style="background:#3df2e0"></i>You</span><span><i style="background:#ff4a6a"></i>Hostile</span><span><i style="background:#5f6"></i>Friendly</span><span><i style="background:#ffd34a"></i>Stairs</span><span><i style="background:#c98a4a"></i>Door</span><span><i style="background:#e0c060"></i>Loot box</span><span>✚ Safe room</span><span>☠ Boss</span><span>▼ Stairs</span><span>★ Secret</span></div>';
     document.body.appendChild(mf); document.getElementById('mapX').onclick = mapToggle;
     var bag = document.createElement('div'); bag.id = 'bag'; bag.setAttribute('role', 'dialog'); bag.setAttribute('aria-label', 'Inventory');
     document.body.appendChild(bag);
@@ -6897,28 +7083,40 @@
 
   // ---------- map ----------
   function mapDraw(cv, full) {
-    var dpr = window.devicePixelRatio || 1, cw = cv.clientWidth, ch = cv.clientHeight; if (!cw || !ch) return;
-    if (cv.width !== Math.round(cw * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
+    var dpr = window.devicePixelRatio || 1, cw = cv.clientWidth, chh = cv.clientHeight; if (!cw || !chh) return;
+    if (cv.width !== Math.round(cw * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(chh * dpr); }
     var g = cv.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
-    // rotate 45 degrees so the map matches the isometric camera (map +x+z is screen down)
-    var span = (W + H) / Math.SQRT2, s = Math.min(cw, ch) / span * (full ? 0.96 : 2.6), k = s / Math.SQRT2 * dpr;
-    var cx = full ? (W + H) / 2 : P.px, cz = full ? (H - W) / 2 * 0 : P.pz;
-    var ox = cv.width / 2, oy = cv.height / 2;
-    function tr(x, z) { var dx = x - (full ? W / 2 : cx), dz = z - (full ? H / 2 : cz); return [ox + (dx - dz) * k, oy + (dx + dz) * k]; }
+    // rotated 45 degrees to match the isometric camera (map +x+z is screen down)
+    var bx0 = W, bx1 = 0, bz0 = H, bz1 = 0;
+    if (full) { for (var q = 0; q < W * H; q++) if (tileState[q]) { var qx = q % W, qz = (q / W) | 0; if (qx < bx0) bx0 = qx; if (qx > bx1) bx1 = qx; if (qz < bz0) bz0 = qz; if (qz > bz1) bz1 = qz; } bx0 -= 4; bz0 -= 4; bx1 += 4; bz1 += 4; }
+    var span = full ? Math.max(18, ((bx1 - bx0) + (bz1 - bz0)) / Math.SQRT2) : 26, s = Math.min(cw, chh) / span * (full ? 0.97 : 1.0), k = s / Math.SQRT2 * dpr;
+    var ox = cv.width / 2, oy = cv.height / 2, cx = full ? (bx0 + bx1) / 2 : P.px, cz = full ? (bz0 + bz1) / 2 : P.pz;
+    function tr(x, z) { var dx = x - cx, dz = z - cz; return [ox + (dx - dz) * k, oy + (dx + dz) * k]; }
     function cell(x, z, col) { var a = tr(x - .5, z - .5), b = tr(x + .5, z - .5), c = tr(x + .5, z + .5), d = tr(x - .5, z + .5); g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill(); }
-    var liv = hasTrait('Living Map');
-    for (var z = 0; z < H; z++) for (var x = 0; x < W; x++) {
+    var liv = hasTrait('Living Map'), R = full ? 1e9 : 20, THEME = { crypt: '#3f6a52', hall: '#5d5a54', moss: '#4f6a3a', gate: '#6a3e3a', store: '#6a5438', water: '#2f5a74' };
+    for (var z = Math.max(0, Math.floor(P.pz - R)); z < Math.min(H, P.pz + R); z++) for (var x = Math.max(0, Math.floor(P.px - R)); x < Math.min(W, P.px + R); x++) {
       if (!tileState[z * W + x]) continue; var c = MAP[z].charAt(x), lit = visNow[x + ',' + z] !== undefined || liv;
-      var col = c === '#' ? '#2a2c38' : c === '~' ? '#3a6ea8' : c === 'D' ? '#c98a4a' : c === 'S' ? '#ffd34a' : (roomAt(x, z) === 'crypt' ? '#4f6a5c' : '#5d5a54');
-      g.globalAlpha = lit ? 1 : .55; cell(x, z, col);
+      if (c === '#' || c === 'H') { if (!full) { g.globalAlpha = lit ? 1 : .6; cell(x, z, '#23252f'); } continue; }
+      var col = c === '~' ? '#3a6ea8' : c === 'D' ? '#c98a4a' : c === 'S' ? '#ffd34a' : c === 'C' ? '#e0c060' : THEME[roomAt(x, z)] || '#5d5a54';
+      g.globalAlpha = lit ? 1 : .62; cell(x, z, col);
     }
     g.globalAlpha = 1;
     function dot(x, z, col, r) { var p = tr(x, z); g.fillStyle = col; g.beginPath(); g.arc(p[0], p[1], r * dpr, 0, 7); g.fill(); }
-    CB.enemies.forEach(function (e) { if (e.dead || visNow[e.x + ',' + e.z] === undefined) return; dot(e.px, e.pz, e.calm ? '#5f6' : '#ff4a6a', full ? 4 : 2.6); });
-    dot(P.px, P.pz, '#3df2e0', full ? 5 : 3.2);
-    if (full) { g.fillStyle = '#cde'; g.font = (11 * dpr) + 'px ui-monospace,monospace'; g.textAlign = 'center';
-      var seen = {}; for (var zz = 1; zz < H - 1; zz++) for (var xx = 1; xx < W - 1; xx++) { var id = roomAt(xx, zz); if (!id || !tileState[zz * W + xx]) continue; (seen[id] = seen[id] || []).push([xx, zz]); }
-      Object.keys(seen).forEach(function (id) { var a = seen[id], mx = 0, mz = 0; a.forEach(function (q) { mx += q[0]; mz += q[1]; }); var p = tr(mx / a.length, mz / a.length); g.fillText(ROOMS[id].name, p[0], p[1]); }); }
+    CB.enemies.forEach(function (e) { if (e.dead || visNow[e.x + ',' + e.z] === undefined) return; dot(e.px, e.pz, e.calm ? '#5f6' : '#ff4a6a', full ? 3.5 : 2.6); });
+    dot(P.px, P.pz, '#3df2e0', full ? 4.5 : 3.2);
+    if (full) {
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      LEVEL.rooms.forEach(function (rm) {
+        if (rm.type === 'corridor') return; var mx = (rm.x0 + rm.x1) / 2, mz = (rm.z0 + rm.z1) / 2, seen = false;
+        for (var zz = rm.z0; zz <= rm.z1 && !seen; zz++) for (var xx = rm.x0; xx <= rm.x1; xx++) if (tileState[zz * W + xx]) { seen = true; break; }
+        if (!seen) return; var p = tr(mx, mz), icon = rm.type === 'safe' ? '✚ ' : rm.type === 'boss' ? '☠ ' : rm.type === 'stairs' ? '▼ ' : rm.type === 'hidden' ? '★ ' : '';
+        g.font = (rm.type === 'boss' || rm.type === 'safe' ? 'bold ' : '') + (10.5 * dpr) + 'px ui-monospace,monospace';
+        g.fillStyle = rm.type === 'safe' ? '#7dffb0' : rm.type === 'boss' ? '#ff7a8a' : rm.type === 'stairs' ? '#ffd34a' : '#dde';
+        g.strokeStyle = 'rgba(0,0,0,.75)'; g.lineWidth = 3 * dpr; g.strokeText(icon + rm.name, p[0], p[1]); g.fillText(icon + rm.name, p[0], p[1]);
+      });
+      LEVEL.hoods.forEach(function (hd) { var any = false; for (var q = 0; q < hd.rooms.length && !any; q++) { var rm = hd.rooms[q]; if (tileState[((rm.z0 + rm.z1) >> 1) * W + ((rm.x0 + rm.x1) >> 1)]) any = true; }
+        if (!any) return; var p = tr((hd.x0 + hd.x1) / 2, (hd.z0 + hd.z1) / 2); g.font = 'bold ' + (13 * dpr) + 'px ui-monospace,monospace'; g.fillStyle = 'rgba(255,62,165,.85)'; g.fillText(hd.name.toUpperCase(), p[0], p[1] - 16 * dpr); });
+    }
   }
   function mapToggle() {
     UI.map = !UI.map; if (UI.map && UI.bag) bagToggle(); document.getElementById('mapFull').classList.toggle('on', UI.map);
@@ -6943,7 +7141,7 @@
       CATS.map(function (c) { return '<button type="button" class="chip2' + (UI.cat === c[0] ? ' on' : '') + '" data-cat="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>' +
       '<div id="bagBody"><div id="bagList">' + (list.length ? list.map(function (o) {
         var t = o.it.worn ? 'worn' : (CHAR.wield === o.it.name ? 'in hand' : '');
-        return '<button type="button" data-i="' + o.i + '" class="' + (UI.sel === o.i ? 'on' : '') + '"><span>' + esc(o.it.name) + (o.it.qty > 1 ? ' ×' + o.it.qty : '') + '<br><small>' + esc(catName(o.it.cat)) + (o.it.dmg ? ' · ' + esc(o.it.dmg) : '') + '</small></span>' + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
+        return '<button type="button" data-i="' + o.i + '" class="' + (UI.sel === o.i ? 'on' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + (o.it.qty > 1 ? ' ×' + o.it.qty : '') + '<br><small>' + esc(catName(o.it.cat)) + (o.it.dmg ? ' · ' + esc(o.it.dmg) : '') + '</small></span>' + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
       }).join('') : '<p style="padding:10px;color:#9ab">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
       '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div>';
     document.getElementById('bagX').onclick = bagToggle;
@@ -6959,14 +7157,14 @@
     if (it.cat === 'weapon' && it.dmg) acts.push(CHAR.wield === it.name ? ['unwield', 'Put away'] : ['wield', 'Hold in hand']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'consumable' && it.heal) acts.push(['use', 'Use (' + it.heal + ' HP)']);
-    return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
+    return '<div class="big">' + itemIcon(it).replace('width="30" height="30"', 'width="72" height="72"') + '</div><h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       '<p><small>' + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + '</small></p>' +
       '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
   }
   function bagAct(a, it) {
     if (!it) return;
-    if (a === 'wield') { CHAR.wield = it.name; say('In hand · ' + it.name, 'You will fight with it: ' + it.dmg + ' damage.', 3000); }
-    if (a === 'unwield') { CHAR.wield = null; }
+    if (a === 'wield') { CHAR.wield = it.name; buildHero(); say('In hand · ' + it.name, 'You will fight with it: ' + it.dmg + ' damage.', 3000); }
+    if (a === 'unwield') { CHAR.wield = null; buildHero(); }
     if (a === 'wear') wear(it);
     if (a === 'unwear') { it.worn = false; look[it.slot] = [0, 0]; buildHero(); saveLook(); }
     if (a === 'use') {
@@ -7085,14 +7283,13 @@
     imp: function () { return { gold: d(2, 6) + 2, items: [{ name: 'Imp mace', cat: 'weapon', dmg: '1d6', desc: 'Company property. Heavy, spiky, and badly maintained.' }, { name: 'Security badge', cat: 'valuable', desc: 'FLOOR 1 · STAIRWELL · NIGHT SHIFT. The photo is unflattering.' }, { name: 'Union card', cat: 'misc', desc: 'Local 666. Dues paid through next season.' }] }; }
   };
   function lootBody(e) {
-    if (e.looted) return; e.looted = true;
-    var L = (LOOT[e.kind] || function () { return { gold: 0, items: [] }; })();
-    L.items.forEach(function (it) { it.from = e.name; invAdd(it, true); });
-    if (CHAR) { CHAR.gold = (CHAR.gold || 0) + L.gold; saveChar(CHAR); }
-    say('Looted · ' + e.name, (L.items.length ? 'You found: ' + L.items.map(function (i) { return i.name; }).join(', ') + '. ' : 'Nothing useful. ') + (L.gold ? '+' + L.gold + ' gold.' : ''), 5000);
-    if (!CHAR) say('Looted · ' + e.name, 'Create a character first; your pockets are not registered with the System yet.', 4000);
+    if (!e.lootStore) {
+      var L = (LOOT[e.kind] || LOOT[e.def.base] || function () { return { gold: 0, items: [] }; })();
+      if (e.boss) { L.gold += d(10, 6); L.items.push({ name: e.name.split(',')[0] + '\'s trophy', cat: 'valuable', desc: 'Proof you beat a neighborhood boss. The audience wants you to wear it.' }); }
+      L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true;
+    }
+    lootWindow(e.lootStore);
   }
-
   // ---------- credits (CC-BY assets must credit their authors) ----------
   var CREDITS = [
     ['Characters, outfits, animations, props, nature, monsters', 'Quaternius (quaternius.com)', 'CC0'],
@@ -7100,6 +7297,208 @@
     ['Santa Hat', '3d-Pauer on Sketchfab', 'CC-BY 4.0'], ['Clown Hat', 'PatelDev on Sketchfab', 'CC-BY 4.0'], ['Stylized wizard hat', 'Enkarra on Sketchfab', 'CC-BY 4.0'], ['Gangster hats', 'Michal Cavrnoch on Sketchfab', 'CC-BY 4.0']
   ];
   function creditsHTML() { return '<h3>Credits</h3><ul class="credits">' + CREDITS.map(function (c) { return '<li>' + esc(c[0]) + ' · ' + esc(c[1]) + ' · ' + esc(c[2]) + '</li>'; }).join('') + '</ul>'; }
+
+  // ---------- item visuals: bag icons and the model in your hand ----------
+  function itemKind(it) {
+    var n = (it.name || '').toLowerCase();
+    if (it.cat === 'clothing') return 'cloth_' + ({ kTop: 'top', kPants: 'pants', kBoots: 'shoes', kHead: 'hat', kNeck: 'scarf', kShoulder: 'top' }[it.slot] || 'top');
+    var K = [['shears', /shear|scissor|clipper|pruner|snip/], ['knife', /knife|blade|cutter|dagger|razor|scalpel/], ['hammer', /hammer|mallet/], ['mace', /mace|morning star/], ['wrench', /wrench|spanner/],
+      ['bat', /bat\b|club|stick|pipe|crowbar|cane|rod|pole|broom|mop/], ['phone', /phone|tablet|ipad/], ['laptop', /laptop|computer/], ['keys', /key/], ['tape', /tape|zip tie/], ['pick', /pick\b|picks|plectrum/],
+      ['bandage', /gauze|bandage|band-aid|first aid/], ['snack', /snack|bar\b|food|jerky|apple|sandwich|gum|candy|chip/], ['drink', /bottle|flask|water|coffee|drink|can\b|potion/], ['opener', /opener|corkscrew/],
+      ['rag', /rag|towel|cloth|apron/], ['badge', /badge|card|id\b|license|wallet/], ['coin', /coin|gold|button/], ['pen', /pen\b|pencil|marker|sharpie/], ['light', /flashlight|lighter|torch|lamp/],
+      ['bag', /bag|pouch|backpack|purse|sack/], ['book', /book|notebook|manual|scroll/]];
+    for (var i = 0; i < K.length; i++) if (K[i][1].test(n)) return K[i][0];
+    return { weapon: 'bat', tool: 'wrench', consumable: 'drink', valuable: 'coin', misc: 'box' }[it.cat] || 'box';
+  }
+  var ICON = {
+    shears: '<path d="M9 21l7-9M19 21l-7-9" stroke="#cfd6dc" stroke-width="2.4"/><path d="M14 12l-3-8M14 12l3-8" stroke="#e8eef2" stroke-width="2"/><circle cx="8" cy="23" r="3.2" fill="none" stroke="#c03030" stroke-width="2.4"/><circle cx="20" cy="23" r="3.2" fill="none" stroke="#c03030" stroke-width="2.4"/>',
+    knife: '<path d="M6 22l10-10 6-6-2 8-10 10z" fill="#dfe6ea"/><path d="M4 24l4-4 2 2-4 4z" fill="#4a3020"/>',
+    hammer: '<path d="M8 25l10-12" stroke="#8a5a30" stroke-width="3"/><path d="M14 6l9 4-3 5-9-4z" fill="#9aa3ad"/>',
+    mace: '<path d="M8 25l9-11" stroke="#6b4423" stroke-width="3"/><circle cx="19" cy="10" r="5" fill="#7d8690"/><path d="M19 3v3M19 14v3M12 10h3M23 10h3M14 5l2 2M24 15l-2-2M24 5l-2 2" stroke="#cfd6dc" stroke-width="1.6"/>',
+    wrench: '<path d="M8 24l11-11" stroke="#9aa3ad" stroke-width="3.2"/><path d="M17 6a5 5 0 1 0 6 6l-3 1-3-3z" fill="#9aa3ad"/>',
+    bat: '<path d="M7 25l14-15" stroke="#8a5a30" stroke-width="4" stroke-linecap="round"/>',
+    phone: '<rect x="9" y="4" width="11" height="21" rx="2" fill="#222" stroke="#666"/><rect x="11" y="7" width="7" height="13" fill="#3a6ea8"/>',
+    laptop: '<rect x="6" y="7" width="17" height="11" rx="1" fill="#333" stroke="#777"/><path d="M3 21h23l-2 3H5z" fill="#888"/>',
+    keys: '<circle cx="10" cy="10" r="4" fill="none" stroke="#e0c060" stroke-width="2"/><path d="M13 13l8 8M18 18l2-2M20 20l2-2" stroke="#e0c060" stroke-width="2"/>',
+    tape: '<circle cx="14" cy="14" r="8" fill="#5a8a3a"/><circle cx="14" cy="14" r="3.5" fill="#0b0c13"/>',
+    pick: '<path d="M14 5c6 0 8 4 6 9l-6 10-6-10c-2-5 0-9 6-9z" fill="#d84a8a"/>',
+    bandage: '<rect x="5" y="10" width="19" height="9" rx="4" fill="#f0e6d8" transform="rotate(-30 14 14)"/><rect x="11" y="11" width="6" height="7" fill="#d8c8b0" transform="rotate(-30 14 14)"/>',
+    snack: '<rect x="6" y="9" width="17" height="11" rx="2" fill="#c8963e"/><path d="M6 12h17" stroke="#8a5a20"/>',
+    drink: '<path d="M11 5h6v4l2 3v12H9V12l2-3z" fill="#4a9ac8"/><rect x="11" y="3" width="6" height="3" fill="#ddd"/>',
+    opener: '<path d="M8 23l9-9" stroke="#9aa3ad" stroke-width="3"/><circle cx="19" cy="10" r="4" fill="none" stroke="#9aa3ad" stroke-width="2.5"/>',
+    rag: '<path d="M6 8c4 2 6-2 10 0s6-2 7 1l-2 13c-4-2-6 2-10 0s-5 1-6-1z" fill="#c8b8a0"/>',
+    badge: '<rect x="5" y="8" width="19" height="13" rx="2" fill="#e8e8e0"/><circle cx="10" cy="14" r="2.5" fill="#7a8a9a"/><path d="M14 12h7M14 16h5" stroke="#7a8a9a" stroke-width="1.5"/>',
+    coin: '<circle cx="14" cy="14" r="8" fill="#e0c060" stroke="#a08020" stroke-width="2"/><path d="M14 9v10" stroke="#a08020" stroke-width="2"/>',
+    pen: '<path d="M7 23l2-5 11-11 3 3-11 11z" fill="#3a6ea8"/>',
+    light: '<rect x="11" y="8" width="7" height="16" rx="2" fill="#555"/><path d="M10 8h9l2-4H8z" fill="#ffd34a"/>',
+    bag: '<path d="M7 11h15l-1 13H8z" fill="#8a6a40"/><path d="M11 11c0-5 7-5 7 0" fill="none" stroke="#5a4020" stroke-width="2"/>',
+    book: '<rect x="7" y="5" width="15" height="19" rx="1" fill="#7a2a2a"/><path d="M10 5v19" stroke="#4a1a1a" stroke-width="2"/>',
+    box: '<path d="M6 10l8-4 8 4v10l-8 4-8-4z" fill="#8a7a6a"/><path d="M6 10l8 4 8-4M14 14v10" stroke="#5a4a3a"/>',
+    cloth_top: '<path d="M9 5l-5 4 3 4 2-1v12h10V12l2 1 3-4-5-4c-1 2-2 3-5 3s-4-1-5-3z" fill="CC"/>',
+    cloth_pants: '<path d="M8 4h12l1 21h-5l-2-13-2 13H7z" fill="CC"/>',
+    cloth_shoes: '<path d="M4 18c3 0 5-6 8-7 2 2 4 3 8 3 3 1 5 3 5 6v2H4z" fill="CC"/><path d="M4 22h21" stroke="#eee" stroke-width="2"/>',
+    cloth_hat: '<path d="M8 17c0-7 3-10 6-10s6 3 6 10z" fill="CC"/><path d="M4 18h20" stroke="CC" stroke-width="3" stroke-linecap="round"/>',
+    cloth_scarf: '<path d="M7 8c4 3 10 3 14 0v5c-4 3-10 3-14 0zM15 13l3 12h-4l-1-11z" fill="CC"/>'
+  };
+  function itemIcon(it) {
+    var k = itemKind(it), svg = ICON[k] || ICON.box;
+    if (k.indexOf('cloth_') === 0) { var pal = KIT_SW[kitOutfitOf(it.style || '')] || KIT_SW.modern, c = pal[(it.color | 0) % pal.length]; svg = svg.replace(/CC/g, '#' + ('00000' + c.toString(16)).slice(-6)); }
+    return '<svg class="ico" viewBox="0 0 28 28" width="30" height="30" aria-hidden="true">' + svg + '</svg>';
+  }
+  // the wielded inventory item as a little 3D model in the right hand (built along +y, grip at the origin)
+  function gearModel(g0, it) {
+    var k = itemKind(it), RED = 0xb02828, g = new THREE.Group(); g.scale.setScalar(1.35); g0.add(g);
+    if (k === 'shears') { [-1, 1].forEach(function (s) { var a = new THREE.Group(); a.rotation.z = s * 0.12; g.add(a); part(a, 0.022, 0.09, 0.02, RED, s * 0.012, 0.0, 0); part(a, 0.012, 0.11, 0.006, STEEL, s * 0.004, 0.1, s * 0.004, 'metal'); }); part(g, 0.02, 0.02, 0.03, DARK, 0, 0.05, 0); }
+    else if (k === 'knife') { part(g, 0.024, 0.1, 0.024, 0x4a3020, 0, 0, 0, 'wood'); part(g, 0.03, 0.012, 0.03, STEEL, 0, 0.055, 0, 'metal'); part(g, 0.028, 0.13, 0.006, STEEL, 0.004, 0.125, 0, 'metal'); }
+    else if (k === 'hammer') { part(g, 0.028, 0.3, 0.028, WOOD, 0, 0.1, 0, 'wood'); part(g, 0.13, 0.05, 0.05, METAL_D, 0.02, 0.26, 0, 'metal'); }
+    else if (k === 'mace') { part(g, 0.032, 0.34, 0.032, WOOD, 0, 0.12, 0, 'wood'); part(g, 0.085, 0.11, 0.085, METAL_D, 0, 0.32, 0, 'metal'); [[0.05, 0.32, 0], [-0.05, 0.32, 0], [0, 0.32, 0.05], [0, 0.32, -0.05], [0, 0.39, 0]].forEach(function (p) { part(g, 0.025, 0.025, 0.025, STEEL, p[0], p[1], p[2]); }); }
+    else if (k === 'wrench') { part(g, 0.03, 0.26, 0.012, METAL, 0, 0.1, 0, 'metal'); part(g, 0.07, 0.04, 0.014, METAL, 0, 0.24, 0, 'metal'); }
+    else if (k === 'bat') { cyl(g, 0.03, 0.02, 0.5, /pipe|crowbar|rod/i.test(it.name) ? METAL_D : WOOD, 0, 0.2, 0, 8); }
+    else if (k === 'phone') { part(g, 0.07, 0.14, 0.01, DARK, 0, 0.06, 0.02); part(g, 0.06, 0.12, 0.002, 0x3a6ea8, 0, 0.06, 0.026, true); }
+    else if (k === 'keys') { part(g, 0.04, 0.04, 0.006, GOLD, 0, 0.03, 0, 'metal'); part(g, 0.012, 0.06, 0.004, GOLD, 0.01, 0.07, 0, 'metal'); part(g, 0.012, 0.05, 0.004, METAL, -0.012, 0.06, 0, 'metal'); }
+    else if (k === 'light') { cyl(g, 0.022, 0.022, 0.16, 0x333333, 0, 0.05, 0, 8); cyl(g, 0.032, 0.024, 0.04, 0xffd34a, 0, 0.15, 0, 8); }
+    else { part(g, 0.05, 0.08, 0.04, 0x8a7a6a, 0, 0.04, 0); }
+  }
+
+  // ---------- loot from containers and secret doors ----------
+  var LOOT_TABLE = {
+    chest: [{ name: 'Healing potion', cat: 'consumable', heal: '2d4+2', desc: 'Red, fizzy, sponsored. Restores 2d4+2 HP.' }, { name: 'Crowbar', cat: 'weapon', dmg: '1d6', desc: 'Opens crates, doors and arguments.' },
+      { name: 'Roll of duct tape', cat: 'tool', desc: 'The universal fix. The System has rules about it, but no one has read them.' }, { name: 'Flashlight', cat: 'tool', desc: 'Works. For now.' },
+      { name: 'Energy bar', cat: 'consumable', heal: '1d4', desc: 'Chocolate peanut. Restores 1d4 HP.' }, { name: 'Bronze loot box coupon', cat: 'valuable', desc: 'Redeemable at any sponsor booth. There are no sponsor booths.' },
+      { name: 'Hard hat', cat: 'clothing', slot: 'kHead', style: 'Hard hat', color: 0, desc: 'OSHA approved, in another galaxy.' }, { name: 'Plain white tee', cat: 'clothing', slot: 'kTop', style: 'T-shirt', color: 0, desc: 'Clean. Suspiciously clean.' },
+      { name: 'Grey hoodie', cat: 'clothing', slot: 'kTop', style: 'Hoodie', color: 2, desc: 'Somebody\'s. Not anymore.' }, { name: 'Black jeans', cat: 'clothing', slot: 'kPants', style: 'Jeans', color: 1, desc: 'Slim fit. You will make it work.' },
+      { name: 'Cowboy hat', cat: 'clothing', slot: 'kHead', style: 'Cowboy hat', color: 0, desc: 'Yeehaw is now a valid battle cry.' }, { name: 'Work boots', cat: 'clothing', slot: 'kBoots', style: 'Work boots', color: 7, desc: 'Steel toe. Good for kicking.' }],
+    small: [{ name: 'Energy bar', cat: 'consumable', heal: '1d4', desc: 'Chocolate peanut. Restores 1d4 HP.' }, { name: 'Bottle of water', cat: 'consumable', heal: '1', desc: 'Lukewarm. Restores 1 HP and some dignity.' },
+      { name: 'Rusty key', cat: 'misc', desc: 'Opens something, somewhere, probably.' }, { name: 'Lighter', cat: 'tool', desc: 'Three clicks to light. Always three.' }, { name: 'Ball of twine', cat: 'tool', desc: 'Long enough to find your way back. Maybe.' }]
+  };
+  function lootSpot(x, z, kind) {
+    var key = 'loot' + x + ',' + z, st = lootSpot.done[key];
+    if (!st) {
+      var tbl = LOOT_TABLE[kind], n = kind === 'chest' ? 2 + Math.floor(Math.random() * 2) : 1, items = [];
+      for (var i = 0; i < n; i++) { var it = JSON.parse(JSON.stringify(tbl[Math.floor(Math.random() * tbl.length)])); it.from = kind === 'chest' ? 'a loot box' : 'a search'; items.push(it); }
+      st = lootSpot.done[key] = { title: kind === 'chest' ? 'Loot box' : 'You found', items: items, gold: kind === 'chest' ? d(3, 6) : d(1, 4) };
+    }
+    lootWindow(st);
+  }
+  lootSpot.done = {};
+  function revealHidden(x, z) {
+    if (ch(x, z) !== 'H') return; MAP[z] = MAP[z].substr(0, x) + 'D' + MAP[z].substr(x + 1);
+    rebuildChunks(); refreshFog();
+  }
+
+  // ===================== loot window and tap-to-interact =====================
+  (function lootCSS() {
+    var css = document.createElement('style');
+    css.textContent = '#lootw{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,92vw);max-height:84vh;z-index:35;display:none;flex-direction:column;background:#0b0c13;border:1px solid rgba(255,211,74,.5);border-radius:12px;color:#e8f4f4;font-size:13px}' +
+      '#lootw.on{display:flex}#lootw header{display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08)}#lootw header b{flex:1;color:#ffd34a;letter-spacing:.12em;text-transform:uppercase;font-size:12px}' +
+      '#lootList{overflow-y:auto;padding:6px 8px}#lootList .li{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.05)}#lootList .li span{flex:1}#lootList small{color:#9ab;display:block}' +
+      '#lootw .row2{display:flex;gap:8px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.08)}#lootw .row2 button{flex:1}' +
+      '#tapRing{position:fixed;z-index:6;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid #3df2e0;border-radius:50%;pointer-events:none;opacity:0;transition:opacity .4s}';
+    document.head.appendChild(css);
+    var el = document.createElement('div'); el.id = 'lootw'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Loot'); document.body.appendChild(el);
+    var ring = document.createElement('div'); ring.id = 'tapRing'; document.body.appendChild(ring);
+  })();
+  var LOOTW = { open: false, store: null };
+  // store: { title, items: [...], gold: n }  — whatever you leave stays there for later
+  function lootWindow(store) {
+    LOOTW.open = true; LOOTW.store = store; var el = document.getElementById('lootw');
+    function draw() {
+      var empty = !store.items.length && !store.gold;
+      el.innerHTML = '<header><b>' + esc(store.title) + '</b><button type="button" class="xbtn" id="lwX">Close</button></header><div id="lootList">' +
+        (store.gold ? '<div class="li">' + itemIcon({ name: 'gold coin', cat: 'valuable' }) + '<span>' + store.gold + ' gold</span><button type="button" class="ccBtn" data-g="1">Take</button></div>' : '') +
+        store.items.map(function (it, i) { return '<div class="li">' + itemIcon(it) + '<span>' + esc(it.name) + '<small>' + esc(catName(it.cat)) + (it.dmg ? ' · ' + esc(it.dmg) : '') + (it.desc ? ' · ' + esc(it.desc) : '') + '</small></span><button type="button" class="ccBtn" data-i="' + i + '">Take</button></div>'; }).join('') +
+        (empty ? '<p style="color:#9ab;padding:8px">Nothing left.</p>' : '') + '</div>' +
+        '<div class="row2"><button type="button" class="ccBtn" id="lwAll"' + (empty ? ' disabled' : '') + '>Take all</button><button type="button" class="ccBtn" id="lwLeave">Leave the rest</button></div>';
+      document.getElementById('lwX').onclick = lootClose; document.getElementById('lwLeave').onclick = lootClose;
+      document.getElementById('lwAll').onclick = function () { takeGold(); store.items.slice().forEach(function (it) { take(it); }); saveChar(CHAR); lootClose(); };
+      el.querySelectorAll('[data-i]').forEach(function (b) { b.onclick = function () { take(store.items[+b.dataset.i]); saveChar(CHAR); draw(); }; });
+      el.querySelectorAll('[data-g]').forEach(function (b) { b.onclick = function () { takeGold(); saveChar(CHAR); draw(); }; });
+    }
+    function take(it) { if (!CHAR) return; store.items.splice(store.items.indexOf(it), 1); invAdd(it, true); say('Taken · ' + it.name, 'In your Bag now.', 1800); }
+    function takeGold() { if (!CHAR || !store.gold) return; CHAR.gold = (CHAR.gold || 0) + store.gold; say('Gold', '+' + store.gold + ' gold.', 1800); store.gold = 0; }
+    if (!CHAR) { say('Loot', 'Create a character first; your pockets are not registered with the System yet.', 3500); LOOTW.open = false; return; }
+    draw(); el.classList.add('on');
+  }
+  function lootClose() { LOOTW.open = false; document.getElementById('lootw').classList.remove('on'); if (UI.bag) bagDraw(); }
+
+  // ---------- tap or click on the world: walk there, or pick what to do with a thing ----------
+  var TAP = { down: null };
+  canvas.addEventListener('pointerdown', function (ev) { TAP.down = (CB.on || gearOpen) ? null : { x: ev.clientX, y: ev.clientY, t: performance.now() }; });
+  canvas.addEventListener('pointerup', function (ev) {
+    var d0 = TAP.down; TAP.down = null; if (!d0 || CB.on || gearOpen || CC || AUTH.open || TALK.open || LOOTW.open || UI.bag || UI.map) return;
+    if (Math.abs(ev.clientX - d0.x) + Math.abs(ev.clientY - d0.y) > 14 || performance.now() - d0.t > 600) return;
+    exploreTap(ev.clientX, ev.clientY);
+  });
+  function tapRing(x, y) { var r = document.getElementById('tapRing'); r.style.left = x + 'px'; r.style.top = y + 'px'; r.style.opacity = 1; clearTimeout(tapRing.t); tapRing.t = setTimeout(function () { r.style.opacity = 0; }, 450); }
+  function exploreTap(sx, sy) {
+    // a creature under the finger wins
+    var best = null, bd = 34 * 34;
+    CB.enemies.forEach(function (e) { if (!e.obj.visible) return; var s = toScreen(e.px, (e.def.h || 1) * 0.5, e.pz), dx = s.x - sx, dy = s.y - sy, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = e; } });
+    var r = canvas.getBoundingClientRect(); cbRay.setFromCamera(new THREE.Vector2((sx - r.left) / r.width * 2 - 1, -((sy - r.top) / r.height) * 2 + 1), cam);
+    var hit = cbRay.ray.intersectPlane(cbPlane, cbHit) ? { x: Math.round(cbHit.x), z: Math.round(cbHit.z) } : null;
+    tapRing(sx, sy);
+    if (best) { tapMenu({ c: 'E', e: best, key: 'e' + CB.enemies.indexOf(best), x: best.x, z: best.z }); return; }
+    if (!hit) return;
+    // an object one tile around the tap point (props are easy to miss with a fat finger)
+    var obj = null;
+    for (var k = 0; k < 9 && !obj; k++) { var x = hit.x + [0, 0, 1, -1, 0, 1, -1, 1, -1][k], z = hit.z + [0, 1, 0, 0, -1, 1, -1, -1, 1][k], c = ch(x, z);
+      if (c !== '.' && c !== ',' && c !== '~' && c !== '#' && c !== '@' && ACTS[c] && visNow[x + ',' + z] !== undefined) obj = { c: c, key: x + ',' + z, x: x, z: z }; }
+    if (obj) { tapMenu(obj); return; }
+    if (visNow[hit.x + ',' + hit.z] === undefined && !tileState[hit.z * W + hit.x]) return;
+    walkTo(hit.x, hit.z, null);
+  }
+  function walkTo(x, z, then, adjacent) {
+    closeMenu();
+    var r = bfs(P.x, P.z, 'pc', 60), goal = null;
+    if (adjacent) { var bestD = 1e9; for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { if (!dx && !dz) continue; var k = (x + dx) + ',' + (z + dz); if (r.dist[k] !== undefined && r.dist[k] < bestD) { bestD = r.dist[k]; goal = [x + dx, z + dz]; } } if (cheb(P.x, P.z, x, z) <= 1) goal = [P.x, P.z]; }
+    else if (r.dist[x + ',' + z] !== undefined) goal = [x, z];
+    if (!goal) { say('Can\'t get there', 'No clear path from here.', 1800); return; }
+    var path = goal[0] === P.x && goal[1] === P.z ? [] : pathTo(r, goal[0], goal[1]);
+    if (!path) return;
+    var face = function () { if (adjacent) hero.rotation.y = Math.atan2(x - P.px, z - P.pz); if (then) then(); };
+    if (!path.length) { face(); return; }
+    P.path = path; P.onArrive = face;
+  }
+  function tapName(t) { return t.e ? t.e.name + (t.e.dead ? ' · dead' : t.e.npc ? '' : ' · ' + healthState(t.e)[0]) : (NAMES[t.c] || 'Something'); }
+  function tapMenu(t) {
+    var far = cheb(P.x, P.z, t.x, t.z) > 1, opts = [];
+    var exam = t.e ? (t.e.dead ? 'Very dead. ' + (t.e.lootStore && !t.e.lootStore.items.length && !t.e.lootStore.gold ? 'Already picked clean.' : 'Its pockets look promising.') : examineText(t.e)) : ((ACTS[t.c] || []).filter(function (a) { return a.label === 'Examine'; })[0] || {}).text || ('A ' + (NAMES[t.c] || 'thing').toLowerCase() + '.');
+    opts.push({ label: 'Examine' + (far ? ' from here' : ''), fn: function () { say(tapName(t), exam, 5000); } });
+    if (t.e && !t.e.dead) {
+      if (cheb(P.x, P.z, t.x, t.z) <= 6) opts.push({ label: 'Talk' + (far ? ' (call out)' : ''), fn: function () { talkOpen(t.e); } });
+      else opts.push({ label: 'Walk over and talk', fn: function () { walkTo(t.x, t.z, function () { talkOpen(t.e); }, true); } });
+      if (!t.e.calm && !t.e.npc) opts.push({ label: 'Attack', fn: function () { cbStart('You start it.', t.e); } });
+    }
+    opts.push({ label: far ? 'Walk over and interact' : 'Interact', fn: function () { walkTo(t.x, t.z, function () { openMenu(t); }, true); } });
+    if (far) opts.push({ label: 'Walk over', fn: function () { walkTo(t.x, t.z, null, true); } });
+    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = tapName(t); menuEl.appendChild(hd);
+    opts.forEach(function (o, i) { var b = document.createElement('button'); b.type = 'button'; b.innerHTML = '<span>' + (i + 1) + '. ' + o.label + '</span>'; b.onclick = function () { closeMenu(); o.fn(); }; menuEl.appendChild(b); });
+    menuOpen = true; menuAt = { x: P.px, z: P.pz }; menuEl.classList.add('on');
+  }
+
+  // ---------- the bathroom stall wall: messages only your party can read ----------
+  function boardOpen(room, writing) {
+    var rid = room ? room.id : 0, el = document.getElementById('lootw'); LOOTW.open = true;
+    function render(msgs) {
+      el.innerHTML = '<header><b>Stall wall · ' + esc(room ? room.name : '') + '</b><button type="button" class="xbtn" id="lwX">Close</button></header><div id="lootList">' +
+        (msgs.length ? msgs.map(function (m) { return '<div class="li"><span><b>' + esc(m.username || 'someone') + '</b> <small style="display:inline">' + new Date(m.created).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</small><br>' + esc(m.text) + '</span></div>'; }).join('') : '<p style="color:#9ab;padding:8px">Nothing written here yet. Be the first.</p>') +
+        '</div><div class="row2" style="flex-direction:column"><textarea id="bdTxt" maxlength="400" rows="2" placeholder="Leave a message for your party…" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid rgba(61,242,224,.35);border-radius:8px;color:#fff;padding:8px;font:inherit"></textarea><button type="button" class="ccBtn" id="bdPost">Write it on the wall</button></div>';
+      document.getElementById('lwX').onclick = lootClose;
+      var ta = document.getElementById('bdTxt'); ta.addEventListener('keydown', function (ev) { ev.stopPropagation(); }); if (writing) setTimeout(function () { ta.focus(); }, 50);
+      document.getElementById('bdPost').onclick = function () {
+        var txt = ta.value.trim(); if (!txt) return;
+        var m = { room: rid, text: txt, username: (NET.user && NET.user.username) || (CHAR && CHAR.name) || 'you', created: Date.now() };
+        if (NET.mode === 'server') api('board', { method: 'POST', body: { room: rid, text: txt } }).then(load, function (e) { say('Could not write', e.message, 3000); });
+        else { var all = boardLocal(); all.push(m); try { localStorage.setItem('crawl-board', JSON.stringify(all.slice(-200))); } catch (x) {} load(); }
+      };
+    }
+    function load() {
+      if (NET.mode === 'server') api('board?room=' + rid).then(function (j) { render(j.messages || []); }, function () { render([]); });
+      else render(boardLocal().filter(function (m) { return m.room === rid; }));
+    }
+    el.classList.add('on'); render([]); load();
+  }
+  function boardLocal() { try { return JSON.parse(localStorage.getItem('crawl-board') || '[]'); } catch (x) { return []; } }
 
   // ---------- state ----------
   var P = { x: start.x, z: start.z, px: start.x, pz: start.z, speed: 0 };
@@ -7117,6 +7516,7 @@
   }
   var visNow = {}, tmp = new THREE.Color();
   function refreshFog() {
+    streamChunks();
     var S = SIGHTS[sightI], R = S.r; visNow = {};
     for (var z = P.z - R; z <= P.z + R; z++) for (var x = P.x - R; x <= P.x + R; x++) {
       if (x < 0 || z < 0 || x >= W || z >= H) continue;
@@ -7160,20 +7560,25 @@
     gate: 'The stairs down are close. So is whatever is guarding them.'
   };
   function enterRoom() {
-    var id = roomAt(P.x, P.z); if (id === lastRoom) return; lastRoom = id;
-    document.getElementById('region').textContent = ROOMS[id].name;
-    if (!seenRooms[id]) { seenRooms[id] = 1; say('Neighborhood discovered: ' + ROOMS[id].name, ROOM_LINES[id]); }
+    var info = roomInfo(P.x, P.z); if (!info) return; var id = info.id; if (id === lastRoom) return; lastRoom = id;
+    var hood = info.hood !== undefined ? LEVEL.hoods[info.hood] : null;
+    document.getElementById('region').textContent = info.name;
+    if (hood && !seenRooms['h' + info.hood]) { seenRooms['h' + info.hood] = 1; say('Neighborhood discovered: ' + hood.name, hood.line, 6000); }
+    else if (!seenRooms[id] && info.type !== 'corridor') { seenRooms[id] = 1; say((info.type === 'safe' ? 'Safe room: ' : info.type === 'boss' ? 'Boss room: ' : info.type === 'hidden' ? 'Secret found: ' : 'Discovered: ') + info.name, info.line, 4500); }
+    // a sharp-eyed crawler notices odd walls nearby
+    var pp = 10 + MOD.WIS + skillLv('Perception');
+    for (var dz = -2; dz <= 2; dz++) for (var dx = -2; dx <= 2; dx++) if (ch(P.x + dx, P.z + dz) === 'H' && pp >= 12 && !seenRooms['H' + (P.x + dx) + ',' + (P.z + dz)]) { seenRooms['H' + (P.x + dx) + ',' + (P.z + dz)] = 1; say('Perception · passive ' + pp, 'One of the walls near you does not look quite right.', 4500); }
   }
 
   // ---------- interact: D&D-style options and skill checks ----------
   var MOD = { STR: 0, DEX: 1, CON: 1, INT: 1, WIS: 2, CHA: 1 };
   var done = {}, menuEl = document.getElementById('menu'), menuOpen = false, menuAt = null;
   function stairsHint() {
-    var dx = 23 - P.px, dz = 13 - P.pz, sxs = dx - dz, sys = dx + dz, n = Math.round(Math.sqrt(dx * dx + dz * dz));
+    var dx = LEVEL.stairs.x - P.px, dz = LEVEL.stairs.z - P.pz, sxs = dx - dz, sys = dx + dz, n = Math.round(Math.sqrt(dx * dx + dz * dz));
     var v = sys > 2 ? 'down' : (sys < -2 ? 'up' : ''), h = sxs > 2 ? 'right' : (sxs < -2 ? 'left' : '');
     return n < 2 ? 'You are standing next to it.' : 'The stairwell is ' + n + ' tiles away, toward the ' + ((v + ' ' + h).trim() || 'middle') + ' of your screen.';
   }
-  var NAMES = { C: 'Loot box (Bronze)', M: 'Cellar Grub, level 1', B: 'Brazier', P: 'Pillar', S: 'Stairwell', D: 'Doorway', K: 'Crate', R: 'Barrel', '#': 'Wall', area: 'Your surroundings' };
+  var NAMES = { X: 'Bathroom', H: 'Wall', T: 'Table', W: 'Weapon rack', U: 'Training dummy', b: 'Sack', h: 'Shelf', c: 'Candle stand', q: 'Cauldron', k: 'Book stand', g: 'Cage', v: 'Vase', C: 'Loot box (Bronze)', M: 'Cellar Grub, level 1', B: 'Brazier', P: 'Pillar', S: 'Stairwell', D: 'Doorway', K: 'Crate', R: 'Barrel', '#': 'Wall', area: 'Your surroundings' };
   var ACTS = {
     C: [
       { label: 'Examine', text: 'A bronze loot box. Sealed. You are being filmed looking at it.' },
@@ -7220,8 +7625,24 @@
     ],
     '#': [
       { label: 'Examine', text: 'It is a wall.' },
-      { label: 'Search for a hidden door', stat: 'INT', dc: 15, win: 'A hairline seam. Not a door yet, but the builders left room for one.', lose: 'Solid.' }
+      { label: 'Search for a hidden door', stat: 'WIS', skill: ['Perception', 0], dc: 13, win: 'You run your hands over every stone. It really is just a wall.', lose: 'Solid.' }
     ],
+    H: [
+      { label: 'Examine', text: 'It is a wall. Probably.' },
+      { label: 'Search for a hidden door', stat: 'WIS', skill: ['Perception', 0], dc: 13, flag: 'found', win: 'A seam, a click, and the wall swings inward. The audience gasps on cue.', lose: 'Solid. Or you missed something.' }
+    ],
+    X: [{ label: 'Use the mirror (change hair and facial hair)', auto: 'mirror' }, { label: 'Read the stall wall', auto: 'board' }, { label: 'Write on the stall wall (only your party can read it)', auto: 'write' },
+      { label: 'Examine', text: 'A safe room bathroom. Clean, by dungeon standards. The stall walls are covered in messages from crawlers.' }],
+    T: [{ label: 'Examine', text: 'A table set for someone. The food is plastic. The plastic is also food.' }, { label: 'Search it', stat: 'INT', dc: 11, win: 'A crumpled napkin with a note: "the stairs are south of the ring". Helpful.', lose: 'Crumbs.' }],
+    W: [{ label: 'Examine', text: 'A weapon rack. Every slot is empty except for a sign that says TAKE ONE.' }],
+    U: [{ label: 'Examine', text: 'A training dummy with a crawler\'s face drawn on it. Not yours. Yet.' }, { label: 'Practice on it', stat: 'STR', dc: 8, win: 'Thwack. You feel slightly more dangerous.', lose: 'You miss a stationary target. On camera.' }],
+    b: [{ label: 'Search it', stat: 'INT', dc: 10, flag: 'loot', win: 'You rummage through it.', lose: 'Old rags and something that bit you.' }],
+    h: [{ label: 'Search it', stat: 'INT', dc: 11, flag: 'loot', win: 'Behind the bottles, something useful.', lose: 'Dusty bottles. All empty.' }],
+    c: [{ label: 'Examine', text: 'A tall iron candle stand. The candles never burn down.' }],
+    q: [{ label: 'Examine', text: 'A cauldron of something green that occasionally says "hello".' }, { label: 'Taste it', stat: 'CON', dc: 12, win: 'Tastes like soup. You feel fine. Mostly.', lose: 'You throw up a little. The audience loves it.' }],
+    k: [{ label: 'Read it', stat: 'INT', dc: 10, win: 'A field guide page: "Puglins flee when their leader falls. Imps will not cross a picket line."', lose: 'The handwriting is terrible.' }],
+    g: [{ label: 'Examine', text: 'A small cage. The door is open. Whatever was inside is not.' }],
+    v: [{ label: 'Smash it', stat: 'STR', dc: 6, flag: 'loot', win: 'Crash. Something rolls out of the shards.', lose: 'It bounces. Embarrassing.' }],
     area: [
       { label: 'Search the area', stat: 'WIS', dc: 12, win: 'Scuffed footprints, not yours, heading for the stairwell.', lose: 'Nothing catches your eye.' },
       { label: 'Sense the stairwell (Living Map)', auto: 'map' },
@@ -7239,13 +7660,13 @@
     return { c: 'area', key: 'area' };
   }
   function closeMenu() { menuOpen = false; menuEl.classList.remove('on'); document.getElementById('aInteract').classList.remove('held'); }
-  function openMenu() {
-    if (gearOpen) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen) { closeMenu(); return; }
-    var t = findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
-    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · HP ' + t.e.hp + '/' + t.e.max + (t.e.calm ? ' · friendly' : '') : NAMES[t.c]; menuEl.appendChild(hd);
+  function openMenu(t0) {
+    if (gearOpen) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
+    var t = t0 || findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
+    menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : NAMES[t.c]; menuEl.appendChild(hd);
     (t.e ? enemyActs(t.e) : ACTS[t.c]).forEach(function (a, i) {
       var b = document.createElement('button'); b.type = 'button';
-      var spent = a.flag && done[t.key + a.flag];
+      var spent = a.flag && done[t.key + a.flag] && a.flag !== 'open' && a.flag !== 'loot';
       var bonus = a.stat ? chkBonus(a) : 0;
       b.innerHTML = '<span>' + (i + 1) + '. ' + a.label + '</span>' + (spent ? '<i>done</i>' : (a.stat ? '<i>' + a.stat + (a.skill ? ' + ' + a.skill[0] : '') + ' +' + bonus + '</i>' : ''));
       if (spent) b.disabled = true;
@@ -7256,8 +7677,11 @@
   }
   function act(t, a) {
     closeMenu();
+    if ((a.flag === 'open' || a.flag === 'loot') && done[t.key + a.flag]) { lootSpot(t.x, t.z, a.flag === 'open' ? 'chest' : 'small'); return; }
     kitOneShot(a.stat ? 'Interact' : 'PickUp_Table');
     if (a.auto === 'map') { say('Living Map', stairsHint()); return; }
+    if (a.auto === 'mirror') { GMODE = 'mirror'; tab = 'Face'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); } return; }
+    if (a.auto === 'board' || a.auto === 'write') { boardOpen(roomInfo(t.x, t.z), a.auto === 'write'); return; }
     if (a.talk) { talkOpen(t.e); return; }
     if (a.loot) { lootBody(t.e); return; }
     if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); t.e.calm = false; cbStart(t.e.calm ? '' : 'You started it.', t.e); return; }
@@ -7272,7 +7696,9 @@
       done[t.key + a.flag] = true;
       if (a.flag === 'calm' && t.e) { t.e.calm = true; cbHUD(); }
       if (a.flag === 'calm') { tiles.forEach(function (q) { if (q.mob && q.glow && q.x === t.x && q.z === t.z) q.base.set(0x40ff70); }); refreshFog(); }
-      if (a.flag === 'open') tiles.forEach(function (q) { if (q.x === t.x && q.z === t.z && q.lid) { q.mesh.position.y += 0.2; q.mesh.position.z -= 0.2; } });
+      if (a.flag === 'open') { tiles.forEach(function (q) { if (q.x === t.x && q.z === t.z && q.lid) { q.mesh.position.y += 0.2; q.mesh.position.z -= 0.2; } }); lootSpot(t.x, t.z, 'chest'); }
+      if (a.flag === 'loot') lootSpot(t.x, t.z, 'small');
+      if (a.flag === 'found') { revealHidden(t.x, t.z); }
     }
   }
 
@@ -7289,17 +7715,28 @@
   }
   function moveHero(dt) {
     if (CB.on) { cbMove(dt); return; }
+    if (PC.timeout && performance.now() < PC.timeout) { P.speed = 0; return; }
     var sx = joy.x, sy = joy.y;
     if (keys.L) sx -= 1; if (keys.R) sx += 1; if (keys.U) sy -= 1; if (keys.D) sy += 1;
-    var m = Math.sqrt(sx * sx + sy * sy);
-    if (gearOpen || m < 0.15) { P.speed = 0; return; }
-    if (menuOpen && Math.abs(P.px - menuAt.x) + Math.abs(P.pz - menuAt.z) > 0.4) closeMenu();
-    if (m > 1) { sx /= m; sy /= m; m = 1; }
-    var wx = (sx + sy) * 0.7071, wz = (sy - sx) * 0.7071; // screen direction to floor direction
+    var m = Math.sqrt(sx * sx + sy * sy), wx, wz;
+    if (m >= 0.15) P.path = null;
+    if (P.path && !gearOpen) { // walking to a tapped spot
+      var nt = P.path[0], ddx = nt[0] - P.px, ddz = nt[1] - P.pz, dl = Math.sqrt(ddx * ddx + ddz * ddz);
+      if (dl <= Math.max(0.1, (crouch ? 1.5 : 3.3) * dt)) { P.px = nt[0]; P.pz = nt[1]; P.path.shift();
+        if (!P.path.length) { P.path = null; P.speed = 0; var arrive = P.onArrive; P.onArrive = null; var tx0 = Math.round(P.px), tz0 = Math.round(P.pz); if (tx0 !== P.x || tz0 !== P.z) { P.x = tx0; P.z = tz0; refreshFog(); enterRoom(); cbAggro(); } if (arrive && !CB.on) arrive(); return; }
+        nt = P.path[0]; ddx = nt[0] - P.px; ddz = nt[1] - P.pz; dl = Math.sqrt(ddx * ddx + ddz * ddz); }
+      wx = ddx / dl; wz = ddz / dl; m = 1;
+    } else {
+      if (gearOpen || m < 0.15) { P.speed = 0; return; }
+      if (m > 1) { sx /= m; sy /= m; m = 1; }
+      wx = (sx + sy) * 0.7071; wz = (sy - sx) * 0.7071; // screen direction to floor direction
+    }
+    if (menuOpen && Math.abs(P.px - menuAt.x) + Math.abs(P.pz - menuAt.z) > 0.4 && !P.path) closeMenu();
     var top = crouch ? 1.5 : 3.3; P.speed = top * m;
     var nx = P.px + wx * top * dt, nz = P.pz + wz * top * dt, ox = P.px, oz = P.pz;
+    if (P.path) { P.px = nx; P.pz = nz; } else {
     if (!solidNear(nx, P.pz)) P.px = nx;
-    if (!solidNear(P.px, nz)) P.pz = nz;
+    if (!solidNear(P.px, nz)) P.pz = nz; }
     walked += Math.abs(P.px - ox) + Math.abs(P.pz - oz);
     var want = Math.atan2(wx, wz), d = want - hero.rotation.y;
     while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
@@ -7335,6 +7772,7 @@
   tap('aInteract', openMenu); tap('aJump', jump); tap('aCrouch', toggleCrouch); tap('aSight', cycleSight);
   var KEYS = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R', w: 'U', s: 'D', a: 'L', d: 'R', W: 'U', S: 'D', A: 'L', D: 'R' };
   window.addEventListener('keydown', function (e) {
+    if (LOOTW.open) { if (e.key === 'Escape') lootClose(); return; }
     if (TALK.open || CC || AUTH.open) return;
     if (e.key === 'i' || e.key === 'I') { bagToggle(); return; } if (e.key === 'm' || e.key === 'M') { mapToggle(); return; }
     if (e.key === 'Escape' && (UI.bag || UI.map)) { if (UI.bag) bagToggle(); if (UI.map) mapToggle(); return; }
@@ -7354,11 +7792,22 @@
 
   // ---------- character builder ----------
   var rowsEl = document.getElementById('rows'), tabsEl = document.getElementById('tabs'), tab = 'Body', autoSpin = true;
-  var TABS = ['Body', 'Face', 'Clothes', 'Gear', 'Sheet'];
+  var TABS = ['Body', 'Face', 'Clothes', 'Gear', 'Sheet'], GMODE = 'normal';
+  // which tabs show: designing a new character, at a bathroom mirror, or normal play (clothes you own, your sheet)
+  function tabsNow() {
+    if (GMODE === 'design') return ['Body', 'Face', 'Clothes'];
+    if (GMODE === 'mirror') return ['Face'];
+    if (!CHAR || CHAR.freeWardrobe) return TABS;
+    return ['Clothes', 'Sheet'];
+  }
+  var MIRROR_KEYS = { kHair: 1, kBeard: 1, kBrows: 1, hair: 1, beard: 1 };
   function saveLook() { try { localStorage.setItem('crawl-look7', JSON.stringify(look)); } catch (e) {} saveLookRemote(); }
   function drawTabs() {
     tabsEl.innerHTML = '';
-    TABS.forEach(function (t) {
+    var TT = tabsNow(); if (TT.indexOf(tab) < 0) tab = TT[0];
+    document.getElementById('closeGear').textContent = GMODE === 'design' ? 'Confirm and enter the dungeon' : GMODE === 'mirror' ? 'Done' : 'Back to the crawl';
+    document.getElementById('randBtn').style.display = GMODE === 'design' || !CHAR ? '' : 'none';
+    TT.forEach(function (t) {
       var b = document.createElement('button'); b.type = 'button'; b.textContent = t; if (t === tab) b.className = 'on';
       b.onclick = function () { tab = t; if (t === 'Face') { autoSpin = false; spin = Math.PI / 4 - hero.rotation.y; } drawTabs(); drawRows(); }; tabsEl.appendChild(b);
     });
@@ -7367,7 +7816,7 @@
     rowsEl.innerHTML = '';
     if (tab === 'Sheet') { rowsEl.innerHTML = sheetHTML(); sheetAfter(); return; }
     if (tab === 'Clothes' && kitMode() && clothesLocked()) { wardrobeRows(rowsEl); return; }
-    SLOTS.filter(function (s) { return s.tab === tab && !(s.hand && kitMode()) && !(s.kit && !kitMode()); }).forEach(function (s) {
+    SLOTS.filter(function (s) { return s.tab === tab && (GMODE !== 'mirror' || MIRROR_KEYS[s.key]) && !(s.hand && kitMode()) && !(s.kit && !kitMode()); }).forEach(function (s) {
       var row = document.createElement('div'); row.className = 'row';
       var lab = document.createElement('span'); lab.className = 'slot'; lab.textContent = s.label; row.appendChild(lab);
       var multi = s.styles.length > 1;
@@ -7394,6 +7843,9 @@
     buildHero(); saveLook(); drawRows();
   }
   function toggleGear() {
+    if (!gearOpen && CB.on) { say('Not now', 'No changing clothes in the middle of a fight.', 2400); return; }
+    if (gearOpen && GMODE === 'design') { GMODE = 'normal'; if (CHAR) { CHAR.designed = true; saveChar(CHAR); } setTimeout(function () { say('Welcome to the crawl', 'You wake up in a Safe Room. A nervous imp with a clipboard is waiting for you. Tap things to look at them, or walk up and press Interact.', 8000); }, 600); }
+    else if (gearOpen && GMODE === 'mirror') { GMODE = 'normal'; if (CHAR) saveChar(CHAR); }
     gearOpen = !gearOpen; joy.x = joy.y = 0; closeMenu();
     document.getElementById('gear').classList.toggle('on', gearOpen);
     document.getElementById('stick').style.display = gearOpen ? 'none' : '';
@@ -7461,7 +7913,7 @@
     blob.material.opacity = 0.3 - jy * 0.3;
     // living world: flames, firelight, water, the grub breathing
     for (var i = 0; i < flames.length; i++) { var f = flames[i], k = 0.8 + 0.3 * Math.sin(T * 9 + f.ph) + 0.15 * Math.sin(T * 23 + f.ph * 2); f.m.scale.y = f.h * k; f.m.position.y = f.y + f.h * k / 2; f.m.scale.x = f.m.scale.z = f.w * (1.1 - 0.2 * k); }
-    for (i = 0; i < fireLights.length; i++) fireLights[i].l.intensity = 1.0 + 0.2 * Math.sin(T * 11 + fireLights[i].ph) + 0.12 * Math.sin(T * 27 + fireLights[i].ph);
+    for (i = 0; i < fireLights.length; i++) fireLights[i].l.intensity = !fireLights[i].on ? 0 : 1.0 + 0.2 * Math.sin(T * 11 + fireLights[i].ph) + 0.12 * Math.sin(T * 27 + fireLights[i].ph);
     if (torchLight.intensity > 0) torchLight.intensity = 0.85 + 0.15 * Math.sin(T * 13);
     for (i = 0; i < waterTex.length; i++) { waterTex[i].offset.x = T * 0.035; waterTex[i].offset.y = Math.sin(T * 0.5 + i) * 0.04; }
     for (i = 0; i < mobParts.length; i++) { var mp = mobParts[i], sq = 1 + 0.07 * Math.sin(T * 2.2 + mp.ph); mp.t.mesh.scale.y = mp.round ? sq : mp.h * sq; mp.t.mesh.position.y = mp.h * sq / 2 + (mp.head ? 0.1 : 0.02); }
@@ -7473,7 +7925,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { cb: { CB: CB, PC: PC, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

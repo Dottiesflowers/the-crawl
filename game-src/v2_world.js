@@ -104,33 +104,16 @@
   }
 
   // ---------- map ----------
-  var MAP = [
-    '##########################',
-    '#......#.........#,,,,,,,#',
-    '#..B...#.........#,,P,,,,#',
-    '#......D....P....D,,,,,C,#',
-    '#..@...#.........#,,,,,,,#',
-    '#......#....P....#,,P,,,,#',
-    '#......#.........#,,,,,,,#',
-    '####D###.........####D####',
-    '#......#####D#####.......#',
-    '#.C..K.#~~~~~~~~~#...M...#',
-    '#....KR#~~~~~~~~~#.......#',
-    '#......D~~~P~~~~~D....B..#',
-    '#......#~~~~~~~~~#.......#',
-    '#..B...#~~~~~~~~~#.....S.#',
-    '#R.....#~~~~~~~~~#.......#',
-    '##########################'
-  ];
+  var LEVEL = genLevel(1970), MAP = LEVEL.map;
   var H = MAP.length, W = MAP[0].length;
-  function roomAt(x, z) {
-    if (z <= 7 && x <= 7) return 'crypt';
-    if (z <= 7 && x <= 17) return 'hall';
-    if (z <= 7) return 'moss';
-    if (x <= 7) return 'store';
-    if (x <= 17) return 'water';
-    return 'gate';
+  // the room (from the generator) a tile belongs to; walls borrow a neighbouring room's look
+  function roomInfo(x, z) {
+    var r = LEVEL.reg[z] && LEVEL.reg[z][x];
+    if (r >= 0) return LEVEL.rooms[r];
+    for (var k = 0; k < 8; k++) { var dx = [1, -1, 0, 0, 1, 1, -1, -1][k], dz = [0, 0, 1, -1, 1, -1, 1, -1][k], q = LEVEL.reg[z + dz] && LEVEL.reg[z + dz][x + dx]; if (q >= 0) return LEVEL.rooms[q]; }
+    return null;
   }
+  function roomAt(x, z) { var r = roomInfo(x, z); return r ? r.theme : 'hall'; }
   var ROOMS = {
     crypt: { name: 'Safe Room', floor: [0x6a655c, 0x746e63, 0x5f5a52], wall: 0x7d7468 },
     hall:  { name: 'Pillar Hall', floor: [0x8a7256, 0x7a6449, 0x8f7a60], wall: 0x8f7a5e },
@@ -140,9 +123,9 @@
     gate:  { name: 'Stairwell Approach', floor: [0x70403c, 0x7c4742, 0x643a36], wall: 0x8a5a56 }
   };
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
-  var SOLID = { '#': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1 };
+  var SOLID = { 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
   function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z); }
-  function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P'; }
+  function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P' || c === 'H'; }
 
   function floorTex(id, v) {
     return tex('fl' + id + v, 64, 64, function (g) {
@@ -250,7 +233,9 @@
   function reg(mesh, x, z, opt) {
     opt = opt || {};
     var t = { mesh: mesh, x: x, z: z, base: opt.glow ? mesh.material.color.clone() : WHITE, wall: !!opt.wall, fade: !!opt.fade, mob: !!opt.mob, glow: !!opt.glow, hang: !!opt.hang };
-    mesh.visible = false; mesh.castShadow = !opt.glow && !opt.noShadow; mesh.receiveShadow = !opt.glow; scene.add(mesh); tiles.push(t); return t;
+    mesh.visible = false; mesh.castShadow = !opt.glow && !opt.noShadow; mesh.receiveShadow = !opt.glow; scene.add(mesh);
+    if (curChunk) curChunk.push(t); else { var ck = chunks[Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK)]; if (ck) ck.push(t); tiles.push(t); }
+    return t;
   }
   // box(): one block of the world. opt.kind picks the painted surface, opt.tex overrides it.
   function box(w, h, d, color, x, y, z, tx, tz, opt) {
@@ -261,7 +246,7 @@
       var top = h < 0.09, pw = clamp(Math.round(Math.max(w, d) * 68), 2, 68), ph = clamp(Math.round((top ? Math.min(w, d) : h) * 68), 2, 96);
       mat = new THREE.MeshLambertMaterial({ map: opt.tex || surf(opt.kind || 'stone', color, pw, ph, opt.seed || 0), transparent: !!opt.fade });
     }
-    var rg = opt.round ? roundGeo(w, h, d, Math.min(w, h, d) * opt.round, 4) : null;
+    var rg = opt.round ? roundGeo(w, h, d, Math.min(w, h, d) * opt.round, 4) : null; if (rg) rg.userData.own = true;
     m = new THREE.Mesh(rg || opt.geo || boxG, mat);
     if (!opt.geo && !rg) m.scale.set(w, h, d);
     m.position.set(x, y, z); return reg(m, tx, tz, opt);
@@ -274,14 +259,16 @@
     });
   }
 
-  var start = { x: 3, z: 4 }, c8 = new THREE.CylinderGeometry(0.5, 0.5, 1, 10), c16 = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
-  for (var z = 0; z < H; z++) for (var x = 0; x < W; x++) {
-    var c = ch(x, z), rid = roomAt(x, z), room = ROOMS[rid], r = hash(x, z), r2 = hash(x + 31, z + 17), v = Math.floor(r * 4);
+  var start = LEVEL.start, c8 = new THREE.CylinderGeometry(0.5, 0.5, 1, 10), c16 = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
+  function nearFloor(x, z) { for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { var q = ch(x + dx, z + dz); if (q !== '#' && q !== 'H') return true; } return false; }
+  function buildTile(x, z) {
+    var c = ch(x, z); if (c === 'H') c = '#'; if (c === '#' && !nearFloor(x, z)) return;
+    var rid = roomAt(x, z), room = ROOMS[rid], r = hash(x, z), r2 = hash(x + 31, z + 17), v = Math.floor(r * 4);
     if (c === '#') {
       var wh = 1.5 + r * 0.25;
       box(1, wh, 1, room.wall, x, wh / 2, z, x, z, { wall: true, tex: wallTex(rid, v) }).h = wh;
       // things that hang on a wall face looking toward the camera side
-      var south = ch(x, z + 1) !== '#' && z + 1 < H, east = ch(x + 1, z) !== '#' && x + 1 < W;
+      var south = ch(x, z + 1) !== '#' && ch(x, z + 1) !== 'H' && z + 1 < H, east = ch(x + 1, z) !== '#' && ch(x + 1, z) !== 'H' && x + 1 < W;
       if (south && r2 > 0.8) { // banner
         var bc = [0x7a1f1f, 0x1f3a6a, 0x4a2a6a, 0x2f5a34][Math.floor(r * 4)];
         box(0.5, 0.06, 0.06, 0x3a2a1c, x, 1.3, z + 0.53, x, z, { hang: true, kind: 'wood' });
@@ -297,7 +284,7 @@
         for (var vi = 0; vi < 3; vi++) { var vx = south ? x - 0.3 + vi * 0.3 : x + 0.52, vz = south ? z + 0.52 : z - 0.3 + vi * 0.3, vl = 0.4 + hash(x + vi, z * 3) * 0.7;
           box(0.07, vl, 0.04, [0x4f7f3a, 0x3d6a2e, 0x6a9a48][vi], vx, wh - vl / 2 - 0.05, vz, x, z, { hang: true, kind: 'cloth', seed: vi, noShadow: true }); }
       }
-      continue;
+      return;
     }
     if (c === '@') start = { x: x, z: z };
     if (c === 'S') { // stairs sink below the floor
@@ -306,7 +293,7 @@
       box(0.14, 1.5, 0.14, 0x5a5a64, x - 0.5, 0.75, z - 0.5, x, z, { fade: true }); box(0.14, 1.5, 0.14, 0x5a5a64, x + 0.5, 0.75, z - 0.5, x, z, { fade: true });
       box(1.3, 0.16, 0.18, 0x4a4a52, x, 1.56, z - 0.5, x, z, { fade: true }); box(0.16, 0.16, 0.05, 0x3df2e0, x, 1.56, z - 0.4, x, z, { glow: true });
       box(0.3, 0.03, 0.03, 0x3df2e0, x, 1.38, z - 0.41, x, z, { glow: true });
-      continue;
+      return;
     }
     var ft = floorTex(rid, rid === 'hall' ? ((x + z) % 2) + 2 * Math.floor(r * 2) : v);
     if (rid === 'water' && waterTex.indexOf(ft) < 0) { ft.wrapS = ft.wrapT = THREE.RepeatWrapping; waterTex.push(ft); }
@@ -329,8 +316,13 @@
       box(0.5, 0.1, 0.5, 0x3a3a44, x, 0.55, z, x, z, { kind: 'metal' }); box(0.6, 0.08, 0.6, 0x44444e, x, 0.64, z, x, z, { kind: 'metal' });
       box(0.46, 0.05, 0.46, 0x5a1a08, x, 0.69, z, x, z, { glow: true }); box(0.2, 0.05, 0.2, 0xff5a10, x + 0.06, 0.7, z - 0.04, x, z, { glow: true });
       flame(x, 0.7, z, x, z, 1);
-      var pl = new THREE.PointLight(0xff9a40, 1.1, 5.5, 1.4); pl.position.set(x, 1.1, z); scene.add(pl); fireLights.push({ l: pl, ph: x * 2 + z });
-    } else if (c === 'C') {
+    } else if (c === 'X') { // the safe room bathroom: a little stall with a sign and a mirror
+      box(0.9, 1.25, 0.06, 0x5a6a72, x, 0.625, z - 0.42, x, z, { kind: 'metal' }); box(0.06, 1.25, 0.86, 0x5a6a72, x - 0.42, 0.625, z, x, z, { kind: 'metal' }); box(0.06, 1.25, 0.86, 0x5a6a72, x + 0.42, 0.625, z, x, z, { kind: 'metal' });
+      box(0.8, 1.1, 0.04, 0x6f8088, x + 0.02, 0.6, z + 0.4, x, z, { kind: 'metal', fade: true }); box(0.3, 0.16, 0.02, 0x3df2e0, x, 1.32, z + 0.43, x, z, { glow: true });
+      box(0.22, 0.3, 0.02, 0xd8e8f0, x - 0.25, 0.95, z + 0.43, x, z, { kind: 'metal' });
+    } else if ('TWUbhcqkgv'.indexOf(c) >= 0) {
+      if (!propsOn()) box(0.5, 0.5, 0.5, 0x6b5a44, x, 0.25, z, x, z, { kind: 'wood' });
+    } else if (c === 'C' && !propsOn()) {
       box(0.66, 0.34, 0.46, 0x6b4423, x, 0.17, z, x, z, { kind: 'wood' });
       [-0.24, 0.24].forEach(function (o) { box(0.07, 0.36, 0.48, 0x5a5f66, x + o, 0.17, z, x, z, { kind: 'metal' }); });
       box(0.5, 0.02, 0.32, 0x140e06, x, 0.345, z, x, z, { noShadow: true });
@@ -339,12 +331,12 @@
       lid.push(box(0.12, 0.16, 0.05, 0xe0c060, x, 0.38, z + 0.24, x, z, { kind: 'metal' })); lid.push(box(0.04, 0.05, 0.02, 0x1a1208, x, 0.36, z + 0.27, x, z));
       lid.forEach(function (t) { t.lid = true; });
       [-0.36, 0.36].forEach(function (o) { box(0.03, 0.08, 0.14, 0x5a5f66, x + o, 0.22, z, x, z, { kind: 'metal' }); });
-    } else if (c === 'K') {
+    } else if (c === 'K' && !propsOn()) {
       var ks = 0.72 + r * 0.14;
       box(ks, ks, ks, 0x8a6a3c, x, ks / 2, z, x, z, { kind: 'wood', seed: v });
       [-1, 1].forEach(function (o) { box(ks + 0.03, 0.1, ks + 0.03, 0x6a4e2a, x, ks / 2 + o * (ks / 2 - 0.05), z, x, z, { kind: 'wood' }); box(0.1, ks, 0.1, 0x6a4e2a, x + o * (ks / 2 - 0.04), ks / 2, z + ks / 2 - 0.03, x, z, { kind: 'wood' }); box(0.1, ks, 0.1, 0x6a4e2a, x + ks / 2 - 0.03, ks / 2, z + o * (ks / 2 - 0.04), x, z, { kind: 'wood' }); });
       if (r > 0.4) box(0.4, 0.3, 0.4, 0x9a7a48, x - 0.05, ks + 0.15, z + 0.05, x, z, { kind: 'wood', seed: 5 });
-    } else if (c === 'R') {
+    } else if (c === 'R' && !propsOn()) {
       var bm = function (rad, hh, col, yy, kind) { var t = box(1, 1, 1, col, x, yy, z, x, z, { geo: c8, kind: kind, seed: 2 }); t.mesh.scale.set(rad * 2, hh, rad * 2); return t; };
       bm(0.3, 0.2, 0x7a5430, 0.1, 'wood'); bm(0.35, 0.36, 0x86602f, 0.38, 'wood'); bm(0.3, 0.2, 0x7a5430, 0.66, 'wood');
       bm(0.325, 0.05, 0x4a4f56, 0.2, 'metal'); bm(0.325, 0.05, 0x4a4f56, 0.56, 'metal'); bm(0.26, 0.02, 0x4a3018, 0.765, 'wood');
@@ -374,3 +366,37 @@
       } else if (rid === 'store' && r2 > 0.86) { box(0.32, 0.2, 0.26, 0xb09a6a, x + 0.1, 0.1, z, x, z, { kind: 'cloth', seed: 4 }); box(0.1, 0.07, 0.1, 0xb09a6a, x + 0.1, 0.23, z, x, z, { kind: 'cloth' }); box(0.12, 0.02, 0.12, 0x6a4e2a, x + 0.1, 0.2, z, x, z); }
     }
   }
+
+  // ---------- streaming: only the chunks around the hero exist in the scene ----------
+  // The floor is far bigger than a phone can draw at once; the camera only ever shows about ten tiles
+  // around the hero, so chunks are built as you approach and torn down behind you.
+  var CHUNK = 8, CH_R = 15, chunks = {}, curChunk = null, chunkAt = '';
+  var BRAZ = []; for (var bz = 0; bz < H; bz++) for (var bx = 0; bx < W; bx++) if (MAP[bz].charAt(bx) === 'B') BRAZ.push({ x: bx, z: bz });
+  for (var fl = 0; fl < 4; fl++) { var plx = new THREE.PointLight(0xff9a40, 0, 5.5, 1.4); scene.add(plx); fireLights.push({ l: plx, ph: fl * 2.3, on: false }); }
+  function buildChunk(cx, cz) {
+    var list = []; curChunk = list;
+    for (var z = cz * CHUNK; z < Math.min(H, (cz + 1) * CHUNK); z++) for (var x = cx * CHUNK; x < Math.min(W, (cx + 1) * CHUNK); x++) { buildTile(x, z); if (typeof buildTileProps === 'function') buildTileProps(x, z); }
+    curChunk = null; chunks[cx + ',' + cz] = list;
+  }
+  function unloadChunk(key) {
+    var list = chunks[key]; if (!list) return; delete chunks[key];
+    list.forEach(function (t) { scene.remove(t.mesh); if (t.mesh.material && !t.mesh.material.userData.shared) t.mesh.material.dispose(); if (t.mesh.geometry && t.mesh.geometry.userData.own) t.mesh.geometry.dispose(); });
+  }
+  function rebuildChunks() { Object.keys(chunks).forEach(unloadChunk); chunkAt = ''; streamChunks(true); }
+  function streamChunks(force) {
+    var px = (typeof P !== 'undefined') ? P.x : start.x, pz = (typeof P !== 'undefined') ? P.z : start.z, key = Math.floor(px / 4) + ',' + Math.floor(pz / 4);
+    if (!force && key === chunkAt) return; chunkAt = key;
+    var need = {};
+    for (var cz = Math.floor((pz - CH_R) / CHUNK); cz <= Math.floor((pz + CH_R) / CHUNK); cz++) for (var cx = Math.floor((px - CH_R) / CHUNK); cx <= Math.floor((px + CH_R) / CHUNK); cx++) {
+      if (cx < 0 || cz < 0 || cx * CHUNK >= W || cz * CHUNK >= H) continue; need[cx + ',' + cz] = 1; if (!chunks[cx + ',' + cz]) buildChunk(cx, cz);
+    }
+    Object.keys(chunks).forEach(function (k) { if (!need[k]) unloadChunk(k); });
+    tiles.length = 0; Object.keys(chunks).forEach(function (k) { Array.prototype.push.apply(tiles, chunks[k]); });
+    for (var i = flames.length - 1; i >= 0; i--) if (!flames[i].m.parent) flames.splice(i, 1);
+    for (i = mobParts.length - 1; i >= 0; i--) if (!mobParts[i].t.mesh.parent) mobParts.splice(i, 1);
+    // the four nearest braziers get the real lights
+    var near = BRAZ.filter(function (b) { return Math.abs(b.x - px) + Math.abs(b.z - pz) < 16; }).sort(function (a, b) { return (Math.abs(a.x - px) + Math.abs(a.z - pz)) - (Math.abs(b.x - px) + Math.abs(b.z - pz)); });
+    fireLights.forEach(function (f, n) { var b = near[n]; f.on = !!b; if (b) f.l.position.set(b.x, 1.1, b.z); else f.l.intensity = 0; });
+  }
+  streamChunks(true);
+  function propsOn() { return typeof PROPS !== 'undefined' && !!PROPS && PROPS.ready; }

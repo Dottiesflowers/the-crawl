@@ -818,8 +818,9 @@
     if (back === 3) { var bg = new THREE.Group(); bg.position.set(-0.05, 0.6, bz + 0.02); bg.rotation.z = -0.65; bg.rotation.y = Math.PI; backG.add(bg); bass(bg, bk);
       tube(rig, T, darkM, { y0: 0.68, y1: 0.725, grow: gf + 0.006, na: 32, ny: 1, tilt: 0.13 }); bead(0.3, 0.74, gf + 0.008, 0.016, goldM); }
     // ----- hands: main and off -----
-    var main = sty('main'), mc = col('main');
-    if (main) {
+    var main = sty('main'), mc = col('main'), gw = (typeof CHAR !== 'undefined' && CHAR && CHAR.wield) ? (CHAR.gear || []).filter(function (x) { return x.name === CHAR.wield; })[0] : null;
+    if (gw) { var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); AR.el.add(wg); held.push({ g: wg, el: AR.el, side: 1, t: lean(0.35, 0.1) }); gearModel(wg, gw); main = 0; }
+    else if (main) {
       var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); AR.el.add(wg);
       if (main === 5) { wg.rotation.x = 1.0; kitHold.bass = wg; } else held.push({ g: wg, el: AR.el, side: 1, t: lean(main === 3 ? 0.06 : 0.5, 0.12) });
       if (main === 1) { part(wg, 0.03, 0.1, 0.03, DARK, 0, 0, 0); part(wg, 0.035, 0.02, 0.035, GOLD, 0, 0.03, 0); part(wg, 0.035, 0.02, 0.035, GOLD, 0, -0.03, 0); part(wg, 0.15, 0.025, 0.04, mc, 0, 0.06, 0, 'metal'); part(wg, 0.03, 0.04, 0.045, mc, -0.08, 0.06, 0, 'metal'); part(wg, 0.03, 0.04, 0.045, mc, 0.08, 0.06, 0, 'metal');

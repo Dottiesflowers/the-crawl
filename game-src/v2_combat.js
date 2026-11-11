@@ -10,7 +10,18 @@
     imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 12, hp: 16, speed: 6, atk: 3, dmg: [1, 6, 2], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
       lines: ['Hired muscle for the stairwell. Union rules: it does not leave its post until something walks past it.'] }
   };
-  var SPAWNS = [{ kind: 'puglin', x: 21, z: 9 }, { kind: 'puglin', x: 19, z: 10 }, { kind: 'imp', x: 22, z: 12, guard: true }, { kind: 'imp', x: 5, z: 5, npc: 'pip' }];
+  // monster families: tiers share a model and get bigger, tougher and nastier. base: which loaded model to use
+  function variant(base, o) { var v = {}; for (var k in BEAST[base]) v[k] = BEAST[base][k]; for (k in o) v[k] = o[k]; v.base = base; return v; }
+  BEAST.puglin.base = 'puglin'; BEAST.imp.base = 'imp'; BEAST.imp.name = 'Imp security guard';
+  BEAST.puglin_brute = variant('puglin', { name: 'Puglin brute', ac: 12, hp: 13, atk: 4, dmg: [1, 6, 2], str: 2, xp: 50, scale: 0.86, h: 0.74, tint: 0xd8b0a0, lines: ['Bigger, meaner, and it brought a bigger stick.'] });
+  BEAST.puglin_chief = variant('puglin', { name: 'Puglin war-chief', ac: 13, hp: 22, atk: 5, dmg: [1, 8, 3], str: 3, dex: 1, xp: 120, scale: 1.0, h: 0.86, tint: 0xc08070, lines: ['Wears a bottle cap as a crown. Will fight you over it.'] });
+  BEAST.grik = variant('puglin', { name: 'Grik, the Gristle King', ac: 14, hp: 48, atk: 6, dmg: [2, 6, 3], str: 4, dex: 1, init: 1, pp: 13, xp: 500, scale: 1.45, h: 1.25, tint: 0xb06050, boss: true, lines: ['The king of the Warrens. Fat on snacks, mean on principle. His minions scatter if he falls.'] });
+  BEAST.imp_intern = variant('imp', { name: 'Imp intern', ac: 11, hp: 9, atk: 3, dmg: [1, 4, 1], str: 0, xp: 40, scale: 0.56, h: 0.9, tint: 0xd0c0ff, lines: ['Unpaid. Furious about it.'] });
+  BEAST.imp_foreman = variant('imp', { name: 'Imp foreman', ac: 14, hp: 26, atk: 5, dmg: [1, 8, 3], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0xffa080, lines: ['Clipboard in one hand, mace in the other. Both are for you.'] });
+  BEAST.steward = variant('imp', { name: 'The Shop Steward', ac: 15, hp: 58, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0xff6a5a, boss: true, lines: ['Head of the imp union. Has never lost a negotiation or a fistfight. Will not cross a picket line.'] });
+  var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'] };
+  var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? 'imp' : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
+  function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
 
   function d(n, s) { var t = 0; for (var i = 0; i < n; i++) t += 1 + Math.floor(Math.random() * s); return t; }
   function d20() { return 1 + Math.floor(Math.random() * 20); }
@@ -23,6 +34,23 @@
     var dx = Math.abs(bx - ax), dz = Math.abs(bz - az), sx = ax < bx ? 1 : -1, sz = az < bz ? 1 : -1, e = dx - dz, x = ax, z = az;
     while (x !== bx || z !== bz) { var e2 = 2 * e; if (e2 > -dz) { e -= dz; x += sx; } if (e2 < dx) { e += dx; z += sz; } if (x === bx && z === bz) break; if (ch(x, z) === 'P' || PROPBLOCK[x + ',' + z]) return true; }
     return false;
+  }
+  // DCC rule: violence in a safe room gets you teleported out and put in a timeout
+  function safeRoomPenalty() {
+    var r = roomInfo(P.x, P.z), best = null;
+    for (var dz = -12; dz <= 12; dz++) for (var dx = -12; dx <= 12; dx++) { var x = P.x + dx, z = P.z + dz; if (!r || !walkable(x, z, 'pc') || inSafeRoom(x, z)) continue; var dd = Math.abs(dx) + Math.abs(dz); if (!best || dd < best[2]) best = [x, z, dd]; }
+    say('SAFE ROOM VIOLATION', 'Aggression is not permitted in a safe room. You have been relocated and placed in a timeout. The audience boos.', 6000);
+    if (best) { P.x = best[0]; P.z = best[1]; P.px = best[0]; P.pz = best[1]; refreshFog(); enterRoom(); }
+    PC.timeout = performance.now() + 15000;
+  }
+  // D&D style: you never see exact hit points, just how hurt it looks
+  function healthState(e) {
+    var r = e.hp / e.max; if (e.dead || r <= 0) return ['Dead', '#666'];
+    return r >= 0.99 ? ['Unhurt', '#3fd46a'] : r >= 0.6 ? ['Scratched', '#8ad43f'] : r >= 0.3 ? ['Wounded', '#e8c23a'] : ['Badly hurt', '#e8453a'];
+  }
+  function examineText(e) {
+    if (e.npc) return 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile.';
+    return e.def.lines[0] + ' It looks ' + healthState(e)[0].toLowerCase() + (e.calm ? ' and has no interest in fighting you.' : '.') + (e.boss ? ' This is a neighborhood boss.' : '');
   }
   function cheb(ax, az, bx, bz) { return Math.max(Math.abs(ax - bx), Math.abs(az - bz)); }
 
@@ -73,20 +101,21 @@
     for (var i = tiles.length - 1; i >= 0; i--) if (tiles[i].mob) { scene.remove(tiles[i].mesh); tiles.splice(i, 1); }
     mobParts.length = 0; SOLID.M = 0;
     SPAWNS.forEach(function (sp, n) {
-      var B = BEAST[sp.kind], root = THREE.SkeletonUtils.clone(CB.defs[sp.kind]), holder = new THREE.Group();
+      var B = BEAST[sp.kind], root = THREE.SkeletonUtils.clone(CB.defs[B.base || sp.kind]), holder = new THREE.Group();
       root.traverse(function (o) {
         if (!o.isMesh) return;
         var m = kitMat(B.tex + '_' + (n % 3) + '.jpg', B.tex + '_n.jpg', B.tex + '_orm.jpg');
         m.emissiveMap = kitTex(B.tex + '_e.jpg'); m.emissive = new THREE.Color(0xffffff); m.skinning = !!o.isSkinnedMesh;
-        o.material = m; o.castShadow = true; o.frustumCulled = false;
+        if (B.tint) m.color.set(B.tint).multiplyScalar(1.25); o.material = m; o.castShadow = true; o.frustumCulled = false;
       });
       if (sp.npc) root.traverse(function (o) { if (/Mace|Chains|SpikedCollar/.test(o.name)) o.visible = false; });
       root.scale.setScalar(B.scale * (sp.npc ? 0.62 : 1)); holder.add(root); scene.add(holder);
-      var e = { kind: sp.kind, def: B, name: B.name + (sp.kind === 'puglin' ? ' ' + ['A', 'B', 'C'][n] : ''), x: sp.x, z: sp.z, sx: sp.x, sz: sp.z, px: sp.x, pz: sp.z, hp: B.hp, max: B.hp, dead: false, calm: !!sp.npc, npc: sp.npc || null, guard: !!sp.guard,
+      var e = { kind: sp.kind, def: B, name: sp.name || B.name, x: sp.x, z: sp.z, sx: sp.x, sz: sp.z, px: sp.x, pz: sp.z, hp: B.hp, max: B.hp, dead: false, calm: !!sp.npc, npc: sp.npc || null, guard: !!sp.guard,
         obj: holder, mixer: new THREE.AnimationMixer(root), clips: cbClipsFor(root), path: null, act: null, cur: '' };
       holder.position.set(sp.x, 0, sp.z); holder.rotation.y = Math.PI * 0.75;
       e.bar = document.createElement('div'); e.bar.className = 'ebar'; e.bar.innerHTML = '<i></i><span></span>'; document.body.appendChild(e.bar);
       if (sp.npc) { e.name = 'Pip'; holder.rotation.y = -Math.PI * 0.6; }
+      e.room = sp.room; e.boss = !!B.boss;
       CB.enemies.push(e); cbPlay(e, 'Idle_Loop');
     });
     CB.ready = true; refreshFog();
@@ -104,6 +133,7 @@
   // ---------- grid paths (8 directions, no cutting corners) ----------
   function walkable(x, z, who) {
     if (x < 0 || z < 0 || x >= W || z >= H || blocksMove(x, z)) return false;
+    if (who && who !== 'pc' && inSafeRoom(x, z)) return false;
     var e = enemyAt(x, z); if (e && e !== who) return false;
     if (who && who !== 'pc' && x === P.x && z === P.z) return false;
     return true;
@@ -248,6 +278,7 @@
   // ---------- starting and ending a fight ----------
   function cbStart(why, first) {
     if (CB.on || !CB.ready) return;
+    if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
     var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8)); });
     if (!foes.length) return;
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
@@ -500,6 +531,7 @@
   // ---------- every frame ----------
   function cbUpdate(dt) {
     CB.enemies.forEach(function (e) {
+      if (cheb(e.x, e.z, P.x, P.z) > 16 && !e.path) { if (e.obj.visible) { e.obj.visible = false; e.bar.style.display = 'none'; } return; }
       e.mixer.update(dt);
       if (e.path) {
         var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = 3.2 * dt;
@@ -513,7 +545,7 @@
       e.obj.visible = seen || (e.dead && !!tileState[e.z * W + e.x]);
       if (!e.dead && !e.npc && seen && (CB.on || e.hp < e.max)) {
         var s = toScreen(e.px, e.def.h + 0.32, e.pz); e.bar.style.display = 'block'; e.bar.style.left = s.x + 'px'; e.bar.style.top = s.y + 'px';
-        e.bar.firstChild.style.width = Math.max(0, 54 * e.hp / e.max) + 'px'; e.bar.lastChild.textContent = e.name;
+        var hs = healthState(e); e.bar.firstChild.style.width = '54px'; e.bar.firstChild.style.background = hs[1]; e.bar.lastChild.textContent = e.name + ' · ' + hs[0];
       } else e.bar.style.display = 'none';
     });
     for (var i = floaters.length - 1; i >= 0; i--) {
@@ -525,7 +557,7 @@
   }
   // a monster that can see you, close by, starts the fight
   function cbAggro() {
-    if (CB.on || !CB.ready) return;
+    if (CB.on || !CB.ready || inSafeRoom(P.x, P.z)) return;
     for (var i = 0; i < CB.enemies.length; i++) {
       var e = CB.enemies[i]; if (e.dead || e.calm) continue;
       var r = e.guard ? 2 : 3;
@@ -549,7 +581,8 @@
       { label: 'Examine', text: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile. Not a threat to anyone, least of all you.' },
       { label: 'Read their mood', stat: 'WIS', dc: 8, win: 'Overworked, underpaid, and quietly rooting for you.', lose: 'Hard to tell under all that sweating.' }];
     return [talk,
-      { label: 'Examine', text: e.def.lines[0] + ' AC ' + e.def.ac + ', HP ' + e.hp + '/' + e.max + ', ' + e.def.weapon + ' (+' + e.def.atk + ', ' + e.def.dmg[0] + 'd' + e.def.dmg[1] + '+' + e.def.dmg[2] + ').' },
+      { label: 'Examine', text: examineText(e) },
+      { label: 'Study its fighting style', stat: 'INT', skill: ['Lore', 0], dc: 12, win: 'Armor about AC ' + e.def.ac + '. It fights with a ' + e.def.weapon + ' and hits roughly ' + e.def.dmg[0] + 'd' + e.def.dmg[1] + '+' + e.def.dmg[2] + '.', lose: 'It fights like something that wants you dead. That is all you learn.' },
       { label: 'Read its mood', stat: 'WIS', dc: 10, win: e.kind === 'imp' ? 'Bored and paid by the hour. It wants an excuse not to fight.' : 'Hungry, nervous, and showing off for the other one.', lose: 'It stares back. You learn nothing.' },
       { label: 'Talk it down', stat: 'CHA', skill: ['De-escalation', 2], dc: e.kind === 'imp' ? 15 : 12, flag: 'calm', win: 'You tell it "no, man" until it gives up. It sits down and watches you go by.', lose: 'It is not in the mood to be talked to.' },
       { label: 'Play it a bass line', stat: 'CHA', skill: ['Performance', 3], dc: e.kind === 'imp' ? 14 : 11, flag: 'calm', win: 'It sways. Somewhere, viewer numbers tick up. It will not fight you now.', lose: 'It prefers treble.' },
