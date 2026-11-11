@@ -137,7 +137,7 @@
     var sel = UI.sel !== null ? items[UI.sel] : null;
     var worn = function (slot) { return items.filter(function (g) { return g.worn && g.slot === slot; })[0]; }, w = wieldItem(), bk = backItem();
     var slotBtn = function (lbl, it, cls, empty) { var i = it ? items.indexOf(it) : -1; return '<button type="button" class="eqs ' + (cls || '') + (it ? '' : ' empty') + (i >= 0 && UI.sel === i ? ' on' : '') + '"' + (i >= 0 ? ' data-i="' + i + '"' : ' disabled') + '><small>' + lbl + '</small>' + (it ? esc(it.name) + (it.dmg ? '<em>' + esc(it.dmg) + '</em>' : '') : '<em>' + (empty || 'empty') + '</em>') + '</button>'; };
-    el.innerHTML = '<header><b>Gear &amp; Pack</b><span class="gp">' + (CHAR && CHAR.gold || 0) + ' gp</span><button type="button" class="xbtn" id="bagSheet">Character sheet</button><button type="button" class="xbtn" id="bagX">Close</button></header>' +
+    el.innerHTML = '<header><b>Inventory</b><span class="gp">' + (CHAR && CHAR.gold || 0) + ' gp</span><button type="button" class="xbtn" id="bagSheet">Character</button><button type="button" class="xbtn" id="bagX">Close</button></header>' +
       '<div id="bagBody"><div class="eq">' +
         '<div class="eqL">' + slotBtn('Head', worn('kHead')) + slotBtn('Body', worn('kTop')) + slotBtn('Legs', worn('kPants')) + slotBtn('Feet', worn('kBoots')) + '</div>' +
         '<div class="eqC"><canvas id="heroPic" width="180" height="270" role="img" aria-label="Your crawler as they look now"></canvas><span class="eqStat">AC ' + pcAC().ac + ' · HP ' + PC.hp + '/' + PC.max + '</span></div>' +
@@ -152,7 +152,7 @@
       }).join('') : '<p style="padding:10px">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
       '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div></div>';
     document.getElementById('bagSwap').onclick = swapWeapons;
-    document.getElementById('bagSheet').onclick = function () { bagToggle(); if (typeof toggleGear === 'function') { if (!gearOpen) toggleGear(); GMODE = 'normal'; tab = 'Sheet'; drawTabs(); drawRows(); } };
+    document.getElementById('bagSheet').onclick = function () { bagToggle(); charToggle(); };
     setTimeout(function () { var cv = document.getElementById('heroPic'); if (cv) heroShot(cv); }, 30);
     document.getElementById('bagX').onclick = bagToggle;
     var qi = document.getElementById('bagQ'); qi.oninput = function () { UI.q = qi.value; var pos = qi.selectionStart; bagDraw(); var n = document.getElementById('bagQ'); n.focus(); n.setSelectionRange(pos, pos); };
@@ -196,7 +196,7 @@
     e.eaten = true; e.claimed = false; e.obj.visible = false; e.bar.style.display = 'none'; e.looted = true;
     (L.items || []).forEach(function (it) { it.from = it.from || e.name; invAdd(it, true); }); CHAR.gold = (CHAR.gold || 0) + (L.gold || 0);
     CHAR.gear.push({ name: e.name + ' (body)', cat: 'body', body: e.n, desc: 'A whole ' + e.name.toLowerCase() + ', folded to fit. Shrubs would kill for it. Someone in the Underbazaar might pay for it. Drop it to use it as bait.' });
-    kitOneShot('PickUp_Table'); saveChar(CHAR); if (typeof worldSave === 'function') worldSave();
+    kitOneShot('PickUp_Table'); skillCount('stash'); saveChar(CHAR); if (typeof worldSave === 'function') worldSave();
     var got = (L.items || []).length + (L.gold ? 1 : 0);
     say('Stashed · ' + e.name, 'Into the bag it goes' + (got ? ', along with what it was carrying' + (L.gold ? ' (' + L.gold + ' gold)' : '') : '') + '. The System approves: nothing wasted.', 4500);
   }
@@ -211,12 +211,12 @@
   }
   // ---------- consumables and the hot bar: four quick slots; in a fight using one is your bonus action ----------
   var HOT_N = 4;
-  function heals(it) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal || ''); return m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1; }
+  function heals(it) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal || ''); return (m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1) + healSkillBonus(it); }
   function useItem(it) {
     if (!CHAR || !it || CHAR.dead) return false;
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.bonus)) { say('Not now', 'In a fight, using an item takes your bonus action, on your turn.', 2500); return false; }
     if (CB.on) CB.res.bonus = 0;
-    var h = heals(it), before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h);
+    var h = heals(it), before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h); skillCount(/gauze|bandage|potion|kit|salve|medic/i.test(it.name) ? 'heal' : 'eat');
     if (typeof floater === 'function') floater(P.px, 1.6, P.pz, '+' + (PC.hp - before), 'heal'); kitOneShot('PickUp_Table');
     say('Used · ' + it.name, '+' + (PC.hp - before) + ' HP' + (CB.on ? ' (bonus action).' : '.'), 2600);
     it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; }
@@ -259,8 +259,8 @@
     var m = /(\d+)d(\d+)/.exec(it.dmg), light = /knife|dagger|shear|scissor|blade|pick|opener|pen/i.test(it.name);
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
     var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
-    var bon = +it.bonus || 0; // enchanted: +1 weapons add to hit and damage, 5e style
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon, dmgB: MOD[stat] + bon, fam: fam, magic: bon };
+    var bon = +it.bonus || 0, sk = weaponSkillKey(it); // enchanted: +1 weapons add to hit and damage, 5e style; weapon skills add to hit
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + weaponSkillBonus(sk), dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk };
   }
 
   // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------
@@ -276,7 +276,7 @@
       else if (CB.res.action) { CB.res.action = 0; say('Second swap', 'Your free swap is used up, so this one costs your action.', 2600); }
       else { say('No time', 'You already swapped this turn and have no action left.', 2600); return; }
     }
-    var t = CHAR.wield; CHAR.wield = CHAR.back; CHAR.back = t || null;
+    var t = CHAR.wield; CHAR.wield = CHAR.back; CHAR.back = t || null; skillCount('swap');
     buildHero(); saveChar(CHAR); if (typeof kitOneShot === 'function') kitOneShot('PickUp_Table');
     say('Swapped · ' + CHAR.wield, (CHAR.back ? CHAR.back + ' goes on your back.' : 'Your back is empty now.') + (CB.on && CB.res.action ? ' Free swap used.' : ''), 2600);
     if (CB.on) cbHUD(); wsetDraw(); if (UI.bag) bagDraw();
@@ -383,6 +383,7 @@
     if (!e.lootStore) {
       var L = rollDrops(e.kind, e.def.base), RD = DROPS.monsters[e.kind] || {};
       if (RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); } // elites and bosses: one guaranteed pick from their table
+      L.gold += skillLv('Scavenger'); skillCount('loot');
       if (e.boss) { L.gold += d(10, 6); L.items.push({ name: e.name.split(',')[0] + '\'s trophy', cat: 'valuable', desc: 'Proof you beat a zone boss. Heavier than it looks.' }); }
       L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true;
     }
@@ -464,6 +465,7 @@
     var key = 'loot' + x + ',' + z, st = lootSpot.done[key];
     if (!st) {
       var R = rollContainer(kind);
+      if (kind === 'chest') { skillCount('box'); if (Math.random() < skillLv('Box Cracker') * 0.12) { var ex = rollContainer(kind).items[0]; if (ex) { ex.from = 'a loot box (Box Cracker)'; R.items.push(ex); } } }
       st = lootSpot.done[key] = { title: kind === 'chest' ? 'Loot box' : 'You found', items: R.items, gold: R.gold };
     }
     lootWindow(st);

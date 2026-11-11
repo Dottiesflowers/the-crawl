@@ -1839,7 +1839,7 @@
     var back = sty('back'), bk = col('back'), bz = -0.2 * bd - 0.05, backG = new THREE.Group(); rig.add(backG); kitHold.back = backG;
     // a spare weapon slung across your back takes the back slot (no pack or quiver at the same time)
     var bwIt = (typeof backItem === 'function') ? backItem() : null;
-    if (bwIt) { back = 0; var bwg = new THREE.Group(); bwg.position.set(0.1, 0.42, bz - 0.02); bwg.rotation.z = 0.75; backG.add(bwg); gearModel(bwg, bwIt); }
+    if (bwIt) { back = 0; var bwg = new THREE.Group(); bwg.position.set(0.09, 0.56, bz - 0.03); bwg.rotation.z = 0.55; backG.add(bwg); gearModel(bwg, bwIt); }
     if (back === 1) {
       part(backG, 0.26, 0.3, 0.13, bk, 0, 0.68, bz); part(backG, 0.27, 0.1, 0.14, shade(bk, 0.75), 0, 0.79, bz); part(backG, 0.14, 0.1, 0.03, shade(bk, 0.75), 0, 0.62, bz - 0.07);
       part(backG, 0.03, 0.05, 0.02, GOLD, 0, 0.75, bz - 0.075); sgn.forEach(function (s) { part(backG, 0.05, 0.14, 0.08, shade(bk, 0.85), s * 0.15, 0.63, bz); part(backG, 0.02, 0.26, 0.02, DARK, s * 0.07, 0.7, bz - 0.07); });
@@ -6462,6 +6462,146 @@
     return { gold: diceRoll(R.gold), items: items };
   }
 
+  // ===================== skills, DCC style: dozens of them, most obscure, earned by doing things =====================
+  // Each level adds +1 to rolls that use the skill (weapon skills: +1 to hit per 2 levels). Skills appear when you do
+  // something often enough (the System notices), when the System rules that something you tried deserves one, or at
+  // character creation. The System can invent brand-new skills; those live on the character (CHAR.skillDefs).
+  // fx tags are wired into the engine; everything else feeds the AI rulings (Try something, talking).
+  var SKILL_DEFS = [
+    // --- fighting ---
+    ['Blades', 'DEX', 'Knives, shears, anything with an edge. +1 to hit per 2 levels.', 'wpn:blade'],
+    ['Bludgeons', 'STR', 'Hammers, maces, sticks, crowbars. +1 to hit per 2 levels.', 'wpn:blunt'],
+    ['Improvised Weapons', 'STR', 'Hitting things with things that are not weapons. +1 to hit per 2 levels.', 'wpn:improv'],
+    ['Pugilism', 'STR', 'Fists, elbows, the occasional headbutt. +1 to hit per 2 levels.', 'wpn:fist'],
+    ['Thrown Objects', 'DEX', 'Rocks, daggers, staplers, whatever is closest.', ''],
+    ['Brawling', 'STR', 'Bar fights, grapples and dirty tricks.', ''],
+    ['Athletics', 'STR', 'Shove, grapple, climb, swim.', ''],
+    ['Acrobatics', 'DEX', 'Balance, tumbling, slipping free.', ''],
+    ['Getaway', 'DEX', 'Running away, fast.', ''],
+    ['Strategic Retreat', 'WIS', 'Knowing exactly when to leave. The System counts it as a win.', ''],
+    ['Quick Draw', 'DEX', 'Swapping weapons without looking. Practice makes it free.', ''],
+    ['Weed Whacker', 'STR', 'Killing things that grow. Shrubs fear you a little.', ''],
+    ['Monster Whisperer', 'CHA', 'Talking monsters out of it. They seem to like you.', ''],
+    ['Dirty Fighting', 'DEX', 'Sand in eyes, kicks below the belt, no shame.', ''],
+    ['Bodyguard', 'CON', 'Standing between your friends and the pointy end.', ''],
+    ['Opportunist', 'DEX', 'Hitting things that are already down.', ''],
+    // --- surviving ---
+    ['Road-Worn', 'CON', 'Long walks, bad food, no sleep.', ''],
+    ['Iron Stomach', 'CON', 'You can eat almost anything down here. Food heals +1 per 2 levels.', 'food'],
+    ['First Aid', 'WIS', 'Patching people up. Medical items heal +1 per 2 levels.', 'med'],
+    ['Cooking', 'WIS', 'Turning dungeon things into food. Food heals +1 per 2 levels.', 'food'],
+    ['Scavenger', 'INT', 'You find more in a body\'s pockets: +1 gold per level from searches.', 'gold'],
+    ['Box Cracker', 'DEX', 'Loot boxes give up more: a chance of an extra item per level.', 'box'],
+    ['Corpse Wrangler', 'STR', 'Carrying the dead around without throwing up. Shrubs hate you.', ''],
+    ['Pocket Diving', 'DEX', 'Going through a body\'s pockets fast and thoroughly.', ''],
+    ['Trap Sense', 'WIS', 'A tingle in the back of the neck right before the floor clicks.', ''],
+    ['Pathfinding', 'WIS', 'Directions, maps, never getting lost.', ''],
+    ['Cartography', 'INT', 'Drawing maps that are actually right.', ''],
+    ['Perception', 'WIS', 'Noticing things before they notice you.', ''],
+    ['Stealth', 'DEX', 'Hide, sneak, palm things.', ''],
+    ['Darkness Adapted', 'WIS', 'Your eyes are getting used to the dark.', ''],
+    ['Hydrophobic Swimmer', 'STR', 'You hate the water, and you are getting good at it anyway.', ''],
+    ['Mold Resistance', 'CON', 'Spores just don\'t take on you anymore.', ''],
+    ['Napping Anywhere', 'CON', 'Asleep in thirty seconds on any surface. Rests do you more good.', ''],
+    // --- fixing and figuring ---
+    ['Jury-Rig', 'INT', 'Fix or bodge anything with what is lying around.', ''],
+    ['Duct Tape Mastery', 'INT', 'The System has rules about duct tape. You found the loopholes.', ''],
+    ['Lockpicking', 'DEX', 'Locks, traps, loot boxes.', ''],
+    ['Investigation', 'INT', 'Searching, deducing, reading the room.', ''],
+    ['Appraisal', 'INT', 'What loot is worth, to the copper.', ''],
+    ['Lore', 'INT', 'Knowing things about monsters and places.', ''],
+    ['Monster Taxonomy', 'INT', 'You are keeping notes on everything that tried to eat you.', ''],
+    ['Bureaucracy', 'INT', 'Forms, filing, and the dark art of the right signature. The System loves it.', ''],
+    ['Vending Machine Whisperer', 'DEX', 'One good hit in the right place and it gives you two.', ''],
+    ['Floristry', 'WIS', 'Plants, cut stems, arrangements. Unexpectedly useful against things that grow.', ''],
+    ['Electrical Tinkering', 'INT', 'Wires, batteries, the occasional controlled shock.', ''],
+    ['Plumbing', 'STR', 'Pipes, valves and knowing which way water goes.', ''],
+    ['Demolition', 'STR', 'Knowing which wall is load-bearing, and leaning on it.', ''],
+    // --- talking ---
+    ['De-escalation', 'CHA', 'Talking people (and monsters) down.', ''],
+    ['Deception', 'CHA', 'Lying convincingly.', ''],
+    ['Intimidation', 'CHA', 'Making things back off.', ''],
+    ['Haggling', 'CHA', 'Prices, deals, sponsors.', ''],
+    ['Performance', 'CHA', 'Music, showmanship, playing to the cameras.', ''],
+    ['Crowd Work', 'CHA', 'Reading an audience and giving them what they want.', ''],
+    ['Union Rules', 'INT', 'You know the imps\' contract better than the imps do.', ''],
+    ['Customer Service Voice', 'CHA', 'That calm, bright voice that makes angry people stop.', ''],
+    ['Small Talk', 'CHA', 'Weather, sports, the price of gas. It buys you seconds.', ''],
+    ['Trash Talk', 'CHA', 'Getting under a monster\'s skin until it makes a mistake.', ''],
+    ['Bribery', 'CHA', 'Knowing what something wants and the exact moment to offer it.', ''],
+    ['Pep Talk', 'CHA', 'A speech that gets your friends back on their feet.', ''],
+    // --- odd ---
+    ['Sponsor Bait', 'CHA', 'Doing things the viewers will remember.', ''],
+    ['Loot Goblin', 'WIS', 'You always seem to find the shiny thing first.', ''],
+    ['Snack Diplomacy', 'CHA', 'Every problem looks smaller after you offer it a snack.', ''],
+    ['Shopping Cart Handling', 'STR', 'Steering heavy rolling things at speed.', ''],
+    ['Hide in Plain Sight', 'DEX', 'Standing very still and looking like furniture.', ''],
+    ['Falling Gracefully', 'DEX', 'Taking less damage from falls and indignity.', ''],
+    ['Hoarding', 'CON', 'Your bag somehow holds more than it should.', ''],
+    ['Paperwork Speedrun', 'INT', 'Filling out System forms at superhuman speed.', '']
+  ];
+  var SKILL_IDX = {}; SKILL_DEFS.forEach(function (s) { SKILL_IDX[s[0]] = s; });
+  function skillDef(name) { var c = CHAR, d = SKILL_IDX[name]; if (d) return d; var x = c && c.skillDefs && c.skillDefs[name]; return x ? [name, x.stat || 'WIS', x.desc || '', '', true] : null; }
+  function skillHas(name) { return !!(CHAR && CHAR.skills && CHAR.skills[name] > 0); }
+
+  // ---------- the System hands out a skill: from doing something enough, or from a ruling ----------
+  function skillGrant(name, why, def) {
+    var c = CHAR; if (!c || !name) return false; name = String(name).slice(0, 40); c.skills = c.skills || {};
+    if (c.skills[name] > 0) { skillUse(name); return false; }
+    if (def && !SKILL_IDX[name]) { c.skillDefs = c.skillDefs || {}; c.skillDefs[name] = { stat: /^(STR|DEX|CON|INT|WIS|CHA)$/.test(def.stat) ? def.stat : 'WIS', desc: String(def.desc || '').slice(0, 160), by: 'System', t: Date.now() }; }
+    c.skills[name] = 1; var d = skillDef(name);
+    logEvent('New skill: ' + name + (why ? ' (' + why + ')' : ''), 'skill');
+    setTimeout(function () { say('New skill · ' + name, (d && d[2] ? d[2] + ' ' : '') + (why ? 'The System noticed: ' + why + '.' : ''), 6500); }, 1800);
+    cbSaveChar(); return true;
+  }
+  // counts things you do; when a count hits its mark the matching skill appears (then each further one is practice)
+  var SKILL_TRIGGERS = {
+    stash: [3, 'Corpse Wrangler', 'you keep stuffing bodies in your bag'],
+    eat: [5, 'Iron Stomach', 'you will eat anything down here'],
+    loot: [8, 'Scavenger', 'you search every body you find'],
+    box: [4, 'Box Cracker', 'you open every box you see'],
+    shrub: [3, 'Weed Whacker', 'you keep killing the shrubs'],
+    swap: [10, 'Quick Draw', 'you swap weapons a lot'],
+    talkdown: [2, 'Monster Whisperer', 'monsters keep agreeing with you'],
+    flee: [3, 'Strategic Retreat', 'you know when to leave'],
+    'wpn:improv': [5, 'Improvised Weapons', 'you keep hitting things with things that are not weapons'],
+    'wpn:fist': [4, 'Pugilism', 'you keep punching things'],
+    'wpn:blade': [6, 'Blades', 'you are getting handy with an edge'],
+    'wpn:blunt': [6, 'Bludgeons', 'you are getting handy with blunt objects'],
+    heal: [4, 'First Aid', 'you keep patching yourself up'],
+    secret: [2, 'Trap Sense', 'you keep finding hidden things']
+  };
+  function skillCount(key) {
+    var c = CHAR, t = SKILL_TRIGGERS[key]; if (!c || !t) return; c.counts = c.counts || {}; c.counts[key] = (c.counts[key] || 0) + 1;
+    if (skillHas(t[1])) { skillUse(t[1]); return; }
+    if (c.counts[key] >= t[0]) skillGrant(t[1], t[2]);
+  }
+  // which weapon skill a held thing uses
+  function weaponSkillKey(it, name) {
+    var n = String((it && it.name) || name || '').toLowerCase();
+    if (!n || n === 'fists') return 'wpn:fist';
+    if (/knife|dagger|shear|scissor|blade|sword|machete|cleaver|razor|saw/.test(n)) return 'wpn:blade';
+    if (/hammer|mace|club|stick|bat|crowbar|wrench|pipe|staff|cudgel|baton/.test(n)) return 'wpn:blunt';
+    if (it && it.cat && it.cat !== 'weapon') return 'wpn:improv';
+    if (it && (!it.from || it.from === 'home')) return 'wpn:improv';
+    return 'wpn:blunt';
+  }
+  function weaponSkillName(key) { return { 'wpn:blade': 'Blades', 'wpn:blunt': 'Bludgeons', 'wpn:improv': 'Improvised Weapons', 'wpn:fist': 'Pugilism' }[key]; }
+  function weaponSkillBonus(key) { var n = weaponSkillName(key); return n ? Math.floor(skillLv(n) / 2) : 0; }
+  function healSkillBonus(it) {
+    var n = String(it.name || '').toLowerCase(), b = 0;
+    if (/gauze|bandage|potion|kit|salve|medic|first aid/.test(n)) b += Math.floor(skillLv('First Aid') / 2);
+    if (/sandwich|bar|snack|food|jerky|chip|cookie|fruit|meal|soup/.test(n)) b += Math.floor(Math.max(skillLv('Cooking'), skillLv('Iron Stomach')) / 2);
+    return b;
+  }
+
+  // ---------- the journal: major steps and milestones, kept on the character ----------
+  function logEvent(txt, kind) {
+    var c = CHAR; if (!c || !txt) return; c.log = c.log || [];
+    var last = c.log[c.log.length - 1]; if (last && last.txt === txt) return;
+    c.log.push({ t: Date.now(), txt: String(txt).slice(0, 200), k: kind || '' , lv: PC.level || 1 }); if (c.log.length > 300) c.log.splice(0, c.log.length - 300);
+  }
+
   // ===================== combat: turn-based, Baldur's Gate 3 style =====================
   // Initiative order; on your turn you get movement (6 tiles = 30 ft), one action and one bonus action.
   // Monsters: Quaternius "Bestiary: Dungeon Monsters" (CC0), animated with the same animation library as the hero.
@@ -6556,7 +6696,8 @@
     var W = [{ name: 'fists', n: 1, s: 1, b: 1 + MOD.STR, stat: 'STR', clip: 'Punch_Jab' }, { name: 'sword', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' }, { name: 'axe', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' },
       { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'It is a performance as much as a weapon, so it hits with Charisma.' }][m];
     if (!m && sty('off') === 3) W = { name: 'dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', clip: 'Punch_Jab' };
-    W.hit = PROF() + MOD[W.stat]; W.dmgB = W.b !== undefined ? W.b : MOD[W.stat]; return W;
+    W.skey = W.name === 'fists' ? 'wpn:fist' : W.name === 'dagger' ? 'wpn:blade' : 'wpn:blunt';
+    W.hit = PROF() + MOD[W.stat] + weaponSkillBonus(W.skey); W.dmgB = W.b !== undefined ? W.b : MOD[W.stat]; return W;
   }
 
   // ---------- monsters ----------
@@ -6912,7 +7053,7 @@
     var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; });
     var near = foes.some(function (e) { var dd = cheb(e.x, e.z, P.x, P.z); return dd <= 5 || (dd <= 8 && los(e.x, e.z, P.x, P.z)); });
     if (near || PC.down) return false;
-    CB.order = []; cbEnd(false); setTimeout(function () { achieve('got_away', 'Strategic Retreat', 'You ran away and lived. That counts as a skill on this show.', 10); }, 5200); say('You got away', 'You ran and they lost track of you. Living counts. No XP for running.', 5000);
+    CB.order = []; cbEnd(false); skillCount('flee'); setTimeout(function () { achieve('got_away', 'Strategic Retreat', 'You ran away and lived. That counts as a skill on this show.', 10); }, 5200); say('You got away', 'You ran and they lost track of you. Living counts. No XP for running.', 5000);
     return true;
   }
   function cbEndTurn() { if (!cbMyTurn() || CB.busy || PC.down) return; CB.res = { move: 0, action: 0, bonus: 0, swap: 0 }; CB.aim = null; cbShowMoves(); cbNext(); }
@@ -6982,6 +7123,7 @@
       diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, dd: (crit ? Wp.n * 2 : Wp.n) + 'd' + Wp.s, ds: Wp.s, raw: raw, db: Wp.dmgB, dm: dm, why: why });
       floater(e.px, e.def.h + 0.25, e.pz, (crit ? 'CRIT ' : '') + '-' + dm, crit ? 'crit' : 'dmg');
       say((opt.label || (crit ? 'Critical hit' : 'Hit')) + ' · ' + Wp.name + ' · ' + line, e.name + ' takes ' + dm + ' damage' + (e.hp <= 0 ? ' and goes down.' : ' (' + Math.max(0, e.hp) + ' / ' + e.max + ' left).') + (Wp.note ? ' ' + Wp.note : ''), 5200);
+      if (Wp.skey && !opt.ranged) skillCount(Wp.skey);
       if (e.hp <= 0) cbKill(e); else if (!e.prone) cbPlay(e, 'Hit_Chest', true);
     } else { diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: false, why: why }); floater(e.px, e.def.h + 0.25, e.pz, R.r === 1 ? 'FUMBLE' : 'MISS', 'miss'); say((opt.label || 'Miss') + ' · ' + Wp.name + ' · ' + line, R.r === 1 ? 'A natural 1. The replay will be shown at halftime.' : e.name + ' twists away.', 4200); }
     return hit;
@@ -7049,6 +7191,8 @@
     var it = (CHAR && CHAR.gear || []).filter(function (g) { return /potion/i.test(g.name) && g.heal; })[0]; if (it) useItem(it); else say('No potions', 'You are out of healing potions.', 2400);
   }
   function cbKill(e) {
+    if (/shrub/.test(e.def.base || e.kind || '')) skillCount('shrub');
+    if (e.boss) logEvent('Killed ' + e.name + ', boss of ' + ((LEVEL.hoods[(roomInfo(e.x, e.z) || {}).hood] || {}).name || 'the floor'), 'boss'); else if (/chief|foreman|head|warden/.test(e.kind)) logEvent('Killed a ' + e.name, 'kill');
     e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
     say('Enemy down · ' + e.name, e.def.xp + ' XP. ' + (e.kind === 'imp' ? 'The stairwell is unguarded.' : 'Its stick rolls away.'), 4200);
     if (PROPS && PROPS.ready) setTimeout(function () { place('Coin_Pile', e.px + 0.25, e.pz + 0.2, { s: 0.6 }); refreshFog(); }, 1600);
@@ -7092,7 +7236,7 @@
     var b = document.getElementById('deadRev'); if (b) b.onclick = function () { api('dm/revive', { method: 'POST', body: { user_id: NET.uid } }).then(reviveMe, function (e) { say('Failed', e.message); }); };
   }
   function reviveMe() {
-    if (!CHAR) return; CHAR.dead = null; PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; var el = document.getElementById('deadBox'); if (el) el.style.display = 'none';
+    if (!CHAR) return; CHAR.dead = null; PC.down = false; PC.hp = 1; logEvent('Brought back to life', 'revive'); if (KIT) KIT.shot = null; var el = document.getElementById('deadBox'); if (el) el.style.display = 'none';
     saveChar(CHAR); cbHUD(); say('Revived', 'You gasp back to life with 1 HP.', 5000);
   }
   function deadCheck() { // on load, and whenever we learn whether the campaign is live
@@ -7100,7 +7244,7 @@
     if (NET.live) { if (CHAR.dead.x !== undefined && typeof heroTo === 'function') heroTo(CHAR.dead.x, CHAR.dead.z); deadShow(); } else if (NET.live === false) { reviveMe(); }
   }
   function cbDie(stable) {
-    CB.busy = true;
+    CB.busy = true; if (!stable) logEvent('Died' + (roomInfo(P.x, P.z) ? ' in ' + roomInfo(P.x, P.z).name : ''), 'death');
     if (NET.live) { liveDown(stable); return; }
     say(stable ? 'Stable' : 'You died', stable ? 'You stop bleeding. The monsters lose interest, and the System drags you to the nearest safe room.' :
       'In the full game, death in the crawl is permanent. For this test, the System drags you to the nearest safe room. The monsters you killed stay dead.', 6500);
@@ -7172,7 +7316,7 @@
     // and the shrubs give you a moment afterwards to search the bodies
     if (near && CB.graceUntil && now < CB.graceUntil && /shrub/.test(e.def.base || e.kind || '')) { if (e.eating) e.eating.t = now; e.path = null; return; }
     if (e.eating) { // munching: the body shrinks away, the shrub grows
-      if (now - e.eating.t < 2600) return; var body = e.eating.body; e.eating = null;
+      if (now - e.eating.t < 10000) return; var body = e.eating.body; e.eating = null; // a slow, messy meal: ten seconds to come and take it back
       if (body.dead && !body.eaten) { body.eaten = true; body.obj.visible = false; body.bar.style.display = 'none'; shrubGrow(e, body); worldSave(); }
       return;
     }
@@ -7348,24 +7492,24 @@
     cbSaveChar(); if (typeof cbHUD === 'function') cbHUD();
   }
   function levelUp(k) {
-    var c = CHAR || MICHAEL, was = PC.max; PC.level = (PC.level || 1) + 1; c.level = PC.level;
+    var c = CHAR || MICHAEL, was = PC.max; PC.level = (PC.level || 1) + 1; c.level = PC.level; logEvent('Reached level ' + PC.level, 'level');
     PC.max = maxHPFor(c, PC.level); PC.hp = Math.min(PC.max, PC.hp + (PC.max - was));
     c.skillPts = (c.skillPts || 0) + 1; var stat = PC.level % 2 === 0; if (stat) c.statPts = (c.statPts || 0) + 1; c.gold = (c.gold || 0) + 10 * PC.level;
     var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon).' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : '';
     setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'Level up. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
   }
   function achieve(id, title, text, xp) {
-    var c = CHAR; if (!c) return; c.ach = c.ach || {}; if (c.ach[id]) return; c.ach[id] = Date.now();
+    var c = CHAR; if (!c) return; c.ach = c.ach || {}; if (c.ach[id]) return; c.ach[id] = Date.now(); logEvent('Achievement: ' + title, 'ach');
     say('New achievement: ' + title, text + (xp ? ' +' + xp + ' XP.' : ''), 5500); if (xp) grantXP(xp); else cbSaveChar();
   }
   function overcome(e) { // a monster beaten without killing it
-    if (!e || e.counted || e.npc || CB.on) return; e.counted = true; grantXP(e.def.xp);
+    if (!e || e.counted || e.npc || CB.on) return; e.counted = true; grantXP(e.def.xp); skillCount('talkdown'); logEvent('Talked ' + e.name + ' out of a fight', 'talk');
     achieve('talker', 'Use Your Words', 'You talked a monster out of a fight. The System finds this personally refreshing.', 50);
   }
   function skillUse(name) { // every success with a skill is practice; enough practice and it levels up on its own
     var c = CHAR; if (!c || !name) return; c.skillXP = c.skillXP || {}; var lv = c.skills[name] || 0; if (lv >= 10) return;
     c.skillXP[name] = (c.skillXP[name] || 0) + 1;
-    if (c.skillXP[name] >= (lv + 1) * 3) { c.skillXP[name] = 0; c.skills[name] = lv + 1; cbSaveChar(); setTimeout(function () { say('Skill up · ' + name + ' ' + (lv + 1), 'Practice pays. ' + name + ' now adds +' + (lv + 1) + ' to the rolls that use it.', 4500); }, 2600); }
+    if (c.skillXP[name] >= (lv + 1) * 3) { c.skillXP[name] = 0; c.skills[name] = lv + 1; logEvent(name + ' reached level ' + (lv + 1), 'skill'); cbSaveChar(); setTimeout(function () { say('Skill up · ' + name + ' ' + (lv + 1), 'Practice pays. ' + name + ' now adds +' + (lv + 1) + ' to the rolls that use it.', 4500); }, 2600); }
   }
   // re-dress an existing character from what they said they were wearing, without making a new one
   function redress() {
@@ -7402,7 +7546,7 @@
   }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, born: c.born || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
@@ -7520,7 +7664,7 @@
       (sp ? '<p class="pts">' + sp + ' stat point' + (sp > 1 ? 's' : '') + ' to spend: tap + on a stat.</p>' : '') +
       '<div class="stats">' + STATS.map(function (k) { var m = Math.floor((c.stats[k] - 10) / 2); return '<span><b>' + c.stats[k] + '</b>' + k + ' ' + (m >= 0 ? '+' : '') + m + (sp && c.stats[k] < 20 ? ' <button type="button" class="plus" onclick="window.__crawl.spend(\'stat\',\'' + k + '\')" aria-label="Raise ' + k + '">+</button>' : '') + '</span>'; }).join('') + '</div>' +
       '<p>HP ' + PC.max + ' · AC ' + a.ac + ' (' + a.why + ') · Proficiency +' + PROF() + ' · Achievements ' + achs + '</p>' +
-      '<h3>Skills</h3>' + (kp ? '<p class="pts">' + kp + ' skill point' + (kp > 1 ? 's' : '') + ' to spend: tap + on any skill.</p>' : '') + '<ul>' + (kp ? SKILLS.map(function (s) { return s[0]; }) : sk).map(function (k) { var lv = c.skills[k] || 0, prog = (c.skillXP || {})[k] || 0; return '<li>' + esc(k) + ' ' + lv + (prog ? ' <small>(' + prog + '/' + (lv + 1) * 3 + ' practice)</small>' : '') + (kp && lv < 3 + (PC.level || 1) ? ' <button type="button" class="plus" onclick="window.__crawl.spend(\'skill\',\'' + k + '\')" aria-label="Raise ' + esc(k) + '">+</button>' : '') + '</li>'; }).join('') + '</ul>' +
+      '<h3>Skills</h3>' + (kp ? '<p class="pts">' + kp + ' skill point' + (kp > 1 ? 's' : '') + ' to spend: tap + on any skill.</p>' : '') + '<ul>' + sk.map(function (k) { var lv = c.skills[k] || 0, prog = (c.skillXP || {})[k] || 0; return '<li>' + esc(k) + ' ' + lv + (prog ? ' <small>(' + prog + '/' + (lv + 1) * 3 + ' practice)</small>' : '') + (kp && lv < 3 + (PC.level || 1) ? ' <button type="button" class="plus" onclick="window.__crawl.spend(\'skill\',\'' + k + '\')" aria-label="Raise ' + esc(k) + '">+</button>' : '') + '</li>'; }).join('') + '</ul>' +
       '<h3>Trait: ' + esc(c.trait) + '</h3><p>' + esc(c.traitDesc || tr[1]) + '</p><h3>Flaw: ' + esc(c.flaw) + '</h3><p>' + esc(c.flawDesc || fl[1]) + '</p>' +
       (gear ? '<h3>Brought from home</h3><ul class="gear">' + gear + '</ul>' : '') +
       (NET.live ? '' : '<p><button type="button" class="ccBtn" onclick="window.__crawl.redress()">Get dressed by the System</button> <small>Re-picks your outfit from what you say you were wearing. Keeps your character. Testing only: it locks when the campaign starts.</small></p>') +
@@ -7619,7 +7763,7 @@
     if (s === 5) {
       var tp = (CC.cTrait && CC.cTrait[0] === CC.trait) ? CC.cTrait : (TRAITS.filter(function (t) { return t[0] === CC.trait; })[0] || [CC.trait, '', CC.trait]), fp = (CC.cFlaw && CC.cFlaw[0] === CC.flaw) ? CC.cFlaw : (FLAWS.filter(function (t) { return t[0] === CC.flaw; })[0] || [CC.flaw, '', CC.flaw]);
       var c = { name: CC.name, stats: CC.stats, skills: CC.skills, trait: tp[0], traitDesc: tp[1], traitFx: tp[2] || tp[0], flaw: fp[0], flawDesc: fp[1], flawFx: fp[2] || fp[0], gear: CC.gear.concat(CC.outfit), gold: 0, xp: 0, interview: QUESTIONS.map(function (q, i) { return { q: q, a: CC.answers[i] }; }).concat(CC.follow.map(function (q, i) { return { q: q, a: CC.followA[i] || '' }; })) };
-      applyChar(c); c.gear.forEach(function (g) { if (g.cat === 'clothing' && g.worn) wear(g); }); look.main = [0, look.main[1]]; look.off = [0, look.off[1]]; look.back = [0, look.back[1]]; buildHero(); saveChar(c); ccClose(); GMODE = 'design'; tab = 'Body'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); }
+      c.born = Date.now(); applyChar(c); logEvent('Taken from Earth and registered as a crawler', 'start'); c.gear.forEach(function (g) { if (g.cat === 'clothing' && g.worn) wear(g); }); look.main = [0, look.main[1]]; look.off = [0, look.off[1]]; look.back = [0, look.back[1]]; buildHero(); saveChar(c); ccClose(); GMODE = 'design'; tab = 'Body'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); }
       say('Crawler registered · ' + c.name, 'Last step: your body, face and hair. These are permanent, except a bathroom mirror lets you change your hair later. Confirm when you are ready.', 7000);
     }
   }
@@ -7629,7 +7773,7 @@
     var fa = CC.follow.map(function (q, i) { return 'Q: ' + q + '\nA: ' + (CC.followA[i] || '(no answer)'); }).join('\n\n');
     var head = 'You are "the System", the sardonic alien host of a dungeon-crawl reality show (in the spirit of Dungeon Crawler Carl). A new human crawler named ' + CC.name + ' is being processed: one of five humans chosen to represent all of humanity in an intergalactic dungeon crawl. Rules are D&D 5e plus DCC-style skills. Characters must reflect the real person, weaknesses included: they should not be universally competent.\n\nInterview so far:\n' + qa + (fa ? '\n\nFollow-ups:\n' + fa : '');
     var prompt = kind === 'followups' ? head + '\n\nAsk up to 3 short, pointed follow-up questions tailored to what they said, that would best decide their ability scores, skills, weaknesses and what gear they had on them. Reply with JSON only: {"comment": one dry sentence from the System about what you have heard so far, "questions": [strings]}'
-      : head + '\n\nBuild their level-1 human sheet from real-life evidence. Ability scores use the 5e 27-point buy exactly (each score 8-15; costs 8=0,9=1,10=2,11=3,12=4,13=5,14=7,15=9; total exactly 27). Skills come only from this list: ' + SKILLS.map(function (s) { return s[0]; }).join(', ') +
+      : head + '\n\nBuild their level-1 human sheet from real-life evidence. Ability scores use the 5e 27-point buy exactly (each score 8-15; costs 8=0,9=1,10=2,11=3,12=4,13=5,14=7,15=9; total exactly 27). Skills come only from this list: ' + SKILL_DEFS.map(function (s) { return s[0]; }).join(', ') +
         '. Give 4 to 6 skills, levels 1-3, total points at most ' + SKILL_BUDGET + '. Invent one personal trait and one personal flaw drawn from their real life (funny, specific, consequential). Each must use one game effect: trait effect from ' + TRAITS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') + '. Flaw effect from ' + FLAWS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') +
         '. Starting gear: 3 to 6 everyday items they would really have had on them or within reach (from their job, habits and answer about what was on them), no fantasy gear. Categories: weapon, tool, consumable, valuable, misc. Improvised weapons get small damage dice (1d3 to 1d6). When one of these standard items fits, use its exact name: ' + homeNames().join(', ') + '.' +
         ' Outfit: dress them in what they said they are wearing, using the closest available pieces and colors from this catalog (slot: options with color indexes):\n' + outfitCatalog() + '\nPrefer the modern pieces (T-shirt, Long sleeve, Tank top, Hoodie, Button-up, Jeans, Shorts, Sweatpants, Sneakers, Work boots, Beanie, Cap); use the fantasy ones only for things like suits (Noble), jackets or coats (Ranger) or a hood that is up. Give each piece the real name of what they wear (e.g. "Faded black hoodie").' +
@@ -7643,7 +7787,7 @@
     while (buyCost(st) > BUDGET) { var hi = STATS.slice().sort(function (a, b) { return st[b] - st[a]; })[0]; st[hi]--; }
     while (buyCost(st) < BUDGET) { var lo = STATS.filter(function (k) { return st[k] < 15 && buyCost(Object.assign({}, st, (function () { var o = {}; o[k] = st[k] + 1; return o; })())) <= BUDGET; }); if (!lo.length) break; st[lo[0]]++; }
     CC.stats = st; CC.skills = {}; var used = 0;
-    Object.keys(r && r.skills || {}).forEach(function (k) { if (!SKILLS.some(function (s) { return s[0] === k; })) return; var v = Math.max(0, Math.min(3, Math.round(+r.skills[k]) || 0)); if (used + v > SKILL_BUDGET) v = SKILL_BUDGET - used; if (v > 0) { CC.skills[k] = v; used += v; } });
+    Object.keys(r && r.skills || {}).forEach(function (k) { if (!SKILL_IDX[k]) return; var v = Math.max(0, Math.min(3, Math.round(+r.skills[k]) || 0)); if (used + v > SKILL_BUDGET) v = SKILL_BUDGET - used; if (v > 0) { CC.skills[k] = v; used += v; } });
     function custom(x, list) {
       if (!x) return null; if (typeof x === 'string') return list.some(function (t) { return t[0] === x; }) ? null : null;
       var fx = list.some(function (t) { return t[0] === x.effect; }) ? x.effect : list[0][0];
@@ -7978,7 +8122,7 @@
     var sel = UI.sel !== null ? items[UI.sel] : null;
     var worn = function (slot) { return items.filter(function (g) { return g.worn && g.slot === slot; })[0]; }, w = wieldItem(), bk = backItem();
     var slotBtn = function (lbl, it, cls, empty) { var i = it ? items.indexOf(it) : -1; return '<button type="button" class="eqs ' + (cls || '') + (it ? '' : ' empty') + (i >= 0 && UI.sel === i ? ' on' : '') + '"' + (i >= 0 ? ' data-i="' + i + '"' : ' disabled') + '><small>' + lbl + '</small>' + (it ? esc(it.name) + (it.dmg ? '<em>' + esc(it.dmg) + '</em>' : '') : '<em>' + (empty || 'empty') + '</em>') + '</button>'; };
-    el.innerHTML = '<header><b>Gear &amp; Pack</b><span class="gp">' + (CHAR && CHAR.gold || 0) + ' gp</span><button type="button" class="xbtn" id="bagSheet">Character sheet</button><button type="button" class="xbtn" id="bagX">Close</button></header>' +
+    el.innerHTML = '<header><b>Inventory</b><span class="gp">' + (CHAR && CHAR.gold || 0) + ' gp</span><button type="button" class="xbtn" id="bagSheet">Character</button><button type="button" class="xbtn" id="bagX">Close</button></header>' +
       '<div id="bagBody"><div class="eq">' +
         '<div class="eqL">' + slotBtn('Head', worn('kHead')) + slotBtn('Body', worn('kTop')) + slotBtn('Legs', worn('kPants')) + slotBtn('Feet', worn('kBoots')) + '</div>' +
         '<div class="eqC"><canvas id="heroPic" width="180" height="270" role="img" aria-label="Your crawler as they look now"></canvas><span class="eqStat">AC ' + pcAC().ac + ' · HP ' + PC.hp + '/' + PC.max + '</span></div>' +
@@ -7993,7 +8137,7 @@
       }).join('') : '<p style="padding:10px">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
       '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div></div>';
     document.getElementById('bagSwap').onclick = swapWeapons;
-    document.getElementById('bagSheet').onclick = function () { bagToggle(); if (typeof toggleGear === 'function') { if (!gearOpen) toggleGear(); GMODE = 'normal'; tab = 'Sheet'; drawTabs(); drawRows(); } };
+    document.getElementById('bagSheet').onclick = function () { bagToggle(); charToggle(); };
     setTimeout(function () { var cv = document.getElementById('heroPic'); if (cv) heroShot(cv); }, 30);
     document.getElementById('bagX').onclick = bagToggle;
     var qi = document.getElementById('bagQ'); qi.oninput = function () { UI.q = qi.value; var pos = qi.selectionStart; bagDraw(); var n = document.getElementById('bagQ'); n.focus(); n.setSelectionRange(pos, pos); };
@@ -8037,7 +8181,7 @@
     e.eaten = true; e.claimed = false; e.obj.visible = false; e.bar.style.display = 'none'; e.looted = true;
     (L.items || []).forEach(function (it) { it.from = it.from || e.name; invAdd(it, true); }); CHAR.gold = (CHAR.gold || 0) + (L.gold || 0);
     CHAR.gear.push({ name: e.name + ' (body)', cat: 'body', body: e.n, desc: 'A whole ' + e.name.toLowerCase() + ', folded to fit. Shrubs would kill for it. Someone in the Underbazaar might pay for it. Drop it to use it as bait.' });
-    kitOneShot('PickUp_Table'); saveChar(CHAR); if (typeof worldSave === 'function') worldSave();
+    kitOneShot('PickUp_Table'); skillCount('stash'); saveChar(CHAR); if (typeof worldSave === 'function') worldSave();
     var got = (L.items || []).length + (L.gold ? 1 : 0);
     say('Stashed · ' + e.name, 'Into the bag it goes' + (got ? ', along with what it was carrying' + (L.gold ? ' (' + L.gold + ' gold)' : '') : '') + '. The System approves: nothing wasted.', 4500);
   }
@@ -8052,12 +8196,12 @@
   }
   // ---------- consumables and the hot bar: four quick slots; in a fight using one is your bonus action ----------
   var HOT_N = 4;
-  function heals(it) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal || ''); return m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1; }
+  function heals(it) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal || ''); return (m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1) + healSkillBonus(it); }
   function useItem(it) {
     if (!CHAR || !it || CHAR.dead) return false;
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.bonus)) { say('Not now', 'In a fight, using an item takes your bonus action, on your turn.', 2500); return false; }
     if (CB.on) CB.res.bonus = 0;
-    var h = heals(it), before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h);
+    var h = heals(it), before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h); skillCount(/gauze|bandage|potion|kit|salve|medic/i.test(it.name) ? 'heal' : 'eat');
     if (typeof floater === 'function') floater(P.px, 1.6, P.pz, '+' + (PC.hp - before), 'heal'); kitOneShot('PickUp_Table');
     say('Used · ' + it.name, '+' + (PC.hp - before) + ' HP' + (CB.on ? ' (bonus action).' : '.'), 2600);
     it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; }
@@ -8100,8 +8244,8 @@
     var m = /(\d+)d(\d+)/.exec(it.dmg), light = /knife|dagger|shear|scissor|blade|pick|opener|pen/i.test(it.name);
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
     var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
-    var bon = +it.bonus || 0; // enchanted: +1 weapons add to hit and damage, 5e style
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon, dmgB: MOD[stat] + bon, fam: fam, magic: bon };
+    var bon = +it.bonus || 0, sk = weaponSkillKey(it); // enchanted: +1 weapons add to hit and damage, 5e style; weapon skills add to hit
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + weaponSkillBonus(sk), dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk };
   }
 
   // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------
@@ -8117,7 +8261,7 @@
       else if (CB.res.action) { CB.res.action = 0; say('Second swap', 'Your free swap is used up, so this one costs your action.', 2600); }
       else { say('No time', 'You already swapped this turn and have no action left.', 2600); return; }
     }
-    var t = CHAR.wield; CHAR.wield = CHAR.back; CHAR.back = t || null;
+    var t = CHAR.wield; CHAR.wield = CHAR.back; CHAR.back = t || null; skillCount('swap');
     buildHero(); saveChar(CHAR); if (typeof kitOneShot === 'function') kitOneShot('PickUp_Table');
     say('Swapped · ' + CHAR.wield, (CHAR.back ? CHAR.back + ' goes on your back.' : 'Your back is empty now.') + (CB.on && CB.res.action ? ' Free swap used.' : ''), 2600);
     if (CB.on) cbHUD(); wsetDraw(); if (UI.bag) bagDraw();
@@ -8224,6 +8368,7 @@
     if (!e.lootStore) {
       var L = rollDrops(e.kind, e.def.base), RD = DROPS.monsters[e.kind] || {};
       if (RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); } // elites and bosses: one guaranteed pick from their table
+      L.gold += skillLv('Scavenger'); skillCount('loot');
       if (e.boss) { L.gold += d(10, 6); L.items.push({ name: e.name.split(',')[0] + '\'s trophy', cat: 'valuable', desc: 'Proof you beat a zone boss. Heavier than it looks.' }); }
       L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true;
     }
@@ -8305,6 +8450,7 @@
     var key = 'loot' + x + ',' + z, st = lootSpot.done[key];
     if (!st) {
       var R = rollContainer(kind);
+      if (kind === 'chest') { skillCount('box'); if (Math.random() < skillLv('Box Cracker') * 0.12) { var ex = rollContainer(kind).items[0]; if (ex) { ex.from = 'a loot box (Box Cracker)'; R.items.push(ex); } } }
       st = lootSpot.done[key] = { title: kind === 'chest' ? 'Loot box' : 'You found', items: R.items, gold: R.gold };
     }
     lootWindow(st);
@@ -8354,7 +8500,7 @@
   var TAP = { down: null };
   canvas.addEventListener('pointerdown', function (ev) { TAP.down = (CB.on || gearOpen) ? null : { x: ev.clientX, y: ev.clientY, t: performance.now() }; });
   canvas.addEventListener('pointerup', function (ev) {
-    var d0 = TAP.down; TAP.down = null; if (!d0 || CB.on || gearOpen || CC || AUTH.open || TALK.open || LOOTW.open || UI.bag || UI.map) return;
+    var d0 = TAP.down; TAP.down = null; if (!d0 || CB.on || gearOpen || CC || AUTH.open || TALK.open || LOOTW.open || UI.bag || UI.map || CS.open) return;
     if (Math.abs(ev.clientX - d0.x) + Math.abs(ev.clientY - d0.y) > 14 || performance.now() - d0.t > 600) return;
     exploreTap(ev.clientX, ev.clientY);
   });
@@ -8562,10 +8708,10 @@
       'Crawler: ' + (c.name || 'a crawler') + ', level ' + (PC.level || 1) + ', HP ' + PC.hp + '/' + PC.max + '. Stats: ' + STATS.map(function (k) { return k + ' ' + c.stats[k]; }).join(', ') + '. Skills: ' + Object.keys(c.skills || {}).filter(function (k) { return c.skills[k] > 0; }).map(function (k) { return k + ' ' + c.skills[k]; }).join(', ') + '.\n' +
       'Holding: ' + pcWeapon().name + (sty('off') === 2 ? ', and a lit torch in the off hand' : '') + '. Bag: ' + ((c.gear || []).slice(0, 18).map(function (g) { return g.name + (g.qty > 1 ? ' x' + g.qty : ''); }).join(', ') || 'empty') + '.\n' +
       'Where: ' + (room ? room.name : 'a corridor') + '. ' + (CB.on ? 'A fight is on; this costs their action.' : 'No fight right now.') + '\nThings within reach (name: tiles away): ' + (Object.keys(ctx.objs).map(function (k) { return k + ' ' + ctx.objs[k]; }).join(', ') || 'nothing notable') + '.\nCreatures:\n' + monTxt + '\n\n' +
-      'Rules: only allow what is physically plausible here with what they have. Choose the stat (STR, DEX, CON, INT, WIS, CHA) and the best matching skill from: ' + SKILLS.map(function (s) { return s[0]; }).join(', ') + '. Set a DC: 8 easy, 12 moderate, 15 hard, 18 very hard; clever or funny plans get 1-2 easier; a plan that exploits a creature\'s secret weakness gets 3-4 easier and stronger effects. ' +
+      'Rules: only allow what is physically plausible here with what they have. Choose the stat (STR, DEX, CON, INT, WIS, CHA) and the best matching skill, preferring one the crawler has, from: ' + Object.keys(c.skills || {}).concat(SKILL_DEFS.map(function (s) { return s[0]; })).filter(function (v, i, a) { return a.indexOf(v) === i; }).join(', ') + '. Like Dungeon Crawler Carl, the System also invents new, oddly specific skills: if this plan was genuinely creative and none of the crawler\'s skills fit it, you may (rarely, roughly one time in five) award a brand-new skill by filling new_skill with a short, specific, slightly absurd name (2-4 words, like "Vending Machine Diplomacy" or "Mop Fencing"), its stat and a one-line description; otherwise leave new_skill empty. Set a DC: 8 easy, 12 moderate, 15 hard, 18 very hard; clever or funny plans get 1-2 easier; a plan that exploits a creature\'s secret weakness gets 3-4 easier and stronger effects. ' +
       'Effects come ONLY from this menu (dice at most 3d6, or 4d6 when exploiting a weakness): damage{dice}, prone, stun{turns 1-2}, distract{turns 1}, adv (their next attack has advantage), push{tiles 1-3}, burn{dice,turns 1-3}, weaken{ac 1-3,turns 1-4}, calm (a non-boss creature stops fighting; a boss only via its weakness), reveal (they learn the target\'s weakness), heal{dice}. Failure effects: none, self_prone, provoke, self_damage{dice}. Use at most 2 success effects. ' +
       'If the plan is impossible, set possible false and say why in one sentence (they keep their try).\n' +
-      'Reply with JSON only: {"possible":true,"ruling":"one sentence: what roll this is and why","stat":"DEX","skill":"Acrobatics","dc":12,"target":0,"weakness":false,"success":[{"type":"damage","dice":"2d6"}],"fail":[{"type":"none"}],"on_success":"one vivid sentence of what happens","on_fail":"one sentence","comment":"optional short System aside, or empty","uses_item":""}';
+      'Reply with JSON only: {"possible":true,"ruling":"one sentence: what roll this is and why","stat":"DEX","skill":"Acrobatics","dc":12,"target":0,"weakness":false,"success":[{"type":"damage","dice":"2d6"}],"fail":[{"type":"none"}],"on_success":"one vivid sentence of what happens","on_fail":"one sentence","comment":"optional short System aside, or empty","uses_item":"","new_skill":{"name":"","stat":"","desc":""}}';
     var go = function (j) { tryApply(j, ctx, text); };
     TRY.busy = true; say('The System is considering it', '"' + text.slice(0, 120) + '"', 9000);
     if (!NET.sample) { go(tryCanned(text, ctx)); return; }
@@ -8587,7 +8733,7 @@
     if (CB.on) { if (!cbMyTurn() || !CB.res.action) { say('Too late', 'A fight broke out before you could do it. Your try was not used; wait for your turn.', 3500); return; } CB.res.action = 0; }
     CHAR.tries = CHAR.tries || []; CHAR.tries.push(Date.now()); saveChar(CHAR);
     var e = ctx.mons[j.target | 0] || null; if (j.target < 0) e = null;
-    var stat = /^(STR|DEX|CON|INT|WIS|CHA)$/.test(j.stat) ? j.stat : 'DEX', skill = SKILLS.some(function (s) { return s[0] === j.skill; }) ? j.skill : null;
+    var stat = /^(STR|DEX|CON|INT|WIS|CHA)$/.test(j.stat) ? j.stat : 'DEX', skill = (SKILL_IDX[j.skill] || (CHAR.skills && CHAR.skills[j.skill] !== undefined)) ? j.skill : null;
     var weak = !!j.weakness && !!weakOf(e), dc = Math.max(5, Math.min(22, j.dc | 0 || 13)), cap = weak ? 4 : 3;
     function clean(list, good) { return (Array.isArray(list) ? list : []).filter(function (f) { return f && FX_TYPES[f.type] && (good ? !/^self_|provoke/.test(f.type) : /^(none|self_prone|provoke|self_damage)$/.test(f.type)); }).slice(0, good ? 2 : 1).map(function (f) {
       var o = { type: f.type, turns: Math.max(1, Math.min(f.type === 'weaken' ? 4 : 2, f.turns | 0 || 1)), ac: Math.max(1, Math.min(3, f.ac | 0 || 2)), tiles: Math.max(1, Math.min(3, f.tiles | 0 || 2)), weak: weak };
@@ -8599,6 +8745,7 @@
     var msg = (j.ruling ? j.ruling + ' ' : '') + (ok ? (j.on_success || 'It works.') : (j.on_fail || 'It does not work.')) + (res ? ' ' + res : '') + (j.comment ? ' ' + j.comment : '');
     say((ok ? 'It works' : 'It fails') + ' · ' + stat + (skill ? ' + ' + skill : '') + ' · d20 ' + r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc, msg, 9000);
     if (ok && weak && e) setTimeout(function () { achieve('weak_' + e.kind, 'Paying Attention', 'You found ' + e.name + '\'s weakness and used it. The System approves of homework.', 50); }, 3500);
+    if (ok && j.new_skill && j.new_skill.name && String(j.new_skill.name).length >= 3) skillGrant(String(j.new_skill.name).replace(/[^\w '\-]/g, '').slice(0, 32), 'the System liked that stunt', j.new_skill);
     if (ok) setTimeout(function () { achieve('tried', 'Thinking Outside the Box', 'You tried something nobody wrote down, and it worked.', 25); }, 6000);
     if (e) afterTrick(e); else if (CB.on) cbAfterMyMove();
   }
@@ -8648,7 +8795,7 @@
       '#bar{align-items:flex-end}',
       '#bar .act{' + iron + 'border:1px solid #8a7a5a;border-radius:50%;width:50px;height:50px;min-width:0;padding:0;font-family:Cinzel,serif;font-size:9.5px;letter-spacing:.02em;text-transform:none}',
       '#bar .act.on{background:#5a4420}#bar .act.held{border-color:#E0B868;color:#E0B868}',
-      '#aInteract{order:9;width:84px !important;height:84px !important;background:radial-gradient(circle at 40% 35%,#a8302a,#5e1410) !important;border:3px solid #3a0c08 !important;color:#F3E6CC !important;font-size:13px !important;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,.6)}',
+      '#aInteract{order:9;width:62px !important;height:62px !important;background:radial-gradient(circle at 40% 35%,#a8302a,#5e1410) !important;border:3px solid #3a0c08 !important;color:#F3E6CC !important;font-size:10.5px !important;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,.6)}',
       // belt hot bar
       '#hotbar{left:50% !important;transform:translateX(-50%);bottom:12px;padding:6px 10px;background:linear-gradient(180deg,#5a3a22,#3a2414);border:1px solid #1e130a;border-radius:4px;box-shadow:0 4px 10px rgba(0,0,0,.6)}',
       '#hotbar button{' + parch + 'border:1px solid #1e130a !important;border-radius:4px !important}#hotbar button.ready{border-color:#E0B868 !important;box-shadow:0 0 0 1px #E0B868}',
@@ -8739,7 +8886,7 @@
     document.head.appendChild(css);
     var ws = document.createElement('div'); ws.id = 'wset'; document.body.appendChild(ws);
     var dc = document.createElement('div'); dc.id = 'dice'; dc.setAttribute('role', 'status'); dc.setAttribute('aria-live', 'polite'); document.body.appendChild(dc);
-    setInterval(function () { var el = document.getElementById('wset'); if (el) el.style.display = !CHAR || gearOpen || CC || AUTH.open || UI.bag || UI.map ? 'none' : ''; }, 300);
+    setInterval(function () { var el = document.getElementById('wset'); if (el) el.style.display = !CHAR || gearOpen || CC || AUTH.open || UI.bag || UI.map || (typeof CS !== 'undefined' && CS.open) ? 'none' : ''; }, 300);
     setInterval(function () { if (typeof CB !== 'undefined' && !CB.on && typeof cbHUD === 'function') try { cbHUD(); } catch (e) {} }, 1000);
     setTimeout(wsetDraw, 0);
   })();
@@ -8780,6 +8927,110 @@
     } catch (e) { console.warn('heroShot', e); }
   }
 
+  // ===================== the Character screen: Sheet (stats + skills), Background (who you were + journal), Party =====================
+  var CS = { open: false, tab: 'Sheet' };
+  (function () {
+    var el = document.createElement('div'); el.id = 'charS'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Character'); document.body.appendChild(el);
+    var PA = 'background-color:#E6D7B5;background-image:radial-gradient(circle at 20% 15%,rgba(255,250,235,.55),transparent 55%),radial-gradient(circle at 85% 90%,rgba(120,80,40,.22),transparent 60%);color:#2B1D12;';
+    var IR = 'background-color:#232327;background-image:linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.25));color:#EFE3C6;';
+    var css = document.createElement('style');
+    css.textContent = [
+      '#charS{position:fixed;inset:10px;z-index:30;display:none;flex-direction:column;background:linear-gradient(180deg,#4a2e1a,#2c1a0e);border:2px solid #2e2116;border-radius:6px;font-family:"EB Garamond",Georgia,serif;color:#2B1D12}',
+      '#charS.on{display:flex}',
+      '#charS header{display:flex;align-items:center;gap:5px;padding:6px 10px;' + IR + 'border-bottom:2px solid #a07a3e}',
+      '#charS header b{font-family:Cinzel,serif;font-weight:800;font-size:15px;margin-right:8px}',
+      '#charS header .sp{flex:1}',
+      '#charS .tb{height:34px;padding:0 13px;background:transparent;border:1px solid #5A4A30;border-radius:3px;color:#EFE3C6;font-family:Cinzel,serif;font-weight:700;font-size:12px}',
+      '#charS .tb.on{' + PA + 'border-color:#2e2116;color:#2B1D12}',
+      '#charS .cols{flex:1;display:flex;gap:10px;padding:10px;min-height:0}',
+      '#charS .pg{' + PA + 'border:2px solid #2e2116;border-radius:3px;box-shadow:inset 0 0 30px rgba(90,60,30,.35);padding:10px 12px;overflow-y:auto;touch-action:pan-y;min-width:0}',
+      '#charS h3{margin:8px 0 4px;font-family:Cinzel,serif;font-weight:800;font-size:12px;letter-spacing:.08em;color:#7A1F1A}#charS h3:first-child{margin-top:0}',
+      '#charS p{margin:3px 0;font-size:14px;line-height:1.3}#charS small{color:#5a4430}',
+      '#charS .abil{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}',
+      '#charS .ab{position:relative;text-align:center;padding:5px 0 6px;border:2px solid #2e2116;border-radius:4px;background:rgba(255,250,235,.55)}',
+      '#charS .ab i{display:block;font-style:normal;font-family:Cinzel,serif;font-size:10px;font-weight:700;letter-spacing:.1em;color:#6b5a3a}',
+      '#charS .ab b{display:block;font-family:Cinzel,serif;font-size:22px;line-height:1.05}#charS .ab span{font-size:12px;color:#5a4430}',
+      '#charS .plus{position:absolute;right:3px;top:3px;width:26px;height:26px;border-radius:50%;background:#7A1F1A;border:0;color:#F3E6CC;font-weight:800;font-size:15px;line-height:1}',
+      '#charS .vit{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:8px 0}',
+      '#charS .vit div{text-align:center;padding:4px 0;' + IR + 'border:1px solid #a07a3e;border-radius:3px}#charS .vit b{display:block;font-family:Cinzel,serif;font-size:16px}#charS .vit small{color:#C9B48A;font-family:Cinzel,serif;font-size:9px;letter-spacing:.1em}',
+      '#charS .pts{padding:4px 8px;background:#7A1F1A;color:#F3E6CC;border-radius:3px;font-size:13px}',
+      '#charS .sk{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid rgba(43,29,18,.15)}',
+      '#charS .sk .lv{width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;' + IR + 'border:2px solid #a07a3e;font-family:Cinzel,serif;font-weight:800;font-size:14px}',
+      '#charS .sk .tx{flex:1;min-width:0}#charS .sk .tx b{font-size:14.5px}#charS .sk .tx em{font-style:normal;font-family:Cinzel,serif;font-size:9.5px;color:#6b5a3a;margin-left:5px}#charS .sk .tx span{display:block;font-size:12.5px;color:#4a3826;line-height:1.2}',
+      '#charS .sk .bar{height:3px;background:rgba(138,106,46,.25);margin-top:3px}#charS .sk .bar i{display:block;height:100%;background:#8a6a2e}',
+      '#charS .sys{display:inline-block;font-family:Cinzel,serif;font-size:8.5px;letter-spacing:.08em;padding:1px 5px;border-radius:8px;background:#232327;color:#E0B868;margin-left:5px;vertical-align:2px}',
+      '#charS .qa{margin:0 0 7px}#charS .qa i{display:block;font-style:normal;font-family:Cinzel,serif;font-size:10px;letter-spacing:.08em;color:#6b5a3a}#charS .qa p{font-style:italic}',
+      '#charS .log{list-style:none;margin:0;padding:0}#charS .log li{display:flex;gap:8px;padding:5px 0;border-top:1px solid rgba(43,29,18,.15);font-size:13.5px;line-height:1.25}',
+      '#charS .log li small{flex:none;width:58px;font-family:Cinzel,serif;font-size:9.5px;color:#6b5a3a;padding-top:2px}',
+      '#charS .log li.boss,#charS .log li.level{font-weight:700}#charS .log li.death{color:#7A1F1A}',
+      '#charS .ccBtn{height:36px;padding:0 13px;margin:2px 4px 2px 0;' + IR + 'border:1px solid #8a7a5a;border-radius:3px;font-family:Cinzel,serif;font-weight:700;font-size:11.5px;text-transform:none;letter-spacing:.03em;color:#EFE3C6}',
+      '#charS ul.gear{columns:2;padding-left:16px;margin:2px 0;font-size:13.5px}',
+      '#charS #dmBox h3{margin-top:12px}#charS #dmBox ul{padding-left:16px}',
+      '@media (max-width:700px){#charS .cols{flex-direction:column;overflow-y:auto}#charS .pg{overflow:visible}}'
+    ].join('\n');
+    document.head.appendChild(css);
+    // top-right buttons: Inventory · Map · Character (far right)
+    var gb = document.getElementById('gearBtn'), nb = gb.cloneNode(true); nb.textContent = 'Character'; gb.parentNode.replaceChild(nb, gb); nb.onclick = charToggle;
+    var bb = document.getElementById('bagBtn'); if (bb) bb.textContent = 'Inventory';
+  })();
+  function charToggle() {
+    CS.open = !CS.open; document.getElementById('charS').classList.toggle('on', CS.open);
+    if (CS.open) { if (UI.bag) bagToggle(); if (UI.map) mapToggle(); if (gearOpen) toggleGear(); charDraw(); }
+  }
+  function charDraw() {
+    if (!CS.open) return; var el = document.getElementById('charS'), c = CHAR;
+    var tabs = ['Sheet', 'Background', 'Party'];
+    var head = '<header><b>' + esc(c ? c.name : 'Character') + '</b>' + tabs.map(function (t) { return '<button type="button" class="tb' + (CS.tab === t ? ' on' : '') + '" data-tab="' + t + '">' + t + '</button>'; }).join('') + '<span class="sp"></span><button type="button" class="tb" id="csX">Close</button></header>';
+    var body = !c ? '<div class="cols"><div class="pg" style="flex:1"><p>No character yet.</p><p><button type="button" class="ccBtn" id="csNew">Create your character</button></p></div></div>'
+      : CS.tab === 'Sheet' ? csSheet(c) : CS.tab === 'Background' ? csBackground(c) : csParty(c);
+    el.innerHTML = head + body;
+    el.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { CS.tab = b.dataset.tab; charDraw(); }; });
+    document.getElementById('csX').onclick = charToggle;
+    el.querySelectorAll('[data-spend]').forEach(function (b) { b.onclick = function () { var p = b.dataset.spend.split('|'); spendPoint(p[0], p[1]); charDraw(); }; });
+    var nw = document.getElementById('csNew'); if (nw) nw.onclick = function () { charToggle(); window.__crawl.newChar(); };
+    var wd = document.getElementById('csWard'); if (wd) wd.onclick = function () { charToggle(); GMODE = 'normal'; tab = 'Clothes'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); } };
+    if (CS.tab === 'Party' && typeof sheetAfter === 'function') sheetAfter();
+  }
+  function csSheet(c) {
+    var a = (typeof pcAC === 'function') ? pcAC() : { ac: '?', why: '' }, sp = c.statPts || 0, kp = c.skillPts || 0;
+    var abil = STATS.map(function (k) { var m = Math.floor((c.stats[k] - 10) / 2); return '<div class="ab" title="' + STAT_NAMES[k] + '"><i>' + k + '</i><b>' + (m >= 0 ? '+' : '') + m + '</b><span>' + c.stats[k] + '</span>' + (sp && c.stats[k] < 20 ? '<button type="button" class="plus" data-spend="stat|' + k + '" aria-label="Raise ' + k + '">+</button>' : '') + '</div>'; }).join('');
+    var tr = TRAITS.filter(function (t) { return t[0] === c.trait; })[0] || [c.trait, ''], fl = FLAWS.filter(function (t) { return t[0] === c.flaw; })[0] || [c.flaw, ''];
+    var sk = Object.keys(c.skills || {}).filter(function (k) { return c.skills[k] > 0; }).sort(function (x, y) { return c.skills[y] - c.skills[x] || (x < y ? -1 : 1); });
+    var skills = sk.map(function (k) {
+      var lv = c.skills[k], d = skillDef(k) || [k, '', ''], prog = (c.skillXP || {})[k] || 0, need = (lv + 1) * 3, mine = c.skillDefs && c.skillDefs[k];
+      return '<div class="sk"><span class="lv">' + lv + '</span><div class="tx"><b>' + esc(k) + '</b><em>' + esc(d[1] || '') + '</em>' + (mine ? '<span class="sys">System-made</span>' : '') + '<span>' + esc(d[2] || '') + '</span><div class="bar"><i style="width:' + Math.round(100 * prog / need) + '%"></i></div></div>' +
+        (kp && lv < 3 + (PC.level || 1) ? '<button type="button" class="plus" style="position:static" data-spend="skill|' + esc(k) + '" aria-label="Raise ' + esc(k) + '">+</button>' : '') + '</div>';
+    }).join('');
+    return '<div class="cols"><div class="pg" style="width:min(340px,42%);flex:none">' +
+      '<h3>Level ' + (PC.level || 1) + ' crawler · ' + (PC.xp || 0) + ' / ' + nextLevelXP() + ' XP</h3>' + (sp ? '<p class="pts">' + sp + ' stat point' + (sp > 1 ? 's' : '') + ' to spend: tap + on a stat.</p>' : '') +
+      '<div class="abil">' + abil + '</div>' +
+      '<div class="vit"><div><b>' + PC.hp + '/' + PC.max + '</b><small>HP</small></div><div><b>' + a.ac + '</b><small>AC</small></div><div><b>+' + PROF() + '</b><small>PROF</small></div><div><b>' + (10 + MOD.WIS + skillLv('Perception')) + '</b><small>NOTICE</small></div></div>' +
+      '<p><small>AC: ' + esc(a.why) + '</small></p>' +
+      '<h3>Trait · ' + esc(c.trait) + '</h3><p>' + esc(c.traitDesc || tr[1]) + '</p><h3>Flaw · ' + esc(c.flaw) + '</h3><p>' + esc(c.flawDesc || fl[1]) + '</p>' +
+      '<h3>Class</h3><p>' + ((PC.level || 1) >= 3 ? 'Unlocked. The choice is coming soon; the System is watching what you train.' : 'Unlocks at level 3, offered from the weapons and skills you actually use.') + '</p></div>' +
+      '<div class="pg" style="flex:1"><h3>Skills · ' + sk.length + '</h3>' + (kp ? '<p class="pts">' + kp + ' skill point' + (kp > 1 ? 's' : '') + ' to spend: tap + on a skill.</p>' : '') +
+      '<p><small>Skills grow with use. New ones appear when the System notices you doing something a lot, or when it rules that a stunt deserved one.</small></p>' +
+      (skills || '<p>No skills yet. Do things.</p>') + '</div></div>';
+  }
+  var QA_LABELS = ['Who you are', 'Work history', 'What you do now', 'Big life moments', 'Interests and practical skills', 'How you see yourself', 'What you had on you', 'What you were wearing'];
+  function csBackground(c) {
+    var qa = (c.interview || []).map(function (x, i) { if (!x.a) return ''; return '<div class="qa"><i>' + esc(QA_LABELS[i] || x.q) + '</i><p>' + esc(x.a) + '</p></div>'; }).join('');
+    var home = (c.gear || []).filter(function (g) { return g.from === 'home' || g.from === 'the System'; }).map(function (g) { return '<li>' + esc(g.name) + '</li>'; }).join('');
+    var log = (c.log || []).slice().reverse().map(function (l) { var dt = new Date(l.t); return '<li class="' + esc(l.k) + '"><small>' + (dt.getMonth() + 1) + '/' + dt.getDate() + ' · Lv ' + (l.lv || 1) + '</small><span>' + esc(l.txt) + '</span></li>'; }).join('');
+    return '<div class="cols"><div class="pg" style="flex:1"><h3>Before the dungeon</h3>' + (c.born ? '<p><small>Registered as a crawler on ' + new Date(c.born).toLocaleDateString() + '.</small></p>' : '') +
+      (qa || '<p>No interview on file.</p>') + (home ? '<h3>Brought from home</h3><ul class="gear">' + home + '</ul>' : '') + '</div>' +
+      '<div class="pg" style="width:min(340px,44%);flex:none"><h3>Journal</h3><p><small>Major steps and milestones, newest first.</small></p><ul class="log">' + (log || '<li><span>Nothing yet. Go make some history.</span></li>') + '</ul></div></div>';
+  }
+  function csParty(c) {
+    var party = NET.party.filter(function (p) { return p.id !== NET.uid; }), achs = Object.keys(c.ach || {}).length;
+    return '<div class="cols"><div class="pg" style="flex:1"><h3>Party</h3>' + (party.length ? '<ul class="gear" style="columns:1">' + party.map(function (p) { return '<li>' + esc(p.name || p.username) + (p.name ? ' <small>(' + esc(p.username) + ')</small>' : ' <small>(no character yet)</small>') + ' · ' + (p.xp || 0) + ' XP' + (p.dead ? ' · <b>dead</b>' : '') + '</li>'; }).join('') + '</ul>' : '<p>No one else has joined yet.</p>') +
+      '<p><small>Monster XP is shared with the party. Achievements are yours: ' + achs + ' so far.</small></p>' +
+      '<h3>Character</h3><p>' + (NET.live ? '' : '<button type="button" class="ccBtn" onclick="window.__crawl.redress()">Get dressed by the System</button><button type="button" class="ccBtn" id="csWard">Wardrobe (testing)</button>') + '<button type="button" class="ccBtn" id="csNew">Make a new character</button></p>' +
+      (NET.live ? '' : '<p><small>Re-dressing and the wardrobe are testing tools; they lock when the campaign starts.</small></p>') +
+      (NET.user ? '<div id="dmBox"></div><p>Signed in as ' + esc(NET.user.username) + (NET.user.role === 'dm' ? ' (DM)' : '') + ' <button type="button" class="ccBtn" onclick="window.__crawl.logOut()">Log out</button></p>' : '') +
+      creditsHTML() + '</div></div>';
+  }
+
   // ---------- state ----------
   var P = { x: start.x, z: start.z, px: start.x, pz: start.z, speed: 0 };
   var CAMV = { a: Math.PI / 4, yaw: 0, cx: 1, cz: 1, px: 0, pz: 0, uz: 1, home: false, fx: 0, fz: 0, halfH: 4.1, ptrs: {}, pinch: 0 };
@@ -8792,7 +9043,7 @@
     var now = Date.now();
     if (PC.hp >= PC.max) { say('Eat', 'You are already at full health. You eat a grape anyway.', 3500); return; }
     if (PC.fedUntil && now < PC.fedUntil) { say('Too full', 'You are stuffed. You can eat again in ' + Math.ceil((PC.fedUntil - now) / 1000) + ' seconds.', 3500); return; }
-    var got = PC.max - PC.hp; PC.hp = PC.max; PC.fedUntil = now + FED_MS; setTimeout(function () { achieve('free_lunch', 'Free Lunch', 'You ate the sponsors\' food. They own a small part of you now.', 10); }, 4600); if (typeof cbHUD === 'function') cbHUD();
+    var got = PC.max - PC.hp; PC.hp = PC.max; PC.fedUntil = now + FED_MS; skillCount('eat'); setTimeout(function () { achieve('free_lunch', 'Free Lunch', 'You ate the sponsors\' food. They own a small part of you now.', 10); }, 4600); if (typeof cbHUD === 'function') cbHUD();
     kitOneShot('PickUp_Table'); say('Free food', 'You eat like the sponsors are paying, because they are. +' + got + ' HP. You are full for the next two minutes.', 4500);
   }
   // ---------- where you are and what you have explored, saved per character ----------
@@ -8880,8 +9131,8 @@
     var info = roomInfo(P.x, P.z); if (!info) return; var id = info.id; if (id === lastRoom) return; lastRoom = id;
     var hood = info.hood !== undefined ? LEVEL.hoods[info.hood] : null;
     document.getElementById('region').textContent = info.name;
-    if (hood && !seenRooms['h' + info.hood]) { seenRooms['h' + info.hood] = 1; var newZ = CHAR && !(CHAR.zones && CHAR.zones[info.hood]); say('Zone discovered: ' + hood.name, hood.line + (newZ ? ' +25 XP for finding it.' : ''), 6000); if (newZ) { CHAR.zones = CHAR.zones || {}; CHAR.zones[info.hood] = 1; grantXP(25); } }
-    else if (!seenRooms[id] && info.type !== 'corridor') { seenRooms[id] = 1; say((info.type === 'safe' ? 'Safe room: ' : info.type === 'boss' ? 'Boss room: ' : info.type === 'hidden' ? 'Secret found: ' : 'Discovered: ') + info.name, info.line, 4500); }
+    if (hood && !seenRooms['h' + info.hood]) { seenRooms['h' + info.hood] = 1; var newZ = CHAR && !(CHAR.zones && CHAR.zones[info.hood]); if (newZ) logEvent('Discovered ' + hood.name, 'zone'); say('Zone discovered: ' + hood.name, hood.line + (newZ ? ' +25 XP for finding it.' : ''), 6000); if (newZ) { CHAR.zones = CHAR.zones || {}; CHAR.zones[info.hood] = 1; grantXP(25); } }
+    else if (!seenRooms[id] && info.type !== 'corridor') { seenRooms[id] = 1; if (info.type === 'hidden' && CHAR && !(CHAR.secrets = CHAR.secrets || {})[info.name]) { CHAR.secrets[info.name] = 1; skillCount('secret'); logEvent('Found a secret: ' + info.name, 'secret'); } say((info.type === 'safe' ? 'Safe room: ' : info.type === 'boss' ? 'Boss room: ' : info.type === 'hidden' ? 'Secret found: ' : 'Discovered: ') + info.name, info.line, 4500); }
     // a sharp-eyed crawler notices odd walls nearby
     var pp = 10 + MOD.WIS + skillLv('Perception');
     for (var dz = -2; dz <= 2; dz++) for (var dx = -2; dx <= 2; dx++) if (ch(P.x + dx, P.z + dz) === 'H' && pp >= 12 && !seenRooms['H' + (P.x + dx) + ',' + (P.z + dz)]) { seenRooms['H' + (P.x + dx) + ',' + (P.z + dz)] = 1; say('Perception · passive ' + pp, 'One of the walls near you does not look quite right.', 4500); }
@@ -9124,6 +9375,7 @@
     if (LOOTW.open) { if (e.key === 'Escape') lootClose(); return; }
     if (TALK.open || CC || AUTH.open || (typeof TRY !== 'undefined' && TRY.open)) return;
     if (e.key === 'i' || e.key === 'I') { bagToggle(); return; } if (e.key === 'm' || e.key === 'M') { mapToggle(); return; }
+    if (e.key === 'Escape' && CS.open) { charToggle(); return; }
     if (e.key === 'Escape' && (UI.bag || UI.map)) { if (UI.bag) bagToggle(); if (UI.map) mapToggle(); return; }
     if (CB.on && !gearOpen) { var ck = cbMenuOpen() && e.key >= '1' && e.key <= '9' ? function () { cbMenuPick(+e.key); } : { '1': function () { cbAttackButton(false); }, '2': function () { cbMenuToggle('acts'); }, '3': function () { cbMenuToggle('bonus'); }, e: cbEndTurn, Enter: cbEndTurn, Escape: cbMenuClose }[e.key]; if (ck) { e.preventDefault(); ck(); } if (KEYS[e.key] || e.key === ' ') e.preventDefault(); return; }
     if (KEYS[e.key]) { e.preventDefault(); keys[KEYS[e.key]] = true; }
@@ -9317,7 +9569,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { fog: function () { return tileState; }, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { fog: function () { return tileState; }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

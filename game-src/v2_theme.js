@@ -44,7 +44,7 @@
       '#bar{align-items:flex-end}',
       '#bar .act{' + iron + 'border:1px solid #8a7a5a;border-radius:50%;width:50px;height:50px;min-width:0;padding:0;font-family:Cinzel,serif;font-size:9.5px;letter-spacing:.02em;text-transform:none}',
       '#bar .act.on{background:#5a4420}#bar .act.held{border-color:#E0B868;color:#E0B868}',
-      '#aInteract{order:9;width:84px !important;height:84px !important;background:radial-gradient(circle at 40% 35%,#a8302a,#5e1410) !important;border:3px solid #3a0c08 !important;color:#F3E6CC !important;font-size:13px !important;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,.6)}',
+      '#aInteract{order:9;width:62px !important;height:62px !important;background:radial-gradient(circle at 40% 35%,#a8302a,#5e1410) !important;border:3px solid #3a0c08 !important;color:#F3E6CC !important;font-size:10.5px !important;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,.6)}',
       // belt hot bar
       '#hotbar{left:50% !important;transform:translateX(-50%);bottom:12px;padding:6px 10px;background:linear-gradient(180deg,#5a3a22,#3a2414);border:1px solid #1e130a;border-radius:4px;box-shadow:0 4px 10px rgba(0,0,0,.6)}',
       '#hotbar button{' + parch + 'border:1px solid #1e130a !important;border-radius:4px !important}#hotbar button.ready{border-color:#E0B868 !important;box-shadow:0 0 0 1px #E0B868}',
@@ -135,7 +135,7 @@
     document.head.appendChild(css);
     var ws = document.createElement('div'); ws.id = 'wset'; document.body.appendChild(ws);
     var dc = document.createElement('div'); dc.id = 'dice'; dc.setAttribute('role', 'status'); dc.setAttribute('aria-live', 'polite'); document.body.appendChild(dc);
-    setInterval(function () { var el = document.getElementById('wset'); if (el) el.style.display = !CHAR || gearOpen || CC || AUTH.open || UI.bag || UI.map ? 'none' : ''; }, 300);
+    setInterval(function () { var el = document.getElementById('wset'); if (el) el.style.display = !CHAR || gearOpen || CC || AUTH.open || UI.bag || UI.map || (typeof CS !== 'undefined' && CS.open) ? 'none' : ''; }, 300);
     setInterval(function () { if (typeof CB !== 'undefined' && !CB.on && typeof cbHUD === 'function') try { cbHUD(); } catch (e) {} }, 1000);
     setTimeout(wsetDraw, 0);
   })();

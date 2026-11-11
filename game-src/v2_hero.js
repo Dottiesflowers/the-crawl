@@ -805,7 +805,7 @@
     var back = sty('back'), bk = col('back'), bz = -0.2 * bd - 0.05, backG = new THREE.Group(); rig.add(backG); kitHold.back = backG;
     // a spare weapon slung across your back takes the back slot (no pack or quiver at the same time)
     var bwIt = (typeof backItem === 'function') ? backItem() : null;
-    if (bwIt) { back = 0; var bwg = new THREE.Group(); bwg.position.set(0.1, 0.42, bz - 0.02); bwg.rotation.z = 0.75; backG.add(bwg); gearModel(bwg, bwIt); }
+    if (bwIt) { back = 0; var bwg = new THREE.Group(); bwg.position.set(0.09, 0.56, bz - 0.03); bwg.rotation.z = 0.55; backG.add(bwg); gearModel(bwg, bwIt); }
     if (back === 1) {
       part(backG, 0.26, 0.3, 0.13, bk, 0, 0.68, bz); part(backG, 0.27, 0.1, 0.14, shade(bk, 0.75), 0, 0.79, bz); part(backG, 0.14, 0.1, 0.03, shade(bk, 0.75), 0, 0.62, bz - 0.07);
       part(backG, 0.03, 0.05, 0.02, GOLD, 0, 0.75, bz - 0.075); sgn.forEach(function (s) { part(backG, 0.05, 0.14, 0.08, shade(bk, 0.85), s * 0.15, 0.63, bz); part(backG, 0.02, 0.26, 0.02, DARK, s * 0.07, 0.7, bz - 0.07); });

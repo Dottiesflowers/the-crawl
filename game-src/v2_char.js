@@ -70,24 +70,24 @@
     cbSaveChar(); if (typeof cbHUD === 'function') cbHUD();
   }
   function levelUp(k) {
-    var c = CHAR || MICHAEL, was = PC.max; PC.level = (PC.level || 1) + 1; c.level = PC.level;
+    var c = CHAR || MICHAEL, was = PC.max; PC.level = (PC.level || 1) + 1; c.level = PC.level; logEvent('Reached level ' + PC.level, 'level');
     PC.max = maxHPFor(c, PC.level); PC.hp = Math.min(PC.max, PC.hp + (PC.max - was));
     c.skillPts = (c.skillPts || 0) + 1; var stat = PC.level % 2 === 0; if (stat) c.statPts = (c.statPts || 0) + 1; c.gold = (c.gold || 0) + 10 * PC.level;
     var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon).' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : '';
     setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'Level up. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
   }
   function achieve(id, title, text, xp) {
-    var c = CHAR; if (!c) return; c.ach = c.ach || {}; if (c.ach[id]) return; c.ach[id] = Date.now();
+    var c = CHAR; if (!c) return; c.ach = c.ach || {}; if (c.ach[id]) return; c.ach[id] = Date.now(); logEvent('Achievement: ' + title, 'ach');
     say('New achievement: ' + title, text + (xp ? ' +' + xp + ' XP.' : ''), 5500); if (xp) grantXP(xp); else cbSaveChar();
   }
   function overcome(e) { // a monster beaten without killing it
-    if (!e || e.counted || e.npc || CB.on) return; e.counted = true; grantXP(e.def.xp);
+    if (!e || e.counted || e.npc || CB.on) return; e.counted = true; grantXP(e.def.xp); skillCount('talkdown'); logEvent('Talked ' + e.name + ' out of a fight', 'talk');
     achieve('talker', 'Use Your Words', 'You talked a monster out of a fight. The System finds this personally refreshing.', 50);
   }
   function skillUse(name) { // every success with a skill is practice; enough practice and it levels up on its own
     var c = CHAR; if (!c || !name) return; c.skillXP = c.skillXP || {}; var lv = c.skills[name] || 0; if (lv >= 10) return;
     c.skillXP[name] = (c.skillXP[name] || 0) + 1;
-    if (c.skillXP[name] >= (lv + 1) * 3) { c.skillXP[name] = 0; c.skills[name] = lv + 1; cbSaveChar(); setTimeout(function () { say('Skill up · ' + name + ' ' + (lv + 1), 'Practice pays. ' + name + ' now adds +' + (lv + 1) + ' to the rolls that use it.', 4500); }, 2600); }
+    if (c.skillXP[name] >= (lv + 1) * 3) { c.skillXP[name] = 0; c.skills[name] = lv + 1; logEvent(name + ' reached level ' + (lv + 1), 'skill'); cbSaveChar(); setTimeout(function () { say('Skill up · ' + name + ' ' + (lv + 1), 'Practice pays. ' + name + ' now adds +' + (lv + 1) + ' to the rolls that use it.', 4500); }, 2600); }
   }
   // re-dress an existing character from what they said they were wearing, without making a new one
   function redress() {
@@ -124,7 +124,7 @@
   }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, born: c.born || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
@@ -242,7 +242,7 @@
       (sp ? '<p class="pts">' + sp + ' stat point' + (sp > 1 ? 's' : '') + ' to spend: tap + on a stat.</p>' : '') +
       '<div class="stats">' + STATS.map(function (k) { var m = Math.floor((c.stats[k] - 10) / 2); return '<span><b>' + c.stats[k] + '</b>' + k + ' ' + (m >= 0 ? '+' : '') + m + (sp && c.stats[k] < 20 ? ' <button type="button" class="plus" onclick="window.__crawl.spend(\'stat\',\'' + k + '\')" aria-label="Raise ' + k + '">+</button>' : '') + '</span>'; }).join('') + '</div>' +
       '<p>HP ' + PC.max + ' · AC ' + a.ac + ' (' + a.why + ') · Proficiency +' + PROF() + ' · Achievements ' + achs + '</p>' +
-      '<h3>Skills</h3>' + (kp ? '<p class="pts">' + kp + ' skill point' + (kp > 1 ? 's' : '') + ' to spend: tap + on any skill.</p>' : '') + '<ul>' + (kp ? SKILLS.map(function (s) { return s[0]; }) : sk).map(function (k) { var lv = c.skills[k] || 0, prog = (c.skillXP || {})[k] || 0; return '<li>' + esc(k) + ' ' + lv + (prog ? ' <small>(' + prog + '/' + (lv + 1) * 3 + ' practice)</small>' : '') + (kp && lv < 3 + (PC.level || 1) ? ' <button type="button" class="plus" onclick="window.__crawl.spend(\'skill\',\'' + k + '\')" aria-label="Raise ' + esc(k) + '">+</button>' : '') + '</li>'; }).join('') + '</ul>' +
+      '<h3>Skills</h3>' + (kp ? '<p class="pts">' + kp + ' skill point' + (kp > 1 ? 's' : '') + ' to spend: tap + on any skill.</p>' : '') + '<ul>' + sk.map(function (k) { var lv = c.skills[k] || 0, prog = (c.skillXP || {})[k] || 0; return '<li>' + esc(k) + ' ' + lv + (prog ? ' <small>(' + prog + '/' + (lv + 1) * 3 + ' practice)</small>' : '') + (kp && lv < 3 + (PC.level || 1) ? ' <button type="button" class="plus" onclick="window.__crawl.spend(\'skill\',\'' + k + '\')" aria-label="Raise ' + esc(k) + '">+</button>' : '') + '</li>'; }).join('') + '</ul>' +
       '<h3>Trait: ' + esc(c.trait) + '</h3><p>' + esc(c.traitDesc || tr[1]) + '</p><h3>Flaw: ' + esc(c.flaw) + '</h3><p>' + esc(c.flawDesc || fl[1]) + '</p>' +
       (gear ? '<h3>Brought from home</h3><ul class="gear">' + gear + '</ul>' : '') +
       (NET.live ? '' : '<p><button type="button" class="ccBtn" onclick="window.__crawl.redress()">Get dressed by the System</button> <small>Re-picks your outfit from what you say you were wearing. Keeps your character. Testing only: it locks when the campaign starts.</small></p>') +
@@ -341,7 +341,7 @@
     if (s === 5) {
       var tp = (CC.cTrait && CC.cTrait[0] === CC.trait) ? CC.cTrait : (TRAITS.filter(function (t) { return t[0] === CC.trait; })[0] || [CC.trait, '', CC.trait]), fp = (CC.cFlaw && CC.cFlaw[0] === CC.flaw) ? CC.cFlaw : (FLAWS.filter(function (t) { return t[0] === CC.flaw; })[0] || [CC.flaw, '', CC.flaw]);
       var c = { name: CC.name, stats: CC.stats, skills: CC.skills, trait: tp[0], traitDesc: tp[1], traitFx: tp[2] || tp[0], flaw: fp[0], flawDesc: fp[1], flawFx: fp[2] || fp[0], gear: CC.gear.concat(CC.outfit), gold: 0, xp: 0, interview: QUESTIONS.map(function (q, i) { return { q: q, a: CC.answers[i] }; }).concat(CC.follow.map(function (q, i) { return { q: q, a: CC.followA[i] || '' }; })) };
-      applyChar(c); c.gear.forEach(function (g) { if (g.cat === 'clothing' && g.worn) wear(g); }); look.main = [0, look.main[1]]; look.off = [0, look.off[1]]; look.back = [0, look.back[1]]; buildHero(); saveChar(c); ccClose(); GMODE = 'design'; tab = 'Body'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); }
+      c.born = Date.now(); applyChar(c); logEvent('Taken from Earth and registered as a crawler', 'start'); c.gear.forEach(function (g) { if (g.cat === 'clothing' && g.worn) wear(g); }); look.main = [0, look.main[1]]; look.off = [0, look.off[1]]; look.back = [0, look.back[1]]; buildHero(); saveChar(c); ccClose(); GMODE = 'design'; tab = 'Body'; if (!gearOpen) toggleGear(); else { drawTabs(); drawRows(); }
       say('Crawler registered · ' + c.name, 'Last step: your body, face and hair. These are permanent, except a bathroom mirror lets you change your hair later. Confirm when you are ready.', 7000);
     }
   }
@@ -351,7 +351,7 @@
     var fa = CC.follow.map(function (q, i) { return 'Q: ' + q + '\nA: ' + (CC.followA[i] || '(no answer)'); }).join('\n\n');
     var head = 'You are "the System", the sardonic alien host of a dungeon-crawl reality show (in the spirit of Dungeon Crawler Carl). A new human crawler named ' + CC.name + ' is being processed: one of five humans chosen to represent all of humanity in an intergalactic dungeon crawl. Rules are D&D 5e plus DCC-style skills. Characters must reflect the real person, weaknesses included: they should not be universally competent.\n\nInterview so far:\n' + qa + (fa ? '\n\nFollow-ups:\n' + fa : '');
     var prompt = kind === 'followups' ? head + '\n\nAsk up to 3 short, pointed follow-up questions tailored to what they said, that would best decide their ability scores, skills, weaknesses and what gear they had on them. Reply with JSON only: {"comment": one dry sentence from the System about what you have heard so far, "questions": [strings]}'
-      : head + '\n\nBuild their level-1 human sheet from real-life evidence. Ability scores use the 5e 27-point buy exactly (each score 8-15; costs 8=0,9=1,10=2,11=3,12=4,13=5,14=7,15=9; total exactly 27). Skills come only from this list: ' + SKILLS.map(function (s) { return s[0]; }).join(', ') +
+      : head + '\n\nBuild their level-1 human sheet from real-life evidence. Ability scores use the 5e 27-point buy exactly (each score 8-15; costs 8=0,9=1,10=2,11=3,12=4,13=5,14=7,15=9; total exactly 27). Skills come only from this list: ' + SKILL_DEFS.map(function (s) { return s[0]; }).join(', ') +
         '. Give 4 to 6 skills, levels 1-3, total points at most ' + SKILL_BUDGET + '. Invent one personal trait and one personal flaw drawn from their real life (funny, specific, consequential). Each must use one game effect: trait effect from ' + TRAITS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') + '. Flaw effect from ' + FLAWS.map(function (t) { return t[0] + ' (' + t[1] + ')'; }).join('; ') +
         '. Starting gear: 3 to 6 everyday items they would really have had on them or within reach (from their job, habits and answer about what was on them), no fantasy gear. Categories: weapon, tool, consumable, valuable, misc. Improvised weapons get small damage dice (1d3 to 1d6). When one of these standard items fits, use its exact name: ' + homeNames().join(', ') + '.' +
         ' Outfit: dress them in what they said they are wearing, using the closest available pieces and colors from this catalog (slot: options with color indexes):\n' + outfitCatalog() + '\nPrefer the modern pieces (T-shirt, Long sleeve, Tank top, Hoodie, Button-up, Jeans, Shorts, Sweatpants, Sneakers, Work boots, Beanie, Cap); use the fantasy ones only for things like suits (Noble), jackets or coats (Ranger) or a hood that is up. Give each piece the real name of what they wear (e.g. "Faded black hoodie").' +
@@ -365,7 +365,7 @@
     while (buyCost(st) > BUDGET) { var hi = STATS.slice().sort(function (a, b) { return st[b] - st[a]; })[0]; st[hi]--; }
     while (buyCost(st) < BUDGET) { var lo = STATS.filter(function (k) { return st[k] < 15 && buyCost(Object.assign({}, st, (function () { var o = {}; o[k] = st[k] + 1; return o; })())) <= BUDGET; }); if (!lo.length) break; st[lo[0]]++; }
     CC.stats = st; CC.skills = {}; var used = 0;
-    Object.keys(r && r.skills || {}).forEach(function (k) { if (!SKILLS.some(function (s) { return s[0] === k; })) return; var v = Math.max(0, Math.min(3, Math.round(+r.skills[k]) || 0)); if (used + v > SKILL_BUDGET) v = SKILL_BUDGET - used; if (v > 0) { CC.skills[k] = v; used += v; } });
+    Object.keys(r && r.skills || {}).forEach(function (k) { if (!SKILL_IDX[k]) return; var v = Math.max(0, Math.min(3, Math.round(+r.skills[k]) || 0)); if (used + v > SKILL_BUDGET) v = SKILL_BUDGET - used; if (v > 0) { CC.skills[k] = v; used += v; } });
     function custom(x, list) {
       if (!x) return null; if (typeof x === 'string') return list.some(function (t) { return t[0] === x; }) ? null : null;
       var fx = list.some(function (t) { return t[0] === x.effect; }) ? x.effect : list[0][0];

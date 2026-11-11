@@ -11,7 +11,7 @@
     var now = Date.now();
     if (PC.hp >= PC.max) { say('Eat', 'You are already at full health. You eat a grape anyway.', 3500); return; }
     if (PC.fedUntil && now < PC.fedUntil) { say('Too full', 'You are stuffed. You can eat again in ' + Math.ceil((PC.fedUntil - now) / 1000) + ' seconds.', 3500); return; }
-    var got = PC.max - PC.hp; PC.hp = PC.max; PC.fedUntil = now + FED_MS; setTimeout(function () { achieve('free_lunch', 'Free Lunch', 'You ate the sponsors\' food. They own a small part of you now.', 10); }, 4600); if (typeof cbHUD === 'function') cbHUD();
+    var got = PC.max - PC.hp; PC.hp = PC.max; PC.fedUntil = now + FED_MS; skillCount('eat'); setTimeout(function () { achieve('free_lunch', 'Free Lunch', 'You ate the sponsors\' food. They own a small part of you now.', 10); }, 4600); if (typeof cbHUD === 'function') cbHUD();
     kitOneShot('PickUp_Table'); say('Free food', 'You eat like the sponsors are paying, because they are. +' + got + ' HP. You are full for the next two minutes.', 4500);
   }
   // ---------- where you are and what you have explored, saved per character ----------
@@ -99,8 +99,8 @@
     var info = roomInfo(P.x, P.z); if (!info) return; var id = info.id; if (id === lastRoom) return; lastRoom = id;
     var hood = info.hood !== undefined ? LEVEL.hoods[info.hood] : null;
     document.getElementById('region').textContent = info.name;
-    if (hood && !seenRooms['h' + info.hood]) { seenRooms['h' + info.hood] = 1; var newZ = CHAR && !(CHAR.zones && CHAR.zones[info.hood]); say('Zone discovered: ' + hood.name, hood.line + (newZ ? ' +25 XP for finding it.' : ''), 6000); if (newZ) { CHAR.zones = CHAR.zones || {}; CHAR.zones[info.hood] = 1; grantXP(25); } }
-    else if (!seenRooms[id] && info.type !== 'corridor') { seenRooms[id] = 1; say((info.type === 'safe' ? 'Safe room: ' : info.type === 'boss' ? 'Boss room: ' : info.type === 'hidden' ? 'Secret found: ' : 'Discovered: ') + info.name, info.line, 4500); }
+    if (hood && !seenRooms['h' + info.hood]) { seenRooms['h' + info.hood] = 1; var newZ = CHAR && !(CHAR.zones && CHAR.zones[info.hood]); if (newZ) logEvent('Discovered ' + hood.name, 'zone'); say('Zone discovered: ' + hood.name, hood.line + (newZ ? ' +25 XP for finding it.' : ''), 6000); if (newZ) { CHAR.zones = CHAR.zones || {}; CHAR.zones[info.hood] = 1; grantXP(25); } }
+    else if (!seenRooms[id] && info.type !== 'corridor') { seenRooms[id] = 1; if (info.type === 'hidden' && CHAR && !(CHAR.secrets = CHAR.secrets || {})[info.name]) { CHAR.secrets[info.name] = 1; skillCount('secret'); logEvent('Found a secret: ' + info.name, 'secret'); } say((info.type === 'safe' ? 'Safe room: ' : info.type === 'boss' ? 'Boss room: ' : info.type === 'hidden' ? 'Secret found: ' : 'Discovered: ') + info.name, info.line, 4500); }
     // a sharp-eyed crawler notices odd walls nearby
     var pp = 10 + MOD.WIS + skillLv('Perception');
     for (var dz = -2; dz <= 2; dz++) for (var dx = -2; dx <= 2; dx++) if (ch(P.x + dx, P.z + dz) === 'H' && pp >= 12 && !seenRooms['H' + (P.x + dx) + ',' + (P.z + dz)]) { seenRooms['H' + (P.x + dx) + ',' + (P.z + dz)] = 1; say('Perception · passive ' + pp, 'One of the walls near you does not look quite right.', 4500); }
@@ -343,6 +343,7 @@
     if (LOOTW.open) { if (e.key === 'Escape') lootClose(); return; }
     if (TALK.open || CC || AUTH.open || (typeof TRY !== 'undefined' && TRY.open)) return;
     if (e.key === 'i' || e.key === 'I') { bagToggle(); return; } if (e.key === 'm' || e.key === 'M') { mapToggle(); return; }
+    if (e.key === 'Escape' && CS.open) { charToggle(); return; }
     if (e.key === 'Escape' && (UI.bag || UI.map)) { if (UI.bag) bagToggle(); if (UI.map) mapToggle(); return; }
     if (CB.on && !gearOpen) { var ck = cbMenuOpen() && e.key >= '1' && e.key <= '9' ? function () { cbMenuPick(+e.key); } : { '1': function () { cbAttackButton(false); }, '2': function () { cbMenuToggle('acts'); }, '3': function () { cbMenuToggle('bonus'); }, e: cbEndTurn, Enter: cbEndTurn, Escape: cbMenuClose }[e.key]; if (ck) { e.preventDefault(); ck(); } if (KEYS[e.key] || e.key === ' ') e.preventDefault(); return; }
     if (KEYS[e.key]) { e.preventDefault(); keys[KEYS[e.key]] = true; }
@@ -536,7 +537,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { fog: function () { return tileState; }, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { fog: function () { return tileState; }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();
