@@ -6574,6 +6574,7 @@
     CB.idx = (CB.idx + 1) % CB.order.length;
     var c = CB.order[CB.idx];
     if (c !== 'pc' && (c.dead || c.calm)) { cbNext(); return; }
+    if (c === 'pc' && cbEscaped()) return;
     if (c === 'pc') {
       CB.res = { move: 6, action: 1, bonus: 1 }; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
       if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
@@ -6581,6 +6582,14 @@
       cbShowMoves();
     } else { c.react = true; cbShowMoves(); setTimeout(function () { cbEnemyTurn(c); }, 250); }
     cbRingsUpdate(); cbHUD();
+  }
+  // running away works: if no hostile monster is close enough to keep after you, the fight is over
+  function cbEscaped() {
+    var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; });
+    var near = foes.some(function (e) { var dd = cheb(e.x, e.z, P.x, P.z); return dd <= 5 || (dd <= 8 && los(e.x, e.z, P.x, P.z)); });
+    if (near || PC.down) return false;
+    CB.order = []; cbEnd(false); say('You got away', 'You ran and they lost track of you. The audience is split between booing and respecting it. No XP for running.', 5000);
+    return true;
   }
   function cbEndTurn() { if (!cbMyTurn() || CB.busy || PC.down) return; CB.res = { move: 0, action: 0, bonus: 0 }; CB.aim = null; cbShowMoves(); cbNext(); }
 
@@ -6756,6 +6765,7 @@
   // ---------- monster turns ----------
   function cbEnemyTurn(e) {
     if (!CB.on) return;
+    if (e.dead || e.calm) { setTimeout(cbNext, 200); return; } // it made a deal mid-fight: it keeps its word
     var speed = e.def.speed;
     if (e.prone) { e.prone = false; speed = Math.floor(speed / 2); cbPlay(e, 'Idle_Loop'); say(e.name, 'It scrambles back to its feet (half its movement).', 2200); }
     if (e.grappled) speed = 0;
@@ -7230,13 +7240,14 @@
     document.getElementById('tIn').addEventListener('keydown', function (ev) { ev.stopPropagation(); });
   })();
   function personaOf(e) { return PERSONA[e.npc || e.kind] || (e.def && PERSONA[e.def.base]); }
-  function talkKey(e) { return 'crawl-talk-' + (NET.uid ? NET.uid + '-' : '') + (e.npc || e.name.replace(/\W+/g, '')); }
+  function talkId(e) { return e.npc || (e.kind + '-' + (e.n !== undefined ? e.n : CB.enemies.indexOf(e))); } // one conversation per individual, not per kind of monster
+  function talkKey(e) { return 'crawl-talk-' + (NET.uid ? NET.uid + '-' : '') + talkId(e); }
   function talkOpen(e) {
     var p = personaOf(e); if (!p) return;
     TALK.open = true; TALK.e = e;
     if (!e.talk && NET.mode === 'server' && !e.talkFetched) {
       e.talkFetched = true; TALK.open = true; TALK.e = e;
-      api('kv/talk-' + (e.npc || e.name.replace(/\W+/g, ''))).then(function (j) { if (j.value && j.value.lines) e.talk = j.value; }, function () {}).then(function () { if (TALK.e === e) talkOpen(e); });
+      api('kv/talk-' + talkId(e)).then(function (j) { if (j.value && j.value.lines) e.talk = j.value; }, function () {}).then(function () { if (TALK.e === e) talkOpen(e); });
       return;
     }
     if (!e.talk && NET.mode !== 'server') { try { e.talk = JSON.parse(localStorage.getItem(talkKey(e)) || 'null'); } catch (x) {} }
@@ -7253,7 +7264,7 @@
   function talkStore(e) {
     var v = { lines: e.talk.lines.slice(-30), mood: e.talk.mood, facts: e.talk.facts.slice(-12) };
     try { localStorage.setItem(talkKey(e), JSON.stringify(v)); } catch (x) {}
-    if (NET.mode === 'server' && NET.uid) api('kv/talk-' + (e.npc || e.name.replace(/\W+/g, '')), { method: 'PUT', body: { value: v } }).catch(function () {});
+    if (NET.mode === 'server' && NET.uid) api('kv/talk-' + talkId(e), { method: 'PUT', body: { value: v } }).catch(function () {});
   }
   function talkDraw(stream) {
     var e = TALK.e, log = document.getElementById('tlog'); if (!e) return;
@@ -7288,7 +7299,7 @@
       '\n\nTHE PLAYER: ' + (c.name || 'a crawler') + ', human, level 1, one of humanity\'s five representatives. Charisma ' + c.stats.CHA + '. Notable skills: ' + Object.keys(c.skills).join(', ') + '. Trait: ' + c.trait + '. Flaw: ' + c.flaw + '. Carrying: ' + ((c.gear || []).map(function (g) { return g.name; }).join(', ') || 'nothing much') + '. HP ' + PC.hp + '/' + PC.max + '. Holding: ' + ((typeof pcWeapon === 'function') ? pcWeapon().name : 'nothing') + '.' +
       (CB.on ? '\nA fight is happening right now.' : '') + (whisper ? '\nThe player is WHISPERING this line so only you can hear; answer quietly.' : '\nThe player is speaking out loud; anyone nearby can hear.') +
       '\n\nThis line the player rolled ' + roll.skill + ': d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total + '. If the player is trying to persuade, trick, scare, bribe or charm you, judge the attempt against DC 10 (easy ask) / 13 (real favor) / 16 (against your interests) and let the roll decide whether it works, but a clever or funny line can lower the DC by 2 and an insult raises it. A natural 1 backfires; a natural 20 works if at all possible. If they are just chatting, ignore the roll.' +
-      '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree not to fight them),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or ""}';
+      '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree to stop fighting or not to fight them: any truce, deal, bribe accepted, surrender or promise to leave them alone counts as calm, and you must then honor it),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or ""}';
     var msgs = [{ role: 'user', content: sys + '\n\n[Conversation begins.' + (text ? '' : ' The player has just walked up. Greet them in character.') + ']' }];
     e.talk.lines.slice(-14).forEach(function (l) { msgs.push({ role: l.who === 'me' ? 'user' : 'assistant', content: l.who === 'me' ? 'Player says: ' + l.text : JSON.stringify({ say: l.text }) }); });
     if (msgs[msgs.length - 1].role !== 'user') msgs.push({ role: 'user', content: 'Player says nothing and waits.' });
