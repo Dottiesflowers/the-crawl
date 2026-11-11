@@ -7834,7 +7834,7 @@
       '#mapFull,#bag{position:fixed;inset:10px;z-index:30;display:none;background:#0b0c13;border:1px solid rgba(61,242,224,.4);border-radius:12px;color:#e8f4f4;font-size:13px}' +
       '#mapFull.on,#bag.on{display:flex}#mapFull{flex-direction:column;align-items:center}#mapFull header,#bag header{display:flex;align-items:center;gap:8px;padding:9px 12px;width:100%;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,.08)}' +
       '#mapFull header b,#bag header b{flex:1;color:var(--hot);font-size:12px;letter-spacing:.14em;text-transform:uppercase}.xbtn{background:none;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:6px;padding:4px 10px;font:inherit;cursor:pointer}' +
-      '#mapC{flex:1;max-width:100%;min-height:0}#mapLeg{padding:6px 12px 10px;color:#9ab;font-size:11.5px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center}#mapLeg i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}' +
+      '#mapC{flex:1;width:100%;min-height:0;touch-action:none;cursor:grab}#mapTools{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px}#mapTools button{width:44px;height:44px;border-radius:10px;border:1px solid rgba(61,242,224,.45);background:rgba(11,12,19,.85);color:#e8f4f4;font-size:20px}#mapFull{position:fixed}#mapLeg.hide{display:none}@media (max-width:700px){#mapLeg{font-size:10.5px;gap:9px}}#mapLeg{padding:6px 12px 10px;color:#9ab;font-size:11.5px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center}#mapLeg i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}' +
       '#bag{flex-direction:column}#bagTools{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06)}#bagQ{flex:1;min-width:140px;background:rgba(255,255,255,.06);border:1px solid rgba(61,242,224,.35);border-radius:8px;color:#fff;padding:7px 9px;font:inherit}' +
       '#bagTools .chip2{padding:6px 9px;border-radius:14px;border:1px solid rgba(255,255,255,.2);background:none;color:#cde;font:inherit;font-size:11.5px;cursor:pointer}#bagTools .chip2.on{border-color:var(--hot);color:#fff;background:rgba(255,62,165,.14)}' +
       '#bagBody{flex:1;display:flex;min-height:0}#bagList{flex:1.2;overflow-y:auto;padding:6px}#bagList button{display:flex;width:100%;gap:8px;align-items:center;text-align:left;background:none;border:1px solid transparent;border-radius:8px;color:#e8f4f4;padding:7px 8px;font:inherit;cursor:pointer}' +
@@ -7851,15 +7851,40 @@
     });
     var mini = document.createElement('canvas'); mini.id = 'mini'; mini.setAttribute('aria-label', 'Minimap: tap for the full map'); mini.onclick = function () { mapToggle(); }; document.body.appendChild(mini);
     var mf = document.createElement('div'); mf.id = 'mapFull'; mf.setAttribute('role', 'dialog'); mf.setAttribute('aria-label', 'Floor map');
-    mf.innerHTML = '<header><b>Floor 1 map</b><button type="button" class="xbtn" id="mapX">Close</button></header><canvas id="mapC"></canvas>' +
-      '<div id="mapLeg"><span><i style="background:#3df2e0"></i>You</span><span><i style="background:#ff4a6a"></i>Hostile</span><span><i style="background:#5f6"></i>Friendly</span><span><i style="background:#ffd34a"></i>Stairs</span><span><i style="background:#c98a4a"></i>Door</span><span><i style="background:#e0c060"></i>Loot box</span><span>✚ Safe room</span><span>☠ Boss</span><span>▼ Stairs</span><span>★ Secret</span></div>';
-    document.body.appendChild(mf); document.getElementById('mapX').onclick = mapToggle;
+    mf.innerHTML = '<header><b>Floor 1 map</b><button type="button" class="xbtn" id="mapKey">Key</button><button type="button" class="xbtn" id="mapX">Close</button></header><canvas id="mapC" aria-label="Map: pinch or scroll to zoom, drag to move"></canvas>' +
+      '<div id="mapTools"><button type="button" id="mapIn" aria-label="Zoom in">+</button><button type="button" id="mapOut" aria-label="Zoom out">−</button><button type="button" id="mapMe" aria-label="Center on me" style="font-size:15px">◎</button></div>' +
+      '<div id="mapLeg" class="' + (innerWidth < 700 ? 'hide' : '') + '"><span><i style="background:#3df2e0"></i>You</span><span><i style="background:#ff4a6a"></i>Hostile</span><span><i style="background:#5f6"></i>Friendly</span><span><i style="background:#ffd34a"></i>Stairs</span><span><i style="background:#c98a4a"></i>Door</span><span><i style="background:#e0c060"></i>Loot box</span><span>✚ Safe room</span><span>☠ Boss</span><span>▼ Stairs</span><span>★ Secret</span></div>';
+    document.body.appendChild(mf); document.getElementById('mapX').onclick = mapToggle; mapControls();
     var bag = document.createElement('div'); bag.id = 'bag'; bag.setAttribute('role', 'dialog'); bag.setAttribute('aria-label', 'Inventory');
     document.body.appendChild(bag);
     var bubs = document.createElement('div'); bubs.id = 'bubs'; document.body.appendChild(bubs);
   })();
 
   // ---------- map ----------
+  // full map view: zoom 1 = whole explored floor fits; pinch / scroll / buttons zoom, drag pans, ◎ recentres on you
+  var MAPV = { zoom: 1, panX: 0, panZ: 0, follow: false };
+  function mapControls() {
+    var cv = document.getElementById('mapC'), pts = {}, last = null;
+    function redraw() { if (UI.map) mapDraw(cv, true); }
+    function zoomBy(f) { MAPV.zoom = Math.max(1, Math.min(14, MAPV.zoom * f)); if (MAPV.zoom === 1) { MAPV.panX = MAPV.panZ = 0; MAPV.follow = false; } redraw(); }
+    function pan(dx, dy) { // screen pixels -> map tiles (undo the rotation)
+      var k = MAPV.k || 1, ya = MAPV.ya || Math.PI / 4, yc = Math.cos(ya) * 1.4142, ys = Math.sin(ya) * 1.4142, sx = dx / k, sy = dy / k, det = yc * yc + ys * ys;
+      MAPV.follow = false; MAPV.panX -= (sx * yc + sy * ys) / det; MAPV.panZ -= (-sx * ys + sy * yc) / det; redraw();
+    }
+    document.getElementById('mapIn').onclick = function () { zoomBy(1.6); };
+    document.getElementById('mapOut').onclick = function () { zoomBy(1 / 1.6); };
+    document.getElementById('mapMe').onclick = function () { MAPV.follow = true; if (MAPV.zoom < 4) MAPV.zoom = 4; redraw(); };
+    document.getElementById('mapKey').onclick = function () { document.getElementById('mapLeg').classList.toggle('hide'); setTimeout(redraw, 0); };
+    cv.addEventListener('wheel', function (e) { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.15 : 1 / 1.15); }, { passive: false });
+    cv.addEventListener('pointerdown', function (e) { cv.setPointerCapture(e.pointerId); pts[e.pointerId] = [e.clientX, e.clientY]; last = null; });
+    cv.addEventListener('pointermove', function (e) {
+      if (!pts[e.pointerId]) return; var prev = pts[e.pointerId]; pts[e.pointerId] = [e.clientX, e.clientY]; var ids = Object.keys(pts);
+      if (ids.length >= 2) { var a = pts[ids[0]], b = pts[ids[1]], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (last) zoomBy(d / last); last = d; }
+      else pan((e.clientX - prev[0]) * (window.devicePixelRatio || 1), (e.clientY - prev[1]) * (window.devicePixelRatio || 1));
+    });
+    function up(e) { delete pts[e.pointerId]; last = null; }
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  }
   function mapDraw(cv, full) {
     var dpr = window.devicePixelRatio || 1, cw = cv.clientWidth, chh = cv.clientHeight; if (!cw || !chh) return;
     if (cv.width !== Math.round(cw * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(chh * dpr); }
@@ -7867,9 +7892,12 @@
     // rotated 45 degrees to match the isometric camera (map +x+z is screen down)
     var bx0 = W, bx1 = 0, bz0 = H, bz1 = 0;
     if (full) { for (var q = 0; q < W * H; q++) if (tileState[q]) { var qx = q % W, qz = (q / W) | 0; if (qx < bx0) bx0 = qx; if (qx > bx1) bx1 = qx; if (qz < bz0) bz0 = qz; if (qz > bz1) bz1 = qz; } bx0 -= 4; bz0 -= 4; bx1 += 4; bz1 += 4; }
-    var span = full ? Math.max(18, ((bx1 - bx0) + (bz1 - bz0)) / Math.SQRT2) : 26, s = Math.min(cw, chh) / span * (full ? 0.97 : 1.0), k = s / Math.SQRT2 * dpr;
+    var span = full ? Math.max(18, ((bx1 - bx0) + (bz1 - bz0)) / Math.SQRT2) / MAPV.zoom : 26, s = Math.min(cw, chh) / span * (full ? 0.97 : 1.0), k = s / Math.SQRT2 * dpr;
     var ox = cv.width / 2, oy = cv.height / 2, cx = full ? (bx0 + bx1) / 2 : P.px, cz = full ? (bz0 + bz1) / 2 : P.pz;
+    if (full) { if (MAPV.follow) { MAPV.panX = P.px - cx; MAPV.panZ = P.pz - cz; } cx += MAPV.panX; cz += MAPV.panZ; }
     var ya = typeof CAMV !== 'undefined' ? Math.PI / 4 + CAMV.yaw * Math.PI / 2 : Math.PI / 4, yc = Math.cos(ya) * 1.4142, ys = Math.sin(ya) * 1.4142;
+    if (full) { MAPV.k = k; MAPV.ya = ya; }
+    var tpx = k * 2; // on-screen size of one tile, in device pixels
     function tr(x, z) { var dx = x - cx, dz = z - cz; return [ox + (dx * yc - dz * ys) * k, oy + (dx * ys + dz * yc) * k]; }
     function cell(x, z, col) { var a = tr(x - .5, z - .5), b = tr(x + .5, z - .5), c = tr(x + .5, z + .5), d = tr(x - .5, z + .5); g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill(); }
     var liv = hasTrait('Living Map'), R = full ? 1e9 : 20, THEME = { crypt: '#3f6a52', hall: '#5d5a54', moss: '#4f6a3a', gate: '#6a3e3a', store: '#6a5438', water: '#2f5a74', studio: '#7a8494', office: '#4a566a', bazaar: '#8a6e48', garden: '#3f7a34', arena: '#a08250', blvd: '#6a665e' };
@@ -7883,19 +7911,36 @@
     function dot(x, z, col, r) { var p = tr(x, z); g.fillStyle = col; g.beginPath(); g.arc(p[0], p[1], r * dpr, 0, 7); g.fill(); }
     CB.enemies.forEach(function (e) { if (e.dead || visNow[e.x + ',' + e.z] === undefined) return; dot(e.px, e.pz, e.calm ? '#5f6' : '#ff4a6a', full ? 3.5 : 2.6); });
     dot(P.px, P.pz, '#3df2e0', full ? 4.5 : 3.2);
-    if (full) {
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      LEVEL.rooms.forEach(function (rm) {
-        if (rm.type === 'corridor' || (span > 90 && rm.type === 'room')) return; var mx = (rm.x0 + rm.x1) / 2, mz = (rm.z0 + rm.z1) / 2, seen = false;
-        for (var zz = rm.z0; zz <= rm.z1 && !seen; zz++) for (var xx = rm.x0; xx <= rm.x1; xx++) if (tileState[zz * W + xx]) { seen = true; break; }
-        if (!seen) return; var p = tr(mx, mz), icon = rm.type === 'safe' ? '✚ ' : rm.type === 'boss' ? '☠ ' : rm.type === 'stairs' ? '▼ ' : rm.type === 'hidden' ? '★ ' : '';
-        g.font = (rm.type === 'boss' || rm.type === 'safe' ? 'bold ' : '') + (10.5 * dpr) + 'px ui-monospace,monospace';
-        g.fillStyle = rm.type === 'safe' ? '#7dffb0' : rm.type === 'boss' ? '#ff7a8a' : rm.type === 'stairs' ? '#ffd34a' : '#dde';
-        g.strokeStyle = 'rgba(0,0,0,.75)'; g.lineWidth = 3 * dpr; g.strokeText(icon + rm.name, p[0], p[1]); g.fillText(icon + rm.name, p[0], p[1]);
-      });
-      LEVEL.hoods.forEach(function (hd) { var any = false; for (var q = 0; q < hd.rooms.length && !any; q++) { var rm = hd.rooms[q]; if (tileState[((rm.z0 + rm.z1) >> 1) * W + ((rm.x0 + rm.x1) >> 1)]) any = true; }
-        if (!any) return; var p = tr((hd.x0 + hd.x1) / 2, (hd.z0 + hd.z1) / 2); g.font = 'bold ' + (13 * dpr) + 'px ui-monospace,monospace'; g.fillStyle = 'rgba(255,62,165,.85)'; g.fillText(hd.name.toUpperCase(), p[0], p[1] - 16 * dpr); });
-    }
+    if (full) mapLabels(g, tr, tpx, dpr, cv);
+  }
+  // labels that fit the zoom: zone names when zoomed out, important rooms next, every room name once there is room;
+  // fixed screen size, never overlapping, higher priority wins
+  function mapLabels(g, tr, tpx, dpr, cv) {
+    var L = [], seenRoom = function (rm) { for (var zz = rm.z0; zz <= rm.z1; zz++) for (var xx = rm.x0; xx <= rm.x1; xx++) if (tileState[zz * W + xx]) return true; return false; };
+    var zoneView = tpx < 8; // zoomed out: zone names; zoomed in: room names
+    if (zoneView) LEVEL.hoods.forEach(function (hd) {
+      var any = hd.rooms.some(function (rm) { return tileState[((rm.z0 + rm.z1) >> 1) * W + ((rm.x0 + rm.x1) >> 1)]; }); if (!any) return;
+      L.push({ t: hd.name.toUpperCase(), x: (hd.x0 + hd.x1) / 2, z: (hd.z0 + hd.z1) / 2, pri: 5, size: 12.5, bold: true, col: 'rgba(255,62,165,.92)', clamp: true });
+    });
+    LEVEL.rooms.forEach(function (rm) {
+      if (rm.type === 'corridor') return; var key = rm.type === 'safe' || rm.type === 'boss' || rm.type === 'stairs' || rm.type === 'hidden';
+      var w = Math.max(rm.x1 - rm.x0, rm.z1 - rm.z0) + 1; if (!key && (zoneView || tpx * w < 70)) return; // ordinary rooms only once they're big enough on screen
+      if (!seenRoom(rm)) return;
+      var icon = rm.type === 'safe' ? '✚' : rm.type === 'boss' ? '☠' : rm.type === 'stairs' ? '▼' : rm.type === 'hidden' ? '★' : '';
+      var t = key && tpx < 6 ? icon : (icon ? icon + ' ' : '') + rm.name; // far out, key rooms shrink to their icon
+      L.push({ t: t, x: (rm.x0 + rm.x1) / 2, z: (rm.z0 + rm.z1) / 2, pri: rm.type === 'boss' || rm.type === 'stairs' ? 4 : key ? 3 : 1, size: key && tpx < 6 ? 13 : 10.5, bold: key,
+        col: rm.type === 'safe' ? '#7dffb0' : rm.type === 'boss' ? '#ff7a8a' : rm.type === 'stairs' ? '#ffd34a' : rm.type === 'hidden' ? '#c9a8ff' : '#dde' });
+    });
+    L.sort(function (a, b) { return b.pri - a.pri; });
+    var placed = [], pad = 3 * dpr; g.textAlign = 'center'; g.textBaseline = 'middle';
+    L.forEach(function (l) {
+      var p = tr(l.x, l.z); g.font = (l.bold ? 'bold ' : '') + (l.size * dpr) + 'px ui-monospace,monospace';
+      var w = g.measureText(l.t).width, h = l.size * dpr * 1.25; if (l.clamp) p[0] = Math.max(w / 2 + 6 * dpr, Math.min(cv.width - w / 2 - 6 * dpr, p[0]));
+      var r = [p[0] - w / 2 - pad, p[1] - h / 2 - pad, p[0] + w / 2 + pad, p[1] + h / 2 + pad];
+      if (r[2] < 0 || r[0] > cv.width || r[3] < 0 || r[1] > cv.height) return;
+      if (placed.some(function (q) { return r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1]; })) return;
+      placed.push(r); g.strokeStyle = 'rgba(0,0,0,.8)'; g.lineWidth = 3 * dpr; g.fillStyle = l.col; g.strokeText(l.t, p[0], p[1]); g.fillText(l.t, p[0], p[1]);
+    });
   }
   function mapToggle() {
     UI.map = !UI.map; if (UI.map && UI.bag) bagToggle(); document.getElementById('mapFull').classList.toggle('on', UI.map);
@@ -9034,7 +9079,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { fog: function () { return tileState; }, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();
