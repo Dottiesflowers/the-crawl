@@ -40,6 +40,16 @@
     PC.xp = c.xp || 0; PC.level = Math.max(c.level || 1, levelFor(PC.xp)); c.level = PC.level; PC.max = maxHPFor(c, PC.level); PC.hp = PC.max;
     if (typeof cbHUD === 'function') cbHUD();
     if (typeof posRestore === 'function' && typeof P !== 'undefined' && P) setTimeout(posRestore, 0);
+    setTimeout(handsFromGear, 0);
+  }
+  // your hands and back only show what you actually own: no free swords, shields or bass guitars
+  function handsFromGear() {
+    var c = CHAR; if (!c || c.preset || c.freeWardrobe || typeof look === 'undefined') return;
+    var names = (c.gear || []).map(function (g) { return (g.name || '').toLowerCase(); }).join(' | '), has = function (re) { return re.test(names); }, before = JSON.stringify([look.main, look.off, look.back]);
+    if (look.main && look.main[0] && !c.wield) look.main = [0, look.main[1]];
+    if (look.off && look.off[0]) { var o = look.off[0]; if ((o === 1 && !has(/shield/)) || (o === 2 && !c.torch) || (o === 3 && !has(/dagger|knife/))) look.off = [0, look.off[1]]; }
+    if (look.back && look.back[0]) { var b = look.back[0]; if ((b === 1 && !has(/backpack|bag|pack\b/)) || (b === 2 && !has(/quiver/)) || (b === 3 && !has(/guitar|bass/))) look.back = [0, look.back[1]]; }
+    if (JSON.stringify([look.main, look.off, look.back]) !== before) { if (typeof buildHero === 'function') buildHero(); if (typeof saveLook === 'function') saveLook(); }
   }
   function cbSaveChar() { if (!CHAR) return; CHAR.xp = PC.xp || 0; CHAR.level = PC.level || 1; saveChar(CHAR); }
   // ---------- experience, levels, achievements and skills that grow with use ----------
