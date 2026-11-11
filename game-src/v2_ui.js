@@ -435,7 +435,12 @@
   // ---------- item visuals: bag icons and the model in your hand ----------
   function itemKind(it) {
     var n = (it.name || '').toLowerCase();
-    if (it.icon && ICON[it.icon]) return it.icon;
+    var k0 = it.icon && ICON[it.icon] ? it.icon : null;
+    // crafted things look like what went into them: a bomb taped to a stick is a stick bomb
+    if (it.crafted) { var parts = (it.parts || ((typeof allRecipes === 'function' ? allRecipes() : []).filter(function (r) { return r.name === it.name; })[0] || {}).inputs || []).join(' ').toLowerCase();
+      var kind = k0 || (/bomb|grenade|cocktail|molotov|explosive|firework/.test(n) ? 'bomb' : null);
+      if (kind === 'bomb' && /stick|pole|broom|mop|handle|\brod\b|\bbat\b|club|cane|pipe/.test(parts)) return 'stickbomb'; }
+    if (k0) return k0;
     if (it.cat === 'clothing') return 'cloth_' + ({ kTop: 'top', kPants: 'pants', kBoots: 'shoes', kHead: 'hat', kNeck: 'scarf', kShoulder: 'top' }[it.slot] || 'top');
     var K0 = [['spear', /spear|pike|lance|javelin|trident|halberd|glaive/], ['bomb', /bomb|grenade|cocktail|molotov|explosive|firework|hob-lobber/], ['headlamp', /headlamp|head lamp/], ['battery', /batter(y|ies)\b|\baa\b/],
       ['horn', /horn\b|horns|antler|tusk/], ['slime', /slime|goo\b|ooze|jelly/], ['tail', /tail\b/], ['grease', /grease|lard|\bwax\b|\btub\b/], ['sap', /\bsap\b|resin|amber|honey|syrup/], ['ink', /\bink\b|inkwell/],
@@ -452,6 +457,7 @@
     return { weapon: 'bat', tool: 'wrench', consumable: 'drink', valuable: 'coin', misc: 'box' }[it.cat] || 'box';
   }
   var ICON = {
+    stickbomb: '<path d="M4 26L14 16" stroke="#8a5a30" stroke-width="3.2" stroke-linecap="round"/><g transform="rotate(-45 18 10)"><rect x="12" y="5" width="12" height="10" rx="2" fill="#e8dcc0" stroke="#8a7a5a"/><path d="M14 7.5h8M14 10h8M14 12.5h6" stroke="#b8a888" stroke-width=".7"/><rect x="16.2" y="4.4" width="3.2" height="11.2" fill="#9aa0a6" stroke="#6a7076" stroke-width=".5"/></g><path d="M14.5 17.5c0 2 1 3 .2 4.5M18.5 16c1 2 .4 3 .4 4.5" stroke="#c8a040" stroke-width="1.5" stroke-linecap="round"/><path d="M22.5 4.5l1.5-2.5M24.5 6.5l3-1M21 3.5V1" stroke="#ff9a2a" stroke-width="1.4"/>',
     spear: '<path d="M5 25L19 11" stroke="#8a5a30" stroke-width="2.6" stroke-linecap="round"/><path d="M18 12l2-7 6-2-2 6z" fill="#dfe6ea" stroke="#8a939d" stroke-width=".7"/><path d="M15.5 13.5l3 3" stroke="#3a3a3a" stroke-width="2.2"/>',
     bomb: '<circle cx="13" cy="17" r="7" fill="#2a2a2a" stroke="#555"/><path d="M17 11l3-3" stroke="#8a7a5a" stroke-width="2"/><path d="M20 8l2-2M21 5h3M22 9l2 1" stroke="#ff9a2a" stroke-width="1.6"/><circle cx="10.5" cy="14.5" r="1.6" fill="#777"/>',
     headlamp: '<path d="M5 16c0-7 18-7 18 0" fill="none" stroke="#3a3a3a" stroke-width="3"/><rect x="10" y="12" width="8" height="7" rx="2" fill="#555" stroke="#888" stroke-width=".6"/><circle cx="14" cy="15.5" r="2.4" fill="#ffe27a"/><path d="M12 20l-4 6M16 20l4 6" stroke="rgba(255,226,122,.6)" stroke-width="1.4"/>',

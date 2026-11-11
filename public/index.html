@@ -8882,7 +8882,12 @@
   // ---------- item visuals: bag icons and the model in your hand ----------
   function itemKind(it) {
     var n = (it.name || '').toLowerCase();
-    if (it.icon && ICON[it.icon]) return it.icon;
+    var k0 = it.icon && ICON[it.icon] ? it.icon : null;
+    // crafted things look like what went into them: a bomb taped to a stick is a stick bomb
+    if (it.crafted) { var parts = (it.parts || ((typeof allRecipes === 'function' ? allRecipes() : []).filter(function (r) { return r.name === it.name; })[0] || {}).inputs || []).join(' ').toLowerCase();
+      var kind = k0 || (/bomb|grenade|cocktail|molotov|explosive|firework/.test(n) ? 'bomb' : null);
+      if (kind === 'bomb' && /stick|pole|broom|mop|handle|\brod\b|\bbat\b|club|cane|pipe/.test(parts)) return 'stickbomb'; }
+    if (k0) return k0;
     if (it.cat === 'clothing') return 'cloth_' + ({ kTop: 'top', kPants: 'pants', kBoots: 'shoes', kHead: 'hat', kNeck: 'scarf', kShoulder: 'top' }[it.slot] || 'top');
     var K0 = [['spear', /spear|pike|lance|javelin|trident|halberd|glaive/], ['bomb', /bomb|grenade|cocktail|molotov|explosive|firework|hob-lobber/], ['headlamp', /headlamp|head lamp/], ['battery', /batter(y|ies)\b|\baa\b/],
       ['horn', /horn\b|horns|antler|tusk/], ['slime', /slime|goo\b|ooze|jelly/], ['tail', /tail\b/], ['grease', /grease|lard|\bwax\b|\btub\b/], ['sap', /\bsap\b|resin|amber|honey|syrup/], ['ink', /\bink\b|inkwell/],
@@ -8899,6 +8904,7 @@
     return { weapon: 'bat', tool: 'wrench', consumable: 'drink', valuable: 'coin', misc: 'box' }[it.cat] || 'box';
   }
   var ICON = {
+    stickbomb: '<path d="M4 26L14 16" stroke="#8a5a30" stroke-width="3.2" stroke-linecap="round"/><g transform="rotate(-45 18 10)"><rect x="12" y="5" width="12" height="10" rx="2" fill="#e8dcc0" stroke="#8a7a5a"/><path d="M14 7.5h8M14 10h8M14 12.5h6" stroke="#b8a888" stroke-width=".7"/><rect x="16.2" y="4.4" width="3.2" height="11.2" fill="#9aa0a6" stroke="#6a7076" stroke-width=".5"/></g><path d="M14.5 17.5c0 2 1 3 .2 4.5M18.5 16c1 2 .4 3 .4 4.5" stroke="#c8a040" stroke-width="1.5" stroke-linecap="round"/><path d="M22.5 4.5l1.5-2.5M24.5 6.5l3-1M21 3.5V1" stroke="#ff9a2a" stroke-width="1.4"/>',
     spear: '<path d="M5 25L19 11" stroke="#8a5a30" stroke-width="2.6" stroke-linecap="round"/><path d="M18 12l2-7 6-2-2 6z" fill="#dfe6ea" stroke="#8a939d" stroke-width=".7"/><path d="M15.5 13.5l3 3" stroke="#3a3a3a" stroke-width="2.2"/>',
     bomb: '<circle cx="13" cy="17" r="7" fill="#2a2a2a" stroke="#555"/><path d="M17 11l3-3" stroke="#8a7a5a" stroke-width="2"/><path d="M20 8l2-2M21 5h3M22 9l2 1" stroke="#ff9a2a" stroke-width="1.6"/><circle cx="10.5" cy="14.5" r="1.6" fill="#777"/>',
     headlamp: '<path d="M5 16c0-7 18-7 18 0" fill="none" stroke="#3a3a3a" stroke-width="3"/><rect x="10" y="12" width="8" height="7" rx="2" fill="#555" stroke="#888" stroke-width=".6"/><circle cx="14" cy="15.5" r="2.4" fill="#ffe27a"/><path d="M12 20l-4 6M16 20l4 6" stroke="rgba(255,226,122,.6)" stroke-width="1.4"/>',
@@ -9630,7 +9636,7 @@
       'Crawler skills: Jury-Rig ' + skillLv('Jury-Rig') + ', Alchemy ' + skillLv('Alchemy') + ', INT mod ' + MOD.INT + ', WIS mod ' + MOD.WIS + '.\n\nItems:\n' + desc + '\n\nWhat they want to make: ' + (idea || '(they did not say; make the most sensible thing)') +
       '\n\nRules: if the combination cannot plausibly make anything, ok=false and say why in comment. Otherwise design ONE item using only these fields. Recipe level 1-3 by complexity and power. Power limits: level 1 = up to 2d6 damage or 1d8 weapon or 2d4 healing; level 2 = up to 3d6, 1d10 weapon, 3d4+2 healing; level 3 = up to 4d6 area 2. ' +
       'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. They may hand you any number of items, duplicates included (two of the same item means they want to use both). Use the parts that make sense, put only those in consumes, and judge the whole idea: more parts can make a sturdier or stronger build, but junk that does not belong adds nothing. DC 8-18.' +
-      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"dc":10,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
+      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"dc":10,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: stickbomb (a bomb on a stick) spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
     serverSample([{ role: 'user', content: prompt }], { modelTier: 'complex', maxTokens: 600 }).then(function (r) {
       var j = null; try { j = JSON.parse(r.text.replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {}
       CRAFT.busy = false; craftApply(j || craftOffline(sel, idea), sel, idea);
@@ -9651,7 +9657,7 @@
   function clampDice(s, maxN, maxS) { var m = /^(\d+)d(\d+)(?:\+(\d+))?$/.exec(String(s || '').replace(/\s/g, '')); if (!m) return null; return Math.min(+m[1], maxN) + 'd' + Math.min(+m[2], maxS) + (m[3] ? '+' + Math.min(+m[3], 6) : ''); }
   function craftSpec(j) { // keep only fields the engine runs, within this floor's limits
     var lv = Math.max(1, Math.min(3, +j.level || 1)), spec = { cat: /^(weapon|consumable|tool)$/.test(j.cat) ? j.cat : 'consumable', desc: String(j.desc || '').slice(0, 200), tags: (j.tags || []).slice(0, 4).map(String), crafted: true };
-    var ik = { spear: 1, sword: 1, axe: 1, knife: 1, mace: 1, hammer: 1, bat: 1, bomb: 1, potion: 1, drink: 1, slime: 1, sap: 1, shield: 1, pan: 1, tape: 1, light: 1, wrench: 1, box: 1 }, ic = String(j.icon || '').toLowerCase().replace('tool', 'wrench'); if (ik[ic]) spec.icon = ic;
+    var ik = { stickbomb: 1, spear: 1, sword: 1, axe: 1, knife: 1, mace: 1, hammer: 1, bat: 1, bomb: 1, potion: 1, drink: 1, slime: 1, sap: 1, shield: 1, pan: 1, tape: 1, light: 1, wrench: 1, box: 1 }, ic = String(j.icon || '').toLowerCase().replace('tool', 'wrench'); if (ik[ic]) spec.icon = ic;
     if (spec.cat === 'weapon') { spec.dmg = clampDice(j.dmg, 1, lv === 1 ? 8 : lv === 2 ? 10 : 12) || '1d6'; if (+j.crit >= 18 && +j.crit < 20) spec.crit = Math.max(19, +j.crit); }
     if (j.heal) spec.heal = clampDice(j.heal, lv + 1, 4) || null; if (!spec.heal) delete spec.heal;
     if (j.throw && j.throw.fx) {
@@ -9675,7 +9681,7 @@
     }
     var used = (j.why || j.traits_used || []).map(function (x) { return String(x).toLowerCase(); }); loreLearn(sel.reduce(function (acc, g) { return acc.concat((g.tags || []).filter(function (t) { return used.indexOf(t) >= 0; }).map(function (t) { return [g, t]; })); }, []), 'That is why it worked.');
     consumes.forEach(function (n) { var g = CHAR.gear.filter(function (x) { return x.name === n; })[0]; if (g) itemSpend(g); });
-    var made = Object.assign({ name: name, from: 'your own two hands', level: 1 }, cs.spec); invAdd(made, true);
+    var made = Object.assign({ name: name, from: 'your own two hands', level: 1, parts: sel.map(function (g) { return g.name; }) }, cs.spec); invAdd(made, true);
     CHAR.recipes = CHAR.recipes || {}; var isNew = !CHAR.recipes[name] && !CRAFT.shared.some(function (r) { return r.name.toLowerCase() === name.toLowerCase(); });
     var rec = { name: name, track: track, level: cs.lv, dc: dc, inputs: sel.map(function (g) { return g.name; }), keep: sel.map(function (g) { return g.name; }).filter(function (n) { return consumes.indexOf(n) < 0; }), spec: cs.spec, by: CHAR.name, byUid: NET.uid, inventor: true, idea: idea || '' };
     if (isNew) {
