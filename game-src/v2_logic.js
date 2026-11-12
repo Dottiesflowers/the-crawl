@@ -19,7 +19,7 @@
     if (x < 0 || z < 0 || x >= W || z >= H || blocksMove(x, z) || ch(x, z) === '#') return false;
     P.x = x; P.z = z; P.px = x; P.pz = z; P.path = null; hero.position.set(x, 0, z); return true;
   }
-  function fogKey() { return 'crawl-fog-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : ''); }
+  function fogKey() { return 'crawl-fog-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : '') + (FLOOR === 2 ? '-f2' : ''); }
   function fogSave() { // explored tiles as runs: start,length;start,length...
     var out = [], i = 0; while (i < W * H) { if (tileState[i]) { var j = i; while (j < W * H && tileState[j]) j++; out.push(i.toString(36) + ',' + (j - i).toString(36)); i = j; } else i++; }
     var str = out.join(';'); try { localStorage.setItem(fogKey(), str); } catch (e) {}
@@ -32,10 +32,11 @@
     if (NET.mode === 'server' && NET.uid && CHAR) api('kv/fog-' + CHAR.name.replace(/[^\w-]/g, '').slice(0, 40)).then(function (j) { var v = j && (j.value !== undefined ? j.value : j.v); if (typeof v === 'string' && v) { fogMerge(v); FOG.total = 0; FOG.seen = 0; refreshFog(); fogSave(); } }).catch(function () {});
   }
   var lastSavedPos = '';
-  function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); if (CHAR.pos && heroTo(CHAR.pos.x, CHAR.pos.z)) { refreshFog(); enterRoom(); } }
+  function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); var pp = FLOOR === 2 ? CHAR.pos2 : CHAR.pos; if (pp && heroTo(pp.x, pp.z)) { refreshFog(); enterRoom(); } else if (FLOOR === 2) { refreshFog(); enterRoom(); } }
+  function posStash() { if (!CHAR) return; CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; fogSave(); saveChar(CHAR); worldSave(); }
   function posSave(force) {
     if (!CHAR || CB.on) return; var k = P.x + ',' + P.z; if (!force && k === lastSavedPos) return; lastSavedPos = k;
-    CHAR.pos = { x: P.x, z: P.z }; fogSave(); saveChar(CHAR); worldSave();
+    CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; fogSave(); saveChar(CHAR); worldSave();
   }
   setInterval(function () { posSave(false); }, 30000);
   if (CHAR) setTimeout(posRestore, 0);

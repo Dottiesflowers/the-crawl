@@ -2,7 +2,7 @@
   // ===================== item effects: what the fields in items.js actually do =====================
   // throw / escape / box / buff / uses / leaves on use; ac, checks, light while carried; crit and onHit on weapons
   // (see gearWeapon); loot rolls weighted by rarity, gated by level, and themed by the room you search.
-  var FLOOR = 1;
+  // FLOOR (which floor you are on) comes from v2_world.js; loot tables use it
   function gearHas(fn) { return (CHAR && CHAR.gear || []).some(fn); }
   function itemAC() { // a held skillet, a worn apron...
     var c = CHAR; if (!c) return { v: 0, why: '' }; var w = wieldItem(), v = 0, why = [];

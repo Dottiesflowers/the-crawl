@@ -104,7 +104,15 @@
   }
 
   // ---------- map ----------
-  var LEVEL = genLevel(1970), MAP = LEVEL.map;
+  // DM mode: which floor this device is on, and whether monsters are peaceful. Kept per device for now.
+  var DM = (function () { var d = {}; try { d = JSON.parse(localStorage.getItem('crawl-dm') || '{}') || {}; } catch (e) {}
+    try { var q = new URLSearchParams(location.search); if (q.get('floor')) d.floor = +q.get('floor'); if (q.get('peace')) d['peace' + (d.floor === 2 ? 2 : 1)] = q.get('peace') === '1'; } catch (e) {}
+    if (d.floor !== 2) d.floor = 1; if (d.peace1 === undefined) d.peace1 = false; if (d.peace2 === undefined) d.peace2 = true; // monsters on Floor 2 start peaceful while it is being built
+    d.peace = d['peace' + d.floor]; return d; })();
+  function dmSave() { try { localStorage.setItem('crawl-dm', JSON.stringify(DM)); } catch (e) {} }
+  function dmFloor(n) { DM.floor = n; dmSave(); try { if (typeof posStash === 'function') posStash(); } catch (e) {} setTimeout(function () { location.href = location.pathname; }, 150); }
+  var FLOOR = DM.floor;
+  var LEVEL = FLOOR === 2 ? genLevel(2026, 2) : genLevel(1970), MAP = LEVEL.map;
   var H = MAP.length, W = MAP[0].length;
   // the room (from the generator) a tile belongs to; walls borrow a neighbouring room's look
   function roomInfo(x, z) {
@@ -126,7 +134,16 @@
     bazaar: { name: 'Underbazaar', floor: [0x8a7a62, 0x94836a, 0x7f7058], wall: 0x6e6253 },
     garden: { name: 'Drowned Gardens', floor: [0x4f7a3a, 0x5a8442, 0x476f34], wall: 0x5e5a4e },
     arena:  { name: 'The Arena', floor: [0xc2a46c, 0xccae76, 0xb89a62], wall: 0x7a6a5a },
-    blvd:   { name: 'Boulevard', floor: [0x8c8577, 0x958e80, 0x837c6e], wall: 0x9a8f7c }
+    blvd:   { name: 'Boulevard', floor: [0x8c8577, 0x958e80, 0x837c6e], wall: 0x9a8f7c },
+    lot:    { name: 'Backlot street', floor: [0x3e3f42, 0x444549, 0x393a3d], wall: 0x8a8378 },
+    dirt:   { name: 'Frontier Town', floor: [0xa8865a, 0xb08e60, 0x9e7e52], wall: 0x7a5a3a },
+    lawn:   { name: 'Lawn', floor: [0x5f9a48, 0x67a24e, 0x579242], wall: 0xe8e2d4 },
+    green:  { name: 'Putting green', floor: [0x52b84a, 0x5cc254, 0x4aae42], wall: 0x8a8378 },
+    tent:   { name: 'Tent', floor: [0x9a7a52, 0xa2825a, 0x92724a], wall: 0xece6d6 },
+    house:  { name: 'Sitcom house', floor: [0xa07a50, 0xa88258, 0x98724a], wall: 0xe6d8b8 },
+    manor:  { name: 'Blackwood Manor', floor: [0x4a3428, 0x52392c, 0x432f24], wall: 0x4a4250 },
+    stage:  { name: 'Soundstage', floor: [0x2c2c32, 0x313137, 0x28282e], wall: 0x3a3a42 },
+    ship:   { name: 'Starship Valiant', floor: [0x8e98a8, 0x98a2b2, 0x8690a0], wall: 0xb8c0cc }
   };
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
   var SOLID = { 'o': 1, 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
@@ -142,7 +159,8 @@
       function speck(n, cl) { while (n--) px(g, cl, Math.floor(r() * 32), Math.floor(r() * 32)); }
       function blob(cx, cy, rad, cols, dens) { for (var yy = -rad; yy <= rad; yy++) for (var xx = -rad; xx <= rad; xx++) if (xx * xx + yy * yy <= rad * rad && r() < dens) px(g, cols[Math.floor(r() * cols.length)], (cx + xx + 32) % 32, (cy + yy + 32) % 32); }
       px(g, base, 0, 0, 32, 32);
-      if (id === 'crypt' || id === 'moss') {
+      var pat = { lawn: 'garden', green: 'green', tent: 'store', house: 'store', manor: 'store', stage: 'store', ship: 'studio' }[id] || id;
+      if (pat === 'crypt' || pat === 'moss') {
         var sy = 12 + Math.floor(r() * 8), sx1 = 8 + Math.floor(r() * 9), sx2 = 14 + Math.floor(r() * 10);
         g.globalAlpha = 0.5; px(g, r() > 0.5 ? d1 : l1, 1, 1, sx1 - 1, sy - 1); px(g, r() > 0.5 ? d1 : l1, sx2 + 1, sy + 1, 31 - sx2, 31 - sy); g.globalAlpha = 1;
         speck(90, d1); speck(50, l1); speck(14, d2);
@@ -150,19 +168,19 @@
         px(g, l2, 1, sy + 1, 30, 1); px(g, l2, 1, 1, sx1 - 1, 1); px(g, l2, sx1 + 1, 1, 30 - sx1, 1); px(g, l2, 1, 1, 1, sy - 1);
         if (r() > 0.4) { x = 3 + Math.floor(r() * 26); y = 2; for (k = 0; k < 12 && y < 31; k++) { px(g, d2, x, y); y += 1 + (r() > 0.6 ? 1 : 0); x = clamp(x + (r() > 0.5 ? 1 : -1), 1, 30); } }
         if (r() > 0.6) { x = 4 + Math.floor(r() * 22); y = 4 + Math.floor(r() * 22); px(g, d1, x, y, 3, 2); px(g, d2, x + 1, y + 1, 2, 1); }
-        if (id === 'moss') {
+        if (pat === 'moss') {
           for (i = 0; i < 4 + (v % 3); i++) blob(Math.floor(r() * 32), Math.floor(r() * 32), 3 + Math.floor(r() * 4), ['#4f7f3a', '#3d6a2e', '#6a9a48', '#35602a'], 0.72);
           for (i = 0; i < 16; i++) { x = Math.floor(r() * 32); y = 1 + Math.floor(r() * 30); px(g, '#86b85a', x, y, 1, 2); }
           if (r() > 0.45) { x = 3 + Math.floor(r() * 26); y = 3 + Math.floor(r() * 26); px(g, r() > 0.5 ? '#f0e060' : '#e8e8f8', x, y); px(g, '#c8b030', x + 1, y); }
         }
-      } else if (id === 'hall') {
+      } else if (pat === 'hall') {
         speck(70, d1); speck(40, l1);
         px(g, d2, 0, 0, 32, 1); px(g, d2, 0, 0, 1, 32); px(g, l2, 1, 1, 30, 1); px(g, l2, 1, 1, 1, 30); px(g, d1, 1, 31, 31, 1); px(g, d1, 31, 1, 1, 31);
         for (i = 0; i < 9; i++) { px(g, d1, 16 - i, 7 + i); px(g, d1, 15 + i, 7 + i); px(g, d1, 16 - i, 24 - i); px(g, d1, 15 + i, 24 - i); px(g, l1, 16 - i, 8 + i); px(g, l1, 15 + i, 25 - i); }
         px(g, d2, 14, 14, 4, 4); px(g, hexs(mix(c, 0xc9a227, 0.5)), 15, 15, 2, 2);
         [[3, 3], [28, 3], [3, 28], [28, 28]].forEach(function (p) { px(g, d1, p[0], p[1], 2, 2); });
         if (r() > 0.6) { x = 5 + Math.floor(r() * 20); y = 3; for (k = 0; k < 9; k++) { px(g, d2, x, y); y += 2; x += r() > 0.5 ? 1 : -1; } }
-      } else if (id === 'store') {
+      } else if (pat === 'store') {
         for (i = 0; i < 4; i++) {
           var x0 = i * 8, tone = [base, d1, hexs(shade(c, 0.92)), l1][Math.floor(r() * 4)];
           px(g, tone, x0, 0, 8, 32);
@@ -171,27 +189,36 @@
           y = 4 + Math.floor(r() * 24); px(g, d2, x0, y, 8, 1); px(g, '#2a2018', x0 + 2, y - 2); px(g, '#2a2018', x0 + 5, y + 2); px(g, '#2a2018', x0 + 3, 1); px(g, '#2a2018', x0 + 4, 30);
           if (r() > 0.6) { y = 3 + Math.floor(r() * 26); px(g, d2, x0 + 3, y, 2, 2); px(g, d1, x0 + 2, y - 1, 4, 1); px(g, d1, x0 + 2, y + 2, 4, 1); }
         }
-      } else if (id === 'studio') { // big glossy tiles with grout
+      } else if (pat === 'studio') { // big glossy tiles with grout
         for (y = 0; y < 32; y += 16) for (x = 0; x < 32; x += 16) { px(g, [base, l1, hexs(shade(c, 0.95))][Math.floor(r() * 3)], x, y, 16, 16); px(g, l2, x + 1, y + 1, 14, 1); px(g, l2, x + 1, y + 1, 1, 14); px(g, d1, x, y + 15, 16, 1); px(g, d1, x + 15, y, 1, 16); }
         speck(14, d1); if (r() > 0.7) { px(g, '#3df2e0', 0, 15, 32, 1); }
-      } else if (id === 'office') { // carpet
+      } else if (pat === 'office') { // carpet
         speck(260, d1); speck(160, l1); speck(40, d2);
         for (i = 0; i < 32; i += 8) { g.globalAlpha = 0.25; px(g, d2, 0, i, 32, 1); px(g, d2, i, 0, 1, 32); g.globalAlpha = 1; }
-      } else if (id === 'bazaar') { // cobbles
+      } else if (pat === 'bazaar') { // cobbles
         px(g, d2, 0, 0, 32, 32);
         for (y = 0; y < 32; y += 6) for (x = -(y % 12 ? 3 : 0); x < 32; x += 6) { var cw = 4 + Math.floor(r() * 2); px(g, [base, d1, l1, hexs(shade(c, 0.9))][Math.floor(r() * 4)], x + 1, y + 1, cw, 4); px(g, l2, x + 1, y + 1, cw - 1, 1); }
-      } else if (id === 'garden') { // grass
+      } else if (pat === 'garden') { // grass
         speck(120, d1); speck(80, l1);
         for (i = 0; i < 70; i++) { x = Math.floor(r() * 32); y = Math.floor(r() * 31); px(g, r() > 0.5 ? '#6f9f4a' : '#3f6a2c', x, y, 1, 2); }
         if (r() > 0.6) { x = 3 + Math.floor(r() * 26); y = 3 + Math.floor(r() * 26); px(g, r() > 0.5 ? '#f0e060' : '#e8a0d0', x, y); px(g, '#fff6c0', x + 1, y); }
-      } else if (id === 'arena') { // raked sand
+      } else if (pat === 'arena') { // raked sand
         speck(150, d1); speck(110, l1); speck(20, d2);
         for (y = 3; y < 32; y += 6) { g.globalAlpha = 0.35; for (x = 0; x < 32; x++) px(g, d1, x, y + Math.round(Math.sin((x + v * 5) * 0.4))); g.globalAlpha = 1; }
         if (r() > 0.85) blob(Math.floor(r() * 32), Math.floor(r() * 32), 2, ['#6a2a20', '#7a3428'], 0.5);
-      } else if (id === 'blvd') { // large flagstones
+      } else if (pat === 'blvd') { // large flagstones
         for (y = 0; y < 32; y += 16) for (x = -(y ? 8 : 0); x < 32; x += 16) { px(g, [base, d1, l1, hexs(shade(c, 0.93))][Math.floor(r() * 4)], x + 1, y + 1, 15, 15); px(g, l2, x + 1, y + 1, 15, 1); }
         speck(60, d1); speck(30, l1);
-      } else if (id === 'water') {
+      } else if (pat === 'lot') { // asphalt with painted lines now and then
+        speck(220, d1); speck(140, l1); speck(30, d2);
+        if (v === 1) { px(g, '#d8c050', 0, 15, 32, 1); } if (v === 2) { g.globalAlpha = 0.5; px(g, '#e8e8e8', 15, 0, 1, 32); g.globalAlpha = 1; }
+      } else if (pat === 'dirt') { // packed dirt, wheel ruts and hoofprints
+        speck(200, d1); speck(140, l1); speck(30, d2);
+        for (i = 0; i < 4; i++) blob(Math.floor(r() * 32), Math.floor(r() * 32), 3 + Math.floor(r() * 4), [d1, l1], 0.35);
+        for (i = 0; i < 3; i++) { x = Math.floor(r() * 30); y = Math.floor(r() * 30); px(g, d2, x, y, 2, 1); px(g, d2, x, y + 1, 1, 1); }
+      } else if (pat === 'green') { // mowed stripes
+        for (y = 0; y < 32; y += 8) px(g, (y / 8) % 2 ? l1 : base, 0, y, 32, 8); speck(60, d1); speck(30, l2);
+      } else if (pat === 'water') {
         for (i = 0; i < 5; i++) blob(Math.floor(r() * 32), Math.floor(r() * 32), 2 + Math.floor(r() * 4), [d1, d2], 0.8);
         speck(40, d1);
         for (i = 0; i < 9; i++) { x = Math.floor(r() * 32); y = Math.floor(r() * 32); k = 4 + Math.floor(r() * 7); for (var j = 0; j < k; j++) px(g, j === 0 || j === k - 1 ? l1 : l2, (x + j) % 32, y); if (r() > 0.5) for (j = 1; j < k - 2; j++) px(g, l1, (x + j + 1) % 32, (y + 1) % 32); }
@@ -205,7 +232,7 @@
         for (i = 0; i < 2; i++) blob(Math.floor(r() * 32), Math.floor(r() * 32), 3 + Math.floor(r() * 3), ['#2a1414', '#3a1a18'], 0.45);
       }
       g.restore();
-      refine(g, 64, 64, id === 'water' ? 0.5 : 0.28, 0.035, v + 3);
+      refine(g, 64, 64, pat === 'water' ? 0.5 : 0.28, 0.035, v + 3);
       for (i = 0; i < 46; i++) { x = Math.floor(r() * 64); y = Math.floor(r() * 64); px(g, r() > 0.5 ? d2 : l2, x, y); if (r() > 0.7) px(g, d1, x + 1, y + 1); }
     });
   }

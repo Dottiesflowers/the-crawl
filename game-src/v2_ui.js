@@ -26,10 +26,10 @@
     });
     var mini = document.createElement('canvas'); mini.id = 'mini'; mini.setAttribute('aria-label', 'Minimap: tap for the full map'); mini.onclick = function () { mapToggle(); }; document.body.appendChild(mini);
     var mf = document.createElement('div'); mf.id = 'mapFull'; mf.setAttribute('role', 'dialog'); mf.setAttribute('aria-label', 'Floor map');
-    mf.innerHTML = '<header><b>Floor 1 map</b><button type="button" class="xbtn" id="mapKey">Key</button><button type="button" class="xbtn" id="mapX">Close</button></header><canvas id="mapC" aria-label="Map: pinch or scroll to zoom, drag to move"></canvas>' +
+    mf.innerHTML = '<header><b>' + (FLOOR === 2 ? 'Floor 2 map · The Backlot' : 'Floor 1 map') + '</b><button type="button" class="xbtn" id="mapDM">DM</button><button type="button" class="xbtn" id="mapKey">Key</button><button type="button" class="xbtn" id="mapX">Close</button></header><canvas id="mapC" aria-label="Map: pinch or scroll to zoom, drag to move"></canvas>' +
       '<div id="mapTools"><button type="button" id="mapIn" aria-label="Zoom in">+</button><button type="button" id="mapOut" aria-label="Zoom out">−</button><button type="button" id="mapMe" aria-label="Center on me" style="font-size:15px">◎</button></div>' +
       '<div id="mapLeg" class="' + (innerWidth < 700 ? 'hide' : '') + '"><span><i style="background:#3df2e0"></i>You</span><span><i style="background:#ff4a6a"></i>Hostile</span><span><i style="background:#5f6"></i>Friendly</span><span><i style="background:#ffd34a"></i>Stairs</span><span><i style="background:#c98a4a"></i>Door</span><span><i style="background:#e0c060"></i>Loot box</span><span>✚ Safe room</span><span>☠ Boss</span><span>▼ Stairs</span><span>★ Secret</span></div>';
-    document.body.appendChild(mf); document.getElementById('mapX').onclick = mapToggle; mapControls();
+    document.body.appendChild(mf); document.getElementById('mapX').onclick = mapToggle; document.getElementById('mapDM').onclick = dmPanel; mapControls();
     var bag = document.createElement('div'); bag.id = 'bag'; bag.setAttribute('role', 'dialog'); bag.setAttribute('aria-label', 'Inventory');
     document.body.appendChild(bag);
     var bubs = document.createElement('div'); bubs.id = 'bubs'; document.body.appendChild(bubs);

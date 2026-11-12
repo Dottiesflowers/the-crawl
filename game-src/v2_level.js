@@ -8,7 +8,7 @@
   // Map characters: # wall · . floor · , moss/grass floor · ~ water · D door · H hidden door · S stairs · @ start
   //   P pillar · B brazier · C loot box · K crate · R barrel · T table/desk/stall · W weapon rack · U training dummy
   //   b sack · h shelf · c candle stand · q cauldron · k book stand · g cage · v vase · X bathroom · F free food · Y tree
-  function genLevel(seed) {
+  function genLevel(seed, floor) {
     var Wd = 240, Hd = 240, s = seed >>> 0;
     function rnd() { s = (s + 0x6D2B79F5) >>> 0; var t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
     function ri(a, b) { return a + Math.floor(rnd() * (b - a + 1)); }
@@ -66,6 +66,7 @@
     }
     function blob(cx, cz, rx, rz, fn) { for (var zz = cz - rz - 1; zz <= cz + rz + 1; zz++) for (var xx = cx - rx - 1; xx <= cx + rx + 1; xx++) { var d = ((xx - cx) * (xx - cx)) / (rx * rx + 0.01) + ((zz - cz) * (zz - cz)) / (rz * rz + 0.01); if (d <= 1 + (rnd() - 0.5) * 0.35) fn(xx, zz); } }
 
+    if (floor === 2) return backlot(); // Floor 2 has its own layout (v2_level.js, bottom)
     // ---------- the grid: zone cells and boulevards ----------
     var CX = [[2, 73], [82, 157], [166, 237]], CZ = CX; // cell bounds; zones build inside them, one tile in
     var BV = [[75, 80], [159, 164]];                     // boulevard bands (x for the north-south ones, z for the east-west ones)
@@ -384,7 +385,8 @@
     function banner(x, z, w, m) { dec(x, z, m || pick(['Banner_1', 'Banner_2']), { rot: Math.atan2(-w[0], -w[1]), dx: w[0] * 0.46, dz: w[1] * 0.46, y: 1.48, fit: 0.9, hang: true, ns: true }); }
     function stack(x, z, w) { var m = pick(['Crate_Wooden', 'Crate_Wooden', 'Crate_Metal', 'Barrel', 'Barrel_Apples', 'FarmCrate_Carrot']); if (!obj(x, z, m, hug(w, { fit: /Barrel/.test(m) ? 0.62 : 0.8, rot: rnd() * 0.4 + Math.atan2(-w[0], -w[1]) }), /Barrel/.test(m) ? 'Barrel' : 'Crate')) return false;
       if (/Crate_/.test(m) && rnd() < 0.5) dec(x, z, pick(['Crate_Wooden', 'Bag', 'Bucket_Metal']), { y: 0.62, fit: 0.5, rot: rnd() * 6, dx: w[0] * 0.24, dz: w[1] * 0.24 }); return true; }
-    var STYLE = {
+    var STYLE = mkStyle();
+    function mkStyle() { return {
       office: function (r) { for (var zz = r.z0 + 1; zz < r.z1 - 1; zz += 3) for (var xx = r.x0 + 1; xx < r.x1; xx += 3) desk(xx, zz, r); alongWall(r, 3, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Shelf_Simple', 'Bookcase_2']); }); },
       meeting: function (r) { var c = center(r); rug(r, 0x3a3f5a); for (var xx = c[0] - 1; xx <= c[0] + 1; xx++) if (freeT(xx, c[1], r)) { obj(xx, c[1], 'Table_Large', { fit: 1.1 }, 'Conference table'); onTable(xx, c[1], ['Scroll_1', 'Mug']); dec(xx, c[1] - 1, 'Chair_1', { fit: 0.42, dz: 0.25 }); dec(xx, c[1] + 1, 'Chair_1', { fit: 0.42, rot: Math.PI, dz: -0.25 }); } alongWall(r, 2, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Bookcase_2']); }); },
       break: function (r) { var c = center(r); diningSet(c[0], c[1], r, true); alongWall(r, 2, function (x, z, w) { return shelfUnit(x, z, w, ['Shelf_Small_Bottles', 'Cabinet']); }); alongWall(r, 2, function (x, z, w) { return stack(x, z, w); }); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Bench'); }); },
@@ -440,7 +442,7 @@
       snack: function (r) { rug(r, 0x2a5a4a); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Bench'); }); },
       trophy: function (r) { alongWall(r, 4, function (x, z, w) { banner(x, z, w); return true; }); rug(r, 0x5a1a1a); },
       archive: function (r) { var c = center(r); if (freeT(c[0], r.z0 + 1, r)) obj(c[0], r.z0 + 1, 'BookStand', { h: 1.0 }, 'Reading stand'); dec(c[0] + 1, r.z0 + 1, 'CandleStick_Stand', { h: 1.0 }); alongWall(r, 3, function (x, z, w) { dec(x, z, pick(['Book_Stack_1', 'Book_Stack_2', 'BookGroup_Medium_1', 'Scroll_1']), { fit: 0.35, rot: rnd() * 6 }); return true; }); }
-    };
+    }; }
     var BYNAME = { 'Intake': 'office', 'Contracts Office': 'office', 'Waiver Signing': 'office', 'Casting Office': 'meeting', 'Control Room': 'office', 'Makeup & Prosthetics': 'wardrobe', 'Wardrobe Department': 'wardrobe', 'Prop Storage': 'storage', 'Loading Dock': 'storage',
       'Orientation Theater': 'theater', 'Medical (Closed)': 'bunk', 'Holding Pen B': 'cells', 'Craft Services Annex': 'break', 'Stage 3': 'lounge',
       'Break Room': 'break', 'Water Cooler': 'break', 'Vending Hall': 'break', 'Night Shift Lounge': 'lounge', 'Seniority Lounge': 'lounge', 'Quiet Room': 'lounge', 'Wellness Room': 'lounge', 'Locker Room': 'wardrobe',
@@ -482,7 +484,8 @@
       alongWall(r, 1, function (x, z, w) { if (!F(x, z, 'cabinetTelevision', 0.95, wr(w), 'TV', { dx: w[0] * 0.24, dz: w[1] * 0.24 })) return false; dec(x, z, 'televisionModern', { on: { m: 'cabinetTelevision', fit: 0.95 }, fit: 0.8, rot: wr(w), dx: w[0] * 0.28, dz: w[1] * 0.28 }); return true; });
       return done;
     }
-    var MODERN = {
+    var MODERN = mkModern();
+    function mkModern() { return {
       office: function (r) {
         var dense = /Cubicle|Overtime|Payroll|Benefits|Badge|Intake|Waiver|Contracts/.test(r.name);
         for (var zz = r.z0 + 1; zz < r.z1 - 1; zz += 3) for (var xx = r.x0 + 1; xx < r.x1; xx += dense ? 2 : 3) deskSet(xx, zz, r, 1);
@@ -571,7 +574,7 @@
         alongWall(r, 1, function (x, z, w) { dec(x, z, 'trashcan', { fit: 0.3, dx: w[0] * 0.3, dz: w[1] * 0.3 }); return true; });
         alongWall(r, 1, function (x, z, w) { dec(x, z, 'coatRackStanding', { fit: 0.42, dx: w[0] * 0.3, dz: w[1] * 0.3 }); return true; });
       }
-    };
+    }; }
     for (var mk in MODERN) STYLE[mk] = MODERN[mk];
     var MODERN_BY = { 'Intake': 'office', 'Contracts Office': 'office', 'Waiver Signing': 'office', 'Casting Office': 'meeting', 'Control Room': 'control', 'Makeup & Prosthetics': 'wardrobe', 'Wardrobe Department': 'wardrobe', 'Prop Storage': 'storage', 'Loading Dock': 'storage',
       'Orientation Theater': 'theater', 'Medical (Closed)': 'medical', 'Craft Services Annex': 'break', 'Stage 3': 'stage', 'Back Office': 'office',
@@ -673,4 +676,180 @@
     var map = g.map(function (row) { return row.join(''); });
     for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
     return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start, hoods: zones, stairs: stairs, lost: lost, decor: decor, dname: dname };
+
+    // ===================== Floor 2: The Backlot =====================
+    // A studio backlot: Catering Village (the one safe hub) in the middle, ringed by the Backlot Loop, with six sets
+    // round it, each one short street away. Studio Drive North and South cross the lot. Soundstage 9 (the gate) is
+    // north of the hub, up Director's Row. Shares the Floor 1 helpers above (carving, furniture, styles).
+    function backlot() {
+      decor = {}; dname = {}; D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]]; TOP = 0.36;
+      STYLE = mkStyle(); MODERN = mkModern(); for (var mk2 in MODERN) STYLE[mk2] = MODERN[mk2];
+      var xx, zz, k, i;
+      function Zn(o) { o.idx = zones.length; o.rooms = []; o.rids = {}; zones.push(o); return o; }
+      function wallT(x, z) { if (!inb(x, z)) return; g[z][x] = '#'; reg[z][x] = -1; }
+      function area(o, Z, fl) { var r = room(o, Z); carveRect(r, fl); return r; }
+      // a walled building: walls on the outer edge, the inside is one room; doors are [x, z] on the edge
+      function hut(o, Z, doors) {
+        for (var zz = o.z0; zz <= o.z1; zz++) for (var xx = o.x0; xx <= o.x1; xx++) wallT(xx, zz);
+        var r = room({ name: o.name, type: o.type || 'room', theme: o.theme, line: o.line, style: o.style, x0: o.x0 + 1, z0: o.z0 + 1, x1: o.x1 - 1, z1: o.z1 - 1 }, Z);
+        carveRect(r); (doors || []).forEach(function (d) { put(d[0], d[1], 'D', r.id); }); return r;
+      }
+      // a building with a hall down the middle and rooms either side, a door from each room onto the hall
+      function wing(Z, x0, z0, x1, z1, n, names, theme, hallName, line) {
+        for (var zz = z0; zz <= z1; zz++) for (var xx = x0; xx <= x1; xx++) wallT(xx, zz);
+        var mid = (z0 + z1) >> 1, hall = room({ name: hallName, type: 'corridor', theme: theme, line: line, x0: x0 + 1, z0: mid - 1, x1: x1 - 1, z1: mid + 1 }, Z); carveRect(hall);
+        var out = [], w = Math.floor((x1 - x0 - 1 - (n - 1)) / n), ni = 0;
+        [[z0 + 1, mid - 3, mid - 2], [mid + 3, z1 - 1, mid + 2]].forEach(function (band) {
+          for (var c = 0; c < n; c++) {
+            var rx0 = x0 + 1 + c * (w + 1), rx1 = c === n - 1 ? x1 - 1 : rx0 + w - 1, nm = names[ni++] || 'Back Room';
+            var r = room({ name: nm, type: 'room', theme: theme, x0: rx0, z0: band[0], x1: rx1, z1: band[1] }, Z); carveRect(r);
+            put((rx0 + rx1) >> 1, band[2], 'D', r.id); out.push(r);
+          }
+        });
+        return { hall: hall, rooms: out, mid: mid };
+      }
+      function trees(r, n, kinds) { for (var k = 0; k < n; k++) { var x = ri(r.x0 + 1, r.x1 - 1), z = ri(r.z0 + 1, r.z1 - 1); if (freeT(x, z, r)) obj(x, z, pick(kinds || ['CommonTree_1', 'CommonTree_3']), { fit: 2.2 + rnd() * 0.8, rot: rnd() * 6 }, 'Tree'); } }
+      function greens(r, n, kinds) { for (var k = 0; k < n; k++) { var x = ri(r.x0, r.x1), z = ri(r.z0, r.z1); if (freeT(x, z, r)) dec(x, z, pick(kinds || ['Bush_Common', 'Fern_1', 'Grass_Wispy_Tall', 'Plant_7', 'Flower_3_Group']), { fit: 0.6 + rnd() * 0.5, rot: rnd() * 6, ns: true }); } }
+      function lamps(r, every) { for (var zz = r.z0; zz <= r.z1; zz++) for (var xx = r.x0; xx <= r.x1; xx++) { var w = wallOf(xx, zz); if (w && freeT(xx, zz, r) && (xx * 3 + zz * 7) % every === 0) obj(xx, zz, 'Torch_Metal', hug(w, { h: 1.6 }), 'Lamp post'); } }
+      function pack(r, fam, n, tier, name) { for (var k = 0; k < n; k++) spawnIn(r, fam, { tier: tier || (rnd() < 0.3 ? 2 : 1), name: name }); }
+
+      // ---------- streets ----------
+      var ST = Zn({ name: 'The Backlot Streets', theme: 'lot', line: 'Studio streets between the sets. Golf carts, cables, cones and patrols. Keep moving.' });
+      var nDrive = area({ name: 'Studio Drive North', type: 'corridor', x0: 3, z0: 56, x1: 236, z1: 62 }, ST);
+      var sDrive = area({ name: 'Studio Drive South', type: 'corridor', x0: 3, z0: 160, x1: 236, z1: 166 }, ST);
+      var loop = [area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 66, x1: 176, z1: 72 }, ST), area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 152, x1: 176, z1: 158 }, ST),
+        area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 73, x1: 68, z1: 151 }, ST), area({ name: 'The Backlot Loop', type: 'corridor', x0: 170, z0: 73, x1: 176, z1: 151 }, ST)];
+      var dRow = area({ name: 'Director\'s Row', type: 'corridor', x0: 116, z0: 46, x1: 121, z1: 65, line: 'A short, important street. Every parking space has a name on it, and every name is the Director\'s.' }, ST);
+      var sSpur = area({ name: 'Studio Drive South', type: 'corridor', x0: 116, z0: 159, x1: 121, z1: 159 }, ST);
+      var sAve = area({ name: 'Maple Avenue', type: 'corridor', x0: 116, z0: 167, x1: 121, z1: 213 }, ST);
+      area({ name: 'Frontier Spur', type: 'corridor', x0: 57, z0: 108, x1: 61, z1: 113 }, ST);
+      area({ name: 'Jungle Spur', type: 'corridor', x0: 177, z0: 108, x1: 181, z1: 113 }, ST);
+
+      // ---------- Catering Village: the one safe hub ----------
+      var CV = Zn({ name: 'Catering Village', theme: 'lawn', line: 'Tents, string lights and the smell of craft services. No fighting of any kind. The System means it.' });
+      var vil = area({ name: 'Catering Village', type: 'safe', x0: 76, z0: 80, x1: 162, z1: 144 }, CV);
+      [[117, 73, 120, 79], [117, 145, 120, 151], [69, 110, 75, 113], [163, 110, 169, 113]].forEach(function (q) { area({ name: 'Village Gate', type: 'safe', theme: 'lot', x0: q[0], z0: q[1], x1: q[2], z1: q[3] }, CV); });
+      // paths through the village
+      area({ name: 'Village Path', type: 'safe', theme: 'lot', x0: 76, z0: 110, x1: 162, z1: 113, line: 'The main path through Catering Village.' }, CV); area({ name: 'Village Path', type: 'safe', theme: 'lot', x0: 117, z0: 80, x1: 120, z1: 144 }, CV);
+      var cs = hut({ name: 'Craft Services', type: 'safe', theme: 'tent', style: 'safehouse', line: 'The craft services tent. Free food, hot coffee and a crew that has seen things.', x0: 82, z0: 84, x1: 104, z1: 97 }, CV, [[93, 97]]);
+      for (xx = 85; xx <= 90; xx++) put(xx, 85, 'F', cs.id);
+      var bunks = hut({ name: 'The Bunkhouse', type: 'safe', theme: 'tent', style: 'greenroom', line: 'Bunks for the crawlers, lockers and a TV that only gets the show.', x0: 134, z0: 84, x1: 156, z1: 97 }, CV, [[145, 97]]);
+      var shop = hut({ name: 'Prop Workshop', type: 'safe', theme: 'tent', style: 'shop', line: 'Benches, tools and bins of spare parts. Build something stupid. The audience loves it.', x0: 82, z0: 127, x1: 98, z1: 139 }, CV, [[90, 127]]);
+      var alch = hut({ name: 'Special Effects', type: 'safe', theme: 'tent', style: 'storage', line: 'The effects department. Bottles, powders and a cauldron. Labels are optional.', x0: 140, z0: 127, x1: 156, z1: 139 }, CV, [[148, 127]]);
+      var ward = hut({ name: 'Wardrobe Tent', type: 'safe', theme: 'tent', style: 'wardrobe', line: 'Racks of costumes from every set on the lot.', x0: 101, z0: 129, x1: 115, z1: 139 }, CV, [[108, 129]]);
+      var prod = hut({ name: 'Production Office', type: 'safe', theme: 'tent', style: 'office', line: 'Call sheets, clipboards and a whiteboard with the day\'s shoots on it.', x0: 122, z0: 129, x1: 136, z1: 139 }, CV, [[129, 129]]);
+      put(148, 133, 'q', alch.id);
+      put(159, 82, 'X', vil.id); put(160, 82, 'X', vil.id); put(161, 82, 'X', vil.id);
+      var start2 = { x: 119, z: 116 }; put(start2.x, start2.z, '@', vil.id);
+      spawns.push({ kind: 'imp', npc: 'pip', x: 121, z: 116, room: vil.id }); taken['121,116'] = 1;
+      // picnic tables, the vending machine, lights, trees round the edge
+      [[100, 104], [108, 104], [130, 104], [138, 104], [100, 120], [138, 120]].forEach(function (p) { if (freeT(p[0], p[1], vil)) diningSet(p[0], p[1], vil, true); });
+      F(112, 106, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine'); F(113, 106, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine');
+      obj(124, 106, 'BookStand', { h: 1.2 }, 'Call sheet board');
+      for (xx = 80; xx <= 158; xx += 6) { if (freeT(xx, 108, vil)) obj(xx, 108, 'lampSquareFloor', { h: 1.5 }, 'Lamp'); if (freeT(xx, 115, vil)) obj(xx, 115, 'lampSquareFloor', { h: 1.5 }, 'Lamp'); }
+      for (k = 0; k < 40; k++) { var ex = rnd() < 0.5 ? ri(77, 80) : ri(158, 161), ez = ri(81, 143); if (freeT(ex, ez, vil)) obj(ex, ez, pick(['CommonTree_1', 'CommonTree_3']), { fit: 2.0 + rnd(), rot: rnd() * 6 }, 'Tree'); }
+      greens(vil, 70, ['Bush_Common_Flowers', 'Flower_4_Group', 'Clover_1', 'Grass_Common_Short']);
+
+      // ---------- Frontier Town (west): one main street, false fronts both sides ----------
+      var FT = Zn({ name: 'Frontier Town', theme: 'dirt', line: 'A western town where every building is a false front. The stunt crew lives here, and they fall off things for a living.' });
+      var ftown = area({ name: 'Frontier Town', type: 'corridor', x0: 8, z0: 68, x1: 56, z1: 156 }, FT);
+      area({ name: 'Frontier Town', type: 'corridor', theme: 'dirt', x0: 30, z0: 63, x1: 34, z1: 67 }, FT); area({ name: 'Frontier Town', type: 'corridor', theme: 'dirt', x0: 30, z0: 157, x1: 34, z1: 159 }, FT);
+      var FTW = [['The Saloon', 'break'], ['The Jail', 'cells'], ['Sheriff\'s Office', 'office'], ['The Bank', 'storage'], ['General Store', 'storage'], ['The Undertaker', 'workshop']];
+      var FTE = [['The Hotel', 'bunk'], ['Blacksmith', 'workshop'], ['The Stables', 'storage'], ['Telegraph Office', 'office'], ['The Chapel', 'theater']];
+      var zW = [[70, 82], [84, 96], [98, 110], [112, 124], [126, 138], [140, 154]], zE = [[70, 82], [84, 96], [117, 129], [131, 143], [145, 154]];
+      FTW.forEach(function (b, j) { var r = hut({ name: b[0], theme: 'store', style: b[1], x0: 9, z0: zW[j][0], x1: 24, z1: zW[j][1] }, FT, [[24, (zW[j][0] + zW[j][1]) >> 1]]); if (b[0] === 'The Saloon') r.line = 'Swinging doors, a long bar and a piano that plays itself badly.'; pack(r, 'puglin', ri(1, 3), 0, 'Stunt kobold'); });
+      FTE.forEach(function (b, j) { var r = hut({ name: b[0], theme: 'store', style: b[1], x0: 40, z0: zE[j][0], x1: 55, z1: zE[j][1] }, FT, [[40, (zE[j][0] + zE[j][1]) >> 1]]); pack(r, 'puglin', ri(1, 2), 0, 'Stunt kobold'); });
+      for (zz = 70; zz <= 154; zz += 5) { if (freeT(26, zz, ftown)) obj(26, zz, pick(['Barrel', 'Prop_WoodenFence_Single', 'Barrel_Holder']), { fit: 0.8, rot: Math.PI / 2 }, 'Hitching post'); if (freeT(38, zz + 2, ftown)) obj(38, zz + 2, pick(['Barrel', 'Prop_WoodenFence_Single', 'Crate_Wooden']), { fit: 0.8, rot: Math.PI / 2 }, 'Hitching post'); }
+      obj(32, 104, 'Prop_Wagon', { fit: 2.4, rot: 0.2 }, 'Wagon'); obj(45, 112, 'Bucket_Metal', { fit: 0.6 }, 'Water trough');
+      for (k = 0; k < 8; k++) { var rx = ri(28, 36), rz = ri(70, 154); if (freeT(rx, rz, ftown)) g[rz][rx] = 'R'; }
+      greens(ftown, 30, ['Grass_Wispy_Short', 'Pebble_Round_1', 'Pebble_Round_3', 'DeadTree_2']);
+      pack(ftown, 'puglin', 4, 0, 'Stunt kobold');
+
+      // ---------- The Writers' Building (northwest): offices on strike, Dermot's green at the end of the hall ----------
+      var WB = Zn({ name: 'The Writers\' Building', theme: 'office', line: 'The writers are on strike. Picket signs, cold coffee and imps with opinions.' });
+      var plaza = area({ name: 'Picket Line', type: 'corridor', theme: 'lot', x0: 8, z0: 46, x1: 74, z1: 52, line: 'A picket line outside the Writers\' Building. The signs are very well written.' }, WB);
+      area({ name: 'Picket Line', type: 'corridor', theme: 'lot', x0: 38, z0: 53, x1: 42, z1: 55 }, WB);
+      var wb = wing(WB, 9, 8, 54, 44, 4, ['Writers\' Room A', 'Writers\' Room B', 'The Script Library', 'Break Room', 'Notes Office', 'Coverage Desk', 'Strike Headquarters', 'Copy Room'], 'office', 'Writers\' Hall');
+      wb.rooms.forEach(function (r, j) { r.style = ['meeting', 'meeting', 'office', 'break', 'office', 'office', 'meeting', 'copy'][j]; pack(r, 'imp', ri(1, 3), 0, 'Striking writer'); });
+      area({ name: 'Picket Line', type: 'corridor', theme: 'lot', x0: 3, z0: 6, x1: 8, z1: 45 }, WB); put(9, wb.mid, 'D', wb.hall.id);
+      var greenR = hut({ name: 'The Penthouse Green', type: 'boss', theme: 'green', line: 'A rooftop putting green, mowed to a sixteenth of an inch. Do not step on it. Somebody is watching.', x0: 54, z0: 8, x1: 72, z1: 44 }, WB, [[54, wb.mid]]);
+      obj(66, 20, 'Prop_MetalFence_Ornament', { fit: 0.4 }, 'The flag'); obj(57, 40, 'Workbench', { fit: 1.2 }, 'Riding mower'); obj(70, 10, 'Barrel_Holder', { fit: 0.8 }, 'Golf bag');
+      spawnIn(greenR, 'clerk', { tier: 3, name: 'Dermot Stoker', boss: true });
+      for (xx = 10; xx <= 72; xx += 7) if (freeT(xx, 47, plaza)) dec(xx, 47, 'Banner_2', { fit: 0.9, y: 0.2, ns: true });
+      pack(plaza, 'imp', 3, 1, 'Picketing writer');
+
+      // ---------- Soundstage 9 (north): the gate ----------
+      var SS = Zn({ name: 'Soundstage 9', theme: 'stage', line: 'The biggest stage on the lot. The Director is up on the crane, and the sets change when he says so.' });
+      var stage = hut({ name: 'Soundstage 9', type: 'boss', theme: 'stage', x0: 88, z0: 6, x1: 150, z1: 46, line: 'A cavernous stage, half a western street and half a starship corridor. A crane in the middle. The Director is watching.' }, SS, [[117, 46], [120, 46]]); put(118, 46, '.', stage.id); put(119, 46, '.', stage.id);
+      var stairR2 = hut({ name: 'The Freight Elevator', type: 'stairs', theme: 'stage', x0: 136, z0: 7, x1: 149, z1: 17, line: 'A freight elevator to the floor below. It only runs when the Director says cut.' }, SS, [[136, 12]]);
+      put(143, 12, 'S', stairR2.id); var stairs2 = { x: 143, z: 12 };
+      obj(119, 24, 'Prop_Support', { h: 4.5 }, 'Camera crane'); spawnIn(stage, 'imp', { tier: 3, name: 'The Director', boss: true });
+      for (zz = 10; zz <= 40; zz += 3) { if (freeT(96, zz, stage)) obj(96, zz, 'Prop_WoodenFence_Extension1', { fit: 1.0, rot: Math.PI / 2 }, 'Set flat'); if (freeT(142, zz + 8, stage)) obj(142, zz + 8, 'Crate_Metal', { fit: 0.9 }, 'Equipment case'); }
+      lamps(stage, 9); pack(stage, 'puglin', 3, 2, 'Stage crew');
+
+      // ---------- Starship Valiant (northeast) ----------
+      var SV = Zn({ name: 'Starship Valiant', theme: 'ship', line: 'A starship set. Foam walls, blinking panels and costume goblins who think they are a real crew.' });
+      var hangar = area({ name: 'Hangar Apron', type: 'corridor', theme: 'lot', x0: 165, z0: 46, x1: 234, z1: 52 }, SV); area({ name: 'Hangar Apron', type: 'corridor', theme: 'lot', x0: 198, z0: 53, x1: 202, z1: 55 }, SV);
+      var sv = wing(SV, 168, 8, 232, 44, 5, ['The Bridge', 'Captain\'s Quarters', 'Science Lab', 'Mess Hall', 'Holodeck', 'Engine Room', 'Cargo Hold', 'Med Bay', 'Crew Quarters', 'Airlock'], 'ship', 'Main Corridor');
+      sv.rooms.forEach(function (r, j) { r.style = ['control', 'lounge', 'medical', 'break', 'stage', 'shop', 'storage', 'medical', 'bunk', 'storage'][j]; pack(r, 'clerk', ri(1, 3), 0, 'Costume goblin'); });
+      area({ name: 'Hangar Apron', type: 'corridor', theme: 'lot', x0: 233, z0: 6, x1: 236, z1: 45 }, SV); put(232, sv.mid, 'D', sv.hall.id); put(168, sv.mid, 'D', sv.hall.id); area({ name: 'Hangar Apron', type: 'corridor', theme: 'lot', x0: 165, z0: 6, x1: 167, z1: 45 }, SV);
+      sv.rooms[0].type = 'boss'; sv.rooms[0].line = 'The bridge. Captain Zorr is in the big chair, and he has never once broken character.';
+
+      // ---------- The Jungle Set (east): trees, a river, snapper plants ----------
+      var JS = Zn({ name: 'The Jungle Set', theme: 'garden', line: 'A jungle under studio lights. Real plants, fake rocks and things that bite either way.' });
+      var jung = area({ name: 'The Jungle Set', type: 'corridor', x0: 182, z0: 68, x1: 234, z1: 156 }, JS);
+      area({ name: 'The Jungle Set', type: 'corridor', x0: 205, z0: 63, x1: 209, z1: 67 }, JS); area({ name: 'The Jungle Set', type: 'corridor', x0: 205, z0: 157, x1: 209, z1: 159 }, JS);
+      for (xx = 182; xx <= 234; xx++) { var rz2 = Math.round(128 + Math.sin((xx - 182) / 9) * 6); for (zz = rz2; zz <= rz2 + 2; zz++) if (xx < 206 || xx > 209) put(xx, zz, '~', jung.id); }
+      var jclear = area({ name: 'The Groundskeeper\'s Clearing', type: 'boss', theme: 'garden', x0: 214, z0: 138, x1: 230, z1: 152, line: 'A clearing with a tool shed and a very large hedge trimmer. The Groundskeeper keeps this jungle tidy.' }, JS);
+      spawnIn(jclear, 'bog', { tier: 3, name: 'The Groundskeeper', boss: true });
+      trees(jung, 220, ['CommonTree_1', 'CommonTree_3', 'Pine_2']); greens(jung, 260, ['Fern_1', 'Plant_1', 'Plant_7', 'Bush_Common', 'Mushroom_Laetiporus', 'Grass_Wispy_Tall']);
+      for (k = 0; k < 6; k++) pack(jung, 'bog', ri(1, 3), 0, 'Jungle beast');
+
+      // ---------- Maple Lane (southwest): identical sitcom houses ----------
+      var ML = Zn({ name: 'Maple Lane', theme: 'lawn', line: 'A sitcom street. Six identical houses, perfect lawns and a laugh track that never stops.' });
+      var lane = area({ name: 'Maple Lane', type: 'corridor', x0: 8, z0: 171, x1: 110, z1: 213 }, ML);
+      area({ name: 'Maple Lane', type: 'corridor', theme: 'lot', x0: 111, z0: 196, x1: 115, z1: 200 }, ML); area({ name: 'Maple Lane', type: 'corridor', x0: 50, z0: 167, x1: 54, z1: 170 }, ML);
+      for (xx = 8; xx <= 110; xx++) for (zz = 196; zz <= 200; zz++) put(xx, zz, '.', lane.id);
+      for (i = 0; i < 6; i++) {
+        var hx = 10 + i * 17, h = hut({ name: 'No. ' + (i + 1) + ' Maple Lane', theme: 'house', style: 'lounge', x0: hx, z0: 174, x1: hx + 14, z1: 189, line: 'A sitcom living room with a couch facing the camera. The door is always unlocked.' }, ML, [[hx + 7, 189]]);
+        for (zz = 175; zz <= 188; zz++) wallT(hx + 9, zz); put(hx + 9, 181, 'D', h.id);
+        var kit = room({ name: 'No. ' + (i + 1) + ' Kitchen', type: 'room', theme: 'house', style: 'break', x0: hx + 10, z0: 175, x1: hx + 13, z1: 188 }, ML); for (zz = 175; zz <= 188; zz++) for (xx = hx + 10; xx <= hx + 13; xx++) reg[zz][xx] = kit.id;
+        h.x1 = hx + 8; pack(h, 'puglin', ri(1, 2), 0, 'Laugh-track gremlin');
+        for (xx = hx; xx <= hx + 14; xx += 2) if (freeT(xx, 192, lane) && Math.abs(xx - hx - 7) > 1) obj(xx, 192, 'Prop_WoodenFence_Single', { fit: 1.0 }, 'Picket fence');
+      }
+      for (xx = 12; xx <= 108; xx += 9) if (freeT(xx, 202, lane)) obj(xx, 202, 'CommonTree_3', { fit: 2.2, rot: rnd() * 6 }, 'Tree');
+      var sr = hut({ name: 'The Showrunner\'s House', type: 'boss', theme: 'house', style: 'lounge', x0: 40, z0: 204, x1: 70, z1: 213, line: 'The biggest house on the street, with a pool and a live studio audience in the backyard.' }, ML, [[55, 204]]);
+      spawnIn(sr, 'puglin', { tier: 3, name: 'The Showrunner', boss: true });
+      greens(lane, 50, ['Bush_Common_Flowers', 'Flower_3_Group', 'Clover_1']); pack(lane, 'puglin', 4, 0, 'Laugh-track gremlin');
+
+      // ---------- Blackwood Manor (southeast): a haunted house ----------
+      var BM = Zn({ name: 'Blackwood Manor', theme: 'moss', line: 'A haunted house set. Animatronics on timers, secret doors and a butler who is mostly hydraulics.' });
+      var grounds = area({ name: 'Manor Grounds', type: 'corridor', x0: 127, z0: 171, x1: 234, z1: 213 }, BM);
+      area({ name: 'Manor Grounds', type: 'corridor', x0: 122, z0: 196, x1: 126, z1: 200 }, BM); area({ name: 'Manor Grounds', type: 'corridor', x0: 180, z0: 167, x1: 184, z1: 170 }, BM);
+      var bm = wing(BM, 150, 175, 226, 209, 4, ['The Foyer', 'The Library', 'Dining Hall', 'The Ballroom', 'The Study', 'The Conservatory', 'The Kitchen', 'The Portrait Gallery'], 'manor', 'Great Hall');
+      bm.rooms.forEach(function (r, j) { r.style = ['lounge', 'archive', 'meeting', 'theater', 'office', 'lounge', 'break', 'trophy'][j]; pack(r, 'imp', ri(1, 2), 0, 'Animatronic'); });
+      put(150, bm.mid, 'D', bm.hall.id); put(226, bm.mid, 'D', bm.hall.id);
+      bm.rooms[3].type = 'boss'; bm.rooms[3].line = 'A ballroom where the dancers are on a track. The Butler Unit is waiting by the punch bowl.'; spawnIn(bm.rooms[3], 'imp', { tier: 3, name: 'The Butler Unit', boss: true });
+      trees(grounds, 50, ['DeadTree_2', 'Pine_2']); greens(grounds, 60, ['Mushroom_Common', 'Grass_Wispy_Tall', 'Rock_Medium_1']);
+
+      // ---------- dressing for the streets ----------
+      [nDrive, sDrive].concat(loop).forEach(function (r) { lamps(r, 11); });
+      for (k = 0; k < 30; k++) { var sr2 = pick([nDrive, sDrive].concat(loop)), qx = ri(sr2.x0, sr2.x1), qz = ri(sr2.z0, sr2.z1); if (freeT(qx, qz, sr2) && wallOf(qx, qz)) { var w3 = wallOf(qx, qz); obj(qx, qz, pick(['Crate_Metal', 'Crate_Wooden', 'Barrel', 'cardboardBoxClosed']), hug(w3, { fit: 0.7 }), 'Gear'); } }
+      [nDrive, sDrive].concat(loop).forEach(function (r) { for (k = 0; k < 3; k++) spawnIn(r, 'rat', { sub: 'rat' }); });
+
+      // ---------- furnish ----------
+      rooms.forEach(function (r) { if (r.style && STYLE[r.style]) STYLE[r.style](r); });
+
+      // ---------- tidy up ----------
+      var seen = new Uint8Array(Wd * Hd), q = [start2.x + start2.z * Wd]; seen[q[0]] = 1;
+      var PASS = { '.': 1, ',': 1, '~': 1, 'D': 1, 'H': 1, 'S': 1, '@': 1 };
+      while (q.length) { var cur = q.pop(), cx4 = cur % Wd, cz4 = (cur / Wd) | 0;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (dd) { var nx2 = cx4 + dd[0], nz2 = cz4 + dd[1], k2 = nx2 + nz2 * Wd; if (!inb(nx2, nz2) || seen[k2] || !PASS[g[nz2][nx2]]) return; seen[k2] = 1; q.push(k2); }); }
+      var lost = 0;
+      for (zz = 1; zz < Hd - 1; zz++) for (xx = 1; xx < Wd - 1; xx++) if (isFloor(g[zz][xx]) && !seen[xx + zz * Wd]) { g[zz][xx] = '#'; lost++; }
+      spawns = spawns.filter(function (sp) { var c = g[sp.z] && g[sp.z][sp.x]; return (c === '.' || c === ',') && seen[sp.x + sp.z * Wd]; });
+      var map = g.map(function (row) { return row.join(''); });
+      for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
+      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2 };
+    }
   }

@@ -183,7 +183,7 @@
   // ---------- the world remembers: who is dead stays dead; each zone has a few replacements, then it is cleared ----------
   // Saved per crawler for now (party play will make this one shared world). Bosses never come back.
   var WORLD = { key: '', reserve: null, loaded: false };
-  function worldKey() { return 'crawl-world-v1-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : '') + '-' + SPAWNS.length; }
+  function worldKey() { return 'crawl-world-v1-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : '') + '-' + SPAWNS.length + (FLOOR === 2 ? '-f2' : ''); }
   function zoneOf(e) { var r = LEVEL.rooms[e.room]; return r && r.hood !== undefined ? r.hood : 'free'; }
   function worldState() {
     var dead = [], eaten = [], calm = [], hp = {};
@@ -846,7 +846,7 @@
   }
   // a monster that can see you, close by, starts the fight
   function cbAggro() {
-    if (CB.on || !CB.ready || inSafeRoom(P.x, P.z) || (CHAR && CHAR.dead)) return;
+    if (CB.on || !CB.ready || DM.peace || inSafeRoom(P.x, P.z) || (CHAR && CHAR.dead)) return;
     for (var i = 0; i < CB.enemies.length; i++) {
       var e = CB.enemies[i]; if (e.dead || e.calm || e.def.timid) continue;
       var r = e.guard ? 2 : 3;

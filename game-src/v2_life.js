@@ -121,10 +121,10 @@
     el.innerHTML = '<div class="fc"><small>SYSTEM ANNOUNCEMENT</small><h2>Floor 1 cleared</h2><p class="q">"Well. That was unexpected. The Strong Guys Club has survived Basic Training. Odds are being recalculated. Viewers are confused but engaged."</p>' +
       '<table>' + rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + esc(String(r[1])) + '</td></tr>'; }).join('') + '</table>' +
       (bosses.length ? '<p class="b"><b>Bosses down:</b> ' + bosses.map(esc).join(', ') + '</p>' : '') +
-      '<div class="soon"><b>Floor 2 · Advanced Training</b><span>Under construction. The System is still building it, and it is not happy about the deadline. Your progress is saved; when Floor 2 opens you will take these stairs down.</span></div>' +
-      '<button type="button" id="fcStay">Stay on Floor 1 for now</button></div>';
+      '<div class="soon"><b>Floor 2 · The Backlot</b><span>A studio backlot: six sets round a catering village. Still being built, so some of it is rough. You can come back up any time.</span></div>' +
+      '<button type="button" id="fcGo">Take the stairs down</button> <button type="button" id="fcStay">Stay on Floor 1 for now</button></div>';
     document.body.appendChild(el);
-    document.getElementById('fcStay').onclick = function () { el.remove(); };
+    document.getElementById('fcStay').onclick = function () { el.remove(); }; document.getElementById('fcGo').onclick = function () { cbSaveChar(); dmFloor(2); };
     if (first) { logEvent('Cleared Floor 1', 'boss'); achieve('floor1', 'Basic Training: Passed', 'You found the stairs. The System had money on you not finding the stairs.', 500); }
     cbSaveChar();
   }
@@ -132,5 +132,23 @@
     '#fclear .fc{width:min(520px,100%);max-height:100%;overflow-y:auto;padding:18px 22px;background:linear-gradient(180deg,#F3E9D2,#E6D7B5);border:3px double #2e2116;border-radius:4px;color:#2b1d12;font-family:"EB Garamond",serif;box-shadow:0 10px 40px rgba(0,0,0,.7)}' +
     '#fclear small{font-family:Cinzel,serif;letter-spacing:.14em;color:#7A1F1A;font-size:11px}#fclear h2{margin:2px 0 6px;font-family:Cinzel,serif;font-size:28px}#fclear .q{font-style:italic;margin:0 0 10px}' +
     '#fclear table{width:100%;border-collapse:collapse;font-size:15px}#fclear td{padding:3px 0;border-bottom:1px solid rgba(43,29,18,.18)}#fclear td:last-child{text-align:right;font-weight:600}' +
-    '#fclear .b{font-size:14px;margin:8px 0}#fclear .soon{margin:12px 0;padding:10px 12px;border:1px dashed #6b5a3a;background:rgba(255,250,235,.5)}#fclear .soon b{display:block;font-family:Cinzel,serif}#fclear .soon span{font-size:14px}#fcStay{height:42px;padding:0 18px;border:2px solid #2e2116;border-radius:3px;background:#2b1d12;color:#F3E6CC;font-family:Cinzel,serif;font-size:14px;cursor:pointer}';
+    '#fclear .b{font-size:14px;margin:8px 0}#fclear .soon{margin:12px 0;padding:10px 12px;border:1px dashed #6b5a3a;background:rgba(255,250,235,.5)}#fclear .soon b{display:block;font-family:Cinzel,serif}#fclear .soon span{font-size:14px}#fcGo{height:42px;padding:0 18px;border:2px solid #2e0a06;border-radius:3px;background:#7A1F1A;color:#F3E6CC;font-family:Cinzel,serif;font-size:14px;cursor:pointer;margin-right:6px}#fcStay{height:42px;padding:0 18px;border:2px solid #2e2116;border-radius:3px;background:#2b1d12;color:#F3E6CC;font-family:Cinzel,serif;font-size:14px;cursor:pointer}';
+    document.head.appendChild(c); })();
+
+  (function () { var t = document.getElementById('title'); if (t && FLOOR === 2) t.firstChild.nodeValue = 'Floor 2 · '; })();
+  // ---------- DM mode: jump between floors, switch monster aggression off ----------
+  function dmPanel() {
+    var old = document.getElementById('dmBox'); if (old) { old.remove(); return; }
+    var el = document.createElement('div'); el.id = 'dmBox'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'DM mode');
+    el.innerHTML = '<small>DM MODE</small><h3>Floors</h3><div class="row"><button type="button" data-f="1"' + (FLOOR === 1 ? ' class="on"' : '') + '>Floor 1 · Basic Training</button><button type="button" data-f="2"' + (FLOOR === 2 ? ' class="on"' : '') + '>Floor 2 · The Backlot</button></div>' +
+      '<h3>Monsters on this floor</h3><div class="row"><button type="button" id="dmPeace" class="' + (DM.peace ? 'on' : '') + '">' + (DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight') + '</button></div>' +
+      '<p>Your spot on each floor is saved, so you come back where you left. Gear, level and gold travel with you.</p><button type="button" id="dmX">Close</button>';
+    document.body.appendChild(el);
+    el.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { var f = +b.getAttribute('data-f'); if (f === FLOOR) return; if (CB.on) { say('DM mode', 'Finish the fight first.', 2500); return; } b.textContent = 'Going…'; dmFloor(f); }; });
+    document.getElementById('dmPeace').onclick = function () { DM.peace = !DM.peace; DM['peace' + FLOOR] = DM.peace; dmSave(); this.classList.toggle('on', DM.peace); this.textContent = DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight'; };
+    document.getElementById('dmX').onclick = function () { el.remove(); };
+  }
+  (function () { var c = document.createElement('style'); c.textContent = '#dmBox{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:70;width:min(420px,92vw);max-height:92vh;overflow-y:auto;padding:14px 18px;background:linear-gradient(180deg,#F3E9D2,#E6D7B5);border:3px double #2e2116;border-radius:4px;color:#2b1d12;font-family:"EB Garamond",serif;box-shadow:0 10px 40px rgba(0,0,0,.7)}' +
+    '#dmBox small{font-family:Cinzel,serif;letter-spacing:.14em;color:#7A1F1A;font-size:11px}#dmBox h3{margin:8px 0 4px;font-family:Cinzel,serif;font-size:15px}#dmBox .row{display:flex;flex-wrap:wrap;gap:6px}#dmBox p{font-size:14px;margin:10px 0}' +
+    '#dmBox button{width:auto !important;height:auto !important;flex:0 1 auto;white-space:nowrap;min-height:40px;padding:0 12px;border:2px solid #2e2116;border-radius:3px;background:#efe3c6;color:#2b1d12;font-family:"EB Garamond",serif;font-weight:700;font-size:15px;cursor:pointer}#dmBox button.on{background:#2b1d12;color:#F3E6CC}#dmX{background:#7A1F1A !important;color:#F3E6CC !important}';
     document.head.appendChild(c); })();
