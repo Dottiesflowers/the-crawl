@@ -84,6 +84,8 @@
     }
     g.globalAlpha = 1;
     function dot(x, z, col, r) { var p = tr(x, z); g.fillStyle = col; g.beginPath(); g.arc(p[0], p[1], r * dpr, 0, 7); g.fill(); }
+    if (typeof VFX !== 'undefined') VFX.areas.forEach(function (A) { // lingering spell areas: fire, grease, ice, webs...
+      g.globalAlpha = 0.55; var R = Math.ceil(A.r); for (var dz = -R; dz <= R; dz++) for (var dx = -R; dx <= R; dx++) if (dx * dx + dz * dz <= (A.r + 0.3) * (A.r + 0.3)) cell(Math.round(A.x) + dx, Math.round(A.z) + dz, AREA_COL[A.kind] || '#fff'); g.globalAlpha = 1; });
     CB.enemies.forEach(function (e) { if (e.dead || visNow[e.x + ',' + e.z] === undefined) return; dot(e.px, e.pz, e.calm ? '#5f6' : '#ff4a6a', full ? 3.5 : 2.6); });
     dot(P.px, P.pz, '#3df2e0', full ? 4.5 : 3.2);
     if (full) mapLabels(g, tr, tpx, dpr, cv);

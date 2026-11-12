@@ -635,9 +635,10 @@
       var raw = d(crit ? Wp.n * 2 : Wp.n, Wp.s), dm = Math.max(1, raw + Wp.dmgB); e.hp -= dm;
       var exTxt = ''; if (Wp.edmg) { // enchanted: extra typed damage (doubled dice on a crit, double again if it is weak to that)
         var xm = /(\d+)d(\d+)/.exec(Wp.edmg.dice), xr = xm ? d((crit ? 2 : 1) * +xm[1], +xm[2]) : 0, weak = (e.def.vuln || []).indexOf(Wp.edmg.type) >= 0; if (weak) xr *= 2;
-        if (xr) { e.hp -= xr; dm += xr; exTxt = ' (' + xr + ' of it ' + Wp.edmg.type + (weak ? ', and it is weak to that' : '') + ')'; setTimeout(function () { floater(e.px + 0.3, e.def.h + 0.55, e.pz, '+' + xr + ' ' + Wp.edmg.type, 'crit'); }, 260); }
+        if (xr) { vfxHit(Wp.edmg.type, e.px, e.pz, e.def.h); e.hp -= xr; dm += xr; exTxt = ' (' + xr + ' of it ' + Wp.edmg.type + (weak ? ', and it is weak to that' : '') + ')'; setTimeout(function () { floater(e.px + 0.3, e.def.h + 0.55, e.pz, '+' + xr + ' ' + Wp.edmg.type, 'crit'); }, 260); }
       }
       diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, dd: (crit ? Wp.n * 2 : Wp.n) + 'd' + Wp.s, ds: Wp.s, raw: raw, db: Wp.dmgB, dm: dm, why: why });
+      if (!opt.ranged && !Wp.edmg) vfxHit('steel', e.px, e.pz, e.def.h);
       floater(e.px, e.def.h + 0.25, e.pz, (crit ? 'CRIT ' : '') + '-' + dm, crit ? 'crit' : 'dmg');
       say((opt.label || (crit ? 'Critical hit' : 'Hit')) + ' · ' + Wp.name + ' · ' + line, e.name + ' takes ' + dm + ' damage' + exTxt + (e.hp <= 0 ? ' and goes down.' : ' (' + Math.max(0, e.hp) + ' / ' + e.max + ' left).') + (Wp.note ? ' ' + Wp.note : ''), 5200);
       if (Wp.skey && !opt.ranged) skillCount(Wp.skey);
@@ -663,11 +664,12 @@
     if (Wt.empty) { say('Out of arrows', 'Jury-rig some (Prop lumber + a tip) or find some.', 2600); return; }
     var Wp = { name: (Wt.bow ? Wt.ammo.name.toLowerCase().replace(/s$/, '') : 'thrown ' + Wt.name.replace(/^(your|a) /, '')), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat] + (Wt.acc || 0), dmgB: MOD[Wt.stat], range: Wt.range, onHit: Wt.onHit || null };
     if (Wt.bow) { CB.shot = CB.shot || {}; CB.shot[Wt.ammo.name] = (CB.shot[Wt.ammo.name] || 0) + 1; Wt.ammo.qty = (Wt.ammo.qty || 1) - 1; if (Wt.ammo.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(Wt.ammo), 1); saveChar(CHAR); }
-    setTimeout(function () {
+    var flyK = Wt.bow ? (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow') : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
+    setTimeout(function () { vfxBolt(flyK, P.px, P.pz, e.px, e.pz, function () {
       cbResolve(e, Wp, { ranged: true });
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }
       cbAfterMyMove();
-    }, 520);
+    }, { ty: (e.def.h || 1) * 0.6 }); }, 260);
   }
   function cbContest(e) { // your Athletics against their Athletics or Acrobatics, whichever is better for them
     var me = d20() + MOD.STR + skillLv('Athletics') - (hasTrait('Bad Back') ? 2 : 0), them = d20() + Math.max(e.def.str, e.def.dex) + (e.kind === 'imp' ? 2 : 0);
