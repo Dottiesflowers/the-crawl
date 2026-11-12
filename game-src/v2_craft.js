@@ -134,7 +134,9 @@
       if (NET.mode === 'server' && NET.uid) api('recipes', { method: 'POST', body: { recipe: rec } }).then(function (r) { CRAFT.shared = r.value || CRAFT.shared; }).catch(function () {});
       setTimeout(function () { achieve('first_invention', 'Some Assembly Required', 'You built something from garbage and it worked. The System files a patent in its own name.', 25); }, 1500);
     } else skillUse(sk);
-    say((isNew ? 'Invented · ' : 'Made · ') + name, 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (cs.spec.desc || '') + (isNew ? ' New ' + sk + ' ' + cs.lv + ' recipe, shared with the SGC.' : '') + (j.comment ? ' ' + j.comment : ''), 7000);
+    // experience: inventing is worth a lot, making a known recipe a little; both are practice for the track skill
+    var xp = isNew ? 30 * cs.lv + 10 : 6 * cs.lv; grantXP(xp);
+    say((isNew ? 'Invented · ' : 'Made · ') + name, 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (cs.spec.desc || '') + ' +' + xp + ' XP, and ' + sk + ' practice.' + (isNew ? ' New ' + sk + ' ' + cs.lv + ' recipe, shared with the SGC.' : '') + (j.comment ? ' ' + j.comment : ''), 7000);
     CRAFT.sel = []; saveChar(CHAR); craftDraw(); if (UI.bag) bagDraw();
   }
   function craftMake(name) {

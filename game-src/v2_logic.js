@@ -102,7 +102,17 @@
 
   // ---------- system voice ----------
   var sysEl = document.getElementById('sys'), sysT = null, seenRooms = {}, lastRoom = '';
+  // in a fight the last few events stay on screen in a small log, so one message never wipes out another
+  var CBLOG = [];
+  function cbLog(tag, msg) {
+    var el = document.getElementById('cblog'); if (!el) { el = document.createElement('div'); el.id = 'cblog'; el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+    if (typeof CB === 'undefined' || !CB.on) { CBLOG = []; el.classList.remove('on'); return; }
+    CBLOG.unshift({ tag: tag, msg: msg }); CBLOG = CBLOG.slice(0, 6);
+    el.innerHTML = '<h4>Combat log</h4>' + CBLOG.map(function (l, i) { return '<p class="' + (i ? '' : 'new') + '"><b>' + esc(l.tag) + '</b> ' + esc(l.msg) + '</p>'; }).join(''); el.classList.add('on');
+  }
+  setInterval(function () { var el = document.getElementById('cblog'); if (el && (typeof CB === 'undefined' || !CB.on) && el.classList.contains('on')) { el.classList.remove('on'); CBLOG = []; } }, 1000);
   function say(tag, msg, ms) {
+    cbLog(tag, msg);
     document.getElementById('sysTag').textContent = tag; document.getElementById('sysMsg').textContent = msg;
     sysEl.classList.add('on'); clearTimeout(sysT); sysT = setTimeout(function () { sysEl.classList.remove('on'); }, ms || 4200);
   }

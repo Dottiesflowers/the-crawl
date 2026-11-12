@@ -53,16 +53,25 @@
       diceShow({ who: 'You', vs: e.name, R: R, bonus: bon, tot: tot, ac: ac, hit: hit, why: [(o.lit ? 'lit ' : 'thrown ') + it.name.toLowerCase()].concat(dis ? ['long range: disadvantage'] : []) });
     }
     if (typeof cbFaceHero === 'function') cbFaceHero(tx, tz);
-    kitOneShot('Punch_Jab'); itemSpend(it); skillCount('throw');
-    if (o.lit) floater(tx, 0.6, tz, 'FWOOMP', 'crit');
-    if (hit) {
-      var targets = area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && cheb(q.x, q.z, tx, tz) <= area && (T.vs !== 'plant' || isPlant(q)); }) : [e];
-      targets.forEach(function (q) { var n = fxApply(T.fx, q); if (n) notes.push(n); });
-      if (area && !targets.length) notes.push('It splashes across the floor and hits nothing.');
-    }
-    say((o.lit ? 'Lit and thrown · ' : 'Thrown · ') + it.name, hit ? (notes.join(' ') || 'It lands. Nothing much happens.') : 'Missed. It skitters off into the dark.', 5000);
-    var woke = e || (area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && !q.calm && cheb(q.x, q.z, tx, tz) <= area + 2; })[0] : null);
-    loreFromThrow(it); afterTrick(woke); return true;
+    kitOneShot('Punch_Jab'); var snap = { name: it.name, tags: (it.tags || []).slice(), parts: it.parts, throw: it.throw }; itemSpend(it); skillCount('throw');
+    if (CB.on) { CB.busy = true; cbHUD(); }
+    // a miss lands a tile or two off target
+    var lx = tx, lz = tz; if (!hit) { lx += Math.round((Math.random() - 0.5) * 3); lz += Math.round((Math.random() - 0.5) * 3); }
+    setTimeout(function () { vfxThrow(snap, lx, lz, o.lit, function () {
+      vfxImpact(snap, lx, lz, T, o.lit);
+      if (hit) {
+        var targets = area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && cheb(q.x, q.z, tx, tz) <= area && (T.vs !== 'plant' || isPlant(q)); }) : [e];
+        targets.forEach(function (q) { var n = fxApply(T.fx, q); if (n) notes.push(n); });
+        if (area && !targets.length) notes.push('It splashes across the floor and hits nothing.');
+      }
+      var head = (o.lit ? 'Lit and thrown · ' : 'Thrown · ') + snap.name, body = hit ? (notes.join(' ') || 'It lands. Nothing much happens.') : 'Missed. It ' + (o.lit ? 'bursts into flame on the floor, well wide.' : 'splatters on the floor, well wide.');
+      if (CB.on) CB.busy = false;
+      var woke = e || (area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && !q.calm && cheb(q.x, q.z, tx, tz) <= area + 2; })[0] : null);
+      loreFromThrow(snap); var started = !CB.on; afterTrick(woke);
+      // say what happened after any "roll for initiative" so it is not drowned out
+      setTimeout(function () { say(head, body, 6500); }, started && CB.on ? 1400 : 0);
+    }); }, 240);
+    return true;
   }
 
   function openBox(it) {
