@@ -180,7 +180,7 @@
     if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Shoot these first']);
     acts = acts.concat(lampActs(it));
     if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
-    if ((it.cat === 'consumable' && (it.heal || it.buff)) || it.throw || it.escape || burnsKnown(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
+    if (hotEligible(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
     if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); }
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
@@ -255,11 +255,29 @@
     if (!CHAR) return; var have = {}; (CHAR.gear || []).forEach(function (g) { have[g.name] = 1; });
     ['hotbar', 'hotbar2'].forEach(function (k) { if (CHAR[k]) CHAR[k] = CHAR[k].slice(0, HOT_N).map(function (n) { return n && have[n] ? n : null; }); });
   }
-  function hotPut(name, quiet, bar) {
+  function hotEligible(it) { return !!it && ((it.cat === 'consumable' && (it.heal || it.buff)) || !!it.throw || !!it.escape || burnsKnown(it)); }
+  // tap a bar's name (or an empty slot) to fill it: everything in your bag that can go on a hot bar, tap to add, tap again to take off
+  function hotPick(bar, slot) {
+    var el = document.getElementById('hotpick'); if (!el) { el = document.createElement('div'); el.id = 'hotpick'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Fill the hot bar'); document.body.appendChild(el); }
+    hotClean(); var name = bar === 'hotbar' ? 'Consumables' : 'Gear', seen = {}, rows = [];
+    (CHAR.gear || []).forEach(function (g) { if (!hotEligible(g) || seen[g.name]) return; seen[g.name] = 1; var n = (CHAR.gear || []).filter(function (x) { return x.name === g.name; }).reduce(function (a, x) { return a + (x.usesLeft !== undefined ? x.usesLeft : x.qty || 1); }, 0); rows.push({ it: g, n: n }); });
+    rows.sort(function (a, b) { return (hotKind(a.it) === (bar === 'hotbar' ? 'eat' : 'act') ? 0 : 1) - (hotKind(b.it) === (bar === 'hotbar' ? 'eat' : 'act') ? 0 : 1) || a.it.name.localeCompare(b.it.name); });
+    var used = (CHAR[bar] || []).filter(Boolean).length;
+    el.innerHTML = '<div class="hph"><b>Fill the ' + name + ' bar</b><span>' + used + ' of ' + HOT_N + ' slots used</span><button type="button" class="hpx" aria-label="Close">✕</button></div>' +
+      (rows.length ? '<div class="hpl">' + rows.map(function (r) { var on = (CHAR.hotbar || []).indexOf(r.it.name) >= 0 ? 'hotbar' : (CHAR.hotbar2 || []).indexOf(r.it.name) >= 0 ? 'hotbar2' : '';
+        return '<button type="button" data-pn="' + esc(r.it.name) + '" class="' + (on === bar ? 'on' : '') + '">' + itemIcon(r.it) + '<span><b>' + esc(r.it.name) + ' ×' + r.n + '</b><em>' + (on === bar ? 'On this bar · tap to take off' : on ? 'On the ' + (on === 'hotbar' ? 'Consumables' : 'Gear') + ' bar · tap to move here' : r.it.heal ? 'Heals ' + esc(r.it.heal) : r.it.throw ? 'Throw' : r.it.buff ? 'Buff' : burnsKnown(r.it) ? 'Light and throw' : 'Use') + '</em></span></button>'; }).join('') + '</div>'
+      : '<p>Nothing in your bag can go on a hot bar yet. Food, potions, bombs and other throwables can.</p>');
+    el.style.display = 'block';
+    el.querySelector('.hpx').onclick = function () { el.style.display = 'none'; };
+    el.querySelectorAll('[data-pn]').forEach(function (b) { b.onclick = function () { var n = b.getAttribute('data-pn');
+      if ((CHAR[bar] || []).indexOf(n) >= 0) hotOff(n); else { hotOff(n); if ((CHAR[bar] || []).filter(Boolean).length >= HOT_N) { say('Hot bar full', 'Take something off the ' + name + ' bar first.', 2200); return; } hotPut(n, true, bar, slot); slot = undefined; }
+      hotPick(bar); }; });
+  }
+  function hotPut(name, quiet, bar, slot) {
     hotClean(); var it = (CHAR.gear || []).filter(function (g) { return g.name === name; })[0], k = bar || hotKey(hotKind(it)), o = k === 'hotbar' ? 'hotbar2' : 'hotbar';
     CHAR[k] = CHAR[k] || []; while (CHAR[k].length < HOT_N) CHAR[k].push(null);
     if (CHAR[o]) CHAR[o] = CHAR[o].map(function (n) { return n === name ? null : n; });
-    if (CHAR[k].indexOf(name) >= 0) return; var i = CHAR[k].indexOf(null);
+    if (CHAR[k].indexOf(name) >= 0) return; var i = slot !== undefined && slot >= 0 && slot < HOT_N && !CHAR[k][slot] ? slot : CHAR[k].indexOf(null);
     if (i < 0) { if (!quiet) say('Hot bar full', 'Take something off the ' + (k === 'hotbar' ? 'Consumables' : 'Gear') + ' bar first (in your inventory).', 2600); return; }
     CHAR[k][i] = name; saveChar(CHAR); hotDraw();
     if (!quiet) say('Hot bar · ' + name, 'On the ' + (k === 'hotbar' ? 'Consumables' : 'Gear') + ' bar, slot ' + (k === 'hotbar' ? i + 1 : (i + 6) % 10) + '. Close your bag to see it.', 2600);
@@ -276,17 +294,18 @@
   function hotDraw() {
     hotClean(); var el = document.getElementById('hotbar');
     if (!el) { el = document.createElement('div'); el.id = 'hotbar'; document.body.appendChild(el); }
-    var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead && !UI.bag && !(typeof CRAFT !== 'undefined' && CRAFT.open); el.style.display = show ? 'flex' : 'none'; if (!show) return;
+    var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead && !UI.bag && !(typeof CRAFT !== 'undefined' && CRAFT.open); el.style.display = show ? 'flex' : 'none'; if (!show) { var hp0 = document.getElementById('hotpick'); if (hp0) hp0.style.display = 'none'; return; }
     var html = '', mine = !CB.on || (cbMyTurn() && !CB.busy);
     [['hotbar', 'Consumables', 'bonus'], ['hotbar2', 'Gear', 'action']].forEach(function (bar, bi) {
-      html += '<div class="hb"><small>' + bar[1] + '<em>' + (bar[2] === 'bonus' ? 'bonus action' : 'action') + '</em></small><div class="hs">';
+      html += '<div class="hb"><small data-pick="' + bar[0] + '" data-l="' + bar[1].charAt(0) + '" role="button" tabindex="0" title="Tap to fill this bar">' + bar[1] + ' <u>+</u><em>' + (bar[2] === 'bonus' ? 'bonus action' : 'action') + '</em></small><div class="hs">';
       for (var i = 0; i < HOT_N; i++) { var it = hotItem(i, bar[0]), can = it && mine && (!CB.on || CB.res[bar[2]]), key = bi === 0 ? i + 1 : (i + 6) % 10;
-        var tip = it ? it.name + (it.heal ? ' · ' + it.heal + ' HP' : it.throw ? ' · throw' : burnsKnown(it) ? ' · light and throw' : '') : 'Empty: add things from your inventory';
-        html += '<button type="button" data-h="' + i + '" data-k="' + bar[0] + '" class="' + (can ? 'ready' : '') + (it && !it.throw && burnsKnown(it) ? ' fire' : '') + '"' + (it ? '' : ' disabled') + ' aria-label="' + esc(tip) + '" title="' + esc(tip) + '"><i>' + key + '</i>' + (it ? itemIcon(it) + '<b>×' + (it.usesLeft !== undefined ? it.usesLeft : it.qty || 1) + '</b><span class="hn">' + esc(it.name) + '</span>' : '') + '</button>'; }
+        var tip = it ? it.name + (it.heal ? ' · ' + it.heal + ' HP' : it.throw ? ' · throw' : burnsKnown(it) ? ' · light and throw' : '') : 'Empty: tap to pick something';
+        html += '<button type="button" data-h="' + i + '" data-k="' + bar[0] + '" class="' + (can ? 'ready' : '') + (it && !it.throw && burnsKnown(it) ? ' fire' : '') + (it ? '' : ' empty') + '"' + ' aria-label="' + esc(tip) + '" title="' + esc(tip) + '"><i>' + key + '</i>' + (it ? itemIcon(it) + '<b>×' + (it.usesLeft !== undefined ? it.usesLeft : it.qty || 1) + '</b><span class="hn">' + esc(it.name) + '</span>' : '') + '</button>'; }
       html += '</div></div>';
     });
     if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html;
-      el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); hotUse(+b.dataset.h, b.dataset.k); }); }); }
+      el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); if (!hotItem(+b.dataset.h, b.dataset.k)) { hotPick(b.dataset.k, +b.dataset.h); return; } hotUse(+b.dataset.h, b.dataset.k); }); });
+      el.querySelectorAll('[data-pick]').forEach(function (s2) { s2.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); hotPick(s2.dataset.pick); }); }); }
   }
   function hotUse(i, k) { var it = hotItem(i, k); if (!it) return; if (canAim(it) && (it.throw || k === 'hotbar2')) aimStart(it, !it.throw); else useItem(it); } // throwables aim from either bar
   window.addEventListener('keydown', function (ev) {

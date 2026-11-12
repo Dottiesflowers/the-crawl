@@ -10058,7 +10058,7 @@
     if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Shoot these first']);
     acts = acts.concat(lampActs(it));
     if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
-    if ((it.cat === 'consumable' && (it.heal || it.buff)) || it.throw || it.escape || burnsKnown(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
+    if (hotEligible(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
     if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); }
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
@@ -10133,11 +10133,29 @@
     if (!CHAR) return; var have = {}; (CHAR.gear || []).forEach(function (g) { have[g.name] = 1; });
     ['hotbar', 'hotbar2'].forEach(function (k) { if (CHAR[k]) CHAR[k] = CHAR[k].slice(0, HOT_N).map(function (n) { return n && have[n] ? n : null; }); });
   }
-  function hotPut(name, quiet, bar) {
+  function hotEligible(it) { return !!it && ((it.cat === 'consumable' && (it.heal || it.buff)) || !!it.throw || !!it.escape || burnsKnown(it)); }
+  // tap a bar's name (or an empty slot) to fill it: everything in your bag that can go on a hot bar, tap to add, tap again to take off
+  function hotPick(bar, slot) {
+    var el = document.getElementById('hotpick'); if (!el) { el = document.createElement('div'); el.id = 'hotpick'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Fill the hot bar'); document.body.appendChild(el); }
+    hotClean(); var name = bar === 'hotbar' ? 'Consumables' : 'Gear', seen = {}, rows = [];
+    (CHAR.gear || []).forEach(function (g) { if (!hotEligible(g) || seen[g.name]) return; seen[g.name] = 1; var n = (CHAR.gear || []).filter(function (x) { return x.name === g.name; }).reduce(function (a, x) { return a + (x.usesLeft !== undefined ? x.usesLeft : x.qty || 1); }, 0); rows.push({ it: g, n: n }); });
+    rows.sort(function (a, b) { return (hotKind(a.it) === (bar === 'hotbar' ? 'eat' : 'act') ? 0 : 1) - (hotKind(b.it) === (bar === 'hotbar' ? 'eat' : 'act') ? 0 : 1) || a.it.name.localeCompare(b.it.name); });
+    var used = (CHAR[bar] || []).filter(Boolean).length;
+    el.innerHTML = '<div class="hph"><b>Fill the ' + name + ' bar</b><span>' + used + ' of ' + HOT_N + ' slots used</span><button type="button" class="hpx" aria-label="Close">✕</button></div>' +
+      (rows.length ? '<div class="hpl">' + rows.map(function (r) { var on = (CHAR.hotbar || []).indexOf(r.it.name) >= 0 ? 'hotbar' : (CHAR.hotbar2 || []).indexOf(r.it.name) >= 0 ? 'hotbar2' : '';
+        return '<button type="button" data-pn="' + esc(r.it.name) + '" class="' + (on === bar ? 'on' : '') + '">' + itemIcon(r.it) + '<span><b>' + esc(r.it.name) + ' ×' + r.n + '</b><em>' + (on === bar ? 'On this bar · tap to take off' : on ? 'On the ' + (on === 'hotbar' ? 'Consumables' : 'Gear') + ' bar · tap to move here' : r.it.heal ? 'Heals ' + esc(r.it.heal) : r.it.throw ? 'Throw' : r.it.buff ? 'Buff' : burnsKnown(r.it) ? 'Light and throw' : 'Use') + '</em></span></button>'; }).join('') + '</div>'
+      : '<p>Nothing in your bag can go on a hot bar yet. Food, potions, bombs and other throwables can.</p>');
+    el.style.display = 'block';
+    el.querySelector('.hpx').onclick = function () { el.style.display = 'none'; };
+    el.querySelectorAll('[data-pn]').forEach(function (b) { b.onclick = function () { var n = b.getAttribute('data-pn');
+      if ((CHAR[bar] || []).indexOf(n) >= 0) hotOff(n); else { hotOff(n); if ((CHAR[bar] || []).filter(Boolean).length >= HOT_N) { say('Hot bar full', 'Take something off the ' + name + ' bar first.', 2200); return; } hotPut(n, true, bar, slot); slot = undefined; }
+      hotPick(bar); }; });
+  }
+  function hotPut(name, quiet, bar, slot) {
     hotClean(); var it = (CHAR.gear || []).filter(function (g) { return g.name === name; })[0], k = bar || hotKey(hotKind(it)), o = k === 'hotbar' ? 'hotbar2' : 'hotbar';
     CHAR[k] = CHAR[k] || []; while (CHAR[k].length < HOT_N) CHAR[k].push(null);
     if (CHAR[o]) CHAR[o] = CHAR[o].map(function (n) { return n === name ? null : n; });
-    if (CHAR[k].indexOf(name) >= 0) return; var i = CHAR[k].indexOf(null);
+    if (CHAR[k].indexOf(name) >= 0) return; var i = slot !== undefined && slot >= 0 && slot < HOT_N && !CHAR[k][slot] ? slot : CHAR[k].indexOf(null);
     if (i < 0) { if (!quiet) say('Hot bar full', 'Take something off the ' + (k === 'hotbar' ? 'Consumables' : 'Gear') + ' bar first (in your inventory).', 2600); return; }
     CHAR[k][i] = name; saveChar(CHAR); hotDraw();
     if (!quiet) say('Hot bar · ' + name, 'On the ' + (k === 'hotbar' ? 'Consumables' : 'Gear') + ' bar, slot ' + (k === 'hotbar' ? i + 1 : (i + 6) % 10) + '. Close your bag to see it.', 2600);
@@ -10154,17 +10172,18 @@
   function hotDraw() {
     hotClean(); var el = document.getElementById('hotbar');
     if (!el) { el = document.createElement('div'); el.id = 'hotbar'; document.body.appendChild(el); }
-    var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead && !UI.bag && !(typeof CRAFT !== 'undefined' && CRAFT.open); el.style.display = show ? 'flex' : 'none'; if (!show) return;
+    var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead && !UI.bag && !(typeof CRAFT !== 'undefined' && CRAFT.open); el.style.display = show ? 'flex' : 'none'; if (!show) { var hp0 = document.getElementById('hotpick'); if (hp0) hp0.style.display = 'none'; return; }
     var html = '', mine = !CB.on || (cbMyTurn() && !CB.busy);
     [['hotbar', 'Consumables', 'bonus'], ['hotbar2', 'Gear', 'action']].forEach(function (bar, bi) {
-      html += '<div class="hb"><small>' + bar[1] + '<em>' + (bar[2] === 'bonus' ? 'bonus action' : 'action') + '</em></small><div class="hs">';
+      html += '<div class="hb"><small data-pick="' + bar[0] + '" data-l="' + bar[1].charAt(0) + '" role="button" tabindex="0" title="Tap to fill this bar">' + bar[1] + ' <u>+</u><em>' + (bar[2] === 'bonus' ? 'bonus action' : 'action') + '</em></small><div class="hs">';
       for (var i = 0; i < HOT_N; i++) { var it = hotItem(i, bar[0]), can = it && mine && (!CB.on || CB.res[bar[2]]), key = bi === 0 ? i + 1 : (i + 6) % 10;
-        var tip = it ? it.name + (it.heal ? ' · ' + it.heal + ' HP' : it.throw ? ' · throw' : burnsKnown(it) ? ' · light and throw' : '') : 'Empty: add things from your inventory';
-        html += '<button type="button" data-h="' + i + '" data-k="' + bar[0] + '" class="' + (can ? 'ready' : '') + (it && !it.throw && burnsKnown(it) ? ' fire' : '') + '"' + (it ? '' : ' disabled') + ' aria-label="' + esc(tip) + '" title="' + esc(tip) + '"><i>' + key + '</i>' + (it ? itemIcon(it) + '<b>×' + (it.usesLeft !== undefined ? it.usesLeft : it.qty || 1) + '</b><span class="hn">' + esc(it.name) + '</span>' : '') + '</button>'; }
+        var tip = it ? it.name + (it.heal ? ' · ' + it.heal + ' HP' : it.throw ? ' · throw' : burnsKnown(it) ? ' · light and throw' : '') : 'Empty: tap to pick something';
+        html += '<button type="button" data-h="' + i + '" data-k="' + bar[0] + '" class="' + (can ? 'ready' : '') + (it && !it.throw && burnsKnown(it) ? ' fire' : '') + (it ? '' : ' empty') + '"' + ' aria-label="' + esc(tip) + '" title="' + esc(tip) + '"><i>' + key + '</i>' + (it ? itemIcon(it) + '<b>×' + (it.usesLeft !== undefined ? it.usesLeft : it.qty || 1) + '</b><span class="hn">' + esc(it.name) + '</span>' : '') + '</button>'; }
       html += '</div></div>';
     });
     if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html;
-      el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); hotUse(+b.dataset.h, b.dataset.k); }); }); }
+      el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); if (!hotItem(+b.dataset.h, b.dataset.k)) { hotPick(b.dataset.k, +b.dataset.h); return; } hotUse(+b.dataset.h, b.dataset.k); }); });
+      el.querySelectorAll('[data-pick]').forEach(function (s2) { s2.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); hotPick(s2.dataset.pick); }); }); }
   }
   function hotUse(i, k) { var it = hotItem(i, k); if (!it) return; if (canAim(it) && (it.throw || k === 'hotbar2')) aimStart(it, !it.throw); else useItem(it); } // throwables aim from either bar
   window.addEventListener('keydown', function (ev) {
@@ -11696,9 +11715,15 @@
       '@media (min-width:1000px) and (min-height:600px){#hotbar button{width:66px;height:66px}#hotbar svg{width:38px;height:38px}#hotbar .hb small{font-size:11.5px}#hotbar b{font-size:14px}}',
       '@media (max-width:700px){#hotbar{left:8px;transform:none;bottom:auto;top:150px;padding:4px;gap:4px}#hotbar .hs{flex-direction:column}#hotbar button{width:46px;height:46px}#hotbar svg{width:26px;height:26px}#hotbar .hb small em{display:none}#hotbar .hb small{font-size:8px;max-width:46px;overflow:hidden}}',
       'body.cb #hotbar{bottom:96px}',
+      '#hotbar .hb small[data-pick]{cursor:pointer}#hotbar .hb small u{text-decoration:none;display:inline-block;margin-left:4px;padding:0 4px;border:1px solid #C9B48A;border-radius:3px;color:#F3E9D2;font-family:"EB Garamond",serif;font-size:11px;line-height:12px}#hotbar button.empty{opacity:.55}#hotbar button.empty:hover{opacity:.85}',
+      '#hotpick{display:none;position:fixed;z-index:7;left:50%;transform:translateX(-50%);bottom:96px;width:min(420px,calc(100vw - 20px));max-height:min(60vh,420px);overflow:hidden;' + parch + 'border:2px solid #2e2116;border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.6)}',
+      '#hotpick .hph{display:flex;align-items:baseline;gap:8px;padding:8px 10px;border-bottom:1px solid #b9a27a}#hotpick .hph b{font-family:Cinzel,serif;font-size:14px;color:' + INK + '}#hotpick .hph span{flex:1;font-style:italic;font-size:13px;color:#6b5a3a}#hotpick .hpx{min-width:40px;min-height:36px;border:1px solid #2e2116;border-radius:3px;background:transparent;cursor:pointer;font-size:16px}',
+      '#hotpick .hpl{overflow-y:auto;max-height:calc(min(60vh,420px) - 54px);padding:6px;display:grid;gap:4px}#hotpick .hpl button{display:flex;align-items:center;gap:8px;min-height:48px;padding:4px 8px;text-align:left;background:rgba(255,250,240,.6);border:1px solid #b9a27a;border-radius:3px;cursor:pointer;font:15px "EB Garamond",serif;color:' + INK + '}',
+      '#hotpick .hpl button.on{border-color:#7A1F1A;box-shadow:inset 3px 0 0 #7A1F1A}#hotpick .hpl svg{width:30px;height:30px;flex:none}#hotpick .hpl b{display:block;font-weight:600}#hotpick .hpl em{display:block;font-size:13px;color:#6b5a3a}#hotpick p{padding:10px;margin:0}',
+      'body.cb #hotpick{bottom:180px}@media (max-width:700px){#hotpick{left:62px;transform:none;top:110px;bottom:auto;width:calc(100vw - 72px)}}',
       '@media (max-height:500px){#camBar{top:44px !important;right:142px !important;flex-direction:column}}',
-      '#hotbar{pointer-events:none}#hotbar button{pointer-events:auto}#stick{z-index:8 !important}',
-      '@media (max-height:500px) and (min-width:701px){#hotbar{bottom:4px;left:calc(158px + env(safe-area-inset-left));transform:none;flex-direction:column;padding:2px 5px 3px;gap:1px}#hotbar .hb{display:flex;align-items:center;gap:4px}#hotbar .hb small{display:none}#hotbar .hs{gap:3px}#hotbar button{width:30px;height:30px;padding:1px}#hotbar svg{width:17px;height:17px}#hotbar b{font-size:9px;right:2px;bottom:0}#hotbar i{font-size:7px;left:2px}body.cb #hotbar{bottom:4px}#aimBar{bottom:78px}}',
+      '#hotbar{pointer-events:none}#hotbar button,#hotbar .hb small[data-pick]{pointer-events:auto}#stick{z-index:8 !important}',
+      '@media (max-height:500px) and (min-width:701px){#hotbar{bottom:4px;left:calc(158px + env(safe-area-inset-left));transform:none;flex-direction:column;padding:2px 5px 3px;gap:1px}#hotbar .hb{display:flex;align-items:center;gap:4px}#hotbar .hb small{display:flex;align-items:center;gap:2px;font-size:0;margin:0 2px 0 0;min-height:30px}#hotbar .hb small::before{content:attr(data-l);font-size:10px;color:#E9DCC0;font-family:Cinzel,serif}#hotbar .hb small u{font-size:11px;margin:0;padding:0 3px}#hotbar .hb small em{display:none}#hotbar .hs{gap:3px}#hotbar button{width:30px;height:30px;padding:1px}#hotbar svg{width:17px;height:17px}#hotbar b{font-size:9px;right:2px;bottom:0}#hotbar i{font-size:7px;left:2px}body.cb #hotbar{bottom:4px}#aimBar{bottom:78px}}',
       '#buffs{position:fixed;z-index:5;left:10px;top:96px;display:flex;flex-wrap:wrap;gap:4px;max-width:240px}',
       '#buffs .bf{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;' + iron + 'border:1px solid ' + BR + ';border-radius:12px;font-family:"EB Garamond",serif;font-size:12.5px}#buffs .bf b{font-size:12px}#buffs .bf i{font-style:normal;color:#C9B48A;font-size:11px}#buffs .bf.bad{border-color:#8a3a32;color:#f0b0a0}',
       '#buffs .bf.sw{' + parch + 'border:1px solid #2e2116;height:28px;font-weight:700;cursor:pointer}#buffs .bf.sw b{color:#7A1F1A}',
