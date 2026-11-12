@@ -317,7 +317,7 @@
   var start = LEVEL.start, c8 = new THREE.CylinderGeometry(0.5, 0.5, 1, 10), c16 = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
   function nearFloor(x, z) { for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { var q = ch(x + dx, z + dz); if (q !== '#' && q !== 'H') return true; } return false; }
   function buildTile(x, z) {
-    var c = ch(x, z); if (c === 'H') c = '#'; if (c === '#' && !nearFloor(x, z)) return;
+    var c = ch(x, z); if (c === 'H') c = '#'; if (c === '#' && !nearFloor(x, z) && !(LEVEL.wstyle && LEVEL.wstyle[x + ',' + z])) return;
     var rid = roomAt(x, z), room = ROOMS[rid], r = hash(x, z), r2 = hash(x + 31, z + 17), v = Math.floor(r * 4);
     if (c === '#' && LEVEL.wstyle && LEVEL.wstyle[x + ',' + z]) { timberWall(x, z, LEVEL.wstyle[x + ',' + z], v); return; }
     if (c === '#') {
@@ -457,27 +457,46 @@
   // ---------- Floor 2 set pieces: thin timber walls, false fronts, and hand-built western props ----------
   function wallish(x, z) { var q = ch(x, z); return q === '#' || q === 'H' || q === 'D'; }
   function wbox(w, h, d, col, x, y, z, tx, tz, o) { var t = box(w, h, d, col, x, y, z, tx, tz, o); t.h = h; t.wy = y - h / 2; return t; }
+  // thin walls for Floor 2 buildings; st is 'style[:win][:front][:c=hex][:s=hex]' or 'roof:d=dir:r=ring'
+  var WSTY = {
+    timber: { col: 0x7a5638, post: 0x4e3420, kind: 'wood', h: 1.45, t: 0.16 }, plaster: { col: 0xe4ddce, post: 0xcfc6b4, kind: 'skin', h: 1.55, t: 0.16 },
+    canvas: { col: 0xf2ece0, post: 0x8a7a60, kind: 'skin', h: 1.35, t: 0.08 }, panel: { col: 0xaab4c2, post: 0x58667a, kind: 'metal', h: 1.6, t: 0.2, trim: 0x3df2e0 },
+    manor: { col: 0x4e4048, post: 0x2a2026, kind: 'wood', h: 1.7, t: 0.2, wain: 0x3a2a20 }, stone: { col: 0x8a8478, post: 0x6e685e, kind: 'stone', h: 1.15, t: 0.32 },
+    siding: { col: 0xe8e0c8, post: 0xf4f0e6, kind: 'skin', h: 1.45, t: 0.16 }, stage: { col: 0x2e2e36, post: 0x1c1c22, kind: 'metal', h: 2.3, t: 0.26 }
+  };
   function timberWall(x, z, st, v) {
-    // the floor under a thin wall: borrow the inside of the building if there is one
-    var fid = null; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (q) { if (fid && fid !== 'dirt') return; var rr = LEVEL.reg[z + q[1]] && LEVEL.reg[z + q[1]][x + q[0]]; if (rr >= 0) { var t = LEVEL.rooms[rr].theme; if (!fid || t === 'store') fid = t; } });
-    floorQuad(floorTex(fid || roomAt(x, z), v), x, 0, z);
-    var front = /F$/.test(st), win = /^win/.test(st), wh = front ? 2.05 : 1.45, col = front ? 0x8a6440 : 0x7a5638, post = 0x4e3420, T = 0.16;
-    var arms = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(function (q) { return wallish(x + q[0], z + q[1]); });
-    wbox(0.24, wh + 0.06, 0.24, post, x, (wh + 0.06) / 2, z, x, z, { wall: true, kind: 'wood', seed: 3 });
-    var alongX = arms.some(function (q) { return q[0] !== 0; }), alongZ = arms.some(function (q) { return q[1] !== 0; });
-    if (win && alongX !== alongZ) { // a window fills the whole tile along the wall
-      var L = 1.0, W2 = alongX ? L : T, D2 = alongX ? T : L;
-      wbox(W2, 0.55, D2, col, x, 0.275, z, x, z, { wall: true, kind: 'wood', seed: v });
-      wbox(W2, wh - 1.2, D2, col, x, 1.2 + (wh - 1.2) / 2, z, x, z, { wall: true, kind: 'wood', seed: v + 1 });
-      wbox(alongX ? 0.82 : 0.05, 0.62, alongX ? 0.05 : 0.82, 0x9cc8d8, x, 0.88, z, x, z, { wall: true, kind: 'metal' });
-      wbox(alongX ? 0.06 : 0.07, 0.66, alongX ? 0.07 : 0.06, post, x, 0.88, z, x, z, { wall: true, kind: 'wood' });
-      wbox(alongX ? 0.9 : 0.24, 0.05, alongX ? 0.24 : 0.9, post, x, 0.56, z, x, z, { wall: true, kind: 'wood' });
-    } else arms.forEach(function (q) {
-      wbox(q[0] ? 0.5 : T, wh, q[0] ? T : 0.5, col, x + q[0] * 0.25, wh / 2, z + q[1] * 0.25, x, z, { wall: true, kind: 'wood', seed: v + (q[0] + 2) * 3 + q[1] });
-    });
-    if (front) { // false front: a trim board along the top
-      arms.forEach(function (q) { wbox(q[0] ? 0.5 : 0.24, 0.1, q[0] ? 0.24 : 0.5, 0x3e2a18, x + q[0] * 0.25, wh + 0.02, z + q[1] * 0.25, x, z, { wall: true, kind: 'wood' }); });
+    var parts = st.split(':'), sty = parts[0], o = {}; parts.slice(1).forEach(function (p) { var kv = p.split('='); o[kv[0]] = kv.length > 1 ? kv[1] : true; });
+    if (sty === 'roof') { // a slope of shingles going down and away from the upper floor
+      var dir = o.d || 'z+', ring = +(o.r || 0), ax = dir.charAt(0) === 'x', sg = dir.charAt(1) === '+' ? 1 : -1, y0 = -0.15 - ring * 0.42;
+      var rb = box(1.02, 0.08, 1.02, ring % 2 ? 0x7a4636 : 0x86503c, x, y0, z, x, z, { kind: 'wood', seed: (x * 7 + z) % 5, noShadow: true });
+      if (ax) rb.mesh.rotation.z = -sg * 0.4; else rb.mesh.rotation.x = sg * 0.4; rb.roof = true;
+      return;
     }
+    var S = WSTY[sty] || WSTY.timber, col = o.c ? parseInt(o.c, 16) : S.col;
+    // the floor under a thin wall: borrow the inside of the building if there is one
+    var fid = null; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (q) { var rr = LEVEL.reg[z + q[1]] && LEVEL.reg[z + q[1]][x + q[0]]; if (rr >= 0) { var t = LEVEL.rooms[rr].theme; if (!fid || /store|house|office|tent|manor|ship|stage/.test(t)) fid = t; } });
+    floorQuad(floorTex(fid || roomAt(x, z), v), x, 0, z);
+    var front = !!o.front, win = !!o.win, wh = front ? 2.05 : S.h, T = S.t;
+    if (front) col = 0x8a6440;
+    var arms = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(function (q) { return wallish(x + q[0], z + q[1]); });
+    wbox(T + 0.08, wh + 0.06, T + 0.08, S.post, x, (wh + 0.06) / 2, z, x, z, { wall: true, kind: S.kind, seed: 3 });
+    var alongX = arms.some(function (q) { return q[0] !== 0; }), alongZ = arms.some(function (q) { return q[1] !== 0; });
+    function seg(q, y, hh, c2, kind) { wbox(q[0] ? 0.5 : T, hh, q[0] ? T : 0.5, c2, x + q[0] * 0.25, y + hh / 2, z + q[1] * 0.25, x, z, { wall: true, kind: kind || S.kind, seed: v + (q[0] + 2) * 3 + q[1] }); }
+    if (win && alongX !== alongZ) { // a window fills the whole tile along the wall
+      var W2 = alongX ? 1.0 : T, D2 = alongX ? T : 1.0;
+      wbox(W2, 0.55, D2, col, x, 0.275, z, x, z, { wall: true, kind: S.kind, seed: v });
+      wbox(W2, wh - 1.2, D2, col, x, 1.2 + (wh - 1.2) / 2, z, x, z, { wall: true, kind: S.kind, seed: v + 1 });
+      wbox(alongX ? 0.82 : 0.05, 0.62, alongX ? 0.05 : 0.82, sty === 'panel' ? 0x2a3a5a : 0x9cc8d8, x, 0.88, z, x, z, { wall: true, kind: 'metal' });
+      wbox(alongX ? 0.06 : 0.07, 0.66, alongX ? 0.07 : 0.06, S.post, x, 0.88, z, x, z, { wall: true, kind: 'wood' });
+      wbox(alongX ? 0.9 : 0.24, 0.05, alongX ? 0.24 : 0.9, S.post, x, 0.56, z, x, z, { wall: true, kind: 'wood' });
+    } else arms.forEach(function (q) {
+      if (S.wain) { seg(q, 0, 0.6, S.wain, 'wood'); seg(q, 0.6, wh - 0.6, col); } else seg(q, 0, wh, col);
+    });
+    arms.forEach(function (q) {
+      if (front) wbox(q[0] ? 0.5 : 0.24, 0.1, q[0] ? 0.24 : 0.5, 0x3e2a18, x + q[0] * 0.25, wh + 0.02, z + q[1] * 0.25, x, z, { wall: true, kind: 'wood' });
+      if (o.s) wbox(q[0] ? 0.5 : T + 0.02, 0.18, q[0] ? T + 0.02 : 0.5, parseInt(o.s, 16), x + q[0] * 0.25, wh - 0.09, z + q[1] * 0.25, x, z, { wall: true, kind: 'cloth' });
+      if (S.trim) wbox(q[0] ? 0.5 : T + 0.02, 0.04, q[0] ? T + 0.02 : 0.5, S.trim, x + q[0] * 0.25, 1.1, z + q[1] * 0.25, x, z, { wall: true, glow: true });
+    });
   }
   function rotBox(cx, cz, rot, tx, tz) { var c = Math.cos(rot), s = Math.sin(rot);
     return function (w, h, d, col, ox, y, oz, o) { var m = box(w, h, d, col, cx + ox * c + oz * s, y, cz - ox * s + oz * c, tx, tz, o || {}); m.mesh.rotation.y = rot; return m; }; }
@@ -487,8 +506,30 @@
     g.fillStyle = '#e8d9b4'; g.fillRect(0, 0, 256, 64); g.strokeStyle = '#3a2412'; g.lineWidth = 6; g.strokeRect(3, 3, 250, 58);
     g.fillStyle = '#3a2412'; var fs = text.length > 9 ? 26 : 36; g.font = '900 ' + fs + 'px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 34); }, true); }
   var PROC = {
-    '#rail': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; box(ax ? 1.0 : 0.06, 0.06, ax ? 0.06 : 1.0, 0x6a4a2e, x, 0.72, z, tx, tz, { kind: 'wood' }); box(ax ? 1.0 : 0.05, 0.05, ax ? 0.05 : 1.0, 0x6a4a2e, x, 0.4, z, tx, tz, { kind: 'wood' });
-      box(0.1, 0.8, 0.1, 0x4e3420, x, 0.4, z, tx, tz, { kind: 'wood' }); },
+    '#rail': function (x, z, d, tx, tz) { var ax = d.ax === 'x', c = d.col || 0x6a4a2e, kind = d.iron ? 'metal' : 'wood';
+      if (d.picket || d.iron) { for (var i = -2; i <= 2; i++) box(d.iron ? 0.04 : 0.09, d.iron ? 1.0 : 0.7, d.iron ? 0.04 : 0.04, c, x + (ax ? i * 0.2 : 0), d.iron ? 0.5 : 0.35, z + (ax ? 0 : i * 0.2), tx, tz, { kind: kind }); box(ax ? 1.0 : 0.04, 0.05, ax ? 0.04 : 1.0, c, x, d.iron ? 0.85 : 0.5, z, tx, tz, { kind: kind }); return; }
+      box(ax ? 1.0 : 0.06, 0.06, ax ? 0.06 : 1.0, c, x, 0.72, z, tx, tz, { kind: kind }); box(ax ? 1.0 : 0.05, 0.05, ax ? 0.05 : 1.0, c, x, 0.4, z, tx, tz, { kind: kind });
+      box(0.1, 0.8, 0.1, d.col ? c : 0x4e3420, x, 0.4, z, tx, tz, { kind: kind }); },
+    '#hearth': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(1.0, 1.05, 0.4, 0x6a6058, 0, 0.525, -0.25, { kind: 'stone' }); B(0.6, 0.45, 0.1, 0x1a1210, 0, 0.3, -0.04); B(0.45, 0.22, 0.08, 0xff7a20, 0, 0.18, -0.02, { glow: true }); B(1.15, 0.1, 0.5, 0x4a3a2a, 0, 1.08, -0.2, { kind: 'wood' }); },
+    '#portrait': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz), cs = [0x6a2a2a, 0x2a3a5a, 0x3a4a2a, 0x5a4a2a], s2 = d.seed || 0; B(0.62, 0.78, 0.05, 0xb08a3a, 0, 1.15, 0, { kind: 'metal' }); B(0.5, 0.64, 0.02, cs[s2 % 4], 0, 1.15, 0.03, { kind: 'cloth' }); B(0.18, 0.22, 0.01, 0xd8b090, 0, 1.25, 0.045, { kind: 'skin' }); },
+    '#pad': function (x, z, d, tx, tz) { var p = pcyl(0.42, 0.06, 0x8a96a8, x, 0.03, z, tx, tz, { kind: 'metal', noShadow: true }); pcyl(0.3, 0.02, 0x3df2e0, x, 0.07, z, tx, tz, { glow: true, noShadow: true }); },
+    '#reactor': function (x, z, d, tx, tz) { pcyl(0.9, 0.25, 0x4a5462, x, 0.12, z, tx, tz, { kind: 'metal' }); pcyl(0.32, 2.2, 0x3df2e0, x, 1.35, z, tx, tz, { glow: true }); [0.6, 1.3, 2.0].forEach(function (y) { pcyl(0.48, 0.12, 0x58667a, x, y, z, tx, tz, { kind: 'metal' }); }); pcyl(0.6, 0.2, 0x4a5462, x, 2.5, z, tx, tz, { kind: 'metal' }); },
+    '#mower': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.7, 0.3, 0.95, 0x2a8a3a, 0, 0.32, 0, { kind: 'metal' }); B(0.4, 0.08, 0.35, 0x1a1a1a, 0, 0.55, 0.15, { kind: 'leather' }); B(0.36, 0.3, 0.06, 0x1a1a1a, 0, 0.72, 0.32, { kind: 'leather' }); B(0.06, 0.4, 0.06, 0x333333, 0.18, 0.62, -0.25, { kind: 'metal' });
+      [[-0.32, -0.3], [0.32, -0.3], [-0.34, 0.34], [0.34, 0.34]].forEach(function (q) { var w = pcyl(q[1] > 0 ? 0.2 : 0.14, 0.12, 0x111111, x + q[0], q[1] > 0 ? 0.2 : 0.14, z + q[1], tx, tz, { kind: 'leather' }); w.mesh.rotation.z = Math.PI / 2; }); },
+    '#flag': function (x, z, d, tx, tz) { pcyl(0.09, 0.01, 0x111111, x, 0.005, z, tx, tz, { noShadow: true }); box(0.03, 1.4, 0.03, 0xf4f0e6, x, 0.7, z, tx, tz, { kind: 'metal' }); box(0.36, 0.22, 0.02, 0xc8302a, x + 0.18, 1.28, z, tx, tz, { kind: 'cloth' }); },
+    '#crane': function (x, z, d, tx, tz) { box(1.3, 0.3, 1.3, 0x2a2a30, x, 0.15, z, tx, tz, { kind: 'metal' }); box(0.22, 3.2, 0.22, 0x4a4a54, x, 1.9, z, tx, tz, { kind: 'metal' });
+      var B = rotBox(x, z + 0, d.rot || 0, tx, tz); B(0.16, 0.16, 5.2, 0x5a5a64, 0, 3.4, -1.2, { kind: 'metal' }); B(0.6, 0.45, 0.5, 0x1a1a1a, 0, 3.15, -3.7, { kind: 'metal' }); B(0.5, 0.5, 0.5, 0x6a6a74, 0, 3.4, 1.5, { kind: 'metal' });
+      B(0.28, 0.28, 0.4, 0x111111, 0, 3.15, -4.05, { kind: 'metal' }); B(0.16, 0.16, 0.06, 0xc8302a, 0.15, 3.35, -3.45, { glow: true }); },
+    '#klieg': function (x, z, d, tx, tz) { [[-0.25, -0.2], [0.25, -0.2], [0, 0.25]].forEach(function (q) { box(0.05, 1.7, 0.05, 0x1a1a1e, x + q[0], 0.85, z + q[1], tx, tz, { kind: 'metal' }); });
+      var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.5, 0.45, 0.5, 0x2a2a30, 0, 1.85, 0, { kind: 'metal' }); B(0.4, 0.36, 0.04, 0xfff2b0, 0, 1.85, 0.27, { glow: true }); },
+    '#dchair': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); [[-0.25, -0.2], [0.25, -0.2], [-0.25, 0.2], [0.25, 0.2]].forEach(function (q) { B(0.04, 0.9, 0.04, 0x6a4a2e, q[0], 0.45, q[1], { kind: 'wood' }); });
+      B(0.5, 0.04, 0.4, 0x1a1a1a, 0, 0.6, 0, { kind: 'cloth' }); B(0.5, 0.26, 0.03, 0x1a1a1a, 0, 1.0, -0.2, { kind: 'cloth' }); B(0.46, 0.08, 0.01, 0xf4f0e6, 0, 1.0, -0.22, { kind: 'cloth' }); },
+    '#grave': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz), s2 = (d.seed || 0) % 3; if (s2 === 0) { B(0.5, 0.7, 0.14, 0x7a7a74, 0, 0.35, 0, { kind: 'stone' }); var t = pcyl(0.25, 0.14, 0x7a7a74, x, 0.7, z, tx, tz, { kind: 'stone' }); t.mesh.rotation.x = Math.PI / 2; t.mesh.rotation.z = d.rot || 0; }
+      else if (s2 === 1) { B(0.1, 0.9, 0.1, 0x6e6e68, 0, 0.45, 0, { kind: 'stone' }); B(0.44, 0.1, 0.1, 0x6e6e68, 0, 0.66, 0, { kind: 'stone' }); } else B(0.56, 0.5, 0.18, 0x84847c, 0, 0.25, 0, { kind: 'stone' });
+      B(0.5, 0.04, 0.9, 0x3a3a24, 0, 0.02, 0.45, { kind: 'stone', noShadow: true }); },
+    '#picket': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.05, 1.2, 0.05, 0x8a6a40, 0, 0.6, 0, { kind: 'wood' }); B(0.7, 0.42, 0.03, 0xf4f0e6, 0, 1.22, 0.03, { kind: 'cloth' }); B(0.5, 0.06, 0.005, 0xc8302a, 0, 1.3, 0.05); B(0.4, 0.06, 0.005, 0x222222, 0, 1.17, 0.05); },
+    '#mailbox': function (x, z, d, tx, tz) { box(0.06, 0.9, 0.06, 0x6a4a2e, x, 0.45, z, tx, tz, { kind: 'wood' }); box(0.22, 0.2, 0.4, 0x2a4a8a, x, 0.98, z, tx, tz, { kind: 'metal' }); box(0.03, 0.14, 0.06, 0xc8302a, x + 0.13, 1.06, z - 0.1, tx, tz, { kind: 'metal' }); },
+    '#path': function (x, z, d, tx, tz) { [[-0.18, -0.2], [0.16, 0.22]].forEach(function (q) { box(0.34, 0.03, 0.34, 0xb8b0a0, x + q[0], 0.015, z + q[1], tx, tz, { kind: 'stone', noShadow: true }); }); },
     '#hitch': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; [-0.4, 0.4].forEach(function (o) { box(0.1, 0.9, 0.1, 0x4e3420, x + (ax ? o : 0), 0.45, z + (ax ? 0 : o), tx, tz, { kind: 'wood' }); });
       box(ax ? 1.0 : 0.08, 0.08, ax ? 0.08 : 1.0, 0x5e4228, x, 0.86, z, tx, tz, { kind: 'wood' }); },
     '#trough': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; box(ax ? 1.0 : 0.5, 0.42, ax ? 0.5 : 1.0, 0x5a3e24, x, 0.21, z, tx, tz, { kind: 'wood' }); box(ax ? 0.88 : 0.38, 0.02, ax ? 0.38 : 0.88, 0x3a6a8a, x, 0.39, z, tx, tz, { kind: 'metal', noShadow: true }); },

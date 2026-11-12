@@ -83,6 +83,7 @@
     for (var j = 0; j < tiles.length; j++) {
       var t = tiles[j]; if (t.floor) { floorFog(t, R, S.dark); continue; }
       var key = t.x + ',' + t.z, d2 = visNow[key], explored = tileState[t.z * W + t.x];
+      if (d2 === undefined && t.roof && LEVEL.upZ && P.z >= LEVEL.upZ && Math.abs(t.x - P.x) < 34 && Math.abs(t.z - P.z) < 34) d2 = R + 1;
       var ax = t.x - P.x, az = t.z - P.z, sum = ax * CAMV.cx + az * CAMV.cz, dif = Math.abs(ax * CAMV.cz - az * CAMV.cx), cut = sum >= 1 && sum <= 8 && dif <= 5;
       if (d2 === undefined) {
         t.mesh.visible = !!explored && !t.mob && !(t.glow && t.hang);
@@ -352,6 +353,7 @@
     var want = Math.atan2(wx, wz), d = want - hero.rotation.y;
     while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
     hero.rotation.y += d * Math.min(1, dt * 14);
+    if (!P.path && m >= 0.5 && LEVEL.links) { var lk2 = LEVEL.links[Math.round(P.px + wx * 0.8) + ',' + Math.round(P.pz + wz * 0.8)]; if (lk2) { P.bump = (P.bump || 0) + dt; if (P.bump > 0.35) { P.bump = 0; takeLink(lk2); return; } } else P.bump = 0; }
     var tx = Math.round(P.px), tz = Math.round(P.pz);
     if (tx !== P.x || tz !== P.z) { P.x = tx; P.z = tz; refreshFog(); enterRoom(); cbAggro(); stairsCheck(); }
     if (!achieved && walked > 3) { achieved = true; achieve('bipedal', 'Bipedal', 'You walked three whole tiles. The bar will be raised.', 10); }

@@ -65,8 +65,8 @@
     if (cv.width !== Math.round(cw * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(chh * dpr); }
     var g = cv.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
     // rotated 45 degrees to match the isometric camera (map +x+z is screen down)
-    var bx0 = W, bx1 = 0, bz0 = H, bz1 = 0;
-    if (full) { for (var q = 0; q < W * H; q++) if (tileState[q]) { var qx = q % W, qz = (q / W) | 0; if (qx < bx0) bx0 = qx; if (qx > bx1) bx1 = qx; if (qz < bz0) bz0 = qz; if (qz > bz1) bz1 = qz; } bx0 -= 4; bz0 -= 4; bx1 += 4; bz1 += 4; }
+    var bx0 = W, bx1 = 0, bz0 = H, bz1 = 0, upMe = !!LEVEL.upZ && P.z >= LEVEL.upZ;
+    if (full) { for (var q = 0; q < W * H; q++) if (tileState[q] && (!LEVEL.upZ || ((q / W | 0) >= LEVEL.upZ) === upMe)) { var qx = q % W, qz = (q / W) | 0; if (qx < bx0) bx0 = qx; if (qx > bx1) bx1 = qx; if (qz < bz0) bz0 = qz; if (qz > bz1) bz1 = qz; } bx0 -= 4; bz0 -= 4; bx1 += 4; bz1 += 4; }
     var span = full ? Math.max(18, ((bx1 - bx0) + (bz1 - bz0)) / Math.SQRT2) / MAPV.zoom : 26, s = Math.min(cw, chh) / span * (full ? 0.97 : 1.0), k = s / Math.SQRT2 * dpr;
     var ox = cv.width / 2, oy = cv.height / 2, cx = full ? (bx0 + bx1) / 2 : P.px, cz = full ? (bz0 + bz1) / 2 : P.pz;
     if (full) { if (MAPV.follow) { MAPV.panX = P.px - cx; MAPV.panZ = P.pz - cz; } cx += MAPV.panX; cz += MAPV.panZ; }
@@ -77,7 +77,7 @@
     function cell(x, z, col) { var a = tr(x - .5, z - .5), b = tr(x + .5, z - .5), c = tr(x + .5, z + .5), d = tr(x - .5, z + .5); g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill(); }
     var liv = hasTrait('Living Map'), R = full ? 1e9 : 20, THEME = { crypt: '#3f6a52', hall: '#5d5a54', moss: '#4f6a3a', gate: '#6a3e3a', store: '#6a5438', water: '#2f5a74', studio: '#7a8494', office: '#4a566a', bazaar: '#8a6e48', garden: '#3f7a34', arena: '#a08250', blvd: '#6a665e' };
     for (var z = Math.max(0, Math.floor(P.pz - R)); z < Math.min(H, P.pz + R); z++) for (var x = Math.max(0, Math.floor(P.px - R)); x < Math.min(W, P.px + R); x++) {
-      if (!tileState[z * W + x]) continue; var c = MAP[z].charAt(x), lit = visNow[x + ',' + z] !== undefined || liv;
+      if (!tileState[z * W + x] || (LEVEL.upZ && (z >= LEVEL.upZ) !== upMe)) continue; var c = MAP[z].charAt(x), lit = visNow[x + ',' + z] !== undefined || liv;
       if (c === '#' || c === 'H') { if (!full) { g.globalAlpha = lit ? 1 : .6; cell(x, z, '#23252f'); } continue; }
       var col = c === '~' ? '#3a6ea8' : c === 'D' ? '#c98a4a' : c === 'S' ? (stairsOpen() ? '#ffd34a' : '#5d5a54') : c === 'C' ? '#e0c060' : c === 'F' ? '#40ff90' : c === 'Y' ? '#2a5a24' : THEME[roomAt(x, z)] || '#5d5a54';
       g.globalAlpha = lit ? 1 : .62; cell(x, z, col);
@@ -93,11 +93,12 @@
   function mapLabels(g, tr, tpx, dpr, cv) {
     var L = [], seenRoom = function (rm) { for (var zz = rm.z0; zz <= rm.z1; zz++) for (var xx = rm.x0; xx <= rm.x1; xx++) if (tileState[zz * W + xx]) return true; return false; };
     var zoneView = tpx < 8; // zoomed out: zone names; zoomed in: room names
-    if (zoneView) LEVEL.hoods.forEach(function (hd) {
+    var upL = !!LEVEL.upZ && P.z >= LEVEL.upZ;
+    if (zoneView && !upL) LEVEL.hoods.forEach(function (hd) { if (hd.x0 === undefined) return;
       var any = hd.rooms.some(function (rm) { return tileState[((rm.z0 + rm.z1) >> 1) * W + ((rm.x0 + rm.x1) >> 1)]; }); if (!any) return;
       L.push({ t: hd.name.toUpperCase(), x: (hd.x0 + hd.x1) / 2, z: (hd.z0 + hd.z1) / 2, pri: 5, size: 12.5, bold: true, col: 'rgba(255,62,165,.92)', clamp: true });
     });
-    LEVEL.rooms.forEach(function (rm) {
+    LEVEL.rooms.forEach(function (rm) { if (LEVEL.upZ && (rm.z0 >= LEVEL.upZ) !== upL) return;
       if (rm.type === 'corridor') return; var key = rm.type === 'safe' || rm.type === 'boss' || rm.type === 'stairs' || rm.type === 'hidden';
       var w = Math.max(rm.x1 - rm.x0, rm.z1 - rm.z0) + 1; if (!key && (zoneView || tpx * w < 70)) return; // ordinary rooms only once they're big enough on screen
       if (!seenRoom(rm) && !(key && rm.type === 'safe' && hasTrait('Living Map') && CHAR && CHAR.zones && CHAR.zones[rm.hood])) return;

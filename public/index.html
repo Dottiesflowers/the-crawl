@@ -808,45 +808,35 @@
     // ===================== Floor 2: The Backlot =====================
     // A studio backlot: Catering Village (the one safe hub) in the middle, ringed by the Backlot Loop, with six sets
     // round it, each one short street away. Studio Drive North and South cross the lot. Soundstage 9 (the gate) is
-    // north of the hub, up Director's Row. Shares the Floor 1 helpers above (carving, furniture, styles).
+    // north of the hub, up Director's Row. Every building is stamped from a hand-drawn template (TPL); upper floors
+    // and the roof live in a strip below the lot (z 240 and down) and the stairs take you there.
     function backlot() {
-      decor = {}; dname = {}; D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]]; TOP = 0.36; var wstyle = {}, links = {}, upstairs = [];
+      decor = {}; dname = {}; D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]]; TOP = 0.36;
       STYLE = mkStyle(); MODERN = mkModern(); for (var mk2 in MODERN) STYLE[mk2] = MODERN[mk2];
-      var xx, zz, k, i;
+      var wstyle = {}, links = {}, upstairs = [], UPZ = 240, xx, zz, k, i;
+      for (var ez = Hd; ez < 300; ez++) { g.push([]); reg.push([]); for (var ex = 0; ex < Wd; ex++) { g[ez].push('#'); reg[ez].push(-1); } } Hd = 300;
       function Zn(o) { o.idx = zones.length; o.rooms = []; o.rids = {}; zones.push(o); return o; }
       function wallT(x, z) { if (!inb(x, z)) return; g[z][x] = '#'; reg[z][x] = -1; }
       function area(o, Z, fl) { var r = room(o, Z); carveRect(r, fl); return r; }
-      // a walled building: walls on the outer edge, the inside is one room; doors are [x, z] on the edge
-      function hut(o, Z, doors) {
-        for (var zz = o.z0; zz <= o.z1; zz++) for (var xx = o.x0; xx <= o.x1; xx++) wallT(xx, zz);
-        var r = room({ name: o.name, type: o.type || 'room', theme: o.theme, line: o.line, style: o.style, x0: o.x0 + 1, z0: o.z0 + 1, x1: o.x1 - 1, z1: o.z1 - 1 }, Z);
-        carveRect(r); (doors || []).forEach(function (d) { put(d[0], d[1], 'D', r.id); }); return r;
-      }
-      // a building with a hall down the middle and rooms either side, a door from each room onto the hall
-      function wing(Z, x0, z0, x1, z1, n, names, theme, hallName, line) {
-        for (var zz = z0; zz <= z1; zz++) for (var xx = x0; xx <= x1; xx++) wallT(xx, zz);
-        var mid = (z0 + z1) >> 1, hall = room({ name: hallName, type: 'corridor', theme: theme, line: line, x0: x0 + 1, z0: mid - 1, x1: x1 - 1, z1: mid + 1 }, Z); carveRect(hall);
-        var out = [], w = Math.floor((x1 - x0 - 1 - (n - 1)) / n), ni = 0;
-        [[z0 + 1, mid - 3, mid - 2], [mid + 3, z1 - 1, mid + 2]].forEach(function (band) {
-          for (var c = 0; c < n; c++) {
-            var rx0 = x0 + 1 + c * (w + 1), rx1 = c === n - 1 ? x1 - 1 : rx0 + w - 1, nm = names[ni++] || 'Back Room';
-            var r = room({ name: nm, type: 'room', theme: theme, x0: rx0, z0: band[0], x1: rx1, z1: band[1] }, Z); carveRect(r);
-            put((rx0 + rx1) >> 1, band[2], 'D', r.id); out.push(r);
-          }
-        });
-        return { hall: hall, rooms: out, mid: mid };
-      }
       function trees(r, n, kinds) { for (var k = 0; k < n; k++) { var x = ri(r.x0 + 1, r.x1 - 1), z = ri(r.z0 + 1, r.z1 - 1); if (freeT(x, z, r)) obj(x, z, pick(kinds || ['CommonTree_1', 'CommonTree_3']), { fit: 2.2 + rnd() * 0.8, rot: rnd() * 6 }, 'Tree'); } }
       function greens(r, n, kinds) { for (var k = 0; k < n; k++) { var x = ri(r.x0, r.x1), z = ri(r.z0, r.z1); if (freeT(x, z, r)) dec(x, z, pick(kinds || ['Bush_Common', 'Fern_1', 'Grass_Wispy_Tall', 'Plant_7', 'Flower_3_Group']), { fit: 0.6 + rnd() * 0.5, rot: rnd() * 6, ns: true }); } }
       function lamps(r, every) { for (var zz = r.z0; zz <= r.z1; zz++) for (var xx = r.x0; xx <= r.x1; xx++) { var w = wallOf(xx, zz); if (w && freeT(xx, zz, r) && (xx * 3 + zz * 7) % every === 0) obj(xx, zz, 'Torch_Metal', hug(w, { h: 1.6 }), 'Lamp post'); } }
       function pack(r, fam, n, tier, name) { for (var k = 0; k < n; k++) spawnIn(r, fam, { tier: tier || (rnd() < 0.3 ? 2 : 1), name: name }); }
-
-      // ---------- building templates ----------
-      // Drawn with the front (street side) at the bottom. stamp() turns them to face any way.
-      // # timber wall · W window · D door · . floor · = boardwalk · r railing · H hitching rail (outside)
-      // B bar counter · s bar stool · S bottle shelf · P piano · T table and chairs · G poker table · k stairs
-      // L wall lamp · x crate · o barrel · C cabinet · h shelf · d desk and chair · e bed · j cell bars · V safe
-      // K shop counter · F produce · p plant · n bench or pew · A altar · w water trough · space: leave as it is
+      function roomsOf(b, re) { return b.all.filter(function (r) { return re.test(r.name); }); }
+      // a ring of roof round an upper floor, sloping down and away, so you can tell you're up high
+      function roofRing(b, n) {
+        for (var zz = b.z0 - n; zz <= b.z1 + n; zz++) for (var xx = b.x0 - n; xx <= b.x1 + n; xx++) {
+          if (!inb(xx, zz) || (xx >= b.x0 && xx <= b.x1 && zz >= b.z0 && zz <= b.z1) || g[zz][xx] !== '#' || wstyle[xx + ',' + zz]) continue;
+          var dl = b.x0 - xx, dr = xx - b.x1, du = b.z0 - zz, dd = zz - b.z1, m = Math.max(dl, dr, du, dd);
+          wstyle[xx + ',' + zz] = 'roof:d=' + (m === dl ? 'x-' : m === dr ? 'x+' : m === du ? 'z-' : 'z+') + ':r=' + (m - 1);
+        }
+      }
+      var GEN_MANOR = ["##W####W####W####W####W####W####W####W####W####W####W###", "#zZOizcz....h#............................#ttt.........#", "W............#.P............p...........p.#............W", "#............#............................?.....d.....^#", "#............#....|......|.....|......|...#............#", "#............#............................#V........u..#", "#.....m......#............................######D#######", "W............#L.......+...........+......L#.\"..\"..\"..\".W", "#............D............................#............#", "#............#............................DL...........#", "#............#....|......|.....|......|...#...n....n...#", "#RR........%J#............................#............#", "W............#............................#.\"..\"..\"..\".W", "######D####################DD###################D#######", "#tttt...ttttttttttttt#....kkkk....#....................#", "#t...................#p...kkkk...p#.C................C.#", "#t..................L#....kkkk....#...................L#", "Wt...................#............#.........+..........W", "#t...................#L..........L#....................#", "#t...d....d....d.....#............#....................#", "#....................D..+......+..D...mmmmmmmmmmmmmm..^#", "#t...................#............#....................#", "Wt...................#............#....................W", "#t...................#............#.........+..........#", "#t..u...l.......u...L#............#...................L#", "#t...................#n..........n#....................#", "#t..........^........#............#.C................C.#", "##W####W####W####W####W###DDDD##W####W####W####W####W###", "                    r==============r                    ", "                    r==============r                    "];
+      var GEN_MANORUP = ["##W####W####W####W####W####W####W####W####W####W####W###", "#E.N......C#E.N......C#tt........#E.N......C#XXQi......#", "W..........#..........#..........#..........#..........W", "#..........#..........#.....d....#..........#..........#", "#..........#..........#..........#..........#..........#", "#l........;#e..x....x.#.........u#l........;#.........C#", "#####D##########D##########D##########D##########D######", "W.L.................+.....kkkk......+................L.W", "#...........\".............kkkk.............\"...........#", "#......................................................#", "#####D##########D#######D#############D##########D######", "#e.N......C#E.N......C#x..x......#e.N......C#E.N......C#", "W..........#..........#..........#..........#..........W", "#..........#..........#........o.#..........#..........#", "#..........#..........#..........#..........#..........#", "#l........;#l........;#.%...x....#l........;#l........;#", "##W####W####W####W####W####W####W####W####W####W####W###"];
+      var GEN_SHIP = ["##W#####W#####W#####W#####W#####W#####W#####W#####W#####W#####W###", "#....................#..y.y.y........y.y.y..#....................#", "W...................p#......................#....................W", "#....................#......................#...q...q...q........#", "#y...................#...I.I..........I.I...#...................f#", "#.....mmmmmmmmm......D......................D....................#", "#....................#.........._...........#...............J....#", "#....................#.L.....I......I.....L.#....................#", "W....................#......................#.ttt................W", "###############################DDDD###############################", "#e.e.e........C#E.N..........;#....#..............#..............#", "#..............#..............#....#..............#..0.0.0.......#", "#..............#..............#....#..............#..............#", "#..............#..............D....D..............#..............#", "W......q.......#.........d....#....#..............#....I.........W", "#..............#..............#....#..............#..............#", "#.............C#............u.#....#..............#..............#", "########D#############D########....#######D##############D########", "#................................................................#", "#................................................................#", "W#########D##############D#####....##########D#########D#########W", "#zZOicz..............#u.....y.#....#b.b.b.b.b.b.b.b.b.b.b.b.b.b.b#", "#...................v#........#....#.............................#", "#....................#........#....#.............................#", "#...m...m...m...m....#........D....D.............................#", "#....................#........#....#.............................#", "W....................#........#....#.............................W", "#....................#........#....#b.b.b.b.b.b.b.b.b.b.b.b.b.b.b#", "###############################....###############################", "#.............................#....#.............................#", "#.xx....xx.%........x.......R.#....#........I...........I........#", "#.x...........................#....#.............................#", "W.............................D....D..............9..............W", "#........................xxx..#....#.............................#", "#....%........xx..R...%.......#....#h...........................h#", "#.............................#....#.............................#", "##W#####W#####W#####W#####W####DDDD###W#####W#####W#####W#####W###", "                                                                  "];
+      var GEN_WRITERS = ["##W###W###W###W###W###W###W###W###W###W###W###W###W###W###W###", "#..............#..............#t.t.t.t.t.t.t.#...............#", "Wy.............#y.............#..............#............f..W", "#..............#..............#..............#...............#", "#..............#..............#..............#......q........#", "#...mmmmmmmm...#...mmmmmmmm...#.......d......#...............#", "W..............#..............#..............#...............W", "#..............#..............#..............#...............#", "#..............#..............#..............#....{..........#", "#..............#..............#..............#.u.........p...#", "W..............#..............#t.t.t.t.t.t.t.#...............W", "#######D##############D##############D###############D########", "D............................................................#", "#............................................................#", "W#########D###################D###################D##########W", "#f......................................p#zZOicz.............#", "#..q...q...q...q...q...q...q...q...q...q.#...................#", "#........................................#..................u#", "W........................................#...................W", "#..q...q...q...q...q...q...q...q...q...q.#....m...m..........#", "#........................................#...................#", "#........................................#...................#", "W..q...q...q...q...q...q...q...q...q...q.#..............vv...W", "#f.......................................#...................#", "############D#################D###################D###########", "#............................................................D", "W............................................................W", "############D#################DD##################D###########", "#xx....................#p.........kk.p#fff.............fff...#", "#......................#..........kk..#......................#", "W......................#..............#......................W", "#...m...m...m...m......#..............#......................#", "#......................#..KKKKKK......#......q......q........#", "#......................#..............#......................#", "W......................#..............#......................W", "#......................#.u..........u.#......................#", "#x....................;#..............#.x%..................x#", "##W###W###W###W###W###W###W##DDDD#W###W###W###W###W###W###W###"];
+      var GEN_ROOF = ["########################################", "#......................................#", "#.p..................................H.#", "#....................................p.#", "#.......{..............................#", "#......................................#", "#........................}.............#", "#......................................#", "#......................................#", "#......................................#", "#......................................#", "#......................................#", "#......................................#", "#......................................#", "#############..........................#", "#...........#..........................#", "#.zZic.....C#..........................#", "#...........#..........................#", "#...........D..................#########", "#.....m.....#..................#.kk...##", "#...........#..................D.kk...##", "#.X.......u.#..................#....L.##", "#...........#..................#########", "########################################"];
+      var GEN_STAGE = ["##############################################################", "###############................................###############", "##yyIIIy......#................................#............##", "##............#................................#............##", "##............#................................#............##", "##............#................................#............##", "##...q...q....D................................#......$.....##", "##............#................................#............##", "##..........f.#................................D............##", "###############................................#............##", "#..............................................#............##", "#..............................................###############", "#.).................)....................)...................#", "#..........................................................).#", "#............................................................#", "#............................................................#", "#..]]]].]]]]]].]]]]]].]]]]...........[[[[[.[[[[[.[[[[[.[[[[..#", "#..H.....H.....H.....H.......................................#", "#.......................................I.....I.....I........#", "#............................................................#", "#............................................................#", "#............................................................#", "#.........o...................(..............................#", "#.................R..........................................#", "#............................................................#", "#............................................................#", "#.........................................0.....0............#", "#............................................................#", "#.........o...................`..............................#", "#.................R..........................................#", "#............................................................#", "#.....x%.....................................................#", "#............................................................#", "#............................................................#", "#............................................................#", "#............................................................#", "#.)........................................................).#", "#.......................m.x........x.........................#", "#............................................................#", "#############################DDDD#############################"];
       var TPL = {
         saloon: { name: 'The Saloon', sign: 'SALOON', line: 'Swinging doors, a long bar, a piano that plays itself badly and three card games nobody is winning.',
           areas: [{ name: 'Saloon Storeroom', c0: 11, r0: 1, c1: 15, r1: 4 }, { name: 'The Back Room', c0: 17, r0: 1, c1: 20, r1: 4 }], rugs: [[9, 6, 11, 13, 0x7a2a1e]], rows: [
@@ -1003,111 +993,301 @@
           '#####W#DD#W#####',
           'r==============r',
           'r==============r']
-        }
+        },
+        // ---- Catering Village: canvas tents ----
+        craft: { name: 'Craft Services', type: 'safe', wall: 'canvas', stripe: 0xc8302a, theme: 'tent', line: 'The craft services tent. Free food, hot coffee and a crew that has seen things.', rows: [
+          '##W######W######W##',
+          '#zzOicZ...........#',
+          '#.................#',
+          '#.m.m.m.....*.*.*.#',
+          '#.................#',
+          '#.m.m.m.....*.*.*.#',
+          '#.................#',
+          '#L......p........L#',
+          '#######DD##########']
+        },
+        bunk: { name: 'The Bunkhouse', type: 'safe', wall: 'canvas', stripe: 0x2a5a8a, theme: 'tent', line: 'Bunks for the crawlers, a washroom and a TV that only gets the show.',
+          areas: [{ name: 'Washroom', c0: 14, r0: 1, c1: 16, r1: 3, type: 'safe' }], rows: [
+          '###W#####W#####W##',
+          '#b.b.b.b.b.b.#X.X#',
+          '#............#...#',
+          '#............D..Q#',
+          '#..m....u.y..#####',
+          '#L...........ff.L#',
+          '########DD########']
+        },
+        shop: { name: 'Prop Workshop', type: 'safe', wall: 'canvas', stripe: 0x2a8a4a, theme: 'tent', line: 'Benches, tools and bins of spare parts. Build something stupid. The audience loves it.', rows: [
+          '##W####W####W##',
+          '#hh..MM...hhh.#',
+          '#.............#',
+          '#.!..!....x%x.#',
+          '#.............#',
+          '#L..!.....R..L#',
+          '######DD#######']
+        },
+        fx: { name: 'Special Effects', type: 'safe', wall: 'canvas', stripe: 0x7a3a9a, theme: 'tent', line: 'The effects department. Bottles, powders and a cauldron. Labels are optional.', rows: [
+          '##W####W####W##',
+          '#hhhh..ttt.hhh#',
+          '#.............#',
+          '#....J....!...#',
+          '#.............#',
+          '#L.x%.....R..L#',
+          '######DD#######']
+        },
+        ward: { name: 'Wardrobe Tent', type: 'safe', wall: 'canvas', stripe: 0xc8962a, theme: 'tent', line: 'Racks of costumes from every set on the lot, and a mirror that is nicer to you than it should be.', rows: [
+          '##W####W####W##',
+          '#CCCC...CCCC..#',
+          '#.............#',
+          '#.;;;..d..;;;.#',
+          '#.............#',
+          '#L..u......f.L#',
+          '######DD#######']
+        },
+        prod: { name: 'Production Office', type: 'safe', wall: 'canvas', stripe: 0x3a3a3a, theme: 'tent', line: 'Call sheets, clipboards and a whiteboard with today\'s shoots on it.', rows: [
+          '##W####W####W##',
+          '#ff..y....ff..#',
+          '#.............#',
+          '#.q.q...m.....#',
+          '#.............#',
+          '#L.q.q.....p.L#',
+          '######DD#######']
+        },
+        // ---- Maple Lane: sitcom houses ----
+        house: { name: 'Maple Lane House', wall: 'siding', theme: 'house', line: 'A sitcom living room. The couch faces where the camera would be, and the laugh track is coming from the walls.',
+          areas: [{ name: 'Kitchen', c0: 1, r0: 1, c1: 5, r1: 4 }, { name: 'Bathroom', c0: 1, r0: 6, c1: 5, r1: 8 }], rows: [
+          '####W####W#####',
+          '#ziOcZ#...kk..#',
+          '#.....#...kk..#',
+          '#..m..D.......#',
+          '#.....#.......#',
+          '##D####.......#',
+          '#.....#.......#',
+          '#.X.Q.#..u....#',
+          '#.i...#.......#',
+          '#######..l..p.#',
+          '#L............#',
+          '####W##DD##W###',
+          'r=============r']
+        },
+        houseUp: { name: 'Upstairs', wall: 'siding', theme: 'house', line: 'The upstairs the audience never sees. Two bedrooms and a bathroom with no door.',
+          areas: [{ name: 'Bedroom', c0: 1, r0: 1, c1: 3, r1: 4 }, { name: 'Kids\' Room', c0: 11, r0: 1, c1: 13, r1: 4 }], rows: [
+          '####W#####W####',
+          '#E.N#..kk.#E.N#',
+          '#...#..kk.#...#',
+          '#...D.....D...#',
+          '#.C.#.....#.C;#',
+          '#####.XQi.#####',
+          '    #######    ']
+        },
+        showrunner: { name: 'The Showrunner\'s House', type: 'boss', wall: 'siding', wallCol: 0xf0e6d0, theme: 'house', line: 'The biggest house on the street, with bleachers for a live studio audience right there in the living room.',
+          areas: [{ name: 'Showrunner\'s Kitchen', c0: 1, r0: 1, c1: 5, r1: 5, type: 'room' }, { name: 'Master Bedroom', c0: 21, r0: 1, c1: 27, r1: 5, type: 'room' }], rows: [
+          '#######W#######W#######W#####',
+          '#ziOcZ#nnnnnnnnnnnnn#E..N..t#',
+          '#.....#.............#.......#',
+          '#..m..D....u...u....D.......#',
+          '#.....#.............#..;..C.#',
+          '#L....#L...........L#L......#',
+          '#######W###DD####W###########',
+          'r===========================r']
+        },
+        // ---- the Jungle Set ----
+        shed: { name: 'The Groundskeeper\'s Shed', wall: 'timber', theme: 'store', line: 'A tool shed with every blade sharpened and every hose coiled. The Groundskeeper is very particular.', rows: [
+          '####W#W####',
+          '#!..hh..MM#',
+          '#.........#',
+          '#x%....{..#',
+          '#.........#',
+          '#L.......R#',
+          '####DD#####']
+        },
+        temple: { name: 'The Lost Temple (Set)', wall: 'stone', theme: 'moss', line: 'A jungle temple made of painted foam. The idol on the altar is the only real thing in it, and it is very heavy.', rows: [
+          '###  ####  ###',
+          '#............#',
+          '  ..|....|..  ',
+          '#............#',
+          '#.....AA.....#',
+          '#............#',
+          '  ..|....|..  ',
+          '#............#',
+          '####  ##  ####']
+        },
+        // ---- the big ones, drawn by tools_tplgen.py ----
+        manor: { name: 'Blackwood Manor', wall: 'manor', theme: 'manor', line: 'A haunted house set. Animatronics on timers, secret doors and a butler who is mostly hydraulics.', rows: GEN_MANOR,
+          areas: [{ name: 'The Kitchen', c0: 1, r0: 1, c1: 12, r1: 12 }, { name: 'The Ballroom', c0: 14, r0: 1, c1: 41, r1: 12, type: 'boss', line: 'A ballroom where the dancers are on a track. The Butler Unit is waiting by the punch bowl.' }, { name: 'The Study', c0: 43, r0: 1, c1: 54, r1: 5 },
+            { name: 'The Portrait Gallery', c0: 43, r0: 7, c1: 54, r1: 12 }, { name: 'The Library', c0: 1, r0: 14, c1: 20, r1: 26 }, { name: 'The Foyer', c0: 22, r0: 14, c1: 33, r1: 26 }, { name: 'The Dining Hall', c0: 35, r0: 14, c1: 54, r1: 26 }] },
+        manorUp: { name: 'Blackwood Manor, Upstairs', wall: 'manor', theme: 'manor', line: 'The upper floor. Every door creaks in a different key.', rows: GEN_MANORUP,
+          areas: [{ name: 'Master Bedroom', c0: 1, r0: 1, c1: 10, r1: 5 }, { name: 'The Nursery', c0: 12, r0: 1, c1: 21, r1: 5 }, { name: 'Upstairs Study', c0: 23, r0: 1, c1: 32, r1: 5 }, { name: 'Guest Room', c0: 34, r0: 1, c1: 43, r1: 5 }, { name: 'The Bathroom', c0: 45, r0: 1, c1: 54, r1: 5 },
+            { name: 'The Landing', c0: 1, r0: 7, c1: 54, r1: 9, type: 'corridor' }, { name: 'Servant\'s Room', c0: 1, r0: 11, c1: 10, r1: 15 }, { name: 'The Blue Room', c0: 12, r0: 11, c1: 21, r1: 15 }, { name: 'Attic Storage', c0: 23, r0: 11, c1: 32, r1: 15 },
+            { name: 'The Red Room', c0: 34, r0: 11, c1: 43, r1: 15 }, { name: 'The Widow\'s Room', c0: 45, r0: 11, c1: 54, r1: 15 }] },
+        ship: { name: 'Starship Valiant', wall: 'panel', theme: 'ship', line: 'A starship set. Foam walls, blinking panels and costume goblins who think they are a real crew.', rows: GEN_SHIP,
+          areas: [{ name: 'Main Corridor', c0: 31, r0: 9, c1: 34, r1: 35, type: 'corridor' }, { name: 'Cross Corridor', c0: 1, r0: 18, c1: 64, r1: 19, type: 'corridor' },
+            { name: 'The Bridge', c0: 22, r0: 1, c1: 43, r1: 8, type: 'boss', line: 'The bridge. Captain Zorr is in the big chair, and he has never once broken character.' }, { name: 'Briefing Room', c0: 1, r0: 1, c1: 20, r1: 8 }, { name: 'Science Lab', c0: 45, r0: 1, c1: 64, r1: 8 },
+            { name: 'Med Bay', c0: 1, r0: 10, c1: 14, r1: 16 }, { name: 'Captain\'s Quarters', c0: 16, r0: 10, c1: 29, r1: 16 }, { name: 'The Holodeck', c0: 36, r0: 10, c1: 49, r1: 16, theme: 'stage' }, { name: 'Transporter Room', c0: 51, r0: 10, c1: 64, r1: 16 },
+            { name: 'Mess Hall', c0: 1, r0: 21, c1: 20, r1: 27 }, { name: 'Rec Room', c0: 22, r0: 21, c1: 29, r1: 27 }, { name: 'Crew Quarters', c0: 36, r0: 21, c1: 64, r1: 27 }, { name: 'Cargo Hold', c0: 1, r0: 29, c1: 29, r1: 35 }, { name: 'Engine Room', c0: 36, r0: 29, c1: 64, r1: 35 }] },
+        writers: { name: 'The Writers\' Building', wall: 'plaster', theme: 'office', line: 'The writers are on strike. Picket signs, cold coffee and imps with opinions.', rows: GEN_WRITERS,
+          areas: [{ name: 'Writers\' Room A', c0: 1, r0: 1, c1: 14, r1: 10 }, { name: 'Writers\' Room B', c0: 16, r0: 1, c1: 29, r1: 10 }, { name: 'The Script Library', c0: 31, r0: 1, c1: 44, r1: 10 }, { name: 'Head Writer\'s Office', c0: 46, r0: 1, c1: 60, r1: 10 },
+            { name: 'Upper Hall', c0: 1, r0: 12, c1: 60, r1: 13, type: 'corridor' }, { name: 'The Cubicle Farm', c0: 1, r0: 15, c1: 40, r1: 23 }, { name: 'Writers\' Break Room', c0: 42, r0: 15, c1: 60, r1: 23 }, { name: 'Lower Hall', c0: 1, r0: 25, c1: 60, r1: 26, type: 'corridor' },
+            { name: 'Strike Headquarters', c0: 1, r0: 28, c1: 22, r1: 36 }, { name: 'The Lobby', c0: 24, r0: 28, c1: 37, r1: 36 }, { name: 'The Mailroom', c0: 39, r0: 28, c1: 60, r1: 36 }] },
+        roof: { name: 'The Penthouse Green', type: 'boss', wall: 'stone', theme: 'green', line: 'A rooftop putting green, mowed to a sixteenth of an inch. Do not step on it. Somebody is watching.', rows: GEN_ROOF,
+          areas: [{ name: 'Dermot\'s Clubhouse', c0: 1, r0: 15, c1: 11, r1: 22, type: 'room', theme: 'house' }, { name: 'Roof Access', c0: 32, r0: 19, c1: 37, r1: 21, type: 'room', theme: 'stage' }] },
+        stage: { name: 'Soundstage 9', type: 'boss', wall: 'stage', theme: 'stage', line: 'A cavernous stage, half a western street and half a starship. A crane in the middle. The Director is watching.', rows: GEN_STAGE,
+          areas: [{ name: 'Control Booth', c0: 2, r0: 2, c1: 13, r1: 8, type: 'room' }, { name: 'The Freight Elevator', c0: 48, r0: 2, c1: 59, r1: 10, type: 'stairs', line: 'A freight elevator to the floor below. It only runs when the Director says cut.' }] }
       };
       // stamp a template: (ox, oz) is the top-left of where it lands; rot turns the front: 0 south, 1 west, 2 north, 3 east
+      // Template letters (walls and floors): # wall · W window · D door · ? secret door · ] western flat · [ starship panel
+      //   . floor · = boardwalk · r railing · ~ water · | pillar · space: leave the ground as it is
+      // Old West: B bar · s stool · S bottle shelf · P piano · T table · G card table · K counter · x crate · o barrel · C cabinet
+      //   h shelf · d desk · e bed · j cell bars · V safe · F produce · n bench · A altar · H hitching rail · w trough · M weapon rack
+      //   ! workbench · a anvil · & forge · J cauldron · R barrel to search · % crate to search · k stairs · $ stairs to the next floor
+      // Modern: q desk with computer · f filing cabinet · m table and chairs · u couch · y TV or screen · l floor lamp · ; coat rack
+      //   z counter · Z fridge · O stove · i sink · c coffee machine · v vending machine · * free food · b bunk bed · E double bed
+      //   N nightstand · X toilet · Q shower · t bookcase · ^ fireplace · + chandelier · " portrait · p plant · L wall lamp
+      // Sets: I console · _ captain's chair · 0 transporter pad · 9 reactor · { riding mower · } flag on the green
+      //   ( camera crane · ) studio light · ` director's chair
       function stamp(T, ox, oz, rot, Z, o) {
         o = o || {};
-        var R = T.rows, h = R.length, w = R[0].length, i, j, c, p;
+        var R = T.rows, h = R.length, w = R[0].length, i, j, c, p, wsBase = T.wall || 'timber';
         R.forEach(function (row, k) { if (row.length !== w) throw new Error('template ' + T.name + ' row ' + k + ' is ' + row.length + ' wide, not ' + w); });
         function at(ci, rj) { return rot === 0 ? [ox + ci, oz + rj] : rot === 1 ? [ox + (h - 1 - rj), oz + ci] : rot === 2 ? [ox + (w - 1 - ci), oz + (h - 1 - rj)] : [ox + rj, oz + (w - 1 - ci)]; }
         var fv = [[0, 1], [-1, 0], [0, -1], [1, 0]][rot], frot = Math.atan2(fv[0], fv[1]);
-        var a = at(0, 0), b = at(w - 1, h - 1);
-        var rm = room({ name: T.name, type: o.type || 'room', theme: T.theme || 'store', line: T.line, x0: Math.min(a[0], b[0]), z0: Math.min(a[1], b[1]), x1: Math.max(a[0], b[0]), z1: Math.max(a[1], b[1]) }, Z);
-        var porch = room({ name: T.name + ' Porch', type: 'corridor', theme: 'porch', x0: rm.x0, z0: rm.z0, x1: rm.x1, z1: rm.z1, line: 'A boardwalk porch with a railing. Good for leaning on and watching the street.' }, Z);
-        var lastWall = -1; for (j = 0; j < h; j++) if (/D/.test(R[j])) lastWall = j;
+        var a = at(0, 0), b = at(w - 1, h - 1), bb = { x0: Math.min(a[0], b[0]), z0: Math.min(a[1], b[1]), x1: Math.max(a[0], b[0]), z1: Math.max(a[1], b[1]) };
+        var nm = o.name || T.name, theme = T.theme || 'store';
+        var rm = room({ name: nm, type: o.type || T.type || 'room', theme: theme, line: o.line || T.line, x0: bb.x0, z0: bb.z0, x1: bb.x1, z1: bb.z1 }, Z);
+        var porch = null; if (R.some(function (row) { return /=/.test(row); })) porch = room({ name: nm + ' Porch', type: 'corridor', theme: 'porch', x0: bb.x0, z0: bb.z0, x1: bb.x1, z1: bb.z1, line: 'A porch with a railing. Good for leaning on and watching the street.' }, Z);
+        var lastWall = -1; for (j = 0; j < h; j++) if (/D/.test(R[j]) && !/D/.test(R.slice(j + 1).join(''))) lastWall = j;
+        var col = o.wallCol || T.wallCol, extra = (col ? ':c=' + col.toString(16) : '') + (T.stripe ? ':s=' + T.stripe.toString(16) : '');
         // pass 1: walls, floors, doors
         for (j = 0; j < h; j++) for (i = 0; i < w; i++) {
           c = R[j].charAt(i); p = at(i, j); var x = p[0], z = p[1]; if (c === ' ' || !inb(x, z)) continue;
-          if (c === '#' || c === 'W') { g[z][x] = '#'; reg[z][x] = -1; wstyle[x + ',' + z] = (c === 'W' ? 'win' : 'timber') + (j === lastWall ? 'F' : ''); continue; }
+          if (c === '#' || c === 'W' || c === ']' || c === '[') {
+            g[z][x] = '#'; reg[z][x] = -1;
+            wstyle[x + ',' + z] = c === ']' ? 'timber:front' : c === '[' ? 'panel' : wsBase + (c === 'W' ? ':win' : '') + (j === lastWall && wsBase === 'timber' ? ':front' : '') + extra;
+            continue;
+          }
+          if (c === '?') { g[z][x] = 'H'; reg[z][x] = -1; wstyle[x + ',' + z] = wsBase + extra; continue; }
           if (c === 'D') { g[z][x] = 'D'; reg[z][x] = rm.id; continue; }
-          if (c === '=' || c === 'r' || (c === 'H' && j > lastWall)) { if (c !== 'H') { g[z][x] = '.'; reg[z][x] = porch.id; } continue; }
-          g[z][x] = '.'; reg[z][x] = rm.id;
+          if (c === '=' || c === 'r' || (c === 'H' && j > lastWall && lastWall >= 0)) { if (c !== 'H') { g[z][x] = '.'; reg[z][x] = porch ? porch.id : rm.id; } continue; }
+          reg[z][x] = rm.id;
+          g[z][x] = c === '~' ? '~' : c === '*' ? 'F' : c === '$' ? 'S' : c === '|' ? 'P' : c === 'X' ? 'X' : c === 'R' ? 'R' : c === '%' ? 'K' : c === 'J' ? 'q' : '.';
+          if (c === '$') rm.stairsDown = [x, z];
         }
+        var all = [rm];
         (T.areas || []).forEach(function (ar) { var q0 = at(ar.c0, ar.r0), q1 = at(ar.c1, ar.r1);
-          var sr = room({ name: ar.name, type: 'room', theme: T.theme || 'store', x0: Math.min(q0[0], q1[0]), z0: Math.min(q0[1], q1[1]), x1: Math.max(q0[0], q1[0]), z1: Math.max(q0[1], q1[1]) }, Z);
-          for (var zz2 = sr.z0; zz2 <= sr.z1; zz2++) for (var xx2 = sr.x0; xx2 <= sr.x1; xx2++) if (reg[zz2][xx2] === rm.id) reg[zz2][xx2] = sr.id; });
+          var sr = room({ name: ar.name, type: ar.type || o.type || T.type || 'room', theme: ar.theme || theme, line: ar.line, x0: Math.min(q0[0], q1[0]), z0: Math.min(q0[1], q1[1]), x1: Math.max(q0[0], q1[0]), z1: Math.max(q0[1], q1[1]) }, Z);
+          if (sr.type === 'room' && rm.type === 'boss' && !ar.type) sr.type = 'room';
+          for (var zz2 = sr.z0; zz2 <= sr.z1; zz2++) for (var xx2 = sr.x0; xx2 <= sr.x1; xx2++) if (reg[zz2][xx2] >= 0 && all.some(function (q) { return q.id === reg[zz2][xx2]; })) reg[zz2][xx2] = sr.id;
+          all.push(sr); });
         (T.rugs || []).forEach(function (ru) { var q0 = at(ru[0], ru[1]), q1 = at(ru[2], ru[3]), x0 = Math.min(q0[0], q1[0]), z0 = Math.min(q0[1], q1[1]), rw = Math.abs(q1[0] - q0[0]) + 1, rd = Math.abs(q1[1] - q0[1]) + 1;
           dec(x0 + (rw >> 1), z0 + (rd >> 1), '#rug', { w: rw, d: rd, col: ru[4] }); });
         // pass 2: furniture, now the walls are in so things can find the wall behind them
-        function same(x, z, ch2) { var q = null; for (var jj = 0; jj < h; jj++) for (var ii = 0; ii < w; ii++) { var pp = at(ii, jj); if (pp[0] === x && pp[1] === z) q = R[jj].charAt(ii); } return q === ch2; }
+        var tchar = {}; for (j = 0; j < h; j++) for (i = 0; i < w; i++) { p = at(i, j); tchar[p[0] + ',' + p[1]] = R[j].charAt(i); }
+        function same(x, z, ch2) { return tchar[x + ',' + z] === ch2; }
         function axis(x, z, ch2) { return same(x - 1, z, ch2) || same(x + 1, z, ch2) || g[z][x - 1] === '#' || g[z][x + 1] === '#' ? 'x' : 'z'; }
-        function chairsAround(x, z, m) { [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(function (q) { var cx = x + q[0], cz = z + q[1]; if (g[cz][cx] === '.' && !taken[cx + ',' + cz] && !nearDoor(cx, cz) && rnd() < 0.85) dec(cx, cz, m || 'Chair_1', { fit: 0.42, rot: Math.atan2(-q[0], -q[1]) + (rnd() - 0.5) * 0.5, dx: -q[0] * 0.18, dz: -q[1] * 0.18 }); }); }
+        function chairsAround(x, z, m, skip) { [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(function (q) { var cx = x + q[0], cz = z + q[1]; if (skip && same(cx, cz, skip)) return; if (g[cz][cx] === '.' && !taken[cx + ',' + cz] && !nearDoor(cx, cz) && !/[mTGqd]/.test(tchar[cx + ',' + cz] || '') && rnd() < 0.9) dec(cx, cz, m || 'Chair_1', { fit: 0.42, rot: Math.atan2(-q[0], -q[1]) + (rnd() - 0.5) * 0.3, dx: -q[0] * 0.18, dz: -q[1] * 0.18 }); }); }
+        function facing(wl) { return wl ? Math.atan2(-wl[0], -wl[1]) : frot; }
+        function hugOr(wl, opt) { return wl ? hug(wl, opt) : (function () { opt.rot = frot; return opt; })(); }
         var signDone = false;
         for (j = 0; j < h; j++) for (i = 0; i < w; i++) {
-          c = R[j].charAt(i); p = at(i, j); var x2 = p[0], z2 = p[1], wl = wallOf(x2, z2); if (!inb(x2, z2)) continue;
-          var face = wl ? Math.atan2(-wl[0], -wl[1]) : frot;
+          c = R[j].charAt(i); p = at(i, j); var x2 = p[0], z2 = p[1]; if (!inb(x2, z2)) continue;
+          var wl = wallOf(x2, z2), face = facing(wl);
           switch (c) {
             case 'B': F(x2, z2, 'kitchenBar', 0.98, frot, 'Bar'); break;
             case 'K': F(x2, z2, 'kitchenBar', 0.98, frot, 'Counter'); break;
             case 's': dec(x2, z2, 'stoolBar', { fit: 0.3, rot: rnd() }); break;
-            case 'S': obj(x2, z2, rnd() < 0.7 ? 'Shelf_Small_Bottles' : 'Shelf_Simple', wl ? hug(wl, { fit: 0.95 }) : { fit: 0.95, rot: frot }, 'Bottle shelf'); break;
+            case 'S': obj(x2, z2, rnd() < 0.7 ? 'Shelf_Small_Bottles' : 'Shelf_Simple', hugOr(wl, { fit: 0.95 }), 'Bottle shelf'); break;
             case 'P': obj(x2, z2, '#piano', { rot: face, dx: wl ? wl[0] * 0.15 : 0, dz: wl ? wl[1] * 0.15 : 0 }, 'Piano'); dec(x2 - (wl ? wl[0] : 0), z2 - (wl ? wl[1] : 0), 'Stool', { fit: 0.3 }); break;
             case 'T': F(x2, z2, 'tableRound', 0.9, 0, 'Table'); chairsAround(x2, z2); break;
             case 'G': obj(x2, z2, '#felt', {}, 'Card table'); chairsAround(x2, z2); if (rnd() < 0.6) dec(x2, z2, 'Coin_Pile', { y: 0.76, fit: 0.18, dx: 0.12 }); break;
             case 'k': { // one staircase across the whole block of k tiles, rising toward the back
               var ks = [], kq = [[i, j]], seenK = {}; while (kq.length) { var kc = kq.pop(), kk = kc[0] + ',' + kc[1]; if (seenK[kk] || kc[0] < 0 || kc[1] < 0 || kc[0] >= w || kc[1] >= h || R[kc[1]].charAt(kc[0]) !== 'k') continue; seenK[kk] = 1; ks.push(kc); kq.push([kc[0] + 1, kc[1]], [kc[0] - 1, kc[1]], [kc[0], kc[1] + 1], [kc[0], kc[1] - 1]); }
               var first = ks.reduce(function (m, q) { return q[1] < m[1] || (q[1] === m[1] && q[0] < m[0]) ? q : m; }, ks[0]);
-              var kw = {}; ks.forEach(function (q) { var pp = at(q[0], q[1]); kw[pp[0] + ',' + pp[1]] = 1; if (!(pp[0] === x2 && pp[1] === z2)) {} });
               if (first[0] !== i || first[1] !== j) { obj(x2, z2, '#none', {}, 'Stairs'); break; }
               var cs = ks.map(function (q) { return at(q[0], q[1]); }), kx0 = Math.min.apply(null, cs.map(function (q) { return q[0]; })), kx1 = Math.max.apply(null, cs.map(function (q) { return q[0]; })), kz0 = Math.min.apply(null, cs.map(function (q) { return q[1]; })), kz1 = Math.max.apply(null, cs.map(function (q) { return q[1]; }));
               var cols = ks.map(function (q) { return q[0]; }), rowsK = ks.map(function (q) { return q[1]; }), sw = Math.max.apply(null, cols) - Math.min.apply(null, cols) + 1, sd = Math.max.apply(null, rowsK) - Math.min.apply(null, rowsK) + 1;
+              // rise toward the template's back unless the stairs sit against a side wall
               obj(x2, z2, '#stairs', { rot: frot, w: sw, d: sd, dx: (kx0 + kx1) / 2 - x2, dz: (kz0 + kz1) / 2 - z2 }, 'Stairs'); rm.stairsT = cs; break; }
-            case 'L': if (wl) dec(x2, z2, 'Lantern_Wall', { fit: 0.32, rot: Math.atan2(-wl[0], -wl[1]), dx: wl[0] * 0.4, dz: wl[1] * 0.4, y: 1.0, hang: true, ns: true }); break;
-            case 'x': obj(x2, z2, 'Crate_Wooden', { fit: 0.75, rot: rnd() * 0.5 }, 'Crate'); break;
+            case 'L': if (wl) dec(x2, z2, wsBase === 'plaster' || wsBase === 'siding' || wsBase === 'panel' || wsBase === 'canvas' ? 'lampWall' : 'Lantern_Wall', { fit: 0.32, rot: Math.atan2(-wl[0], -wl[1]), dx: wl[0] * 0.4, dz: wl[1] * 0.4, y: 1.0, hang: true, ns: true }); break;
+            case 'x': obj(x2, z2, wsBase === 'panel' ? 'Crate_Metal' : 'Crate_Wooden', { fit: 0.75, rot: rnd() * 0.5 }, 'Crate'); break;
             case 'o': obj(x2, z2, 'Barrel', { fit: 0.62, rot: rnd() * 6 }, 'Barrel'); break;
-            case 'C': obj(x2, z2, 'Cabinet', wl ? hug(wl, { fit: 0.8 }) : { fit: 0.8, rot: frot }, 'Cabinet'); break;
-            case 'h': obj(x2, z2, pick(['Shelf_Simple', 'Shelf_Small_Bottles', 'Bookcase_2']), wl ? hug(wl, { fit: 0.95 }) : { fit: 0.95, rot: frot }, 'Shelf'); break;
+            case 'C': obj(x2, z2, wsBase === 'siding' || wsBase === 'plaster' ? 'bookcaseClosedWide' : 'Cabinet', hugOr(wl, { fit: 0.8 }), 'Cabinet'); break;
+            case 'h': obj(x2, z2, pick(['Shelf_Simple', 'Shelf_Small_Bottles', 'Bookcase_2']), hugOr(wl, { fit: 0.95 }), 'Shelf'); break;
+            case 't': obj(x2, z2, 'Bookcase_2', hugOr(wl, { fit: 0.95 }), 'Bookcase'); break;
             case 'd': obj(x2, z2, 'Table_Large', { fit: 0.95, rot: frot }, 'Desk'); onTable(x2, z2, [pick(['Scroll_1', 'Book_Stack_1', 'Candle_1']), 'Mug']); break;
-            case 'e': obj(x2, z2, 'Bed_Twin1', wl ? hug(wl, { fit: 0.9 }) : { fit: 0.9 }, 'Bed'); break;
+            case 'e': obj(x2, z2, wsBase === 'panel' ? 'bedSingle' : 'Bed_Twin1', hugOr(wl, { fit: 0.9 }), 'Bed'); break;
+            case 'E': obj(x2, z2, 'bedDouble', hugOr(wl, { fit: 1.0 }), 'Bed'); break;
+            case 'N': dec(x2, z2, 'sideTableDrawers', wl ? hug(wl, { fit: 0.42 }) : { fit: 0.42 }); break;
+            case 'b': obj(x2, z2, 'bedBunk', hugOr(wl, { fit: 0.95 }), 'Bunk bed'); break;
             case 'j': obj(x2, z2, '#bars', { ax: axis(x2, z2, 'j') }, 'Cell bars'); break;
-            case 'V': obj(x2, z2, 'Chest_Wood', wl ? hug(wl, { fit: 0.7 }) : { fit: 0.7 }, 'Safe'); break;
+            case 'V': obj(x2, z2, 'Chest_Wood', hugOr(wl, { fit: 0.7 }), 'Safe'); break;
             case 'F': obj(x2, z2, pick(['FarmCrate_Apple', 'FarmCrate_Carrot', 'Barrel_Apples']), { fit: 0.55, rot: rnd() * 0.6 }, 'Produce'); break;
-            case 'p': dec(x2, z2, pick(['pottedPlant', 'Plant_1']), { fit: 0.45, rot: rnd() * 6 }); break;
-            case 'n': obj(x2, z2, 'Bench', { fit: 1.0, rot: axis(x2, z2, 'n') === 'x' ? 0 : Math.PI / 2 }, T.name === 'The Chapel' ? 'Pew' : 'Bench'); break;
+            case 'p': dec(x2, z2, pick(['pottedPlant', 'plantSmall2', 'Plant_1']), { fit: 0.45, rot: rnd() * 6 }); break;
+            case 'n': obj(x2, z2, 'Bench', { fit: 1.0, rot: axis(x2, z2, 'n') === 'x' ? 0 : Math.PI / 2 }, /Chapel/.test(nm) ? 'Pew' : /Showrunner/.test(nm) ? 'Audience bleachers' : 'Bench'); break;
             case 'A': obj(x2, z2, 'Table_Large', { fit: 0.95, rot: frot }, 'Altar'); dec(x2, z2, 'CandleStick_Triple', { y: TOP, fit: 0.3 }); break;
-            case 'r': obj(x2, z2, '#rail', { ax: axis(x2, z2, 'r') }, 'Railing'); break;
+            case 'r': obj(x2, z2, '#rail', { ax: axis(x2, z2, 'r'), col: wsBase === 'siding' ? 0xf4f0e6 : undefined }, 'Railing'); break;
             case 'H': if (freeT(x2, z2)) obj(x2, z2, '#hitch', { ax: rot === 1 || rot === 3 ? 'z' : 'x' }, 'Hitching rail'); break;
             case 'w': obj(x2, z2, '#trough', { ax: axis(x2, z2, 'w') }, 'Water trough'); break;
+            case 'M': obj(x2, z2, 'WeaponStand', hugOr(wl, { fit: 1.0 }), 'Weapon rack'); break;
+            case '!': obj(x2, z2, 'Workbench', { fit: 1.2, rot: face }, 'Workbench'); break;
+            case 'a': obj(x2, z2, 'Anvil', { fit: 0.7, rot: 0.3 }, 'Anvil'); break;
+            case '&': obj(x2, z2, '#forge', { rot: face }, 'Forge'); break;
+            case 'q': { var dr = wl ? [-wl[0], -wl[1]] : fv, drot = Math.atan2(dr[0], dr[1]);
+              if (F(x2, z2, 'desk', 0.98, drot, 'Desk')) { onTop(x2, z2, 'computerScreen', { m: 'desk', fit: 0.98 }, { fit: 0.42, rot: drot, dx: -dr[0] * 0.1, dz: -dr[1] * 0.1 }); onTop(x2, z2, 'computerKeyboard', { m: 'desk', fit: 0.98 }, { fit: 0.34, rot: drot, dx: dr[0] * 0.12, dz: dr[1] * 0.12 });
+                var chx = x2 + dr[0], chz = z2 + dr[1]; if (g[chz] && g[chz][chx] === '.' && !taken[chx + ',' + chz]) dec(chx, chz, 'chairDesk', { fit: 0.5, rot: drot + Math.PI + (rnd() - 0.5) * 0.6, dx: -dr[0] * 0.18, dz: -dr[1] * 0.18 }); } break; }
+            case 'f': F(x2, z2, 'bookcaseClosedWide', 0.95, face, 'Filing cabinet', wl ? { dx: wl[0] * 0.22, dz: wl[1] * 0.22 } : {}); break;
+            case 'm': if (F(x2, z2, 'table', 0.98, 0, 'Table')) { chairsAround(x2, z2, 'chairCushion', 'm'); if (rnd() < 0.4) onTop(x2, z2, pick(['mug', 'books', 'laptop']), { m: 'table', fit: 0.98 }, { fit: 0.25, rot: rnd() * 6 }); } break;
+            case 'u': F(x2, z2, 'loungeSofa', 0.98, face, 'Couch', wl ? { dx: wl[0] * 0.1, dz: wl[1] * 0.1 } : {}); break;
+            case 'y': if (F(x2, z2, 'cabinetTelevision', 0.95, face, /Bridge/.test(nm) || wsBase === 'panel' ? 'Viewscreen' : 'TV', wl ? { dx: wl[0] * 0.24, dz: wl[1] * 0.24 } : {})) dec(x2, z2, 'televisionModern', { on: { m: 'cabinetTelevision', fit: 0.95 }, fit: 0.85, rot: face, dx: wl ? wl[0] * 0.28 : 0, dz: wl ? wl[1] * 0.28 : 0 }); break;
+            case 'l': dec(x2, z2, 'lampRoundFloor', { fit: 0.4 }); break;
+            case ';': dec(x2, z2, 'coatRackStanding', { fit: 0.42, rot: rnd() }); break;
+            case 'z': F(x2, z2, 'kitchenCabinet', 0.98, face, 'Counter', wl ? { dx: wl[0] * 0.06, dz: wl[1] * 0.06 } : {}); break;
+            case 'Z': F(x2, z2, 'kitchenFridgeLarge', 0.9, face, 'Fridge', wl ? { dx: wl[0] * 0.1, dz: wl[1] * 0.1 } : {}); break;
+            case 'O': F(x2, z2, 'kitchenStove', 0.98, face, 'Stove', wl ? { dx: wl[0] * 0.06, dz: wl[1] * 0.06 } : {}); break;
+            case 'i': F(x2, z2, wsBase === 'siding' && /Bathroom|Upstairs/.test(nm) ? 'bathroomSink' : 'kitchenSink', 0.8, face, 'Sink', wl ? { dx: wl[0] * 0.1, dz: wl[1] * 0.1 } : {}); break;
+            case 'c': if (F(x2, z2, 'kitchenCabinet', 0.98, face, 'Coffee machine', wl ? { dx: wl[0] * 0.06, dz: wl[1] * 0.06 } : {})) dec(x2, z2, 'kitchenCoffeeMachine', { on: { m: 'kitchenCabinet', fit: 0.98 }, fit: 0.32, rot: face }); break;
+            case 'v': F(x2, z2, 'kitchenFridgeLarge', 0.9, face, 'Vending machine', wl ? { dx: wl[0] * 0.1, dz: wl[1] * 0.1 } : {}); break;
+            case 'Q': F(x2, z2, 'shower', 0.9, face, 'Shower'); break;
+            case '^': obj(x2, z2, '#hearth', { rot: face, dx: wl ? wl[0] * 0.2 : 0, dz: wl ? wl[1] * 0.2 : 0 }, 'Fireplace'); break;
+            case '+': dec(x2, z2, 'Chandelier', { y: 2.3, fit: 1.2, hang: true, ns: true }); break;
+            case '"': if (wl) dec(x2, z2, '#portrait', { rot: Math.atan2(-wl[0], -wl[1]), dx: wl[0] * 0.42, dz: wl[1] * 0.42, seed: i * 7 + j }); break;
+            case 'I': if (F(x2, z2, 'kitchenBar', 0.98, face, 'Console')) dec(x2, z2, 'computerScreen', { on: { m: 'kitchenBar', fit: 0.98 }, fit: 0.42, rot: face + Math.PI }); break;
+            case '_': obj(x2, z2, 'loungeChair', { fit: 0.75, rot: frot + Math.PI }, 'Captain\'s chair'); break;
+            case '0': dec(x2, z2, '#pad', { ns: true }); break;
+            case '9': obj(x2, z2, '#reactor', {}, 'Warp core'); for (var rk = 0; rk < 4; rk++) { var rx3 = x2 + D4[rk][0], rz3 = z2 + D4[rk][1]; if (g[rz3][rx3] === '.') { g[rz3][rx3] = 'o'; dname[rx3 + ',' + rz3] = 'Warp core'; } } break;
+            case '{': obj(x2, z2, '#mower', { rot: rnd() * 6 }, 'Riding mower'); break;
+            case '}': dec(x2, z2, '#flag', { ns: true }); break;
+            case '(': obj(x2, z2, '#crane', { rot: 0.6 }, 'Camera crane'); break;
+            case ')': obj(x2, z2, '#klieg', { rot: Math.atan2(((bb.x0 + bb.x1) / 2) - x2, ((bb.z0 + bb.z1) / 2) - z2) }, 'Studio light'); break;
+            case '`': obj(x2, z2, '#dchair', { rot: frot + Math.PI }, 'Director\'s chair'); break;
             case 'D': if (!signDone && j === lastWall && T.sign) { signDone = true; dec(x2, z2, '#sign', { text: T.sign, rot: frot, dx: fv[0] * 0.2 + (rot === 0 ? 0.5 : rot === 2 ? -0.5 : 0), dz: fv[1] * 0.2 + (rot === 1 ? 0.5 : rot === 3 ? -0.5 : 0), y: 1.72 }); } break;
           }
         }
-        return { room: rm, porch: porch };
+        return { room: rm, porch: porch, all: all, box: bb };
       }
-
       // ---------- streets ----------
       var ST = Zn({ name: 'The Backlot Streets', theme: 'lot', line: 'Studio streets between the sets. Golf carts, cables, cones and patrols. Keep moving.' });
       var nDrive = area({ name: 'Studio Drive North', type: 'corridor', x0: 3, z0: 56, x1: 236, z1: 62 }, ST);
       var sDrive = area({ name: 'Studio Drive South', type: 'corridor', x0: 3, z0: 160, x1: 236, z1: 166 }, ST);
       var loop = [area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 66, x1: 176, z1: 72 }, ST), area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 152, x1: 176, z1: 158 }, ST),
         area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 73, x1: 68, z1: 151 }, ST), area({ name: 'The Backlot Loop', type: 'corridor', x0: 170, z0: 73, x1: 176, z1: 151 }, ST)];
-      var dRow = area({ name: 'Director\'s Row', type: 'corridor', x0: 116, z0: 46, x1: 121, z1: 65, line: 'A short, important street. Every parking space has a name on it, and every name is the Director\'s.' }, ST);
-      var sSpur = area({ name: 'Studio Drive South', type: 'corridor', x0: 116, z0: 159, x1: 121, z1: 159 }, ST);
-      var sAve = area({ name: 'Maple Avenue', type: 'corridor', x0: 116, z0: 167, x1: 121, z1: 213 }, ST);
+      area({ name: 'Director\'s Row', type: 'corridor', x0: 116, z0: 46, x1: 121, z1: 65, line: 'A short, important street. Every parking space has a name on it, and every name is the Director\'s.' }, ST);
+      area({ name: 'Studio Drive South', type: 'corridor', x0: 116, z0: 159, x1: 121, z1: 159 }, ST);
+      area({ name: 'Maple Avenue', type: 'corridor', x0: 116, z0: 167, x1: 121, z1: 213 }, ST);
       area({ name: 'Frontier Spur', type: 'corridor', x0: 57, z0: 108, x1: 61, z1: 113 }, ST);
       area({ name: 'Jungle Spur', type: 'corridor', x0: 177, z0: 108, x1: 181, z1: 113 }, ST);
 
-      // ---------- Catering Village: the one safe hub ----------
+      // ---------- Catering Village: the one safe hub, a ring of canvas tents ----------
       var CV = Zn({ name: 'Catering Village', theme: 'lawn', line: 'Tents, string lights and the smell of craft services. No fighting of any kind. The System means it.' });
       var vil = area({ name: 'Catering Village', type: 'safe', x0: 76, z0: 80, x1: 162, z1: 144 }, CV);
       [[117, 73, 120, 79], [117, 145, 120, 151], [69, 110, 75, 113], [163, 110, 169, 113]].forEach(function (q) { area({ name: 'Village Gate', type: 'safe', theme: 'lot', x0: q[0], z0: q[1], x1: q[2], z1: q[3] }, CV); });
-      // paths through the village
       area({ name: 'Village Path', type: 'safe', theme: 'lot', x0: 76, z0: 110, x1: 162, z1: 113, line: 'The main path through Catering Village.' }, CV); area({ name: 'Village Path', type: 'safe', theme: 'lot', x0: 117, z0: 80, x1: 120, z1: 144 }, CV);
-      var cs = hut({ name: 'Craft Services', type: 'safe', theme: 'tent', style: 'safehouse', line: 'The craft services tent. Free food, hot coffee and a crew that has seen things.', x0: 82, z0: 84, x1: 104, z1: 97 }, CV, [[93, 97]]);
-      for (xx = 85; xx <= 90; xx++) put(xx, 85, 'F', cs.id);
-      var bunks = hut({ name: 'The Bunkhouse', type: 'safe', theme: 'tent', style: 'greenroom', line: 'Bunks for the crawlers, lockers and a TV that only gets the show.', x0: 134, z0: 84, x1: 156, z1: 97 }, CV, [[145, 97]]);
-      var shop = hut({ name: 'Prop Workshop', type: 'safe', theme: 'tent', style: 'shop', line: 'Benches, tools and bins of spare parts. Build something stupid. The audience loves it.', x0: 82, z0: 127, x1: 98, z1: 139 }, CV, [[90, 127]]);
-      var alch = hut({ name: 'Special Effects', type: 'safe', theme: 'tent', style: 'storage', line: 'The effects department. Bottles, powders and a cauldron. Labels are optional.', x0: 140, z0: 127, x1: 156, z1: 139 }, CV, [[148, 127]]);
-      var ward = hut({ name: 'Wardrobe Tent', type: 'safe', theme: 'tent', style: 'wardrobe', line: 'Racks of costumes from every set on the lot.', x0: 101, z0: 129, x1: 115, z1: 139 }, CV, [[108, 129]]);
-      var prod = hut({ name: 'Production Office', type: 'safe', theme: 'tent', style: 'office', line: 'Call sheets, clipboards and a whiteboard with the day\'s shoots on it.', x0: 122, z0: 129, x1: 136, z1: 139 }, CV, [[129, 129]]);
-      put(148, 133, 'q', alch.id);
+      stamp(TPL.craft, 84, 88, 0, CV); stamp(TPL.bunk, 132, 90, 0, CV);
+      stamp(TPL.shop, 82, 121, 2, CV); stamp(TPL.ward, 99, 121, 2, CV); stamp(TPL.prod, 123, 121, 2, CV); stamp(TPL.fx, 141, 121, 2, CV);
       put(159, 82, 'X', vil.id); put(160, 82, 'X', vil.id); put(161, 82, 'X', vil.id);
       var start2 = { x: 119, z: 116 }; put(start2.x, start2.z, '@', vil.id);
       spawns.push({ kind: 'imp', npc: 'pip', x: 121, z: 116, room: vil.id }); taken['121,116'] = 1;
-      // picnic tables, the vending machine, lights, trees round the edge
-      [[100, 104], [108, 104], [130, 104], [138, 104], [100, 120], [138, 120]].forEach(function (p) { if (freeT(p[0], p[1], vil)) diningSet(p[0], p[1], vil, true); });
-      F(112, 106, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine'); F(113, 106, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine');
-      obj(124, 106, 'BookStand', { h: 1.2 }, 'Call sheet board');
+      [[100, 104], [108, 104], [130, 104], [138, 104], [130, 117], [138, 117], [100, 117]].forEach(function (p) { if (freeT(p[0], p[1], vil)) diningSet(p[0], p[1], vil, true); });
+      F(112, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine'); F(113, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine');
+      obj(124, 107, 'BookStand', { h: 1.2 }, 'Call sheet board');
       for (xx = 80; xx <= 158; xx += 6) { if (freeT(xx, 108, vil)) obj(xx, 108, 'lampSquareFloor', { h: 1.5 }, 'Lamp'); if (freeT(xx, 115, vil)) obj(xx, 115, 'lampSquareFloor', { h: 1.5 }, 'Lamp'); }
       for (k = 0; k < 40; k++) { var ex = rnd() < 0.5 ? ri(77, 80) : ri(158, 161), ez = ri(81, 143); if (freeT(ex, ez, vil)) obj(ex, ez, pick(['CommonTree_1', 'CommonTree_3']), { fit: 2.0 + rnd(), rot: rnd() * 6 }, 'Tree'); }
       greens(vil, 70, ['Bush_Common_Flowers', 'Flower_4_Group', 'Clover_1', 'Grass_Common_Short']);
@@ -1129,7 +1309,7 @@
       built.push(stamp(TPL.chapel, 37, 131, 1, FT));
       built.forEach(function (b) { if (b.room.name !== 'The Chapel' && b.room.name !== 'Train Depot') pack(b.room, 'puglin', ri(1, 3), 0, 'Stunt kobold'); });
       // upper floors live in the spare strip along the bottom of the map; the stairs take you there and back
-      var salUp = stamp(TPL.saloonUp, 9, 218, 0, FT), hotUp = stamp(TPL.hotelUp, 36, 218, 0, FT);
+      var salUp = stamp(TPL.saloonUp, 4, 244, 0, FT), hotUp = stamp(TPL.hotelUp, 32, 244, 0, FT); roofRing(salUp.box, 3); roofRing(hotUp.box, 3);
       upstairs.push([built[1].room, salUp.room, 'Go upstairs', 'Go back downstairs'], [built[5].room, hotUp.room, 'Go upstairs', 'Go back downstairs']);
       pack(salUp.room, 'puglin', 2, 0, 'Stunt kobold'); pack(hotUp.room, 'puglin', 2, 0, 'Stunt kobold');
       // the railroad along the north edge, with a train waiting (a gap where the road crosses)
@@ -1158,71 +1338,81 @@
       greens(ftown, 40, ['Grass_Wispy_Short', 'Pebble_Round_1', 'Pebble_Round_3', 'Grass_Wispy_Tall']);
       pack(ftown, 'puglin', 4, 0, 'Stunt kobold');
 
-      // ---------- The Writers' Building (northwest): offices on strike, Dermot's green at the end of the hall ----------
-      var WB = Zn({ name: 'The Writers\' Building', theme: 'office', line: 'The writers are on strike. Picket signs, cold coffee and imps with opinions.' });
-      var plaza = area({ name: 'Picket Line', type: 'corridor', theme: 'lot', x0: 8, z0: 46, x1: 74, z1: 52, line: 'A picket line outside the Writers\' Building. The signs are very well written.' }, WB);
-      area({ name: 'Picket Line', type: 'corridor', theme: 'lot', x0: 38, z0: 53, x1: 42, z1: 55 }, WB);
-      var wb = wing(WB, 9, 8, 54, 44, 4, ['Writers\' Room A', 'Writers\' Room B', 'The Script Library', 'Break Room', 'Notes Office', 'Coverage Desk', 'Strike Headquarters', 'Copy Room'], 'office', 'Writers\' Hall');
-      wb.rooms.forEach(function (r, j) { r.style = ['meeting', 'meeting', 'office', 'break', 'office', 'office', 'meeting', 'copy'][j]; pack(r, 'imp', ri(1, 3), 0, 'Striking writer'); });
-      area({ name: 'Picket Line', type: 'corridor', theme: 'lot', x0: 3, z0: 6, x1: 8, z1: 45 }, WB); put(9, wb.mid, 'D', wb.hall.id);
-      var greenR = hut({ name: 'The Penthouse Green', type: 'boss', theme: 'green', line: 'A rooftop putting green, mowed to a sixteenth of an inch. Do not step on it. Somebody is watching.', x0: 54, z0: 8, x1: 72, z1: 44 }, WB, [[54, wb.mid]]);
-      obj(66, 20, 'Prop_MetalFence_Ornament', { fit: 0.4 }, 'The flag'); obj(57, 40, 'Workbench', { fit: 1.2 }, 'Riding mower'); obj(70, 10, 'Barrel_Holder', { fit: 0.8 }, 'Golf bag');
-      spawnIn(greenR, 'clerk', { tier: 3, name: 'Dermot Stoker', boss: true });
-      for (xx = 10; xx <= 72; xx += 7) if (freeT(xx, 47, plaza)) dec(xx, 47, 'Banner_2', { fit: 0.9, y: 0.2, ns: true });
+      // ---------- The Writers' Building (northwest): offices on strike, the Penthouse Green on the roof ----------
+      var WB = Zn({ name: 'The Writers\' Building', theme: 'lot', line: 'The writers are on strike. Picket signs, cold coffee and imps with opinions.' });
+      var plaza = area({ name: 'Picket Line', type: 'corridor', x0: 8, z0: 45, x1: 74, z1: 52, line: 'A picket line outside the Writers\' Building. The signs are very well written.' }, WB);
+      area({ name: 'Picket Line', type: 'corridor', x0: 38, z0: 53, x1: 42, z1: 55 }, WB); area({ name: 'Picket Line', type: 'corridor', x0: 3, z0: 6, x1: 8, z1: 52 }, WB); area({ name: 'Loading Yard', type: 'corridor', x0: 71, z0: 6, x1: 74, z1: 44 }, WB);
+      var wb = stamp(TPL.writers, 9, 7, 0, WB);
+      var roof = stamp(TPL.roof, 4, 258, 0, WB); roofRing(roof.box, 3);
+      upstairs.push([wb.room, roof.room, 'Take the stairs to the roof', 'Go back down']);
+      roomsOf(wb, /Writers|Cubicle|Strike|Break|Mailroom|Library/).forEach(function (r) { pack(r, 'imp', ri(1, 3), 0, 'Striking writer'); });
+      spawnIn(roof.room, 'clerk', { tier: 3, name: 'Dermot Stoker', boss: true });
+      for (xx = 10; xx <= 72; xx += 6) if (freeT(xx, 49, plaza)) obj(xx, 49, '#picket', { rot: rnd() - 0.5 }, 'Picket sign');
       pack(plaza, 'imp', 3, 1, 'Picketing writer');
 
-      // ---------- Soundstage 9 (north): the gate ----------
+      // ---------- Soundstage 9 (north): the gate, up Director's Row ----------
       var SS = Zn({ name: 'Soundstage 9', theme: 'stage', line: 'The biggest stage on the lot. The Director is up on the crane, and the sets change when he says so.' });
-      var stage = hut({ name: 'Soundstage 9', type: 'boss', theme: 'stage', x0: 88, z0: 6, x1: 150, z1: 46, line: 'A cavernous stage, half a western street and half a starship corridor. A crane in the middle. The Director is watching.' }, SS, [[117, 46], [120, 46]]); put(118, 46, '.', stage.id); put(119, 46, '.', stage.id);
-      var stairR2 = hut({ name: 'The Freight Elevator', type: 'stairs', theme: 'stage', x0: 136, z0: 7, x1: 149, z1: 17, line: 'A freight elevator to the floor below. It only runs when the Director says cut.' }, SS, [[136, 12]]);
-      put(143, 12, 'S', stairR2.id); var stairs2 = { x: 143, z: 12 };
-      obj(119, 24, 'Prop_Support', { h: 4.5 }, 'Camera crane'); spawnIn(stage, 'imp', { tier: 3, name: 'The Director', boss: true });
-      for (zz = 10; zz <= 40; zz += 3) { if (freeT(96, zz, stage)) obj(96, zz, 'Prop_WoodenFence_Extension1', { fit: 1.0, rot: Math.PI / 2 }, 'Set flat'); if (freeT(142, zz + 8, stage)) obj(142, zz + 8, 'Crate_Metal', { fit: 0.9 }, 'Equipment case'); }
-      lamps(stage, 9); pack(stage, 'puglin', 3, 2, 'Stage crew');
+      var stg = stamp(TPL.stage, 88, 6, 0, SS);
+      var stairs2 = stg.room.stairsDown ? { x: stg.room.stairsDown[0], z: stg.room.stairsDown[1] } : { x: 142, z: 12 };
+      spawnIn(stg.room, 'imp', { tier: 3, name: 'The Director', boss: true }); pack(stg.room, 'puglin', 4, 2, 'Stage crew');
 
       // ---------- Starship Valiant (northeast) ----------
-      var SV = Zn({ name: 'Starship Valiant', theme: 'ship', line: 'A starship set. Foam walls, blinking panels and costume goblins who think they are a real crew.' });
-      var hangar = area({ name: 'Hangar Apron', type: 'corridor', theme: 'lot', x0: 165, z0: 46, x1: 234, z1: 52 }, SV); area({ name: 'Hangar Apron', type: 'corridor', theme: 'lot', x0: 198, z0: 53, x1: 202, z1: 55 }, SV);
-      var sv = wing(SV, 168, 8, 232, 44, 5, ['The Bridge', 'Captain\'s Quarters', 'Science Lab', 'Mess Hall', 'Holodeck', 'Engine Room', 'Cargo Hold', 'Med Bay', 'Crew Quarters', 'Airlock'], 'ship', 'Main Corridor');
-      sv.rooms.forEach(function (r, j) { r.style = ['control', 'lounge', 'medical', 'break', 'stage', 'shop', 'storage', 'medical', 'bunk', 'storage'][j]; pack(r, 'clerk', ri(1, 3), 0, 'Costume goblin'); });
-      area({ name: 'Hangar Apron', type: 'corridor', theme: 'lot', x0: 233, z0: 6, x1: 236, z1: 45 }, SV); put(232, sv.mid, 'D', sv.hall.id); put(168, sv.mid, 'D', sv.hall.id); area({ name: 'Hangar Apron', type: 'corridor', theme: 'lot', x0: 165, z0: 6, x1: 167, z1: 45 }, SV);
-      sv.rooms[0].type = 'boss'; sv.rooms[0].line = 'The bridge. Captain Zorr is in the big chair, and he has never once broken character.';
+      var SV = Zn({ name: 'Starship Valiant', theme: 'lot', line: 'A starship set. Foam walls, blinking panels and costume goblins who think they are a real crew.' });
+      area({ name: 'Hangar Apron', type: 'corridor', x0: 165, z0: 44, x1: 234, z1: 52 }, SV); area({ name: 'Hangar Apron', type: 'corridor', x0: 198, z0: 53, x1: 202, z1: 55 }, SV);
+      area({ name: 'Hangar Apron', type: 'corridor', x0: 165, z0: 6, x1: 166, z1: 43 }, SV); area({ name: 'Hangar Apron', type: 'corridor', x0: 233, z0: 6, x1: 234, z1: 43 }, SV);
+      var sv = stamp(TPL.ship, 167, 7, 0, SV);
+      roomsOf(sv, /Quarters|Mess|Lab|Med|Cargo|Engine|Transporter|Holodeck|Rec|Briefing/).forEach(function (r) { pack(r, 'clerk', ri(1, 2), 0, 'Costume goblin'); });
+      var bridge = roomsOf(sv, /Bridge/)[0]; if (bridge) spawnIn(bridge, 'clerk', { tier: 3, name: 'Captain Zorr', boss: true });
+      for (k = 0; k < 6; k++) { var hx3 = ri(168, 232), hz3 = ri(45, 51); if (freeT(hx3, hz3)) obj(hx3, hz3, pick(['Crate_Metal', 'Barrel', 'cardboardBoxClosed']), { fit: 0.7, rot: rnd() }, 'Equipment'); }
 
-      // ---------- The Jungle Set (east): trees, a river, snapper plants ----------
+      // ---------- The Jungle Set (east): trees, a river with a bridge, a temple, the Groundskeeper's shed ----------
       var JS = Zn({ name: 'The Jungle Set', theme: 'garden', line: 'A jungle under studio lights. Real plants, fake rocks and things that bite either way.' });
       var jung = area({ name: 'The Jungle Set', type: 'corridor', x0: 182, z0: 68, x1: 234, z1: 156 }, JS);
       area({ name: 'The Jungle Set', type: 'corridor', x0: 205, z0: 63, x1: 209, z1: 67 }, JS); area({ name: 'The Jungle Set', type: 'corridor', x0: 205, z0: 157, x1: 209, z1: 159 }, JS);
-      for (xx = 182; xx <= 234; xx++) { var rz2 = Math.round(128 + Math.sin((xx - 182) / 9) * 6); for (zz = rz2; zz <= rz2 + 2; zz++) if (xx < 206 || xx > 209) put(xx, zz, '~', jung.id); }
-      var jclear = area({ name: 'The Groundskeeper\'s Clearing', type: 'boss', theme: 'garden', x0: 214, z0: 138, x1: 230, z1: 152, line: 'A clearing with a tool shed and a very large hedge trimmer. The Groundskeeper keeps this jungle tidy.' }, JS);
+      var brg = room({ name: 'Rope Bridge', type: 'corridor', theme: 'porch', x0: 206, z0: 120, x1: 209, z1: 140, line: 'A rope bridge over the river. It sways more than a set piece should.' }, JS);
+      for (xx = 182; xx <= 234; xx++) { var rz2 = Math.round(128 + Math.sin((xx - 182) / 9) * 6); for (zz = rz2; zz <= rz2 + 2; zz++) { if (xx >= 206 && xx <= 209) put(xx, zz, '.', brg.id); else put(xx, zz, '~', jung.id); } }
+      var jclear = area({ name: 'The Groundskeeper\'s Clearing', type: 'boss', theme: 'garden', x0: 214, z0: 138, x1: 231, z1: 154, line: 'A clearing with a tool shed and a very large hedge trimmer. The Groundskeeper keeps this jungle tidy.' }, JS);
+      stamp(TPL.shed, 219, 139, 0, JS); stamp(TPL.temple, 190, 80, 0, JS);
       spawnIn(jclear, 'bog', { tier: 3, name: 'The Groundskeeper', boss: true });
       trees(jung, 220, ['CommonTree_1', 'CommonTree_3', 'Pine_2']); greens(jung, 260, ['Fern_1', 'Plant_1', 'Plant_7', 'Bush_Common', 'Mushroom_Laetiporus', 'Grass_Wispy_Tall']);
       for (k = 0; k < 6; k++) pack(jung, 'bog', ri(1, 3), 0, 'Jungle beast');
 
-      // ---------- Maple Lane (southwest): identical sitcom houses ----------
+      // ---------- Maple Lane (southwest): six sitcom houses, front yards, the Showrunner's house ----------
       var ML = Zn({ name: 'Maple Lane', theme: 'lawn', line: 'A sitcom street. Six identical houses, perfect lawns and a laugh track that never stops.' });
       var lane = area({ name: 'Maple Lane', type: 'corridor', x0: 8, z0: 171, x1: 110, z1: 213 }, ML);
-      area({ name: 'Maple Lane', type: 'corridor', theme: 'lot', x0: 111, z0: 196, x1: 115, z1: 200 }, ML); area({ name: 'Maple Lane', type: 'corridor', x0: 50, z0: 167, x1: 54, z1: 170 }, ML);
-      for (xx = 8; xx <= 110; xx++) for (zz = 196; zz <= 200; zz++) put(xx, zz, '.', lane.id);
+      var mstreet = area({ name: 'Maple Lane', type: 'corridor', theme: 'lot', x0: 8, z0: 196, x1: 115, z1: 200 }, ML); area({ name: 'Maple Lane', type: 'corridor', x0: 50, z0: 167, x1: 54, z1: 170 }, ML);
+      var HCOL = [0xe8e0c8, 0xc8d8e0, 0xe8c8c0, 0xd0e0c0, 0xeed8a0, 0xd8c8e0];
       for (i = 0; i < 6; i++) {
-        var hx = 10 + i * 17, h = hut({ name: 'No. ' + (i + 1) + ' Maple Lane', theme: 'house', style: 'lounge', x0: hx, z0: 174, x1: hx + 14, z1: 189, line: 'A sitcom living room with a couch facing the camera. The door is always unlocked.' }, ML, [[hx + 7, 189]]);
-        for (zz = 175; zz <= 188; zz++) wallT(hx + 9, zz); put(hx + 9, 181, 'D', h.id);
-        var kit = room({ name: 'No. ' + (i + 1) + ' Kitchen', type: 'room', theme: 'house', style: 'break', x0: hx + 10, z0: 175, x1: hx + 13, z1: 188 }, ML); for (zz = 175; zz <= 188; zz++) for (xx = hx + 10; xx <= hx + 13; xx++) reg[zz][xx] = kit.id;
-        h.x1 = hx + 8; pack(h, 'puglin', ri(1, 2), 0, 'Laugh-track gremlin');
-        for (xx = hx; xx <= hx + 14; xx += 2) if (freeT(xx, 192, lane) && Math.abs(xx - hx - 7) > 1) obj(xx, 192, 'Prop_WoodenFence_Single', { fit: 1.0 }, 'Picket fence');
+        var hx = 10 + i * 17, hb = stamp(TPL.house, hx, 174, 0, ML, { name: 'No. ' + (i + 1) + ' Maple Lane', wallCol: HCOL[i] });
+        var hu = stamp(TPL.houseUp, 54 + i * 17, 244, 0, ML, { name: 'No. ' + (i + 1) + ', Upstairs', wallCol: HCOL[i] }); roofRing(hu.box, 2);
+        upstairs.push([hb.room, hu.room, 'Go upstairs', 'Go back downstairs']);
+        pack(hb.room, 'puglin', ri(1, 2), 0, 'Laugh-track gremlin'); if (rnd() < 0.5) pack(hu.room, 'puglin', 1, 0, 'Laugh-track gremlin');
+        for (xx = hx; xx <= hx + 14; xx++) if (Math.abs(xx - hx - 7) > 0 && freeT(xx, 193, lane)) obj(xx, 193, '#rail', { ax: 'x', col: 0xf4f0e6, picket: true }, 'Picket fence');
+        for (zz = 187; zz <= 195; zz++) if (g[zz][hx + 7] === '.' || g[zz][hx + 7] === ',') dec(hx + 7, zz, '#path', { ns: true });
+        if (freeT(hx + 9, 194, lane)) obj(hx + 9, 194, '#mailbox', { rot: 0 }, 'Mailbox');
+        if (freeT(hx + 2, 190, lane)) obj(hx + 2, 190, 'CommonTree_3', { fit: 2.0, rot: rnd() * 6 }, 'Tree');
       }
+      var srh = stamp(TPL.showrunner, 40, 203, 2, ML); spawnIn(srh.room, 'puglin', { tier: 3, name: 'The Showrunner', boss: true });
+      for (xx = 44; xx <= 64; xx++) for (zz = 211; zz <= 212; zz++) put(xx, zz, '~', lane.id);
+      [[42, 212], [66, 212], [42, 211]].forEach(function (p) { if (freeT(p[0], p[1], lane)) dec(p[0], p[1], 'loungeChairRelax', { fit: 0.7, rot: Math.PI / 2 }); });
       for (xx = 12; xx <= 108; xx += 9) if (freeT(xx, 202, lane)) obj(xx, 202, 'CommonTree_3', { fit: 2.2, rot: rnd() * 6 }, 'Tree');
-      var sr = hut({ name: 'The Showrunner\'s House', type: 'boss', theme: 'house', style: 'lounge', x0: 40, z0: 204, x1: 70, z1: 213, line: 'The biggest house on the street, with a pool and a live studio audience in the backyard.' }, ML, [[55, 204]]);
-      spawnIn(sr, 'puglin', { tier: 3, name: 'The Showrunner', boss: true });
-      greens(lane, 50, ['Bush_Common_Flowers', 'Flower_3_Group', 'Clover_1']); pack(lane, 'puglin', 4, 0, 'Laugh-track gremlin');
+      greens(lane, 40, ['Bush_Common_Flowers', 'Flower_3_Group', 'Clover_1']); pack(mstreet, 'puglin', 3, 0, 'Laugh-track gremlin');
 
-      // ---------- Blackwood Manor (southeast): a haunted house ----------
+      // ---------- Blackwood Manor (southeast): the mansion, its upper floor, a graveyard ----------
       var BM = Zn({ name: 'Blackwood Manor', theme: 'moss', line: 'A haunted house set. Animatronics on timers, secret doors and a butler who is mostly hydraulics.' });
       var grounds = area({ name: 'Manor Grounds', type: 'corridor', x0: 127, z0: 171, x1: 234, z1: 213 }, BM);
       area({ name: 'Manor Grounds', type: 'corridor', x0: 122, z0: 196, x1: 126, z1: 200 }, BM); area({ name: 'Manor Grounds', type: 'corridor', x0: 180, z0: 167, x1: 184, z1: 170 }, BM);
-      var bm = wing(BM, 150, 175, 226, 209, 4, ['The Foyer', 'The Library', 'Dining Hall', 'The Ballroom', 'The Study', 'The Conservatory', 'The Kitchen', 'The Portrait Gallery'], 'manor', 'Great Hall');
-      bm.rooms.forEach(function (r, j) { r.style = ['lounge', 'archive', 'meeting', 'theater', 'office', 'lounge', 'break', 'trophy'][j]; pack(r, 'imp', ri(1, 2), 0, 'Animatronic'); });
-      put(150, bm.mid, 'D', bm.hall.id); put(226, bm.mid, 'D', bm.hall.id);
-      bm.rooms[3].type = 'boss'; bm.rooms[3].line = 'A ballroom where the dancers are on a track. The Butler Unit is waiting by the punch bowl.'; spawnIn(bm.rooms[3], 'imp', { tier: 3, name: 'The Butler Unit', boss: true });
+      var bm = stamp(TPL.manor, 150, 174, 2, BM), bmu = stamp(TPL.manorUp, 160, 244, 0, BM); roofRing(bmu.box, 3);
+      upstairs.push([bm.room, bmu.room, 'Climb the grand staircase', 'Go back downstairs']);
+      roomsOf(bm, /Kitchen|Library|Dining|Study|Gallery|Foyer/).forEach(function (r) { pack(r, 'imp', ri(1, 2), 0, 'Animatronic'); });
+      roomsOf(bmu, /Room|Nursery|Study|Attic/).forEach(function (r) { if (rnd() < 0.6) pack(r, 'imp', 1, 0, 'Animatronic'); });
+      var ball = roomsOf(bm, /Ballroom/)[0]; if (ball) spawnIn(ball, 'imp', { tier: 3, name: 'The Butler Unit', boss: true });
+      // the graveyard: iron fence, rows of headstones, dead trees
+      var gy = room({ name: 'The Graveyard', type: 'room', theme: 'moss', x0: 211, z0: 178, x1: 231, z1: 208, line: 'A graveyard full of foam headstones. Some of the names are crawlers from earlier seasons.' }, BM);
+      for (zz = 178; zz <= 208; zz++) for (xx = 211; xx <= 231; xx++) if (g[zz][xx] === '.' || g[zz][xx] === ',') reg[zz][xx] = gy.id;
+      for (xx = 211; xx <= 231; xx++) [178, 208].forEach(function (z) { if (xx !== 221 && freeT(xx, z)) obj(xx, z, '#rail', { ax: 'x', col: 0x26262c, iron: true }, 'Iron fence'); });
+      for (zz = 179; zz <= 207; zz++) [211, 231].forEach(function (x) { if (zz !== 193 && freeT(x, zz)) obj(x, zz, '#rail', { ax: 'z', col: 0x26262c, iron: true }, 'Iron fence'); });
+      for (zz = 181; zz <= 205; zz += 3) for (xx = 214; xx <= 228; xx += 3) if (rnd() < 0.85 && freeT(xx, zz)) obj(xx, zz, '#grave', { rot: (rnd() - 0.5) * 0.3, seed: xx * 31 + zz }, 'Headstone');
       trees(grounds, 50, ['DeadTree_2', 'Pine_2']); greens(grounds, 60, ['Mushroom_Common', 'Grass_Wispy_Tall', 'Rock_Medium_1']);
 
       // ---------- dressing for the streets ----------
@@ -1230,10 +1420,10 @@
       for (k = 0; k < 30; k++) { var sr2 = pick([nDrive, sDrive].concat(loop)), qx = ri(sr2.x0, sr2.x1), qz = ri(sr2.z0, sr2.z1); if (freeT(qx, qz, sr2) && wallOf(qx, qz)) { var w3 = wallOf(qx, qz); obj(qx, qz, pick(['Crate_Metal', 'Crate_Wooden', 'Barrel', 'cardboardBoxClosed']), hug(w3, { fit: 0.7 }), 'Gear'); } }
       [nDrive, sDrive].concat(loop).forEach(function (r) { for (k = 0; k < 3; k++) spawnIn(r, 'rat', { sub: 'rat' }); });
 
-      // ---------- furnish ----------
-      rooms.forEach(function (r) { if (r.style && STYLE[r.style]) STYLE[r.style](r); });
-      function landing(ts) { for (var a2 = 0; a2 < ts.length; a2++) for (var q = 0; q < 4; q++) { var lx = ts[a2][0] + D4[q][0], lz = ts[a2][1] + D4[q][1]; if (g[lz][lx] === '.' && !taken[lx + ',' + lz] && !ts.some(function (t3) { return t3[0] === lx && t3[1] === lz; })) return [lx, lz]; } return null; }
+      // ---------- stairs: each pair of stair blocks links to the other's landing ----------
+      function landing(ts) { for (var a2 = 0; a2 < ts.length; a2++) for (var q = 0; q < 4; q++) { var lx = ts[a2][0] + D4[q][0], lz = ts[a2][1] + D4[q][1]; if ((g[lz][lx] === '.' || g[lz][lx] === ',') && !ts.some(function (t3) { return t3[0] === lx && t3[1] === lz; })) return [lx, lz]; } return null; }
       upstairs.forEach(function (u) { var a3 = u[0].stairsT, b3 = u[1].stairsT; if (!a3 || !b3) return; var la = landing(b3), lb = landing(a3); if (!la || !lb) return;
+        taken[la[0] + ',' + la[1]] = 1; taken[lb[0] + ',' + lb[1]] = 1;
         a3.forEach(function (t3) { links[t3[0] + ',' + t3[1]] = { x: la[0], z: la[1], label: u[2] }; }); b3.forEach(function (t3) { links[t3[0] + ',' + t3[1]] = { x: lb[0], z: lb[1], label: u[3] }; }); });
 
       // ---------- tidy up ----------
@@ -1245,9 +1435,11 @@
       var lost = 0;
       for (zz = 1; zz < Hd - 1; zz++) for (xx = 1; xx < Wd - 1; xx++) if (isFloor(g[zz][xx]) && !seen[xx + zz * Wd]) { g[zz][xx] = '#'; lost++; }
       spawns = spawns.filter(function (sp) { var c = g[sp.z] && g[sp.z][sp.x]; return (c === '.' || c === ',') && seen[sp.x + sp.z * Wd]; });
+      // zone bounds for the map labels (ground level only)
+      zones.forEach(function (Z) { var b = null; Z.rooms.forEach(function (r) { if (r.z0 >= UPZ) return; if (!b) b = { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 }; else { b.x0 = Math.min(b.x0, r.x0); b.z0 = Math.min(b.z0, r.z0); b.x1 = Math.max(b.x1, r.x1); b.z1 = Math.max(b.z1, r.z1); } }); if (b) { Z.x0 = b.x0; Z.z0 = b.z0; Z.x1 = b.x1; Z.z1 = b.z1; } });
       var map = g.map(function (row) { return row.join(''); });
       for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
-      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle, links: links };
+      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle, links: links, upZ: UPZ };
     }
   }
 
@@ -1569,7 +1761,7 @@
   var start = LEVEL.start, c8 = new THREE.CylinderGeometry(0.5, 0.5, 1, 10), c16 = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
   function nearFloor(x, z) { for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { var q = ch(x + dx, z + dz); if (q !== '#' && q !== 'H') return true; } return false; }
   function buildTile(x, z) {
-    var c = ch(x, z); if (c === 'H') c = '#'; if (c === '#' && !nearFloor(x, z)) return;
+    var c = ch(x, z); if (c === 'H') c = '#'; if (c === '#' && !nearFloor(x, z) && !(LEVEL.wstyle && LEVEL.wstyle[x + ',' + z])) return;
     var rid = roomAt(x, z), room = ROOMS[rid], r = hash(x, z), r2 = hash(x + 31, z + 17), v = Math.floor(r * 4);
     if (c === '#' && LEVEL.wstyle && LEVEL.wstyle[x + ',' + z]) { timberWall(x, z, LEVEL.wstyle[x + ',' + z], v); return; }
     if (c === '#') {
@@ -1709,27 +1901,46 @@
   // ---------- Floor 2 set pieces: thin timber walls, false fronts, and hand-built western props ----------
   function wallish(x, z) { var q = ch(x, z); return q === '#' || q === 'H' || q === 'D'; }
   function wbox(w, h, d, col, x, y, z, tx, tz, o) { var t = box(w, h, d, col, x, y, z, tx, tz, o); t.h = h; t.wy = y - h / 2; return t; }
+  // thin walls for Floor 2 buildings; st is 'style[:win][:front][:c=hex][:s=hex]' or 'roof:d=dir:r=ring'
+  var WSTY = {
+    timber: { col: 0x7a5638, post: 0x4e3420, kind: 'wood', h: 1.45, t: 0.16 }, plaster: { col: 0xe4ddce, post: 0xcfc6b4, kind: 'skin', h: 1.55, t: 0.16 },
+    canvas: { col: 0xf2ece0, post: 0x8a7a60, kind: 'skin', h: 1.35, t: 0.08 }, panel: { col: 0xaab4c2, post: 0x58667a, kind: 'metal', h: 1.6, t: 0.2, trim: 0x3df2e0 },
+    manor: { col: 0x4e4048, post: 0x2a2026, kind: 'wood', h: 1.7, t: 0.2, wain: 0x3a2a20 }, stone: { col: 0x8a8478, post: 0x6e685e, kind: 'stone', h: 1.15, t: 0.32 },
+    siding: { col: 0xe8e0c8, post: 0xf4f0e6, kind: 'skin', h: 1.45, t: 0.16 }, stage: { col: 0x2e2e36, post: 0x1c1c22, kind: 'metal', h: 2.3, t: 0.26 }
+  };
   function timberWall(x, z, st, v) {
-    // the floor under a thin wall: borrow the inside of the building if there is one
-    var fid = null; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (q) { if (fid && fid !== 'dirt') return; var rr = LEVEL.reg[z + q[1]] && LEVEL.reg[z + q[1]][x + q[0]]; if (rr >= 0) { var t = LEVEL.rooms[rr].theme; if (!fid || t === 'store') fid = t; } });
-    floorQuad(floorTex(fid || roomAt(x, z), v), x, 0, z);
-    var front = /F$/.test(st), win = /^win/.test(st), wh = front ? 2.05 : 1.45, col = front ? 0x8a6440 : 0x7a5638, post = 0x4e3420, T = 0.16;
-    var arms = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(function (q) { return wallish(x + q[0], z + q[1]); });
-    wbox(0.24, wh + 0.06, 0.24, post, x, (wh + 0.06) / 2, z, x, z, { wall: true, kind: 'wood', seed: 3 });
-    var alongX = arms.some(function (q) { return q[0] !== 0; }), alongZ = arms.some(function (q) { return q[1] !== 0; });
-    if (win && alongX !== alongZ) { // a window fills the whole tile along the wall
-      var L = 1.0, W2 = alongX ? L : T, D2 = alongX ? T : L;
-      wbox(W2, 0.55, D2, col, x, 0.275, z, x, z, { wall: true, kind: 'wood', seed: v });
-      wbox(W2, wh - 1.2, D2, col, x, 1.2 + (wh - 1.2) / 2, z, x, z, { wall: true, kind: 'wood', seed: v + 1 });
-      wbox(alongX ? 0.82 : 0.05, 0.62, alongX ? 0.05 : 0.82, 0x9cc8d8, x, 0.88, z, x, z, { wall: true, kind: 'metal' });
-      wbox(alongX ? 0.06 : 0.07, 0.66, alongX ? 0.07 : 0.06, post, x, 0.88, z, x, z, { wall: true, kind: 'wood' });
-      wbox(alongX ? 0.9 : 0.24, 0.05, alongX ? 0.24 : 0.9, post, x, 0.56, z, x, z, { wall: true, kind: 'wood' });
-    } else arms.forEach(function (q) {
-      wbox(q[0] ? 0.5 : T, wh, q[0] ? T : 0.5, col, x + q[0] * 0.25, wh / 2, z + q[1] * 0.25, x, z, { wall: true, kind: 'wood', seed: v + (q[0] + 2) * 3 + q[1] });
-    });
-    if (front) { // false front: a trim board along the top
-      arms.forEach(function (q) { wbox(q[0] ? 0.5 : 0.24, 0.1, q[0] ? 0.24 : 0.5, 0x3e2a18, x + q[0] * 0.25, wh + 0.02, z + q[1] * 0.25, x, z, { wall: true, kind: 'wood' }); });
+    var parts = st.split(':'), sty = parts[0], o = {}; parts.slice(1).forEach(function (p) { var kv = p.split('='); o[kv[0]] = kv.length > 1 ? kv[1] : true; });
+    if (sty === 'roof') { // a slope of shingles going down and away from the upper floor
+      var dir = o.d || 'z+', ring = +(o.r || 0), ax = dir.charAt(0) === 'x', sg = dir.charAt(1) === '+' ? 1 : -1, y0 = -0.15 - ring * 0.42;
+      var rb = box(1.02, 0.08, 1.02, ring % 2 ? 0x7a4636 : 0x86503c, x, y0, z, x, z, { kind: 'wood', seed: (x * 7 + z) % 5, noShadow: true });
+      if (ax) rb.mesh.rotation.z = -sg * 0.4; else rb.mesh.rotation.x = sg * 0.4; rb.roof = true;
+      return;
     }
+    var S = WSTY[sty] || WSTY.timber, col = o.c ? parseInt(o.c, 16) : S.col;
+    // the floor under a thin wall: borrow the inside of the building if there is one
+    var fid = null; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (q) { var rr = LEVEL.reg[z + q[1]] && LEVEL.reg[z + q[1]][x + q[0]]; if (rr >= 0) { var t = LEVEL.rooms[rr].theme; if (!fid || /store|house|office|tent|manor|ship|stage/.test(t)) fid = t; } });
+    floorQuad(floorTex(fid || roomAt(x, z), v), x, 0, z);
+    var front = !!o.front, win = !!o.win, wh = front ? 2.05 : S.h, T = S.t;
+    if (front) col = 0x8a6440;
+    var arms = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(function (q) { return wallish(x + q[0], z + q[1]); });
+    wbox(T + 0.08, wh + 0.06, T + 0.08, S.post, x, (wh + 0.06) / 2, z, x, z, { wall: true, kind: S.kind, seed: 3 });
+    var alongX = arms.some(function (q) { return q[0] !== 0; }), alongZ = arms.some(function (q) { return q[1] !== 0; });
+    function seg(q, y, hh, c2, kind) { wbox(q[0] ? 0.5 : T, hh, q[0] ? T : 0.5, c2, x + q[0] * 0.25, y + hh / 2, z + q[1] * 0.25, x, z, { wall: true, kind: kind || S.kind, seed: v + (q[0] + 2) * 3 + q[1] }); }
+    if (win && alongX !== alongZ) { // a window fills the whole tile along the wall
+      var W2 = alongX ? 1.0 : T, D2 = alongX ? T : 1.0;
+      wbox(W2, 0.55, D2, col, x, 0.275, z, x, z, { wall: true, kind: S.kind, seed: v });
+      wbox(W2, wh - 1.2, D2, col, x, 1.2 + (wh - 1.2) / 2, z, x, z, { wall: true, kind: S.kind, seed: v + 1 });
+      wbox(alongX ? 0.82 : 0.05, 0.62, alongX ? 0.05 : 0.82, sty === 'panel' ? 0x2a3a5a : 0x9cc8d8, x, 0.88, z, x, z, { wall: true, kind: 'metal' });
+      wbox(alongX ? 0.06 : 0.07, 0.66, alongX ? 0.07 : 0.06, S.post, x, 0.88, z, x, z, { wall: true, kind: 'wood' });
+      wbox(alongX ? 0.9 : 0.24, 0.05, alongX ? 0.24 : 0.9, S.post, x, 0.56, z, x, z, { wall: true, kind: 'wood' });
+    } else arms.forEach(function (q) {
+      if (S.wain) { seg(q, 0, 0.6, S.wain, 'wood'); seg(q, 0.6, wh - 0.6, col); } else seg(q, 0, wh, col);
+    });
+    arms.forEach(function (q) {
+      if (front) wbox(q[0] ? 0.5 : 0.24, 0.1, q[0] ? 0.24 : 0.5, 0x3e2a18, x + q[0] * 0.25, wh + 0.02, z + q[1] * 0.25, x, z, { wall: true, kind: 'wood' });
+      if (o.s) wbox(q[0] ? 0.5 : T + 0.02, 0.18, q[0] ? T + 0.02 : 0.5, parseInt(o.s, 16), x + q[0] * 0.25, wh - 0.09, z + q[1] * 0.25, x, z, { wall: true, kind: 'cloth' });
+      if (S.trim) wbox(q[0] ? 0.5 : T + 0.02, 0.04, q[0] ? T + 0.02 : 0.5, S.trim, x + q[0] * 0.25, 1.1, z + q[1] * 0.25, x, z, { wall: true, glow: true });
+    });
   }
   function rotBox(cx, cz, rot, tx, tz) { var c = Math.cos(rot), s = Math.sin(rot);
     return function (w, h, d, col, ox, y, oz, o) { var m = box(w, h, d, col, cx + ox * c + oz * s, y, cz - ox * s + oz * c, tx, tz, o || {}); m.mesh.rotation.y = rot; return m; }; }
@@ -1739,8 +1950,30 @@
     g.fillStyle = '#e8d9b4'; g.fillRect(0, 0, 256, 64); g.strokeStyle = '#3a2412'; g.lineWidth = 6; g.strokeRect(3, 3, 250, 58);
     g.fillStyle = '#3a2412'; var fs = text.length > 9 ? 26 : 36; g.font = '900 ' + fs + 'px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 34); }, true); }
   var PROC = {
-    '#rail': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; box(ax ? 1.0 : 0.06, 0.06, ax ? 0.06 : 1.0, 0x6a4a2e, x, 0.72, z, tx, tz, { kind: 'wood' }); box(ax ? 1.0 : 0.05, 0.05, ax ? 0.05 : 1.0, 0x6a4a2e, x, 0.4, z, tx, tz, { kind: 'wood' });
-      box(0.1, 0.8, 0.1, 0x4e3420, x, 0.4, z, tx, tz, { kind: 'wood' }); },
+    '#rail': function (x, z, d, tx, tz) { var ax = d.ax === 'x', c = d.col || 0x6a4a2e, kind = d.iron ? 'metal' : 'wood';
+      if (d.picket || d.iron) { for (var i = -2; i <= 2; i++) box(d.iron ? 0.04 : 0.09, d.iron ? 1.0 : 0.7, d.iron ? 0.04 : 0.04, c, x + (ax ? i * 0.2 : 0), d.iron ? 0.5 : 0.35, z + (ax ? 0 : i * 0.2), tx, tz, { kind: kind }); box(ax ? 1.0 : 0.04, 0.05, ax ? 0.04 : 1.0, c, x, d.iron ? 0.85 : 0.5, z, tx, tz, { kind: kind }); return; }
+      box(ax ? 1.0 : 0.06, 0.06, ax ? 0.06 : 1.0, c, x, 0.72, z, tx, tz, { kind: kind }); box(ax ? 1.0 : 0.05, 0.05, ax ? 0.05 : 1.0, c, x, 0.4, z, tx, tz, { kind: kind });
+      box(0.1, 0.8, 0.1, d.col ? c : 0x4e3420, x, 0.4, z, tx, tz, { kind: kind }); },
+    '#hearth': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(1.0, 1.05, 0.4, 0x6a6058, 0, 0.525, -0.25, { kind: 'stone' }); B(0.6, 0.45, 0.1, 0x1a1210, 0, 0.3, -0.04); B(0.45, 0.22, 0.08, 0xff7a20, 0, 0.18, -0.02, { glow: true }); B(1.15, 0.1, 0.5, 0x4a3a2a, 0, 1.08, -0.2, { kind: 'wood' }); },
+    '#portrait': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz), cs = [0x6a2a2a, 0x2a3a5a, 0x3a4a2a, 0x5a4a2a], s2 = d.seed || 0; B(0.62, 0.78, 0.05, 0xb08a3a, 0, 1.15, 0, { kind: 'metal' }); B(0.5, 0.64, 0.02, cs[s2 % 4], 0, 1.15, 0.03, { kind: 'cloth' }); B(0.18, 0.22, 0.01, 0xd8b090, 0, 1.25, 0.045, { kind: 'skin' }); },
+    '#pad': function (x, z, d, tx, tz) { var p = pcyl(0.42, 0.06, 0x8a96a8, x, 0.03, z, tx, tz, { kind: 'metal', noShadow: true }); pcyl(0.3, 0.02, 0x3df2e0, x, 0.07, z, tx, tz, { glow: true, noShadow: true }); },
+    '#reactor': function (x, z, d, tx, tz) { pcyl(0.9, 0.25, 0x4a5462, x, 0.12, z, tx, tz, { kind: 'metal' }); pcyl(0.32, 2.2, 0x3df2e0, x, 1.35, z, tx, tz, { glow: true }); [0.6, 1.3, 2.0].forEach(function (y) { pcyl(0.48, 0.12, 0x58667a, x, y, z, tx, tz, { kind: 'metal' }); }); pcyl(0.6, 0.2, 0x4a5462, x, 2.5, z, tx, tz, { kind: 'metal' }); },
+    '#mower': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.7, 0.3, 0.95, 0x2a8a3a, 0, 0.32, 0, { kind: 'metal' }); B(0.4, 0.08, 0.35, 0x1a1a1a, 0, 0.55, 0.15, { kind: 'leather' }); B(0.36, 0.3, 0.06, 0x1a1a1a, 0, 0.72, 0.32, { kind: 'leather' }); B(0.06, 0.4, 0.06, 0x333333, 0.18, 0.62, -0.25, { kind: 'metal' });
+      [[-0.32, -0.3], [0.32, -0.3], [-0.34, 0.34], [0.34, 0.34]].forEach(function (q) { var w = pcyl(q[1] > 0 ? 0.2 : 0.14, 0.12, 0x111111, x + q[0], q[1] > 0 ? 0.2 : 0.14, z + q[1], tx, tz, { kind: 'leather' }); w.mesh.rotation.z = Math.PI / 2; }); },
+    '#flag': function (x, z, d, tx, tz) { pcyl(0.09, 0.01, 0x111111, x, 0.005, z, tx, tz, { noShadow: true }); box(0.03, 1.4, 0.03, 0xf4f0e6, x, 0.7, z, tx, tz, { kind: 'metal' }); box(0.36, 0.22, 0.02, 0xc8302a, x + 0.18, 1.28, z, tx, tz, { kind: 'cloth' }); },
+    '#crane': function (x, z, d, tx, tz) { box(1.3, 0.3, 1.3, 0x2a2a30, x, 0.15, z, tx, tz, { kind: 'metal' }); box(0.22, 3.2, 0.22, 0x4a4a54, x, 1.9, z, tx, tz, { kind: 'metal' });
+      var B = rotBox(x, z + 0, d.rot || 0, tx, tz); B(0.16, 0.16, 5.2, 0x5a5a64, 0, 3.4, -1.2, { kind: 'metal' }); B(0.6, 0.45, 0.5, 0x1a1a1a, 0, 3.15, -3.7, { kind: 'metal' }); B(0.5, 0.5, 0.5, 0x6a6a74, 0, 3.4, 1.5, { kind: 'metal' });
+      B(0.28, 0.28, 0.4, 0x111111, 0, 3.15, -4.05, { kind: 'metal' }); B(0.16, 0.16, 0.06, 0xc8302a, 0.15, 3.35, -3.45, { glow: true }); },
+    '#klieg': function (x, z, d, tx, tz) { [[-0.25, -0.2], [0.25, -0.2], [0, 0.25]].forEach(function (q) { box(0.05, 1.7, 0.05, 0x1a1a1e, x + q[0], 0.85, z + q[1], tx, tz, { kind: 'metal' }); });
+      var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.5, 0.45, 0.5, 0x2a2a30, 0, 1.85, 0, { kind: 'metal' }); B(0.4, 0.36, 0.04, 0xfff2b0, 0, 1.85, 0.27, { glow: true }); },
+    '#dchair': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); [[-0.25, -0.2], [0.25, -0.2], [-0.25, 0.2], [0.25, 0.2]].forEach(function (q) { B(0.04, 0.9, 0.04, 0x6a4a2e, q[0], 0.45, q[1], { kind: 'wood' }); });
+      B(0.5, 0.04, 0.4, 0x1a1a1a, 0, 0.6, 0, { kind: 'cloth' }); B(0.5, 0.26, 0.03, 0x1a1a1a, 0, 1.0, -0.2, { kind: 'cloth' }); B(0.46, 0.08, 0.01, 0xf4f0e6, 0, 1.0, -0.22, { kind: 'cloth' }); },
+    '#grave': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz), s2 = (d.seed || 0) % 3; if (s2 === 0) { B(0.5, 0.7, 0.14, 0x7a7a74, 0, 0.35, 0, { kind: 'stone' }); var t = pcyl(0.25, 0.14, 0x7a7a74, x, 0.7, z, tx, tz, { kind: 'stone' }); t.mesh.rotation.x = Math.PI / 2; t.mesh.rotation.z = d.rot || 0; }
+      else if (s2 === 1) { B(0.1, 0.9, 0.1, 0x6e6e68, 0, 0.45, 0, { kind: 'stone' }); B(0.44, 0.1, 0.1, 0x6e6e68, 0, 0.66, 0, { kind: 'stone' }); } else B(0.56, 0.5, 0.18, 0x84847c, 0, 0.25, 0, { kind: 'stone' });
+      B(0.5, 0.04, 0.9, 0x3a3a24, 0, 0.02, 0.45, { kind: 'stone', noShadow: true }); },
+    '#picket': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.05, 1.2, 0.05, 0x8a6a40, 0, 0.6, 0, { kind: 'wood' }); B(0.7, 0.42, 0.03, 0xf4f0e6, 0, 1.22, 0.03, { kind: 'cloth' }); B(0.5, 0.06, 0.005, 0xc8302a, 0, 1.3, 0.05); B(0.4, 0.06, 0.005, 0x222222, 0, 1.17, 0.05); },
+    '#mailbox': function (x, z, d, tx, tz) { box(0.06, 0.9, 0.06, 0x6a4a2e, x, 0.45, z, tx, tz, { kind: 'wood' }); box(0.22, 0.2, 0.4, 0x2a4a8a, x, 0.98, z, tx, tz, { kind: 'metal' }); box(0.03, 0.14, 0.06, 0xc8302a, x + 0.13, 1.06, z - 0.1, tx, tz, { kind: 'metal' }); },
+    '#path': function (x, z, d, tx, tz) { [[-0.18, -0.2], [0.16, 0.22]].forEach(function (q) { box(0.34, 0.03, 0.34, 0xb8b0a0, x + q[0], 0.015, z + q[1], tx, tz, { kind: 'stone', noShadow: true }); }); },
     '#hitch': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; [-0.4, 0.4].forEach(function (o) { box(0.1, 0.9, 0.1, 0x4e3420, x + (ax ? o : 0), 0.45, z + (ax ? 0 : o), tx, tz, { kind: 'wood' }); });
       box(ax ? 1.0 : 0.08, 0.08, ax ? 0.08 : 1.0, 0x5e4228, x, 0.86, z, tx, tz, { kind: 'wood' }); },
     '#trough': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; box(ax ? 1.0 : 0.5, 0.42, ax ? 0.5 : 1.0, 0x5a3e24, x, 0.21, z, tx, tz, { kind: 'wood' }); box(ax ? 0.88 : 0.38, 0.02, ax ? 0.38 : 0.88, 0x3a6a8a, x, 0.39, z, tx, tz, { kind: 'metal', noShadow: true }); },
@@ -9293,8 +9526,8 @@
     if (cv.width !== Math.round(cw * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(chh * dpr); }
     var g = cv.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
     // rotated 45 degrees to match the isometric camera (map +x+z is screen down)
-    var bx0 = W, bx1 = 0, bz0 = H, bz1 = 0;
-    if (full) { for (var q = 0; q < W * H; q++) if (tileState[q]) { var qx = q % W, qz = (q / W) | 0; if (qx < bx0) bx0 = qx; if (qx > bx1) bx1 = qx; if (qz < bz0) bz0 = qz; if (qz > bz1) bz1 = qz; } bx0 -= 4; bz0 -= 4; bx1 += 4; bz1 += 4; }
+    var bx0 = W, bx1 = 0, bz0 = H, bz1 = 0, upMe = !!LEVEL.upZ && P.z >= LEVEL.upZ;
+    if (full) { for (var q = 0; q < W * H; q++) if (tileState[q] && (!LEVEL.upZ || ((q / W | 0) >= LEVEL.upZ) === upMe)) { var qx = q % W, qz = (q / W) | 0; if (qx < bx0) bx0 = qx; if (qx > bx1) bx1 = qx; if (qz < bz0) bz0 = qz; if (qz > bz1) bz1 = qz; } bx0 -= 4; bz0 -= 4; bx1 += 4; bz1 += 4; }
     var span = full ? Math.max(18, ((bx1 - bx0) + (bz1 - bz0)) / Math.SQRT2) / MAPV.zoom : 26, s = Math.min(cw, chh) / span * (full ? 0.97 : 1.0), k = s / Math.SQRT2 * dpr;
     var ox = cv.width / 2, oy = cv.height / 2, cx = full ? (bx0 + bx1) / 2 : P.px, cz = full ? (bz0 + bz1) / 2 : P.pz;
     if (full) { if (MAPV.follow) { MAPV.panX = P.px - cx; MAPV.panZ = P.pz - cz; } cx += MAPV.panX; cz += MAPV.panZ; }
@@ -9305,7 +9538,7 @@
     function cell(x, z, col) { var a = tr(x - .5, z - .5), b = tr(x + .5, z - .5), c = tr(x + .5, z + .5), d = tr(x - .5, z + .5); g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill(); }
     var liv = hasTrait('Living Map'), R = full ? 1e9 : 20, THEME = { crypt: '#3f6a52', hall: '#5d5a54', moss: '#4f6a3a', gate: '#6a3e3a', store: '#6a5438', water: '#2f5a74', studio: '#7a8494', office: '#4a566a', bazaar: '#8a6e48', garden: '#3f7a34', arena: '#a08250', blvd: '#6a665e' };
     for (var z = Math.max(0, Math.floor(P.pz - R)); z < Math.min(H, P.pz + R); z++) for (var x = Math.max(0, Math.floor(P.px - R)); x < Math.min(W, P.px + R); x++) {
-      if (!tileState[z * W + x]) continue; var c = MAP[z].charAt(x), lit = visNow[x + ',' + z] !== undefined || liv;
+      if (!tileState[z * W + x] || (LEVEL.upZ && (z >= LEVEL.upZ) !== upMe)) continue; var c = MAP[z].charAt(x), lit = visNow[x + ',' + z] !== undefined || liv;
       if (c === '#' || c === 'H') { if (!full) { g.globalAlpha = lit ? 1 : .6; cell(x, z, '#23252f'); } continue; }
       var col = c === '~' ? '#3a6ea8' : c === 'D' ? '#c98a4a' : c === 'S' ? (stairsOpen() ? '#ffd34a' : '#5d5a54') : c === 'C' ? '#e0c060' : c === 'F' ? '#40ff90' : c === 'Y' ? '#2a5a24' : THEME[roomAt(x, z)] || '#5d5a54';
       g.globalAlpha = lit ? 1 : .62; cell(x, z, col);
@@ -9321,11 +9554,12 @@
   function mapLabels(g, tr, tpx, dpr, cv) {
     var L = [], seenRoom = function (rm) { for (var zz = rm.z0; zz <= rm.z1; zz++) for (var xx = rm.x0; xx <= rm.x1; xx++) if (tileState[zz * W + xx]) return true; return false; };
     var zoneView = tpx < 8; // zoomed out: zone names; zoomed in: room names
-    if (zoneView) LEVEL.hoods.forEach(function (hd) {
+    var upL = !!LEVEL.upZ && P.z >= LEVEL.upZ;
+    if (zoneView && !upL) LEVEL.hoods.forEach(function (hd) { if (hd.x0 === undefined) return;
       var any = hd.rooms.some(function (rm) { return tileState[((rm.z0 + rm.z1) >> 1) * W + ((rm.x0 + rm.x1) >> 1)]; }); if (!any) return;
       L.push({ t: hd.name.toUpperCase(), x: (hd.x0 + hd.x1) / 2, z: (hd.z0 + hd.z1) / 2, pri: 5, size: 12.5, bold: true, col: 'rgba(255,62,165,.92)', clamp: true });
     });
-    LEVEL.rooms.forEach(function (rm) {
+    LEVEL.rooms.forEach(function (rm) { if (LEVEL.upZ && (rm.z0 >= LEVEL.upZ) !== upL) return;
       if (rm.type === 'corridor') return; var key = rm.type === 'safe' || rm.type === 'boss' || rm.type === 'stairs' || rm.type === 'hidden';
       var w = Math.max(rm.x1 - rm.x0, rm.z1 - rm.z0) + 1; if (!key && (zoneView || tpx * w < 70)) return; // ordinary rooms only once they're big enough on screen
       if (!seenRoom(rm) && !(key && rm.type === 'safe' && hasTrait('Living Map') && CHAR && CHAR.zones && CHAR.zones[rm.hood])) return;
@@ -11137,6 +11371,7 @@
     for (var j = 0; j < tiles.length; j++) {
       var t = tiles[j]; if (t.floor) { floorFog(t, R, S.dark); continue; }
       var key = t.x + ',' + t.z, d2 = visNow[key], explored = tileState[t.z * W + t.x];
+      if (d2 === undefined && t.roof && LEVEL.upZ && P.z >= LEVEL.upZ && Math.abs(t.x - P.x) < 34 && Math.abs(t.z - P.z) < 34) d2 = R + 1;
       var ax = t.x - P.x, az = t.z - P.z, sum = ax * CAMV.cx + az * CAMV.cz, dif = Math.abs(ax * CAMV.cz - az * CAMV.cx), cut = sum >= 1 && sum <= 8 && dif <= 5;
       if (d2 === undefined) {
         t.mesh.visible = !!explored && !t.mob && !(t.glow && t.hang);
@@ -11406,6 +11641,7 @@
     var want = Math.atan2(wx, wz), d = want - hero.rotation.y;
     while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
     hero.rotation.y += d * Math.min(1, dt * 14);
+    if (!P.path && m >= 0.5 && LEVEL.links) { var lk2 = LEVEL.links[Math.round(P.px + wx * 0.8) + ',' + Math.round(P.pz + wz * 0.8)]; if (lk2) { P.bump = (P.bump || 0) + dt; if (P.bump > 0.35) { P.bump = 0; takeLink(lk2); return; } } else P.bump = 0; }
     var tx = Math.round(P.px), tz = Math.round(P.pz);
     if (tx !== P.x || tz !== P.z) { P.x = tx; P.z = tz; refreshFog(); enterRoom(); cbAggro(); stairsCheck(); }
     if (!achieved && walked > 3) { achieved = true; achieve('bipedal', 'Bipedal', 'You walked three whole tiles. The bar will be raised.', 10); }
