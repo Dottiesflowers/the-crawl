@@ -295,14 +295,15 @@
       box(1, wh, 1, room.wall, x, wh / 2, z, x, z, { wall: true, tex: wallTex(rid, v) }).h = wh;
       // things that hang on a wall face looking toward the camera side
       var south = ch(x, z + 1) !== '#' && ch(x, z + 1) !== 'H' && z + 1 < H, east = ch(x + 1, z) !== '#' && ch(x + 1, z) !== 'H' && x + 1 < W;
-      if (south && r2 > 0.8) { // banner
+      var modern = rid === 'office' || rid === 'studio' || rid === 'crypt';
+      if (south && r2 > 0.88 && !modern && rid !== 'moss' && rid !== 'garden' && rid !== 'water') { // banner
         var bc = [0x7a1f1f, 0x1f3a6a, 0x4a2a6a, 0x2f5a34][Math.floor(r * 4)];
         box(0.5, 0.06, 0.06, 0x3a2a1c, x, 1.3, z + 0.53, x, z, { hang: true, kind: 'wood' });
         box(0.42, 0.7, 0.03, bc, x, 0.93, z + 0.53, x, z, { hang: true, kind: 'cloth', seed: v });
         box(0.42, 0.05, 0.035, 0xc9a227, x, 1.2, z + 0.532, x, z, { hang: true, kind: 'cloth' });
         box(0.14, 0.14, 0.035, 0xc9a227, x, 0.95, z + 0.532, x, z, { hang: true, kind: 'metal' });
         box(0.14, 0.12, 0.03, bc, x - 0.14, 0.53, z + 0.53, x, z, { hang: true, kind: 'cloth' }); box(0.14, 0.12, 0.03, bc, x + 0.14, 0.53, z + 0.53, x, z, { hang: true, kind: 'cloth' });
-      } else if (east && r2 > 0.86) { // wall torch
+      } else if (east && r2 > 0.86 && !modern) { // wall torch
         box(0.16, 0.05, 0.05, 0x2c2c33, x + 0.56, 1.0, z, x, z, { hang: true, kind: 'metal' });
         box(0.06, 0.26, 0.06, 0x5a3a1c, x + 0.62, 1.08, z, x, z, { hang: true, kind: 'wood' });
         flame(x + 0.62, 1.2, z, x, z, 0.42, { hang: true });
@@ -392,11 +393,18 @@
       if (r > 0.8) { box(0.34, 0.02, 0.3, 0x3f7a3a, x + (r2 - 0.5) * 0.4, -0.03, z + (r - 0.9) * 2, x, z, { kind: 'cloth', noShadow: true }); if (r2 > 0.6) box(0.08, 0.05, 0.08, 0xe8a0c0, x + (r2 - 0.5) * 0.4, 0, z + (r - 0.9) * 2, x, z, { kind: 'cloth' }); }
       else if (r2 > 0.86) { for (var ri = 0; ri < 3; ri++) box(0.035, 0.4 + ri * 0.14, 0.035, 0x5a7a3a, x - 0.2 + ri * 0.1, 0.2 + ri * 0.07, z + ri * 0.08 - 0.1, x, z, { kind: 'cloth', seed: ri, noShadow: true }); }
     } else if (c === '.') {
-      if (r > 0.9) { box(0.24, 0.1, 0.18, 0x7d766e, x + 0.2, 0.05, z - 0.2, x, z, { seed: 1 }); box(0.12, 0.07, 0.12, 0x6a645c, x + 0.02, 0.035, z - 0.08, x, z, { seed: 2 }); box(0.08, 0.05, 0.07, 0x857e74, x + 0.3, 0.025, z + 0.02, x, z); }
-      else if (r2 > 0.91 && rid !== 'store') { // old bones
+      // a little clutter where it belongs, never in safe rooms or furnished rooms, never under furniture
+      var info = roomInfo(x, z), rtype = info && info.type, styled = LEVEL.decor[x + ',' + z] || rtype === 'safe' || rtype === 'stairs' || (rtype === 'room' && (rid === 'office' || rid === 'studio'));
+      if (styled) return;
+      var junk = rid === 'hall' || rid === 'arena' || rid === 'gate' ? 0.965 : rid === 'bazaar' ? 0.94 : rid === 'office' || rid === 'studio' ? 0.975 : 0.985;
+      if (r > junk && (rid === 'office' || rid === 'studio')) { // dropped paperwork
+        for (var pp = 0; pp < 3; pp++) { var sh = box(0.22, 0.006, 0.3, [0xeeeae0, 0xe8e2d0, 0xf4f0e6][pp], x + (hash(x + pp, z) - 0.5) * 0.5, 0.004 + pp * 0.002, z + (hash(x, z + pp) - 0.5) * 0.5, x, z, { kind: 'cloth', noShadow: true }); sh.mesh.rotation.y = hash(x * pp, z) * 3; }
+      } else if (r > junk && r2 > 0.55 && (rid === 'hall' || rid === 'arena' || rid === 'gate' || rid === 'bazaar')) { // old bones
         box(0.16, 0.13, 0.15, 0xd8d0b8, x - 0.15, 0.065, z + 0.1, x, z, { kind: 'bone' }); box(0.04, 0.03, 0.02, 0x1a1410, x - 0.19, 0.08, z + 0.18, x, z, { noShadow: true }); box(0.04, 0.03, 0.02, 0x1a1410, x - 0.11, 0.08, z + 0.18, x, z, { noShadow: true });
         var bn = box(0.3, 0.04, 0.05, 0xd8d0b8, x + 0.12, 0.02, z - 0.05, x, z, { kind: 'bone' }); bn.mesh.rotation.y = 0.6; bn = box(0.24, 0.04, 0.05, 0xcfc7ae, x + 0.05, 0.02, z + 0.22, x, z, { kind: 'bone' }); bn.mesh.rotation.y = -0.4;
-      } else if (rid === 'store' && r2 > 0.86) { box(0.32, 0.2, 0.26, 0xb09a6a, x + 0.1, 0.1, z, x, z, { kind: 'cloth', seed: 4 }); box(0.1, 0.07, 0.1, 0xb09a6a, x + 0.1, 0.23, z, x, z, { kind: 'cloth' }); box(0.12, 0.02, 0.12, 0x6a4e2a, x + 0.1, 0.2, z, x, z); }
+      } else if (r > junk) { // a little rubble
+        box(0.24, 0.1, 0.18, 0x7d766e, x + 0.2, 0.05, z - 0.2, x, z, { seed: 1 }); box(0.12, 0.07, 0.12, 0x6a645c, x + 0.02, 0.035, z - 0.08, x, z, { seed: 2 });
+      } else if (rid === 'store' && r2 > 0.9) { box(0.32, 0.2, 0.26, 0xb09a6a, x + 0.1, 0.1, z, x, z, { kind: 'cloth', seed: 4 }); box(0.1, 0.07, 0.1, 0xb09a6a, x + 0.1, 0.23, z, x, z, { kind: 'cloth' }); box(0.12, 0.02, 0.12, 0x6a4e2a, x + 0.1, 0.2, z, x, z); }
     }
   }
 

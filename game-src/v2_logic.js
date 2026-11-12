@@ -187,11 +187,12 @@
     ],
     K: [
       { label: 'Examine', text: 'A shipping crate stamped with a logo from a planet you have never heard of.' },
-      { label: 'Search it', stat: 'INT', dc: 11, win: 'Packing straw, and under it a jar of something pickled. It blinks.', lose: 'Straw. Just straw.' },
+      { label: 'Search it', stat: 'INT', skill: ['Investigation', 1], dc: 10, flag: 'loot', win: 'Under the packing straw, something worth taking.', lose: 'Straw. Just straw. Maybe try again.' },
       { label: 'Smash it', stat: 'STR', dc: 14, win: 'One plank cracks. The crate is otherwise unimpressed.', lose: 'You have a splinter now.' }
     ],
     R: [
       { label: 'Examine', text: 'A barrel. It sloshes.' },
+      { label: 'Look inside', stat: 'INT', skill: ['Investigation', 1], dc: 11, flag: 'loot', win: 'You pry the lid up. Something in there is worth taking.', lose: 'Just liquid and regret.' },
       { label: 'Smell it', stat: 'WIS', dc: 9, win: 'Vinegar, and under it something sweet. Probably not poison.', lose: 'It smells like a barrel.' },
       { label: 'Tap it', stat: 'DEX', skill: ['Jury-Rig', 2], dc: 12, win: 'You work the bung loose. A thin purple drizzle. You decide not to drink it yet.', lose: 'The bung is in there for good.' }
     ],

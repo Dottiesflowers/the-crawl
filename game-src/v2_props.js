@@ -67,13 +67,15 @@
     group.add(holder); return true;
   }
 
+  // how tall a placed prop stands, so things can sit on top of desks and tables
+  function propTop(o) { var b = PROPS.box[o.m]; if (!b) return 0.4; var sz = b.getSize(_pv); var sc = o.fit ? o.fit / Math.max(sz.x, sz.z) : o.h ? o.h / sz.y : (o.s || 0.72); return sz.y * sc; }
   function propsReady() { PROPS.ready = true; rebuildChunks(); buildHero(); refreshFog(); }
   // props for one tile, built with its chunk
   function buildTileProps(x, z) {
     if (!propsOn()) return;
     var c = ch(x, z), r = hash(x, z), r2 = hash(x + 31, z + 17), th = roomAt(x, z);
     var dl = LEVEL.decor[x + ',' + z]; // set dressing from the generator
-    if (dl) dl.forEach(function (d) { if (d.m.charAt(0) === '#') return; place(d.m, x + (d.dx || 0), z + (d.dz || 0), { fit: d.fit, h: d.h, s: d.s, rot: d.rot || 0, y: d.y, tx: x, tz: z, hang: d.hang, noShadow: d.ns || !!d.y }); });
+    if (dl) dl.forEach(function (d) { if (d.m.charAt(0) === '#') return; var y = d.on ? propTop(d.on) + (d.y || 0) : d.y; place(d.m, x + (d.dx || 0), z + (d.dz || 0), { fit: d.fit, h: d.h, s: d.s, rot: d.rot || 0, rx: d.rx, y: y, tx: x, tz: z, hang: d.hang, noShadow: d.ns || !!y }); });
     if (c === 'C') place('Chest_Wood', x, z, { fit: 0.78, rot: 0, lid: true });
     else if (c === 'K') place(r > 0.5 ? 'Crate_Wooden' : 'Crate_Metal', x, z, { fit: 0.82, rot: (r2 - 0.5) * 0.5 });
     else if (c === 'R') place(r > 0.6 ? 'Barrel_Apples' : 'Barrel', x, z, { fit: 0.62, rot: r * 6 });
@@ -100,6 +102,5 @@
       if (r2 > 0.93) place(r > 0.5 ? 'Bush_Common_Flowers' : 'Bush_Common', x - 0.1, z + 0.1, { fit: 0.8, rot: r2 * 7, tx: x, tz: z });
       else if (r2 > 0.86) place(r > 0.5 ? 'Mushroom_Common' : 'Rock_Medium_' + (1 + Math.floor(r * 3)), x, z, { fit: r > 0.5 ? 0.3 : 0.4, rot: r2 * 7, tx: x, tz: z, noShadow: true });
     } else if (c === '.' && th === 'store' && r > 0.94) place(r2 > 0.5 ? 'Bucket_Wooden_1' : 'Rope_1', x + (r2 - 0.5) * 0.4, z, { fit: 0.3, rot: r * 5, noShadow: true, tx: x, tz: z });
-    else if (c === '.' && th === 'crypt' && r > 0.95) place('Chain_Coil', x, z, { fit: 0.45, noShadow: true });
   }
   propLoad();
