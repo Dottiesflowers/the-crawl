@@ -52,7 +52,7 @@
   }
   var visNow = {}, tmp = new THREE.Color();
   var FOG = { total: 0, seen: 0 };
-  var LIT = { bazaar: 4, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1 }; // well-lit places let you see farther
+  var LIT = { bazaar: 4, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1, lot: 4, dirt: 4, porch: 4, lawn: 4, green: 4, store: 2, house: 2, tent: 2, stage: 2, ship: 3 }; // well-lit places let you see farther
   function roomLit(r) { return r.type === 'safe' || r.type === 'boss' || r.type === 'stairs' || r.lit || (r.type !== 'corridor' && (LIT[r.theme] || 0) >= 2); }
   function refreshFog() {
     streamChunks();
@@ -97,7 +97,7 @@
       }
       if (t.hang && cut) t.mesh.visible = false;
       if (t.gate !== undefined && t.gate !== stairsOpen()) t.mesh.visible = false;
-      if (t.wall) { var hh = cut ? 0.3 : t.h; t.mesh.scale.y = hh; t.mesh.position.y = hh / 2; }
+      if (t.wall) { if (t.wy !== undefined) { if (cut && t.wy > 0.2) t.mesh.visible = false; var hw = cut ? Math.min(t.h, 0.3) : t.h; t.mesh.scale.y = hw; t.mesh.position.y = t.wy + hw / 2; } else { var hh = cut ? 0.3 : t.h; t.mesh.scale.y = hh; t.mesh.position.y = hh / 2; } }
       if (t.fade) { var hide = sum >= 1 && sum <= 5 && dif <= 1; t.mesh.material.opacity = hide ? 0.22 : 1; t.mesh.material.depthWrite = !hide; t.mesh.castShadow = !hide; }
     }
   }

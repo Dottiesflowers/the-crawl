@@ -143,7 +143,8 @@
     house:  { name: 'Sitcom house', floor: [0xa07a50, 0xa88258, 0x98724a], wall: 0xe6d8b8 },
     manor:  { name: 'Blackwood Manor', floor: [0x4a3428, 0x52392c, 0x432f24], wall: 0x4a4250 },
     stage:  { name: 'Soundstage', floor: [0x2c2c32, 0x313137, 0x28282e], wall: 0x3a3a42 },
-    ship:   { name: 'Starship Valiant', floor: [0x8e98a8, 0x98a2b2, 0x8690a0], wall: 0xb8c0cc }
+    ship:   { name: 'Starship Valiant', floor: [0x8e98a8, 0x98a2b2, 0x8690a0], wall: 0xb8c0cc },
+    porch:  { name: 'Boardwalk', floor: [0x7e6448, 0x866a4c, 0x765c42], wall: 0x6a4a2e }
   };
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
   var SOLID = { 'o': 1, 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
@@ -159,7 +160,7 @@
       function speck(n, cl) { while (n--) px(g, cl, Math.floor(r() * 32), Math.floor(r() * 32)); }
       function blob(cx, cy, rad, cols, dens) { for (var yy = -rad; yy <= rad; yy++) for (var xx = -rad; xx <= rad; xx++) if (xx * xx + yy * yy <= rad * rad && r() < dens) px(g, cols[Math.floor(r() * cols.length)], (cx + xx + 32) % 32, (cy + yy + 32) % 32); }
       px(g, base, 0, 0, 32, 32);
-      var pat = { lawn: 'garden', green: 'green', tent: 'store', house: 'store', manor: 'store', stage: 'store', ship: 'studio' }[id] || id;
+      var pat = { porch: 'store', lawn: 'garden', green: 'green', tent: 'store', house: 'store', manor: 'store', stage: 'store', ship: 'studio' }[id] || id;
       if (pat === 'crypt' || pat === 'moss') {
         var sy = 12 + Math.floor(r() * 8), sx1 = 8 + Math.floor(r() * 9), sx2 = 14 + Math.floor(r() * 10);
         g.globalAlpha = 0.5; px(g, r() > 0.5 ? d1 : l1, 1, 1, sx1 - 1, sy - 1); px(g, r() > 0.5 ? d1 : l1, sx2 + 1, sy + 1, 31 - sx2, 31 - sy); g.globalAlpha = 1;
@@ -318,6 +319,7 @@
   function buildTile(x, z) {
     var c = ch(x, z); if (c === 'H') c = '#'; if (c === '#' && !nearFloor(x, z)) return;
     var rid = roomAt(x, z), room = ROOMS[rid], r = hash(x, z), r2 = hash(x + 31, z + 17), v = Math.floor(r * 4);
+    if (c === '#' && LEVEL.wstyle && LEVEL.wstyle[x + ',' + z]) { timberWall(x, z, LEVEL.wstyle[x + ',' + z], v); return; }
     if (c === '#') {
       var wh = 1.5 + r * 0.25;
       box(1, wh, 1, room.wall, x, wh / 2, z, x, z, { wall: true, tex: wallTex(rid, v) }).h = wh;
@@ -357,9 +359,9 @@
     var ft = floorTex(fid, fid === 'hall' ? ((x + z) % 2) + 2 * Math.floor(r * 2) : v);
     if (wet && waterTex.indexOf(ft) < 0) { ft.wrapS = ft.wrapT = THREE.RepeatWrapping; waterTex.push(ft); }
     floorQuad(ft, x, wet ? -0.04 : 0, z);
-    var dl = LEVEL.decor[x + ',' + z]; if (dl) dl.forEach(function (d) { if (d.m === '#throne') { throneAt(x, z, d.rot || 0); return; } if (d.m === '#rug') { box(d.w, 0.02, d.d, d.col, x + (d.w % 2 ? 0 : 0.5), 0.004, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', seed: 7, noShadow: true }); box(d.w + 0.12, 0.012, d.d + 0.12, 0xc9a227, x + (d.w % 2 ? 0 : 0.5), 0.0, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', noShadow: true }); } });
+    var dl = LEVEL.decor[x + ',' + z]; if (dl) dl.forEach(function (d) { if (d.m === '#throne') { throneAt(x, z, d.rot || 0); return; } if (typeof PROC !== 'undefined' && PROC[d.m]) { PROC[d.m](x + (d.dx || 0), z + (d.dz || 0), d, x, z); return; } if (d.m === '#rug') { box(d.w, 0.02, d.d, d.col, x + (d.w % 2 ? 0 : 0.5), 0.004, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', seed: 7, noShadow: true }); box(d.w + 0.12, 0.012, d.d + 0.12, 0xc9a227, x + (d.w % 2 ? 0 : 0.5), 0.0, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', noShadow: true }); } });
     if (c === 'D') {
-      var horiz = ch(x - 1, z) === '#';
+      var horiz = ch(x - 1, z) === '#' || ch(x + 1, z) === '#' || ch(x - 1, z) === 'D' || ch(x + 1, z) === 'D';
       [-0.44, 0.44].forEach(function (o) { box(0.16, 1.5, 0.16, 0x4a3420, x + (horiz ? o : 0), 0.75, z + (horiz ? 0 : o), x, z, { fade: true, kind: 'wood' });
         box(0.2, 0.12, 0.2, 0x3a2a1c, x + (horiz ? o : 0), 0.06, z + (horiz ? 0 : o), x, z, { kind: 'wood' }); });
       box(horiz ? 1.04 : 0.18, 0.18, horiz ? 0.18 : 1.04, 0x4a3420, x, 1.56, z, x, z, { fade: true, kind: 'wood' });
@@ -425,7 +427,7 @@
       else if (r2 > 0.86) { for (var ri = 0; ri < 3; ri++) box(0.035, 0.4 + ri * 0.14, 0.035, 0x5a7a3a, x - 0.2 + ri * 0.1, 0.2 + ri * 0.07, z + ri * 0.08 - 0.1, x, z, { kind: 'cloth', seed: ri, noShadow: true }); }
     } else if (c === '.') {
       // a little clutter where it belongs, never in safe rooms or furnished rooms, never under furniture
-      var info = roomInfo(x, z), rtype = info && info.type, styled = LEVEL.decor[x + ',' + z] || rtype === 'safe' || rtype === 'stairs' || (rtype === 'room' && (rid === 'office' || rid === 'studio'));
+      var info = roomInfo(x, z), rtype = info && info.type, styled = FLOOR === 2 || LEVEL.decor[x + ',' + z] || rtype === 'safe' || rtype === 'stairs' || (rtype === 'room' && (rid === 'office' || rid === 'studio'));
       if (styled) return;
       var junk = rid === 'hall' || rid === 'arena' || rid === 'gate' ? 0.965 : rid === 'bazaar' ? 0.94 : rid === 'office' || rid === 'studio' ? 0.975 : 0.985;
       if (r > junk && (rid === 'office' || rid === 'studio')) { // dropped paperwork
@@ -450,6 +452,74 @@
     at(0.86, 0.1, 0.14, 0xc9a227, 0, 1.82, -0.28, { kind: 'metal' });
     for (var i = -2; i <= 2; i++) at(0.1, 0.03, 0.1, [0xc9a227, 0xb0b0b0, 0xc84a2a][(i + 3) % 3], i * 0.16, 1.9 + (i % 2 ? 0.04 : 0.08), -0.28, { kind: 'metal' });
   }
+
+
+  // ---------- Floor 2 set pieces: thin timber walls, false fronts, and hand-built western props ----------
+  function wallish(x, z) { var q = ch(x, z); return q === '#' || q === 'H' || q === 'D'; }
+  function wbox(w, h, d, col, x, y, z, tx, tz, o) { var t = box(w, h, d, col, x, y, z, tx, tz, o); t.h = h; t.wy = y - h / 2; return t; }
+  function timberWall(x, z, st, v) {
+    // the floor under a thin wall: borrow the inside of the building if there is one
+    var fid = null; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (q) { if (fid && fid !== 'dirt') return; var rr = LEVEL.reg[z + q[1]] && LEVEL.reg[z + q[1]][x + q[0]]; if (rr >= 0) { var t = LEVEL.rooms[rr].theme; if (!fid || t === 'store') fid = t; } });
+    floorQuad(floorTex(fid || roomAt(x, z), v), x, 0, z);
+    var front = /F$/.test(st), win = /^win/.test(st), wh = front ? 2.05 : 1.45, col = front ? 0x8a6440 : 0x7a5638, post = 0x4e3420, T = 0.16;
+    var arms = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(function (q) { return wallish(x + q[0], z + q[1]); });
+    wbox(0.24, wh + 0.06, 0.24, post, x, (wh + 0.06) / 2, z, x, z, { wall: true, kind: 'wood', seed: 3 });
+    var alongX = arms.some(function (q) { return q[0] !== 0; }), alongZ = arms.some(function (q) { return q[1] !== 0; });
+    if (win && alongX !== alongZ) { // a window fills the whole tile along the wall
+      var L = 1.0, W2 = alongX ? L : T, D2 = alongX ? T : L;
+      wbox(W2, 0.55, D2, col, x, 0.275, z, x, z, { wall: true, kind: 'wood', seed: v });
+      wbox(W2, wh - 1.2, D2, col, x, 1.2 + (wh - 1.2) / 2, z, x, z, { wall: true, kind: 'wood', seed: v + 1 });
+      wbox(alongX ? 0.82 : 0.05, 0.62, alongX ? 0.05 : 0.82, 0x9cc8d8, x, 0.88, z, x, z, { wall: true, kind: 'metal' });
+      wbox(alongX ? 0.06 : 0.07, 0.66, alongX ? 0.07 : 0.06, post, x, 0.88, z, x, z, { wall: true, kind: 'wood' });
+      wbox(alongX ? 0.9 : 0.24, 0.05, alongX ? 0.24 : 0.9, post, x, 0.56, z, x, z, { wall: true, kind: 'wood' });
+    } else arms.forEach(function (q) {
+      wbox(q[0] ? 0.5 : T, wh, q[0] ? T : 0.5, col, x + q[0] * 0.25, wh / 2, z + q[1] * 0.25, x, z, { wall: true, kind: 'wood', seed: v + (q[0] + 2) * 3 + q[1] });
+    });
+    if (front) { // false front: a trim board along the top
+      arms.forEach(function (q) { wbox(q[0] ? 0.5 : 0.24, 0.1, q[0] ? 0.24 : 0.5, 0x3e2a18, x + q[0] * 0.25, wh + 0.02, z + q[1] * 0.25, x, z, { wall: true, kind: 'wood' }); });
+    }
+  }
+  function rotBox(cx, cz, rot, tx, tz) { var c = Math.cos(rot), s = Math.sin(rot);
+    return function (w, h, d, col, ox, y, oz, o) { var m = box(w, h, d, col, cx + ox * c + oz * s, y, cz - ox * s + oz * c, tx, tz, o || {}); m.mesh.rotation.y = rot; return m; }; }
+  function pcyl(rad, hh, col, x, y, z, tx, tz, o) { var op = { geo: c16, kind: (o && o.kind) || 'wood', seed: 4 }; for (var k in o) op[k] = o[k]; var t = box(1, 1, 1, col, x, y, z, tx, tz, op); t.mesh.scale.set(rad * 2, hh, rad * 2); return t; }
+  var signTex = {};
+  function signTexture(text) { return tex('sign_' + text, 256, 64, function (g) {
+    g.fillStyle = '#e8d9b4'; g.fillRect(0, 0, 256, 64); g.strokeStyle = '#3a2412'; g.lineWidth = 6; g.strokeRect(3, 3, 250, 58);
+    g.fillStyle = '#3a2412'; var fs = text.length > 9 ? 26 : 36; g.font = '900 ' + fs + 'px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 34); }, true); }
+  var PROC = {
+    '#rail': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; box(ax ? 1.0 : 0.06, 0.06, ax ? 0.06 : 1.0, 0x6a4a2e, x, 0.72, z, tx, tz, { kind: 'wood' }); box(ax ? 1.0 : 0.05, 0.05, ax ? 0.05 : 1.0, 0x6a4a2e, x, 0.4, z, tx, tz, { kind: 'wood' });
+      box(0.1, 0.8, 0.1, 0x4e3420, x, 0.4, z, tx, tz, { kind: 'wood' }); },
+    '#hitch': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; [-0.4, 0.4].forEach(function (o) { box(0.1, 0.9, 0.1, 0x4e3420, x + (ax ? o : 0), 0.45, z + (ax ? 0 : o), tx, tz, { kind: 'wood' }); });
+      box(ax ? 1.0 : 0.08, 0.08, ax ? 0.08 : 1.0, 0x5e4228, x, 0.86, z, tx, tz, { kind: 'wood' }); },
+    '#trough': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; box(ax ? 1.0 : 0.5, 0.42, ax ? 0.5 : 1.0, 0x5a3e24, x, 0.21, z, tx, tz, { kind: 'wood' }); box(ax ? 0.88 : 0.38, 0.02, ax ? 0.38 : 0.88, 0x3a6a8a, x, 0.39, z, tx, tz, { kind: 'metal', noShadow: true }); },
+    '#piano': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.95, 1.05, 0.42, 0x2a1810, 0, 0.525, -0.05, { kind: 'wood' }); B(0.9, 0.06, 0.2, 0xf0ead8, 0, 0.72, 0.2, { kind: 'bone' }); B(0.9, 0.03, 0.06, 0x111111, 0, 0.76, 0.16); B(0.95, 0.08, 0.5, 0x3a2216, 0, 1.08, -0.02, { kind: 'wood' }); },
+    '#felt': function (x, z, d, tx, tz) { pcyl(0.47, 0.06, 0x4a2e18, x, 0.7, z, tx, tz); pcyl(0.42, 0.03, 0x2f6a3a, x, 0.74, z, tx, tz, { kind: 'cloth' }); pcyl(0.07, 0.68, 0x3a2414, x, 0.34, z, tx, tz); pcyl(0.25, 0.04, 0x3a2414, x, 0.02, z, tx, tz);
+      for (var i = 0; i < 3; i++) box(0.08, 0.005, 0.11, 0xf4f0e6, x - 0.12 + i * 0.1, 0.765, z + 0.1, tx, tz, { kind: 'cloth', noShadow: true }); },
+    '#stairs': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); for (var i = 0; i < 4; i++) B(0.92, 0.22 * (i + 1), 0.25, 0x6a4a2e, 0, 0.11 * (i + 1), 0.375 - i * 0.25, { kind: 'wood', seed: i }); },
+    '#bars': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; for (var i = -2; i <= 2; i++) box(0.05, 1.45, 0.05, 0x3a3a40, x + (ax ? i * 0.2 : 0), 0.725, z + (ax ? 0 : i * 0.2), tx, tz, { kind: 'metal' });
+      [0.1, 1.4].forEach(function (y) { box(ax ? 1.0 : 0.07, 0.07, ax ? 0.07 : 1.0, 0x2a2a30, x, y, z, tx, tz, { kind: 'metal' }); }); },
+    '#forge': function (x, z, d, tx, tz) { box(1.0, 0.7, 0.85, 0x6a6460, x, 0.35, z, tx, tz, { kind: 'stone' }); box(0.7, 0.06, 0.55, 0xff6a20, x, 0.72, z, tx, tz, { glow: true }); box(0.4, 1.3, 0.4, 0x5a5450, x, 1.35, z - 0.2, tx, tz, { kind: 'stone' }); },
+    '#track': function (x, z, d, tx, tz) { [-0.25, 0.25].forEach(function (o) { box(0.22, 0.06, 1.5, 0x4a3420, x + o, 0.03, z, tx, tz, { kind: 'wood', noShadow: true }); });
+      [-0.42, 0.42].forEach(function (o) { box(1.0, 0.08, 0.07, 0x7a7a82, x, 0.1, z + o, tx, tz, { kind: 'metal', noShadow: true }); }); },
+    '#loco': function (x, z, d, tx, tz) { var L = d.len || 7, cx = x + (L - 1) / 2;
+      box(L - 0.1, 0.4, 1.3, 0x1e1e22, cx, 0.45, z, tx, tz, { kind: 'metal' });
+      var b = pcyl(0.62, L * 0.62, 0x2a2a30, x + L * 0.62 / 2 - 0.3, 1.25, z, tx, tz, { kind: 'metal' }); b.mesh.rotation.z = Math.PI / 2;
+      box(0.2, 1.4, 1.4, 0x7a1a1a, x + L * 0.62 - 0.2, 1.3, z, tx, tz, { kind: 'metal' }); box(1.8, 1.7, 1.4, 0x7a1a1a, x + L - 1.4, 1.5, z, tx, tz, { kind: 'wood' }); box(2.0, 0.12, 1.6, 0x1e1e22, x + L - 1.4, 2.4, z, tx, tz, { kind: 'metal' });
+      pcyl(0.18, 0.9, 0x1e1e22, x + 0.4, 2.2, z, tx, tz, { kind: 'metal' }); pcyl(0.3, 0.12, 0x1e1e22, x + 0.4, 2.68, z, tx, tz, { kind: 'metal' }); pcyl(0.2, 0.3, 0xc9a227, x + 2.0, 1.95, z, tx, tz, { kind: 'metal' });
+      for (var i = 0; i < 3; i++) [-0.62, 0.62].forEach(function (o) { var w = pcyl(0.38, 0.1, 0x7a1a1a, x + 1 + i * 1.5, 0.4, z + o, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; });
+      box(0.6, 0.5, 1.3, 0x3a3a40, x - 0.3, 0.45, z, tx, tz, { kind: 'metal' }); },
+    '#car': function (x, z, d, tx, tz) { var L = d.len || 6, cx = x + (L - 1) / 2, cars = { 37: 0x5a4a2a, 43: 0x6a5a3a };
+      box(L - 0.3, 0.35, 1.3, 0x1e1e22, cx, 0.42, z, tx, tz, { kind: 'metal' }); box(L - 0.4, 1.35, 1.35, cars[x] || 0x6a2a20, cx, 1.27, z, tx, tz, { kind: 'wood', seed: x });
+      box(L - 0.2, 0.12, 1.55, 0x2a2a2e, cx, 2.0, z, tx, tz, { kind: 'metal' });
+      for (var i = 0; i < L - 1; i++) [-0.69, 0.69].forEach(function (o) { box(0.42, 0.34, 0.02, 0xd8c890, x + 0.5 + i, 1.45, z + o, tx, tz, { glow: true }); });
+      [0.8, L - 1.8].forEach(function (o) { [-0.62, 0.62].forEach(function (q) { var w = pcyl(0.3, 0.1, 0x2a2a30, x + o, 0.32, z + q, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; }); }); },
+    '#tower': function (x, z, d, tx, tz) { [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]].forEach(function (o) { box(0.14, 2.4, 0.14, 0x4e3420, x + o[0], 1.2, z + o[1], tx, tz, { kind: 'wood' }); });
+      pcyl(1.0, 1.3, 0x7a5638, x, 3.05, z, tx, tz, { kind: 'wood' }); var cn = box(1, 1, 1, 0x4a3a2a, x, 3.95, z, tx, tz, { geo: new THREE.ConeGeometry(0.5, 1, 12), kind: 'wood' }); cn.mesh.scale.set(2.3, 0.5, 2.3);
+      box(0.08, 0.08, 1.2, 0x3a3a40, x + 0.95, 2.6, z + 0.6, tx, tz, { kind: 'metal' }); },
+    '#rut': function (x, z, d, tx, tz) { box(0.22, 0.004, 1.0, 0x7a5a36, x, 0.003, z, tx, tz, { kind: 'stone', noShadow: true }); },
+    '#prints': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); for (var i = 0; i < 4; i++) B(0.1, 0.004, 0.09, 0x6e5030, (i % 2 ? 0.12 : -0.12), 0.004, -0.4 + i * 0.26, { noShadow: true }); },
+    '#sign': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); var sg = B(1.9, 0.48, 0.06, 0xe8d9b4, 0, d.y || 1.7, 0, { tex: signTexture(d.text || ''), wall: true }); sg.h = 0.48; sg.wy = (d.y || 1.7) - 0.24; }
+  };
 
   // ---------- streaming: only the chunks around the hero exist in the scene ----------
   // The floor is far bigger than a phone can draw at once; the camera only ever shows about ten tiles

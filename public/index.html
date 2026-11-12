@@ -810,7 +810,7 @@
     // round it, each one short street away. Studio Drive North and South cross the lot. Soundstage 9 (the gate) is
     // north of the hub, up Director's Row. Shares the Floor 1 helpers above (carving, furniture, styles).
     function backlot() {
-      decor = {}; dname = {}; D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]]; TOP = 0.36;
+      decor = {}; dname = {}; D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]]; TOP = 0.36; var wstyle = {};
       STYLE = mkStyle(); MODERN = mkModern(); for (var mk2 in MODERN) STYLE[mk2] = MODERN[mk2];
       var xx, zz, k, i;
       function Zn(o) { o.idx = zones.length; o.rooms = []; o.rids = {}; zones.push(o); return o; }
@@ -840,6 +840,208 @@
       function greens(r, n, kinds) { for (var k = 0; k < n; k++) { var x = ri(r.x0, r.x1), z = ri(r.z0, r.z1); if (freeT(x, z, r)) dec(x, z, pick(kinds || ['Bush_Common', 'Fern_1', 'Grass_Wispy_Tall', 'Plant_7', 'Flower_3_Group']), { fit: 0.6 + rnd() * 0.5, rot: rnd() * 6, ns: true }); } }
       function lamps(r, every) { for (var zz = r.z0; zz <= r.z1; zz++) for (var xx = r.x0; xx <= r.x1; xx++) { var w = wallOf(xx, zz); if (w && freeT(xx, zz, r) && (xx * 3 + zz * 7) % every === 0) obj(xx, zz, 'Torch_Metal', hug(w, { h: 1.6 }), 'Lamp post'); } }
       function pack(r, fam, n, tier, name) { for (var k = 0; k < n; k++) spawnIn(r, fam, { tier: tier || (rnd() < 0.3 ? 2 : 1), name: name }); }
+
+      // ---------- building templates ----------
+      // Drawn with the front (street side) at the bottom. stamp() turns them to face any way.
+      // # timber wall · W window · D door · . floor · = boardwalk · r railing · H hitching rail (outside)
+      // B bar counter · s bar stool · S bottle shelf · P piano · T table and chairs · G poker table · k stairs
+      // L wall lamp · x crate · o barrel · C cabinet · h shelf · d desk and chair · e bed · j cell bars · V safe
+      // K shop counter · F produce · p plant · n bench or pew · A altar · w water trough · space: leave as it is
+      var TPL = {
+        saloon: { name: 'The Saloon', sign: 'SALOON', line: 'Swinging doors, a long bar, a piano that plays itself badly and three card games nobody is winning.',
+          areas: [{ name: 'Saloon Storeroom', c0: 11, r0: 1, c1: 15, r1: 4 }, { name: 'The Back Room', c0: 17, r0: 1, c1: 20, r1: 4 }], rugs: [[9, 6, 11, 13, 0x7a2a1e]], rows: [
+          '######W#####W#########',
+          '#SSSSSS...#xx.o.#e..e#',
+          '#.........#.....#....#',
+          '#BBBBBB...D..o..D....#',
+          '#s.s.s....#xo...#C..d#',
+          '#.........#######D####',
+          '#L.................kk#',
+          'W.....G.......T....kk#',
+          '#....................#',
+          '#..T.........G.......W',
+          '#....................#',
+          '#P.......T..........L#',
+          '#L......G......T.....#',
+          'W....................W',
+          '#####W###DD###W#######',
+          'r====================r',
+          'r====================r',
+          '   H      H  H      H ']
+        },
+        store: { name: 'General Store', sign: 'GENERAL STORE', line: 'Shelves to the ceiling, barrels of everything and a counter with a bell nobody rings.', rows: [
+          '####W#####W#####',
+          '#hhhhh..hhhhhh.#',
+          '#..............#',
+          '#.FF..xx..oo.F.#',
+          '#..............#',
+          '#.hh.hh..hh.hh.#',
+          '#..............#',
+          '#L..KKKKK.....L#',
+          '#..............#',
+          '#.F..........F.#',
+          '#....p....p....#',
+          '####W##DD##W####',
+          'r==============r',
+          'r==============r',
+          '  H          H  ']
+        },
+        bank: { name: 'The Bank', sign: 'BANK', line: 'A bank with a vault behind bars and a teller cage. The money is fake. The vault is not.',
+          areas: [{ name: 'The Vault', c0: 1, r0: 1, c1: 4, r1: 2 }, { name: 'Manager\'s Office', c0: 6, r0: 1, c1: 10, r1: 2 }], rows: [
+          '############',
+          '#VV.x#C..d.#',
+          '#....#.....#',
+          '#jjjj###D###',
+          '#..........#',
+          '#KKKKKKK...#',
+          '#..........#',
+          '#L..n..n..L#',
+          '#..........#',
+          '###W#DD#W###',
+          'r==========r',
+          'r==========r',
+          '  H      H  ']
+        },
+        jail: { name: 'Sheriff\'s Office', sign: 'SHERIFF', line: 'The sheriff\'s office and three cells. The cells have not been cleaned since the pilot episode.',
+          areas: [{ name: 'The Cells', c0: 1, r0: 1, c1: 8, r1: 2 }], rows: [
+          '##############',
+          '#e.#e.#e.#hhC#',
+          '#..#..#..#...#',
+          '#jj#jj#jj#...#',
+          '#............#',
+          '#.d.......C..#',
+          '#............#',
+          '#L..n.n....TL#',
+          '#............#',
+          '####W#DD#W####',
+          'r============r',
+          'r============r',
+          '  H        H  ']
+        },
+        depot: { name: 'Train Depot', sign: 'DEPOT', line: 'A train depot with benches, a ticket window and a timetable for trains that never leave.', rows: [
+          '##W####W####',
+          '#L........h#',
+          '#.nn..nn...#',
+          '#..........#',
+          '#.nn..nn...#',
+          '#..........#',
+          '#..KKKK....#',
+          '#..d...C.x.#',
+          '#L........L#',
+          '###W#DD#W###',
+          'r==========r',
+          'r==========r']
+        },
+        hotel: { name: 'The Hotel', sign: 'HOTEL', line: 'A hotel lobby, four rooms upstairs that are actually downstairs, and a guest book full of stunt doubles.',
+          areas: [{ name: 'Hotel Room 1', c0: 1, r0: 1, c1: 3, r1: 2 }, { name: 'Hotel Room 2', c0: 5, r0: 1, c1: 7, r1: 2 }, { name: 'Hotel Room 3', c0: 9, r0: 1, c1: 11, r1: 2 }, { name: 'Hotel Room 4', c0: 13, r0: 1, c1: 15, r1: 2 }],
+          rugs: [[8, 5, 11, 9, 0x2a4a3a]], rows: [
+          '####W###W###W###W###',
+          '#e.C#e.C#e.C#e.C#kk#',
+          '#...#...#...#...#kk#',
+          '##D###D###D###D##..#',
+          '#..................#',
+          '#L.......T........L#',
+          '#....T.......T.....#',
+          'W..................W',
+          '#..KKKK.......p....#',
+          '#..d.........n..n..#',
+          '#L................L#',
+          '####W###DD###W######',
+          'r==================r',
+          'r==================r',
+          '  H              H  ']
+        },
+        telegraph: { name: 'Telegraph Office', sign: 'TELEGRAPH', line: 'A telegraph office. The machine clicks on its own. Nobody here knows Morse code.', rows: [
+          '###W##W###',
+          '#h..dd..h#',
+          '#........#',
+          '#.KKKKKK.#',
+          '#........#',
+          '#L..nn..L#',
+          '#........#',
+          '###WDDW###',
+          'r========r',
+          'r========r']
+        },
+        chapel: { name: 'The Chapel', sign: 'CHAPEL', line: 'A little chapel with pews and a bell rope. Quiet, for a set. The kobolds will not come in here.', rugs: [[7, 2, 8, 11, 0x6a1a1a]], rows: [
+          '#######WW#######',
+          '#....p.AA.p....#',
+          '#..............#',
+          '#L.nnnn..nnnn.L#',
+          '#..............#',
+          'W..nnnn..nnnn..W',
+          '#..............#',
+          '#L.nnnn..nnnn.L#',
+          '#..............#',
+          'W..nnnn..nnnn..W',
+          '#..............#',
+          '#####W#DD#W#####',
+          'r==============r',
+          'r==============r']
+        }
+      };
+      // stamp a template: (ox, oz) is the top-left of where it lands; rot turns the front: 0 south, 1 west, 2 north, 3 east
+      function stamp(T, ox, oz, rot, Z, o) {
+        o = o || {};
+        var R = T.rows, h = R.length, w = R[0].length, i, j, c, p;
+        R.forEach(function (row, k) { if (row.length !== w) throw new Error('template ' + T.name + ' row ' + k + ' is ' + row.length + ' wide, not ' + w); });
+        function at(ci, rj) { return rot === 0 ? [ox + ci, oz + rj] : rot === 1 ? [ox + (h - 1 - rj), oz + ci] : rot === 2 ? [ox + (w - 1 - ci), oz + (h - 1 - rj)] : [ox + rj, oz + (w - 1 - ci)]; }
+        var fv = [[0, 1], [-1, 0], [0, -1], [1, 0]][rot], frot = Math.atan2(fv[0], fv[1]);
+        var a = at(0, 0), b = at(w - 1, h - 1);
+        var rm = room({ name: T.name, type: o.type || 'room', theme: T.theme || 'store', line: T.line, x0: Math.min(a[0], b[0]), z0: Math.min(a[1], b[1]), x1: Math.max(a[0], b[0]), z1: Math.max(a[1], b[1]) }, Z);
+        var porch = room({ name: T.name + ' Porch', type: 'corridor', theme: 'porch', x0: rm.x0, z0: rm.z0, x1: rm.x1, z1: rm.z1, line: 'A boardwalk porch with a railing. Good for leaning on and watching the street.' }, Z);
+        var lastWall = -1; for (j = 0; j < h; j++) if (/D/.test(R[j])) lastWall = j;
+        // pass 1: walls, floors, doors
+        for (j = 0; j < h; j++) for (i = 0; i < w; i++) {
+          c = R[j].charAt(i); p = at(i, j); var x = p[0], z = p[1]; if (c === ' ' || !inb(x, z)) continue;
+          if (c === '#' || c === 'W') { g[z][x] = '#'; reg[z][x] = -1; wstyle[x + ',' + z] = (c === 'W' ? 'win' : 'timber') + (j === lastWall ? 'F' : ''); continue; }
+          if (c === 'D') { g[z][x] = 'D'; reg[z][x] = rm.id; continue; }
+          if (c === '=' || c === 'r' || (c === 'H' && j > lastWall)) { if (c !== 'H') { g[z][x] = '.'; reg[z][x] = porch.id; } continue; }
+          g[z][x] = '.'; reg[z][x] = rm.id;
+        }
+        (T.areas || []).forEach(function (ar) { var q0 = at(ar.c0, ar.r0), q1 = at(ar.c1, ar.r1);
+          var sr = room({ name: ar.name, type: 'room', theme: T.theme || 'store', x0: Math.min(q0[0], q1[0]), z0: Math.min(q0[1], q1[1]), x1: Math.max(q0[0], q1[0]), z1: Math.max(q0[1], q1[1]) }, Z);
+          for (var zz2 = sr.z0; zz2 <= sr.z1; zz2++) for (var xx2 = sr.x0; xx2 <= sr.x1; xx2++) if (reg[zz2][xx2] === rm.id) reg[zz2][xx2] = sr.id; });
+        (T.rugs || []).forEach(function (ru) { var q0 = at(ru[0], ru[1]), q1 = at(ru[2], ru[3]), x0 = Math.min(q0[0], q1[0]), z0 = Math.min(q0[1], q1[1]), rw = Math.abs(q1[0] - q0[0]) + 1, rd = Math.abs(q1[1] - q0[1]) + 1;
+          dec(x0 + (rw >> 1), z0 + (rd >> 1), '#rug', { w: rw, d: rd, col: ru[4] }); });
+        // pass 2: furniture, now the walls are in so things can find the wall behind them
+        function same(x, z, ch2) { var q = null; for (var jj = 0; jj < h; jj++) for (var ii = 0; ii < w; ii++) { var pp = at(ii, jj); if (pp[0] === x && pp[1] === z) q = R[jj].charAt(ii); } return q === ch2; }
+        function axis(x, z, ch2) { return same(x - 1, z, ch2) || same(x + 1, z, ch2) || g[z][x - 1] === '#' || g[z][x + 1] === '#' ? 'x' : 'z'; }
+        function chairsAround(x, z, m) { [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(function (q) { var cx = x + q[0], cz = z + q[1]; if (g[cz][cx] === '.' && !taken[cx + ',' + cz] && !nearDoor(cx, cz) && rnd() < 0.85) dec(cx, cz, m || 'Chair_1', { fit: 0.42, rot: Math.atan2(-q[0], -q[1]) + (rnd() - 0.5) * 0.5, dx: -q[0] * 0.18, dz: -q[1] * 0.18 }); }); }
+        var signDone = false;
+        for (j = 0; j < h; j++) for (i = 0; i < w; i++) {
+          c = R[j].charAt(i); p = at(i, j); var x2 = p[0], z2 = p[1], wl = wallOf(x2, z2); if (!inb(x2, z2)) continue;
+          var face = wl ? Math.atan2(-wl[0], -wl[1]) : frot;
+          switch (c) {
+            case 'B': F(x2, z2, 'kitchenBar', 0.98, frot, 'Bar'); break;
+            case 'K': F(x2, z2, 'kitchenBar', 0.98, frot, 'Counter'); break;
+            case 's': dec(x2, z2, 'stoolBar', { fit: 0.3, rot: rnd() }); break;
+            case 'S': obj(x2, z2, rnd() < 0.7 ? 'Shelf_Small_Bottles' : 'Shelf_Simple', wl ? hug(wl, { fit: 0.95 }) : { fit: 0.95, rot: frot }, 'Bottle shelf'); break;
+            case 'P': obj(x2, z2, '#piano', { rot: face, dx: wl ? wl[0] * 0.15 : 0, dz: wl ? wl[1] * 0.15 : 0 }, 'Piano'); dec(x2 - (wl ? wl[0] : 0), z2 - (wl ? wl[1] : 0), 'Stool', { fit: 0.3 }); break;
+            case 'T': F(x2, z2, 'tableRound', 0.9, 0, 'Table'); chairsAround(x2, z2); break;
+            case 'G': obj(x2, z2, '#felt', {}, 'Card table'); chairsAround(x2, z2); if (rnd() < 0.6) dec(x2, z2, 'Coin_Pile', { y: 0.76, fit: 0.18, dx: 0.12 }); break;
+            case 'k': obj(x2, z2, '#stairs', { rot: face }, 'Stairs'); break;
+            case 'L': if (wl) dec(x2, z2, 'Lantern_Wall', { fit: 0.32, rot: Math.atan2(-wl[0], -wl[1]), dx: wl[0] * 0.4, dz: wl[1] * 0.4, y: 1.0, hang: true, ns: true }); break;
+            case 'x': obj(x2, z2, 'Crate_Wooden', { fit: 0.75, rot: rnd() * 0.5 }, 'Crate'); break;
+            case 'o': obj(x2, z2, 'Barrel', { fit: 0.62, rot: rnd() * 6 }, 'Barrel'); break;
+            case 'C': obj(x2, z2, 'Cabinet', wl ? hug(wl, { fit: 0.8 }) : { fit: 0.8, rot: frot }, 'Cabinet'); break;
+            case 'h': obj(x2, z2, pick(['Shelf_Simple', 'Shelf_Small_Bottles', 'Bookcase_2']), wl ? hug(wl, { fit: 0.95 }) : { fit: 0.95, rot: frot }, 'Shelf'); break;
+            case 'd': obj(x2, z2, 'Table_Large', { fit: 0.95, rot: frot }, 'Desk'); onTable(x2, z2, [pick(['Scroll_1', 'Book_Stack_1', 'Candle_1']), 'Mug']); break;
+            case 'e': obj(x2, z2, 'Bed_Twin1', wl ? hug(wl, { fit: 0.9 }) : { fit: 0.9 }, 'Bed'); break;
+            case 'j': obj(x2, z2, '#bars', { ax: axis(x2, z2, 'j') }, 'Cell bars'); break;
+            case 'V': obj(x2, z2, 'Chest_Wood', wl ? hug(wl, { fit: 0.7 }) : { fit: 0.7 }, 'Safe'); break;
+            case 'F': obj(x2, z2, pick(['FarmCrate_Apple', 'FarmCrate_Carrot', 'Barrel_Apples']), { fit: 0.55, rot: rnd() * 0.6 }, 'Produce'); break;
+            case 'p': dec(x2, z2, pick(['pottedPlant', 'Plant_1']), { fit: 0.45, rot: rnd() * 6 }); break;
+            case 'n': obj(x2, z2, 'Bench', { fit: 1.0, rot: axis(x2, z2, 'n') === 'x' ? 0 : Math.PI / 2 }, T.name === 'The Chapel' ? 'Pew' : 'Bench'); break;
+            case 'A': obj(x2, z2, 'Table_Large', { fit: 0.95, rot: frot }, 'Altar'); dec(x2, z2, 'CandleStick_Triple', { y: TOP, fit: 0.3 }); break;
+            case 'r': obj(x2, z2, '#rail', { ax: axis(x2, z2, 'r') }, 'Railing'); break;
+            case 'H': if (freeT(x2, z2)) obj(x2, z2, '#hitch', { ax: rot === 1 || rot === 3 ? 'z' : 'x' }, 'Hitching rail'); break;
+            case 'w': obj(x2, z2, '#trough', { ax: axis(x2, z2, 'w') }, 'Water trough'); break;
+            case 'D': if (!signDone && j === lastWall && T.sign) { signDone = true; dec(x2, z2, '#sign', { text: T.sign, rot: frot, dx: fv[0] * 0.2 + (rot === 0 ? 0.5 : rot === 2 ? -0.5 : 0), dz: fv[1] * 0.2 + (rot === 1 ? 0.5 : rot === 3 ? -0.5 : 0), y: 1.72 }); } break;
+          }
+        }
+        return { room: rm, porch: porch };
+      }
 
       // ---------- streets ----------
       var ST = Zn({ name: 'The Backlot Streets', theme: 'lot', line: 'Studio streets between the sets. Golf carts, cables, cones and patrols. Keep moving.' });
@@ -878,19 +1080,46 @@
       for (k = 0; k < 40; k++) { var ex = rnd() < 0.5 ? ri(77, 80) : ri(158, 161), ez = ri(81, 143); if (freeT(ex, ez, vil)) obj(ex, ez, pick(['CommonTree_1', 'CommonTree_3']), { fit: 2.0 + rnd(), rot: rnd() * 6 }, 'Tree'); }
       greens(vil, 70, ['Bush_Common_Flowers', 'Flower_4_Group', 'Clover_1', 'Grass_Common_Short']);
 
-      // ---------- Frontier Town (west): one main street, false fronts both sides ----------
-      var FT = Zn({ name: 'Frontier Town', theme: 'dirt', line: 'A western town where every building is a false front. The stunt crew lives here, and they fall off things for a living.' });
+      // ---------- Frontier Town (west): a real western main street ----------
+      // Buildings are stamped from hand-drawn templates (TPL below): thin timber walls with windows, false fronts,
+      // boardwalk porches with railings, hitching rails, and furniture placed where it belongs.
+      var FT = Zn({ name: 'Frontier Town', theme: 'dirt', line: 'A western town on a backlot. Every building has a false front, and the stunt crew falls off all of them for a living.' });
       var ftown = area({ name: 'Frontier Town', type: 'corridor', x0: 8, z0: 68, x1: 56, z1: 156 }, FT);
-      area({ name: 'Frontier Town', type: 'corridor', theme: 'dirt', x0: 30, z0: 63, x1: 34, z1: 67 }, FT); area({ name: 'Frontier Town', type: 'corridor', theme: 'dirt', x0: 30, z0: 157, x1: 34, z1: 159 }, FT);
-      var FTW = [['The Saloon', 'break'], ['The Jail', 'cells'], ['Sheriff\'s Office', 'office'], ['The Bank', 'storage'], ['General Store', 'storage'], ['The Undertaker', 'workshop']];
-      var FTE = [['The Hotel', 'bunk'], ['Blacksmith', 'workshop'], ['The Stables', 'storage'], ['Telegraph Office', 'office'], ['The Chapel', 'theater']];
-      var zW = [[70, 82], [84, 96], [98, 110], [112, 124], [126, 138], [140, 154]], zE = [[70, 82], [84, 96], [117, 129], [131, 143], [145, 154]];
-      FTW.forEach(function (b, j) { var r = hut({ name: b[0], theme: 'store', style: b[1], x0: 9, z0: zW[j][0], x1: 24, z1: zW[j][1] }, FT, [[24, (zW[j][0] + zW[j][1]) >> 1]]); if (b[0] === 'The Saloon') r.line = 'Swinging doors, a long bar and a piano that plays itself badly.'; pack(r, 'puglin', ri(1, 3), 0, 'Stunt kobold'); });
-      FTE.forEach(function (b, j) { var r = hut({ name: b[0], theme: 'store', style: b[1], x0: 40, z0: zE[j][0], x1: 55, z1: zE[j][1] }, FT, [[40, (zE[j][0] + zE[j][1]) >> 1]]); pack(r, 'puglin', ri(1, 2), 0, 'Stunt kobold'); });
-      for (zz = 70; zz <= 154; zz += 5) { if (freeT(26, zz, ftown)) obj(26, zz, pick(['Barrel', 'Prop_WoodenFence_Single', 'Barrel_Holder']), { fit: 0.8, rot: Math.PI / 2 }, 'Hitching post'); if (freeT(38, zz + 2, ftown)) obj(38, zz + 2, pick(['Barrel', 'Prop_WoodenFence_Single', 'Crate_Wooden']), { fit: 0.8, rot: Math.PI / 2 }, 'Hitching post'); }
-      obj(32, 104, 'Prop_Wagon', { fit: 2.4, rot: 0.2 }, 'Wagon'); obj(45, 112, 'Bucket_Metal', { fit: 0.6 }, 'Water trough');
-      for (k = 0; k < 8; k++) { var rx = ri(28, 36), rz = ri(70, 154); if (freeT(rx, rz, ftown)) g[rz][rx] = 'R'; }
-      greens(ftown, 30, ['Grass_Wispy_Short', 'Pebble_Round_1', 'Pebble_Round_3', 'DeadTree_2']);
+      area({ name: 'Frontier Town', type: 'corridor', x0: 30, z0: 63, x1: 34, z1: 67 }, FT); area({ name: 'Frontier Town', type: 'corridor', x0: 30, z0: 157, x1: 34, z1: 159 }, FT);
+      var built = [];
+      built.push(stamp(TPL.depot, 28 - TPL.depot.rows.length, 74, 3, FT));
+      built.push(stamp(TPL.saloon, 28 - TPL.saloon.rows.length, 88, 3, FT));
+      built.push(stamp(TPL.store, 28 - TPL.store.rows.length, 113, 3, FT));
+      built.push(stamp(TPL.bank, 28 - TPL.bank.rows.length, 129, 3, FT));
+      built.push(stamp(TPL.jail, 28 - TPL.jail.rows.length, 142, 3, FT));
+      built.push(stamp(TPL.hotel, 37, 82, 1, FT));
+      built.push(stamp(TPL.telegraph, 37, 118, 1, FT));
+      built.push(stamp(TPL.chapel, 37, 131, 1, FT));
+      built.forEach(function (b) { if (b.room.name !== 'The Chapel' && b.room.name !== 'Train Depot') pack(b.room, 'puglin', ri(1, 3), 0, 'Stunt kobold'); });
+      // the railroad along the north edge, with a train waiting (a gap where the road crosses)
+      for (xx = 8; xx <= 56; xx++) if (g[69][xx] === '.' || g[69][xx] === ',') dec(xx, 69, '#track', { dz: 0.5, ns: true });
+      function rolling(x0, len, kind, name) { for (var x = x0; x < x0 + len; x++) for (var z = 69; z <= 70; z++) { g[z][x] = 'o'; dname[x + ',' + z] = name; } dec(x0, 69, kind, { len: len, dz: 0.5 }); }
+      rolling(10, 7, '#loco', 'Locomotive'); rolling(17, 6, '#car', 'Passenger car'); rolling(23, 5, '#car', 'Freight car'); rolling(37, 6, '#car', 'Freight car'); rolling(43, 6, '#car', 'Cattle car');
+      var pr = room({ name: 'Station Platform', type: 'corridor', theme: 'porch', x0: 9, z0: 71, x1: 27, z1: 72 }, FT); for (xx = 9; xx <= 27; xx++) for (zz = 71; zz <= 72; zz++) if (g[zz][xx] === '.') reg[zz][xx] = pr.id;
+      [[12, 72], [18, 72], [24, 72]].forEach(function (p) { if (freeT(p[0], p[1])) obj(p[0], p[1], 'Bench', { fit: 1.0, rot: 0 }, 'Platform bench'); });
+      // water tower and a freight yard by the tracks
+      [[50, 73], [51, 73], [50, 74], [51, 74]].forEach(function (p) { g[p[1]][p[0]] = 'o'; dname[p[0] + ',' + p[1]] = 'Water tower'; }); dec(50, 73, '#tower', { dx: 0.5, dz: 0.5 });
+      [[40, 74], [41, 74], [40, 75], [44, 76], [46, 74], [45, 74]].forEach(function (p, j) { if (freeT(p[0], p[1])) g[p[1]][p[0]] = j % 2 ? 'R' : 'K'; });
+      // the blacksmith works in the open, either side of the lane to the Loop
+      obj(40, 104, '#forge', { rot: Math.PI / 2 }, 'Forge'); obj(42, 104, 'Anvil', { fit: 0.7, rot: 0.3 }, 'Anvil'); obj(44, 103, 'WeaponStand', { fit: 1.0 }, 'Weapon rack');
+      obj(46, 104, '#trough', { ax: 'x' }, 'Water trough'); g[103][38] = 'R'; g[105][48] = 'K'; obj(39, 116, 'Workbench', { fit: 1.2 }, 'Workbench'); obj(42, 116, 'Barrel', { fit: 0.62 }, 'Barrel'); obj(43, 116, 'Peg_Rack', { fit: 0.95 }, 'Tool rack');
+      // a corral at the south end
+      for (xx = 40; xx <= 54; xx++) { [149, 155].forEach(function (z) { if (freeT(xx, z)) obj(xx, z, '#rail', { ax: 'x' }, 'Corral fence'); }); }
+      for (zz = 150; zz <= 154; zz++) { [40, 54].forEach(function (x) { if (x === 40 && (zz === 152)) return; if (freeT(x, zz)) obj(x, zz, '#rail', { ax: 'z' }, 'Corral fence'); }); }
+      obj(47, 152, '#trough', { ax: 'x' }, 'Water trough'); obj(51, 151, 'Bucket_Wooden_1', { fit: 0.4 }, 'Bucket'); dec(44, 153, 'Grass_Wispy_Tall', { fit: 0.8, ns: true });
+      // the street: wheel ruts, hoof prints, crates and barrels in the alleys
+      for (zz = 72; zz <= 156; zz++) { [30, 34].forEach(function (x) { if (g[zz][x] === '.' && !decor[x + ',' + zz]) dec(x, zz, '#rut', { ns: true }); }); }
+      for (k = 0; k < 70; k++) { var hx2 = ri(29, 35), hz2 = ri(72, 156); if (g[hz2][hx2] === '.') dec(hx2, hz2, '#prints', { rot: rnd() * 6, ns: true }); }
+      [[10, 87], [14, 86], [20, 111], [12, 127], [22, 140], [44, 102], [50, 129], [52, 117], [38, 130]].forEach(function (p, j) { if (freeT(p[0], p[1])) g[p[1]][p[0]] = j % 3 ? 'R' : 'K'; });
+      // wagons parked on the street, barrels and crates on the porches
+      [[32, 92, 0.1], [31, 121, -0.15], [33, 146, 0.2]].forEach(function (q) { if (freeT(q[0], q[1]) && freeT(q[0], q[1] + 1)) { obj(q[0], q[1], 'Prop_Wagon', { fit: 2.4, rot: Math.PI / 2 + q[2], dz: 0.5 }, 'Wagon'); g[q[1] + 1][q[0]] = 'o'; dname[q[0] + ',' + (q[1] + 1)] = 'Wagon'; } });
+      built.forEach(function (b) { var pr2 = b.porch; for (var k2 = 0; k2 < 2; k2++) { var px2 = ri(pr2.x0, pr2.x1), pz2 = ri(pr2.z0, pr2.z1); if (reg[pz2][px2] === pr2.id && freeT(px2, pz2) && !nearDoor(px2, pz2)) obj(px2, pz2, pick(['Barrel', 'Crate_Wooden', 'Bench']), { fit: 0.62, rot: rnd() * 0.4 }, 'Porch clutter'); } });
+      greens(ftown, 40, ['Grass_Wispy_Short', 'Pebble_Round_1', 'Pebble_Round_3', 'Grass_Wispy_Tall']);
       pack(ftown, 'puglin', 4, 0, 'Stunt kobold');
 
       // ---------- The Writers' Building (northwest): offices on strike, Dermot's green at the end of the hall ----------
@@ -978,7 +1207,7 @@
       spawns = spawns.filter(function (sp) { var c = g[sp.z] && g[sp.z][sp.x]; return (c === '.' || c === ',') && seen[sp.x + sp.z * Wd]; });
       var map = g.map(function (row) { return row.join(''); });
       for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
-      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2 };
+      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle };
     }
   }
 
@@ -1126,7 +1355,8 @@
     house:  { name: 'Sitcom house', floor: [0xa07a50, 0xa88258, 0x98724a], wall: 0xe6d8b8 },
     manor:  { name: 'Blackwood Manor', floor: [0x4a3428, 0x52392c, 0x432f24], wall: 0x4a4250 },
     stage:  { name: 'Soundstage', floor: [0x2c2c32, 0x313137, 0x28282e], wall: 0x3a3a42 },
-    ship:   { name: 'Starship Valiant', floor: [0x8e98a8, 0x98a2b2, 0x8690a0], wall: 0xb8c0cc }
+    ship:   { name: 'Starship Valiant', floor: [0x8e98a8, 0x98a2b2, 0x8690a0], wall: 0xb8c0cc },
+    porch:  { name: 'Boardwalk', floor: [0x7e6448, 0x866a4c, 0x765c42], wall: 0x6a4a2e }
   };
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
   var SOLID = { 'o': 1, 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
@@ -1142,7 +1372,7 @@
       function speck(n, cl) { while (n--) px(g, cl, Math.floor(r() * 32), Math.floor(r() * 32)); }
       function blob(cx, cy, rad, cols, dens) { for (var yy = -rad; yy <= rad; yy++) for (var xx = -rad; xx <= rad; xx++) if (xx * xx + yy * yy <= rad * rad && r() < dens) px(g, cols[Math.floor(r() * cols.length)], (cx + xx + 32) % 32, (cy + yy + 32) % 32); }
       px(g, base, 0, 0, 32, 32);
-      var pat = { lawn: 'garden', green: 'green', tent: 'store', house: 'store', manor: 'store', stage: 'store', ship: 'studio' }[id] || id;
+      var pat = { porch: 'store', lawn: 'garden', green: 'green', tent: 'store', house: 'store', manor: 'store', stage: 'store', ship: 'studio' }[id] || id;
       if (pat === 'crypt' || pat === 'moss') {
         var sy = 12 + Math.floor(r() * 8), sx1 = 8 + Math.floor(r() * 9), sx2 = 14 + Math.floor(r() * 10);
         g.globalAlpha = 0.5; px(g, r() > 0.5 ? d1 : l1, 1, 1, sx1 - 1, sy - 1); px(g, r() > 0.5 ? d1 : l1, sx2 + 1, sy + 1, 31 - sx2, 31 - sy); g.globalAlpha = 1;
@@ -1301,6 +1531,7 @@
   function buildTile(x, z) {
     var c = ch(x, z); if (c === 'H') c = '#'; if (c === '#' && !nearFloor(x, z)) return;
     var rid = roomAt(x, z), room = ROOMS[rid], r = hash(x, z), r2 = hash(x + 31, z + 17), v = Math.floor(r * 4);
+    if (c === '#' && LEVEL.wstyle && LEVEL.wstyle[x + ',' + z]) { timberWall(x, z, LEVEL.wstyle[x + ',' + z], v); return; }
     if (c === '#') {
       var wh = 1.5 + r * 0.25;
       box(1, wh, 1, room.wall, x, wh / 2, z, x, z, { wall: true, tex: wallTex(rid, v) }).h = wh;
@@ -1340,9 +1571,9 @@
     var ft = floorTex(fid, fid === 'hall' ? ((x + z) % 2) + 2 * Math.floor(r * 2) : v);
     if (wet && waterTex.indexOf(ft) < 0) { ft.wrapS = ft.wrapT = THREE.RepeatWrapping; waterTex.push(ft); }
     floorQuad(ft, x, wet ? -0.04 : 0, z);
-    var dl = LEVEL.decor[x + ',' + z]; if (dl) dl.forEach(function (d) { if (d.m === '#throne') { throneAt(x, z, d.rot || 0); return; } if (d.m === '#rug') { box(d.w, 0.02, d.d, d.col, x + (d.w % 2 ? 0 : 0.5), 0.004, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', seed: 7, noShadow: true }); box(d.w + 0.12, 0.012, d.d + 0.12, 0xc9a227, x + (d.w % 2 ? 0 : 0.5), 0.0, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', noShadow: true }); } });
+    var dl = LEVEL.decor[x + ',' + z]; if (dl) dl.forEach(function (d) { if (d.m === '#throne') { throneAt(x, z, d.rot || 0); return; } if (typeof PROC !== 'undefined' && PROC[d.m]) { PROC[d.m](x + (d.dx || 0), z + (d.dz || 0), d, x, z); return; } if (d.m === '#rug') { box(d.w, 0.02, d.d, d.col, x + (d.w % 2 ? 0 : 0.5), 0.004, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', seed: 7, noShadow: true }); box(d.w + 0.12, 0.012, d.d + 0.12, 0xc9a227, x + (d.w % 2 ? 0 : 0.5), 0.0, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', noShadow: true }); } });
     if (c === 'D') {
-      var horiz = ch(x - 1, z) === '#';
+      var horiz = ch(x - 1, z) === '#' || ch(x + 1, z) === '#' || ch(x - 1, z) === 'D' || ch(x + 1, z) === 'D';
       [-0.44, 0.44].forEach(function (o) { box(0.16, 1.5, 0.16, 0x4a3420, x + (horiz ? o : 0), 0.75, z + (horiz ? 0 : o), x, z, { fade: true, kind: 'wood' });
         box(0.2, 0.12, 0.2, 0x3a2a1c, x + (horiz ? o : 0), 0.06, z + (horiz ? 0 : o), x, z, { kind: 'wood' }); });
       box(horiz ? 1.04 : 0.18, 0.18, horiz ? 0.18 : 1.04, 0x4a3420, x, 1.56, z, x, z, { fade: true, kind: 'wood' });
@@ -1408,7 +1639,7 @@
       else if (r2 > 0.86) { for (var ri = 0; ri < 3; ri++) box(0.035, 0.4 + ri * 0.14, 0.035, 0x5a7a3a, x - 0.2 + ri * 0.1, 0.2 + ri * 0.07, z + ri * 0.08 - 0.1, x, z, { kind: 'cloth', seed: ri, noShadow: true }); }
     } else if (c === '.') {
       // a little clutter where it belongs, never in safe rooms or furnished rooms, never under furniture
-      var info = roomInfo(x, z), rtype = info && info.type, styled = LEVEL.decor[x + ',' + z] || rtype === 'safe' || rtype === 'stairs' || (rtype === 'room' && (rid === 'office' || rid === 'studio'));
+      var info = roomInfo(x, z), rtype = info && info.type, styled = FLOOR === 2 || LEVEL.decor[x + ',' + z] || rtype === 'safe' || rtype === 'stairs' || (rtype === 'room' && (rid === 'office' || rid === 'studio'));
       if (styled) return;
       var junk = rid === 'hall' || rid === 'arena' || rid === 'gate' ? 0.965 : rid === 'bazaar' ? 0.94 : rid === 'office' || rid === 'studio' ? 0.975 : 0.985;
       if (r > junk && (rid === 'office' || rid === 'studio')) { // dropped paperwork
@@ -1433,6 +1664,74 @@
     at(0.86, 0.1, 0.14, 0xc9a227, 0, 1.82, -0.28, { kind: 'metal' });
     for (var i = -2; i <= 2; i++) at(0.1, 0.03, 0.1, [0xc9a227, 0xb0b0b0, 0xc84a2a][(i + 3) % 3], i * 0.16, 1.9 + (i % 2 ? 0.04 : 0.08), -0.28, { kind: 'metal' });
   }
+
+
+  // ---------- Floor 2 set pieces: thin timber walls, false fronts, and hand-built western props ----------
+  function wallish(x, z) { var q = ch(x, z); return q === '#' || q === 'H' || q === 'D'; }
+  function wbox(w, h, d, col, x, y, z, tx, tz, o) { var t = box(w, h, d, col, x, y, z, tx, tz, o); t.h = h; t.wy = y - h / 2; return t; }
+  function timberWall(x, z, st, v) {
+    // the floor under a thin wall: borrow the inside of the building if there is one
+    var fid = null; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (q) { if (fid && fid !== 'dirt') return; var rr = LEVEL.reg[z + q[1]] && LEVEL.reg[z + q[1]][x + q[0]]; if (rr >= 0) { var t = LEVEL.rooms[rr].theme; if (!fid || t === 'store') fid = t; } });
+    floorQuad(floorTex(fid || roomAt(x, z), v), x, 0, z);
+    var front = /F$/.test(st), win = /^win/.test(st), wh = front ? 2.05 : 1.45, col = front ? 0x8a6440 : 0x7a5638, post = 0x4e3420, T = 0.16;
+    var arms = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(function (q) { return wallish(x + q[0], z + q[1]); });
+    wbox(0.24, wh + 0.06, 0.24, post, x, (wh + 0.06) / 2, z, x, z, { wall: true, kind: 'wood', seed: 3 });
+    var alongX = arms.some(function (q) { return q[0] !== 0; }), alongZ = arms.some(function (q) { return q[1] !== 0; });
+    if (win && alongX !== alongZ) { // a window fills the whole tile along the wall
+      var L = 1.0, W2 = alongX ? L : T, D2 = alongX ? T : L;
+      wbox(W2, 0.55, D2, col, x, 0.275, z, x, z, { wall: true, kind: 'wood', seed: v });
+      wbox(W2, wh - 1.2, D2, col, x, 1.2 + (wh - 1.2) / 2, z, x, z, { wall: true, kind: 'wood', seed: v + 1 });
+      wbox(alongX ? 0.82 : 0.05, 0.62, alongX ? 0.05 : 0.82, 0x9cc8d8, x, 0.88, z, x, z, { wall: true, kind: 'metal' });
+      wbox(alongX ? 0.06 : 0.07, 0.66, alongX ? 0.07 : 0.06, post, x, 0.88, z, x, z, { wall: true, kind: 'wood' });
+      wbox(alongX ? 0.9 : 0.24, 0.05, alongX ? 0.24 : 0.9, post, x, 0.56, z, x, z, { wall: true, kind: 'wood' });
+    } else arms.forEach(function (q) {
+      wbox(q[0] ? 0.5 : T, wh, q[0] ? T : 0.5, col, x + q[0] * 0.25, wh / 2, z + q[1] * 0.25, x, z, { wall: true, kind: 'wood', seed: v + (q[0] + 2) * 3 + q[1] });
+    });
+    if (front) { // false front: a trim board along the top
+      arms.forEach(function (q) { wbox(q[0] ? 0.5 : 0.24, 0.1, q[0] ? 0.24 : 0.5, 0x3e2a18, x + q[0] * 0.25, wh + 0.02, z + q[1] * 0.25, x, z, { wall: true, kind: 'wood' }); });
+    }
+  }
+  function rotBox(cx, cz, rot, tx, tz) { var c = Math.cos(rot), s = Math.sin(rot);
+    return function (w, h, d, col, ox, y, oz, o) { var m = box(w, h, d, col, cx + ox * c + oz * s, y, cz - ox * s + oz * c, tx, tz, o || {}); m.mesh.rotation.y = rot; return m; }; }
+  function pcyl(rad, hh, col, x, y, z, tx, tz, o) { var op = { geo: c16, kind: (o && o.kind) || 'wood', seed: 4 }; for (var k in o) op[k] = o[k]; var t = box(1, 1, 1, col, x, y, z, tx, tz, op); t.mesh.scale.set(rad * 2, hh, rad * 2); return t; }
+  var signTex = {};
+  function signTexture(text) { return tex('sign_' + text, 256, 64, function (g) {
+    g.fillStyle = '#e8d9b4'; g.fillRect(0, 0, 256, 64); g.strokeStyle = '#3a2412'; g.lineWidth = 6; g.strokeRect(3, 3, 250, 58);
+    g.fillStyle = '#3a2412'; var fs = text.length > 9 ? 26 : 36; g.font = '900 ' + fs + 'px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 34); }, true); }
+  var PROC = {
+    '#rail': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; box(ax ? 1.0 : 0.06, 0.06, ax ? 0.06 : 1.0, 0x6a4a2e, x, 0.72, z, tx, tz, { kind: 'wood' }); box(ax ? 1.0 : 0.05, 0.05, ax ? 0.05 : 1.0, 0x6a4a2e, x, 0.4, z, tx, tz, { kind: 'wood' });
+      box(0.1, 0.8, 0.1, 0x4e3420, x, 0.4, z, tx, tz, { kind: 'wood' }); },
+    '#hitch': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; [-0.4, 0.4].forEach(function (o) { box(0.1, 0.9, 0.1, 0x4e3420, x + (ax ? o : 0), 0.45, z + (ax ? 0 : o), tx, tz, { kind: 'wood' }); });
+      box(ax ? 1.0 : 0.08, 0.08, ax ? 0.08 : 1.0, 0x5e4228, x, 0.86, z, tx, tz, { kind: 'wood' }); },
+    '#trough': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; box(ax ? 1.0 : 0.5, 0.42, ax ? 0.5 : 1.0, 0x5a3e24, x, 0.21, z, tx, tz, { kind: 'wood' }); box(ax ? 0.88 : 0.38, 0.02, ax ? 0.38 : 0.88, 0x3a6a8a, x, 0.39, z, tx, tz, { kind: 'metal', noShadow: true }); },
+    '#piano': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.95, 1.05, 0.42, 0x2a1810, 0, 0.525, -0.05, { kind: 'wood' }); B(0.9, 0.06, 0.2, 0xf0ead8, 0, 0.72, 0.2, { kind: 'bone' }); B(0.9, 0.03, 0.06, 0x111111, 0, 0.76, 0.16); B(0.95, 0.08, 0.5, 0x3a2216, 0, 1.08, -0.02, { kind: 'wood' }); },
+    '#felt': function (x, z, d, tx, tz) { pcyl(0.47, 0.06, 0x4a2e18, x, 0.7, z, tx, tz); pcyl(0.42, 0.03, 0x2f6a3a, x, 0.74, z, tx, tz, { kind: 'cloth' }); pcyl(0.07, 0.68, 0x3a2414, x, 0.34, z, tx, tz); pcyl(0.25, 0.04, 0x3a2414, x, 0.02, z, tx, tz);
+      for (var i = 0; i < 3; i++) box(0.08, 0.005, 0.11, 0xf4f0e6, x - 0.12 + i * 0.1, 0.765, z + 0.1, tx, tz, { kind: 'cloth', noShadow: true }); },
+    '#stairs': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); for (var i = 0; i < 4; i++) B(0.92, 0.22 * (i + 1), 0.25, 0x6a4a2e, 0, 0.11 * (i + 1), 0.375 - i * 0.25, { kind: 'wood', seed: i }); },
+    '#bars': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; for (var i = -2; i <= 2; i++) box(0.05, 1.45, 0.05, 0x3a3a40, x + (ax ? i * 0.2 : 0), 0.725, z + (ax ? 0 : i * 0.2), tx, tz, { kind: 'metal' });
+      [0.1, 1.4].forEach(function (y) { box(ax ? 1.0 : 0.07, 0.07, ax ? 0.07 : 1.0, 0x2a2a30, x, y, z, tx, tz, { kind: 'metal' }); }); },
+    '#forge': function (x, z, d, tx, tz) { box(1.0, 0.7, 0.85, 0x6a6460, x, 0.35, z, tx, tz, { kind: 'stone' }); box(0.7, 0.06, 0.55, 0xff6a20, x, 0.72, z, tx, tz, { glow: true }); box(0.4, 1.3, 0.4, 0x5a5450, x, 1.35, z - 0.2, tx, tz, { kind: 'stone' }); },
+    '#track': function (x, z, d, tx, tz) { [-0.25, 0.25].forEach(function (o) { box(0.22, 0.06, 1.5, 0x4a3420, x + o, 0.03, z, tx, tz, { kind: 'wood', noShadow: true }); });
+      [-0.42, 0.42].forEach(function (o) { box(1.0, 0.08, 0.07, 0x7a7a82, x, 0.1, z + o, tx, tz, { kind: 'metal', noShadow: true }); }); },
+    '#loco': function (x, z, d, tx, tz) { var L = d.len || 7, cx = x + (L - 1) / 2;
+      box(L - 0.1, 0.4, 1.3, 0x1e1e22, cx, 0.45, z, tx, tz, { kind: 'metal' });
+      var b = pcyl(0.62, L * 0.62, 0x2a2a30, x + L * 0.62 / 2 - 0.3, 1.25, z, tx, tz, { kind: 'metal' }); b.mesh.rotation.z = Math.PI / 2;
+      box(0.2, 1.4, 1.4, 0x7a1a1a, x + L * 0.62 - 0.2, 1.3, z, tx, tz, { kind: 'metal' }); box(1.8, 1.7, 1.4, 0x7a1a1a, x + L - 1.4, 1.5, z, tx, tz, { kind: 'wood' }); box(2.0, 0.12, 1.6, 0x1e1e22, x + L - 1.4, 2.4, z, tx, tz, { kind: 'metal' });
+      pcyl(0.18, 0.9, 0x1e1e22, x + 0.4, 2.2, z, tx, tz, { kind: 'metal' }); pcyl(0.3, 0.12, 0x1e1e22, x + 0.4, 2.68, z, tx, tz, { kind: 'metal' }); pcyl(0.2, 0.3, 0xc9a227, x + 2.0, 1.95, z, tx, tz, { kind: 'metal' });
+      for (var i = 0; i < 3; i++) [-0.62, 0.62].forEach(function (o) { var w = pcyl(0.38, 0.1, 0x7a1a1a, x + 1 + i * 1.5, 0.4, z + o, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; });
+      box(0.6, 0.5, 1.3, 0x3a3a40, x - 0.3, 0.45, z, tx, tz, { kind: 'metal' }); },
+    '#car': function (x, z, d, tx, tz) { var L = d.len || 6, cx = x + (L - 1) / 2, cars = { 37: 0x5a4a2a, 43: 0x6a5a3a };
+      box(L - 0.3, 0.35, 1.3, 0x1e1e22, cx, 0.42, z, tx, tz, { kind: 'metal' }); box(L - 0.4, 1.35, 1.35, cars[x] || 0x6a2a20, cx, 1.27, z, tx, tz, { kind: 'wood', seed: x });
+      box(L - 0.2, 0.12, 1.55, 0x2a2a2e, cx, 2.0, z, tx, tz, { kind: 'metal' });
+      for (var i = 0; i < L - 1; i++) [-0.69, 0.69].forEach(function (o) { box(0.42, 0.34, 0.02, 0xd8c890, x + 0.5 + i, 1.45, z + o, tx, tz, { glow: true }); });
+      [0.8, L - 1.8].forEach(function (o) { [-0.62, 0.62].forEach(function (q) { var w = pcyl(0.3, 0.1, 0x2a2a30, x + o, 0.32, z + q, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; }); }); },
+    '#tower': function (x, z, d, tx, tz) { [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]].forEach(function (o) { box(0.14, 2.4, 0.14, 0x4e3420, x + o[0], 1.2, z + o[1], tx, tz, { kind: 'wood' }); });
+      pcyl(1.0, 1.3, 0x7a5638, x, 3.05, z, tx, tz, { kind: 'wood' }); var cn = box(1, 1, 1, 0x4a3a2a, x, 3.95, z, tx, tz, { geo: new THREE.ConeGeometry(0.5, 1, 12), kind: 'wood' }); cn.mesh.scale.set(2.3, 0.5, 2.3);
+      box(0.08, 0.08, 1.2, 0x3a3a40, x + 0.95, 2.6, z + 0.6, tx, tz, { kind: 'metal' }); },
+    '#rut': function (x, z, d, tx, tz) { box(0.22, 0.004, 1.0, 0x7a5a36, x, 0.003, z, tx, tz, { kind: 'stone', noShadow: true }); },
+    '#prints': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); for (var i = 0; i < 4; i++) B(0.1, 0.004, 0.09, 0x6e5030, (i % 2 ? 0.12 : -0.12), 0.004, -0.4 + i * 0.26, { noShadow: true }); },
+    '#sign': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); var sg = B(1.9, 0.48, 0.06, 0xe8d9b4, 0, d.y || 1.7, 0, { tex: signTexture(d.text || ''), wall: true }); sg.h = 0.48; sg.wy = (d.y || 1.7) - 0.24; }
+  };
 
   // ---------- streaming: only the chunks around the hero exist in the scene ----------
   // The floor is far bigger than a phone can draw at once; the camera only ever shows about ten tiles
@@ -10753,7 +11052,7 @@
   }
   var visNow = {}, tmp = new THREE.Color();
   var FOG = { total: 0, seen: 0 };
-  var LIT = { bazaar: 4, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1 }; // well-lit places let you see farther
+  var LIT = { bazaar: 4, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1, lot: 4, dirt: 4, porch: 4, lawn: 4, green: 4, store: 2, house: 2, tent: 2, stage: 2, ship: 3 }; // well-lit places let you see farther
   function roomLit(r) { return r.type === 'safe' || r.type === 'boss' || r.type === 'stairs' || r.lit || (r.type !== 'corridor' && (LIT[r.theme] || 0) >= 2); }
   function refreshFog() {
     streamChunks();
@@ -10798,7 +11097,7 @@
       }
       if (t.hang && cut) t.mesh.visible = false;
       if (t.gate !== undefined && t.gate !== stairsOpen()) t.mesh.visible = false;
-      if (t.wall) { var hh = cut ? 0.3 : t.h; t.mesh.scale.y = hh; t.mesh.position.y = hh / 2; }
+      if (t.wall) { if (t.wy !== undefined) { if (cut && t.wy > 0.2) t.mesh.visible = false; var hw = cut ? Math.min(t.h, 0.3) : t.h; t.mesh.scale.y = hw; t.mesh.position.y = t.wy + hw / 2; } else { var hh = cut ? 0.3 : t.h; t.mesh.scale.y = hh; t.mesh.position.y = hh / 2; } }
       if (t.fade) { var hide = sum >= 1 && sum <= 5 && dif <= 1; t.mesh.material.opacity = hide ? 0.22 : 1; t.mesh.material.depthWrite = !hide; t.mesh.castShadow = !hide; }
     }
   }
