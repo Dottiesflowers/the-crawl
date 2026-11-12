@@ -108,3 +108,29 @@
     var extra = TOOL_ACTS.filter(function (x) { return x.on === t.c && x.tool.test(names); }).map(function (x) { return x.a; });
     return extra.length ? extra.concat(base) : base;
   };
+
+  // ---------- the way down: the stairs only work once the Gatekeeper is dead ----------
+  function stairsCheck() { if (ch(P.x, P.z) === 'S' && stairsOpen() && !CB.on && CHAR && !document.getElementById('fclear')) floorClear(); }
+  function floorClear() {
+    var c = CHAR, first = !c.cleared1; if (first) c.cleared1 = Date.now();
+    var dead = CB.enemies.filter(function (e) { return e.dead && !e.npc; }), bosses = dead.filter(function (e) { return e.boss; }).map(function (e) { return e.name; });
+    var mins = Math.max(1, Math.round(((c.cleared1 || Date.now()) - (c.born || Date.now())) / 60000)), hrs = Math.floor(mins / 60);
+    var recipes = Object.keys(c.recipes || {}).filter(function (k) { return c.recipes[k].inventor; }).length;
+    var rows = [['Level', c.level], ['Time on the floor', hrs ? hrs + 'h ' + (mins % 60) + 'm' : mins + ' min'], ['Monsters killed', dead.length], ['Bosses', bosses.length + ' of 6'], ['Gold', (c.gold || 0) + ' gp'], ['Recipes invented', recipes], ['Achievements', Object.keys(c.ach || {}).length], ['Map explored', document.getElementById('explored').textContent.replace('Explored ', '')]];
+    var el = document.createElement('div'); el.id = 'fclear'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Floor 1 cleared');
+    el.innerHTML = '<div class="fc"><small>SYSTEM ANNOUNCEMENT</small><h2>Floor 1 cleared</h2><p class="q">"Well. That was unexpected. The Strong Guys Club has survived Basic Training. Odds are being recalculated. Viewers are confused but engaged."</p>' +
+      '<table>' + rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + esc(String(r[1])) + '</td></tr>'; }).join('') + '</table>' +
+      (bosses.length ? '<p class="b"><b>Bosses down:</b> ' + bosses.map(esc).join(', ') + '</p>' : '') +
+      '<div class="soon"><b>Floor 2 · Advanced Training</b><span>Under construction. The System is still building it, and it is not happy about the deadline. Your progress is saved; when Floor 2 opens you will take these stairs down.</span></div>' +
+      '<button type="button" id="fcStay">Stay on Floor 1 for now</button></div>';
+    document.body.appendChild(el);
+    document.getElementById('fcStay').onclick = function () { el.remove(); };
+    if (first) { logEvent('Cleared Floor 1', 'boss'); achieve('floor1', 'Basic Training: Passed', 'You found the stairs. The System had money on you not finding the stairs.', 500); }
+    cbSaveChar();
+  }
+  (function () { var c = document.createElement('style'); c.textContent = '#fclear{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(8,6,4,.78);padding:12px}' +
+    '#fclear .fc{width:min(520px,100%);max-height:100%;overflow-y:auto;padding:18px 22px;background:linear-gradient(180deg,#F3E9D2,#E6D7B5);border:3px double #2e2116;border-radius:4px;color:#2b1d12;font-family:"EB Garamond",serif;box-shadow:0 10px 40px rgba(0,0,0,.7)}' +
+    '#fclear small{font-family:Cinzel,serif;letter-spacing:.14em;color:#7A1F1A;font-size:11px}#fclear h2{margin:2px 0 6px;font-family:Cinzel,serif;font-size:28px}#fclear .q{font-style:italic;margin:0 0 10px}' +
+    '#fclear table{width:100%;border-collapse:collapse;font-size:15px}#fclear td{padding:3px 0;border-bottom:1px solid rgba(43,29,18,.18)}#fclear td:last-child{text-align:right;font-weight:600}' +
+    '#fclear .b{font-size:14px;margin:8px 0}#fclear .soon{margin:12px 0;padding:10px 12px;border:1px dashed #6b5a3a;background:rgba(255,250,235,.5)}#fclear .soon b{display:block;font-family:Cinzel,serif}#fclear .soon span{font-size:14px}#fcStay{height:42px;padding:0 18px;border:2px solid #2e2116;border-radius:3px;background:#2b1d12;color:#F3E6CC;font-family:Cinzel,serif;font-size:14px;cursor:pointer}';
+    document.head.appendChild(c); })();

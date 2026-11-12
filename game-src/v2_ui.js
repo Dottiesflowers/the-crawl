@@ -79,7 +79,7 @@
     for (var z = Math.max(0, Math.floor(P.pz - R)); z < Math.min(H, P.pz + R); z++) for (var x = Math.max(0, Math.floor(P.px - R)); x < Math.min(W, P.px + R); x++) {
       if (!tileState[z * W + x]) continue; var c = MAP[z].charAt(x), lit = visNow[x + ',' + z] !== undefined || liv;
       if (c === '#' || c === 'H') { if (!full) { g.globalAlpha = lit ? 1 : .6; cell(x, z, '#23252f'); } continue; }
-      var col = c === '~' ? '#3a6ea8' : c === 'D' ? '#c98a4a' : c === 'S' ? '#ffd34a' : c === 'C' ? '#e0c060' : c === 'F' ? '#40ff90' : c === 'Y' ? '#2a5a24' : THEME[roomAt(x, z)] || '#5d5a54';
+      var col = c === '~' ? '#3a6ea8' : c === 'D' ? '#c98a4a' : c === 'S' ? (stairsOpen() ? '#ffd34a' : '#5d5a54') : c === 'C' ? '#e0c060' : c === 'F' ? '#40ff90' : c === 'Y' ? '#2a5a24' : THEME[roomAt(x, z)] || '#5d5a54';
       g.globalAlpha = lit ? 1 : .62; cell(x, z, col);
     }
     g.globalAlpha = 1;
@@ -101,7 +101,7 @@
       if (rm.type === 'corridor') return; var key = rm.type === 'safe' || rm.type === 'boss' || rm.type === 'stairs' || rm.type === 'hidden';
       var w = Math.max(rm.x1 - rm.x0, rm.z1 - rm.z0) + 1; if (!key && (zoneView || tpx * w < 70)) return; // ordinary rooms only once they're big enough on screen
       if (!seenRoom(rm) && !(key && rm.type === 'safe' && hasTrait('Living Map') && CHAR && CHAR.zones && CHAR.zones[rm.hood])) return;
-      var icon = rm.type === 'safe' ? '✚' : rm.type === 'boss' ? '☠' : rm.type === 'stairs' ? '▼' : rm.type === 'hidden' ? '★' : '';
+      var icon = rm.type === 'safe' ? '✚' : rm.type === 'boss' ? '☠' : rm.type === 'stairs' ? (stairsOpen() ? '▼' : '?') : rm.type === 'hidden' ? '★' : '';
       var t = key && tpx < 6 ? icon : (icon ? icon + ' ' : '') + rm.name; // far out, key rooms shrink to their icon
       L.push({ t: t, x: (rm.x0 + rm.x1) / 2, z: (rm.z0 + rm.z1) / 2, pri: rm.type === 'boss' || rm.type === 'stairs' ? 4 : key ? 3 : 1, size: key && tpx < 6 ? 13 : 10.5, bold: key,
         col: rm.type === 'safe' ? '#7dffb0' : rm.type === 'boss' ? '#ff7a8a' : rm.type === 'stairs' ? '#ffd34a' : rm.type === 'hidden' ? '#c9a8ff' : '#dde' });

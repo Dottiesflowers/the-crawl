@@ -130,6 +130,7 @@
   };
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
   var SOLID = { 'o': 1, 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
+  function stairsOpen() { if (typeof CB === 'undefined') return false; var gk = CB.enemies.filter(function (e) { return e.kind === 'gatekeeper'; })[0]; return !!gk && !!gk.dead; }
   function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z); }
   function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P' || c === 'H'; }
 
@@ -314,12 +315,15 @@
       return;
     }
     if (c === '@') start = { x: x, z: z };
-    if (c === 'S') { // stairs sink below the floor
+    if (c === 'S') { // stairs sink below the floor, hidden under a slab until the Gatekeeper falls
+      var tb = tiles.length, cb = curChunk ? curChunk.length : 0;
       for (var s = 0; s < 5; s++) box(0.96, 0.12, 0.2, 0x4a4a52, x, -0.06 - s * 0.13, z - 0.4 + s * 0.2, x, z, { seed: s });
       box(0.96, 0.06, 0.96, 0x050506, x, -0.75, z, x, z, { noShadow: true });
       box(0.14, 1.5, 0.14, 0x5a5a64, x - 0.5, 0.75, z - 0.5, x, z, { fade: true }); box(0.14, 1.5, 0.14, 0x5a5a64, x + 0.5, 0.75, z - 0.5, x, z, { fade: true });
       box(1.3, 0.16, 0.18, 0x4a4a52, x, 1.56, z - 0.5, x, z, { fade: true }); box(0.16, 0.16, 0.05, 0x3df2e0, x, 1.56, z - 0.4, x, z, { glow: true });
       box(0.3, 0.03, 0.03, 0x3df2e0, x, 1.38, z - 0.41, x, z, { glow: true });
+      (curChunk || tiles).slice(curChunk ? cb : tb).forEach(function (t) { t.gate = true; });
+      box(0.98, 0.06, 0.98, 0x5a5650, x, 0.0, z, x, z, { seed: 9 }).gate = false;
       return;
     }
     var wet = rid === 'water' || c === '~', fid = c === '~' ? 'water' : rid;

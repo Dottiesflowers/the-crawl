@@ -435,7 +435,7 @@
     var gh = room({ name: 'The Gatehouse', type: 'boss', x0: 188, z0: 10, x1: 213, z1: 30, line: 'The gatehouse. The thing that guards the stairs has been waiting for you specifically. It read your file.' }, SGZ);
     carveRect(gh); passage(200, 31, 200, 33, gh.id, '.', 4);
     for (xx = gh.x0 + 3; xx < gh.x1 - 2; xx += 5) { put(xx, gh.z0 + 3, 'P'); put(xx, gh.z1 - 3, 'P'); } put(gh.x0 + 1, gh.z0 + 1, 'B'); put(gh.x1 - 1, gh.z0 + 1, 'B'); put(gh.x0 + 1, gh.z1 - 1, 'B'); put(gh.x1 - 1, gh.z1 - 1, 'B');
-    var stairR = room({ name: 'The Stairwell', type: 'stairs', x0: 221, z0: 6, x1: 233, z1: 16, line: 'The stairs down to Floor 2. Step on them when your whole party is ready.' }, SGZ);
+    var stairR = room({ name: 'The Stairwell', type: 'stairs', x0: 221, z0: 6, x1: 233, z1: 16, line: 'A sealed square of stone in the middle of the floor, humming faintly. Whatever is under it answers to the Gatekeeper.' }, SGZ);
     carveRect(stairR); passage(214, 12, 220, 12, gh.id, '.', 2); put(227, 9, 'S'); put(222, 7, 'c'); put(232, 7, 'c'); var stairs = { x: 227, z: 9 };
     var lcs = room({ name: 'Last Chance Lounge', type: 'safe', x0: 180, z0: 46, x1: 192, z1: 56, line: 'A safe room before the end. Free food, a mirror, and a sign that says GOOD LUCK in six languages.' }, SGZ);
     carveRect(lcs); put(lcs.x1 + 1, 51, 'D', lcs.id); put(lcs.x1 + 2, 51, '.', appr.id); put(lcs.x1 + 3, 51, '.', appr.id); put(lcs.x0 + 1, lcs.z0 + 1, 'F'); put(lcs.x0 + 2, lcs.z0 + 1, 'F'); put(lcs.x0 + 1, lcs.z1 - 1, 'X'); put(lcs.x1 - 1, lcs.z0 + 1, 'c');
@@ -934,6 +934,7 @@
   };
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
   var SOLID = { 'o': 1, 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
+  function stairsOpen() { if (typeof CB === 'undefined') return false; var gk = CB.enemies.filter(function (e) { return e.kind === 'gatekeeper'; })[0]; return !!gk && !!gk.dead; }
   function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z); }
   function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P' || c === 'H'; }
 
@@ -1118,12 +1119,15 @@
       return;
     }
     if (c === '@') start = { x: x, z: z };
-    if (c === 'S') { // stairs sink below the floor
+    if (c === 'S') { // stairs sink below the floor, hidden under a slab until the Gatekeeper falls
+      var tb = tiles.length, cb = curChunk ? curChunk.length : 0;
       for (var s = 0; s < 5; s++) box(0.96, 0.12, 0.2, 0x4a4a52, x, -0.06 - s * 0.13, z - 0.4 + s * 0.2, x, z, { seed: s });
       box(0.96, 0.06, 0.96, 0x050506, x, -0.75, z, x, z, { noShadow: true });
       box(0.14, 1.5, 0.14, 0x5a5a64, x - 0.5, 0.75, z - 0.5, x, z, { fade: true }); box(0.14, 1.5, 0.14, 0x5a5a64, x + 0.5, 0.75, z - 0.5, x, z, { fade: true });
       box(1.3, 0.16, 0.18, 0x4a4a52, x, 1.56, z - 0.5, x, z, { fade: true }); box(0.16, 0.16, 0.05, 0x3df2e0, x, 1.56, z - 0.4, x, z, { glow: true });
       box(0.3, 0.03, 0.03, 0x3df2e0, x, 1.38, z - 0.41, x, z, { glow: true });
+      (curChunk || tiles).slice(curChunk ? cb : tb).forEach(function (t) { t.gate = true; });
+      box(0.98, 0.06, 0.98, 0x5a5650, x, 0.0, z, x, z, { seed: 9 }).gate = false;
       return;
     }
     var wet = rid === 'water' || c === '~', fid = c === '~' ? 'water' : rid;
@@ -7625,6 +7629,7 @@
     if (e.boss) logEvent('Killed ' + e.name + ', boss of ' + ((LEVEL.hoods[(roomInfo(e.x, e.z) || {}).hood] || {}).name || 'the floor'), 'boss'); else if (/chief|foreman|head|warden/.test(e.kind)) logEvent('Killed a ' + e.name, 'kill');
     e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
     say('Enemy down · ' + e.name, e.def.xp + ' XP. ' + (e.kind === 'imp' ? 'The stairwell is unguarded.' : 'Its stick rolls away.'), 4200);
+    if (e.kind === 'gatekeeper') setTimeout(function () { refreshFog(); logEvent('The stairs to Floor 2 are open', 'boss'); say('SYSTEM · The stairwell is open', 'The Gatekeeper is down, and somewhere to the east a stone floor slides aside. The stairs to Floor 2 are in the Stairwell. Bring your party.', 9000); }, 2600);
     if (PROPS && PROPS.ready) setTimeout(function () { place('Coin_Pile', e.px + 0.25, e.pz + 0.2, { s: 0.6 }); refreshFog(); }, 1600);
   }
 
@@ -7995,7 +8000,7 @@
   }
   function saveChar(c) {
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
-      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], hotbar2: c.hotbar2 || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, buffs: c.buffs || {}, swUsed: !!c.swUsed, cool: c.cool || {}, cups: c.cups || [], counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, lore: c.lore || {}, born: c.born || null, updated: Date.now() };
+      gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], hotbar2: c.hotbar2 || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, buffs: c.buffs || {}, swUsed: !!c.swUsed, cool: c.cool || {}, cups: c.cups || [], counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, lore: c.lore || {}, cleared1: c.cleared1 || 0, born: c.born || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
     if (NET.mode === 'server' && NET.uid) api('character', { method: 'PUT', body: { character: doc } }).catch(function (e) { say('Save failed', 'The server did not take your save: ' + e.message + '. It is kept on this device.', 5000); });
   }
@@ -8754,7 +8759,7 @@
     for (var z = Math.max(0, Math.floor(P.pz - R)); z < Math.min(H, P.pz + R); z++) for (var x = Math.max(0, Math.floor(P.px - R)); x < Math.min(W, P.px + R); x++) {
       if (!tileState[z * W + x]) continue; var c = MAP[z].charAt(x), lit = visNow[x + ',' + z] !== undefined || liv;
       if (c === '#' || c === 'H') { if (!full) { g.globalAlpha = lit ? 1 : .6; cell(x, z, '#23252f'); } continue; }
-      var col = c === '~' ? '#3a6ea8' : c === 'D' ? '#c98a4a' : c === 'S' ? '#ffd34a' : c === 'C' ? '#e0c060' : c === 'F' ? '#40ff90' : c === 'Y' ? '#2a5a24' : THEME[roomAt(x, z)] || '#5d5a54';
+      var col = c === '~' ? '#3a6ea8' : c === 'D' ? '#c98a4a' : c === 'S' ? (stairsOpen() ? '#ffd34a' : '#5d5a54') : c === 'C' ? '#e0c060' : c === 'F' ? '#40ff90' : c === 'Y' ? '#2a5a24' : THEME[roomAt(x, z)] || '#5d5a54';
       g.globalAlpha = lit ? 1 : .62; cell(x, z, col);
     }
     g.globalAlpha = 1;
@@ -8776,7 +8781,7 @@
       if (rm.type === 'corridor') return; var key = rm.type === 'safe' || rm.type === 'boss' || rm.type === 'stairs' || rm.type === 'hidden';
       var w = Math.max(rm.x1 - rm.x0, rm.z1 - rm.z0) + 1; if (!key && (zoneView || tpx * w < 70)) return; // ordinary rooms only once they're big enough on screen
       if (!seenRoom(rm) && !(key && rm.type === 'safe' && hasTrait('Living Map') && CHAR && CHAR.zones && CHAR.zones[rm.hood])) return;
-      var icon = rm.type === 'safe' ? '✚' : rm.type === 'boss' ? '☠' : rm.type === 'stairs' ? '▼' : rm.type === 'hidden' ? '★' : '';
+      var icon = rm.type === 'safe' ? '✚' : rm.type === 'boss' ? '☠' : rm.type === 'stairs' ? (stairsOpen() ? '▼' : '?') : rm.type === 'hidden' ? '★' : '';
       var t = key && tpx < 6 ? icon : (icon ? icon + ' ' : '') + rm.name; // far out, key rooms shrink to their icon
       L.push({ t: t, x: (rm.x0 + rm.x1) / 2, z: (rm.z0 + rm.z1) / 2, pri: rm.type === 'boss' || rm.type === 'stairs' ? 4 : key ? 3 : 1, size: key && tpx < 6 ? 13 : 10.5, bold: key,
         col: rm.type === 'safe' ? '#7dffb0' : rm.type === 'boss' ? '#ff7a8a' : rm.type === 'stairs' ? '#ffd34a' : rm.type === 'hidden' ? '#c9a8ff' : '#dde' });
@@ -9628,6 +9633,32 @@
     var extra = TOOL_ACTS.filter(function (x) { return x.on === t.c && x.tool.test(names); }).map(function (x) { return x.a; });
     return extra.length ? extra.concat(base) : base;
   };
+
+  // ---------- the way down: the stairs only work once the Gatekeeper is dead ----------
+  function stairsCheck() { if (ch(P.x, P.z) === 'S' && stairsOpen() && !CB.on && CHAR && !document.getElementById('fclear')) floorClear(); }
+  function floorClear() {
+    var c = CHAR, first = !c.cleared1; if (first) c.cleared1 = Date.now();
+    var dead = CB.enemies.filter(function (e) { return e.dead && !e.npc; }), bosses = dead.filter(function (e) { return e.boss; }).map(function (e) { return e.name; });
+    var mins = Math.max(1, Math.round(((c.cleared1 || Date.now()) - (c.born || Date.now())) / 60000)), hrs = Math.floor(mins / 60);
+    var recipes = Object.keys(c.recipes || {}).filter(function (k) { return c.recipes[k].inventor; }).length;
+    var rows = [['Level', c.level], ['Time on the floor', hrs ? hrs + 'h ' + (mins % 60) + 'm' : mins + ' min'], ['Monsters killed', dead.length], ['Bosses', bosses.length + ' of 6'], ['Gold', (c.gold || 0) + ' gp'], ['Recipes invented', recipes], ['Achievements', Object.keys(c.ach || {}).length], ['Map explored', document.getElementById('explored').textContent.replace('Explored ', '')]];
+    var el = document.createElement('div'); el.id = 'fclear'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Floor 1 cleared');
+    el.innerHTML = '<div class="fc"><small>SYSTEM ANNOUNCEMENT</small><h2>Floor 1 cleared</h2><p class="q">"Well. That was unexpected. The Strong Guys Club has survived Basic Training. Odds are being recalculated. Viewers are confused but engaged."</p>' +
+      '<table>' + rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + esc(String(r[1])) + '</td></tr>'; }).join('') + '</table>' +
+      (bosses.length ? '<p class="b"><b>Bosses down:</b> ' + bosses.map(esc).join(', ') + '</p>' : '') +
+      '<div class="soon"><b>Floor 2 · Advanced Training</b><span>Under construction. The System is still building it, and it is not happy about the deadline. Your progress is saved; when Floor 2 opens you will take these stairs down.</span></div>' +
+      '<button type="button" id="fcStay">Stay on Floor 1 for now</button></div>';
+    document.body.appendChild(el);
+    document.getElementById('fcStay').onclick = function () { el.remove(); };
+    if (first) { logEvent('Cleared Floor 1', 'boss'); achieve('floor1', 'Basic Training: Passed', 'You found the stairs. The System had money on you not finding the stairs.', 500); }
+    cbSaveChar();
+  }
+  (function () { var c = document.createElement('style'); c.textContent = '#fclear{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(8,6,4,.78);padding:12px}' +
+    '#fclear .fc{width:min(520px,100%);max-height:100%;overflow-y:auto;padding:18px 22px;background:linear-gradient(180deg,#F3E9D2,#E6D7B5);border:3px double #2e2116;border-radius:4px;color:#2b1d12;font-family:"EB Garamond",serif;box-shadow:0 10px 40px rgba(0,0,0,.7)}' +
+    '#fclear small{font-family:Cinzel,serif;letter-spacing:.14em;color:#7A1F1A;font-size:11px}#fclear h2{margin:2px 0 6px;font-family:Cinzel,serif;font-size:28px}#fclear .q{font-style:italic;margin:0 0 10px}' +
+    '#fclear table{width:100%;border-collapse:collapse;font-size:15px}#fclear td{padding:3px 0;border-bottom:1px solid rgba(43,29,18,.18)}#fclear td:last-child{text-align:right;font-weight:600}' +
+    '#fclear .b{font-size:14px;margin:8px 0}#fclear .soon{margin:12px 0;padding:10px 12px;border:1px dashed #6b5a3a;background:rgba(255,250,235,.5)}#fclear .soon b{display:block;font-family:Cinzel,serif}#fclear .soon span{font-size:14px}#fcStay{height:42px;padding:0 18px;border:2px solid #2e2116;border-radius:3px;background:#2b1d12;color:#F3E6CC;font-family:Cinzel,serif;font-size:14px;cursor:pointer}';
+    document.head.appendChild(c); })();
 
   // ===================== item effects: what the fields in items.js actually do =====================
   // throw / escape / box / buff / uses / leaves on use; ac, checks, light while carried; crit and onHit on weapons
@@ -10541,6 +10572,7 @@
         else t.mesh.material.color.setScalar(b);
       }
       if (t.hang && cut) t.mesh.visible = false;
+      if (t.gate !== undefined && t.gate !== stairsOpen()) t.mesh.visible = false;
       if (t.wall) { var hh = cut ? 0.3 : t.h; t.mesh.scale.y = hh; t.mesh.position.y = hh / 2; }
       if (t.fade) { var hide = sum >= 1 && sum <= 5 && dif <= 1; t.mesh.material.opacity = hide ? 0.22 : 1; t.mesh.material.depthWrite = !hide; t.mesh.castShadow = !hide; }
     }
@@ -10777,7 +10809,7 @@
     if (P.path && !gearOpen) { // walking to a tapped spot
       var nt = P.path[0], ddx = nt[0] - P.px, ddz = nt[1] - P.pz, dl = Math.sqrt(ddx * ddx + ddz * ddz);
       if (dl <= Math.max(0.1, (crouch ? 1.5 : 3.3) * dt)) { P.px = nt[0]; P.pz = nt[1]; P.path.shift();
-        if (!P.path.length) { P.path = null; P.speed = 0; var arrive = P.onArrive; P.onArrive = null; var tx0 = Math.round(P.px), tz0 = Math.round(P.pz); if (tx0 !== P.x || tz0 !== P.z) { P.x = tx0; P.z = tz0; refreshFog(); enterRoom(); cbAggro(); } if (arrive && !CB.on) arrive(); return; }
+        if (!P.path.length) { P.path = null; P.speed = 0; var arrive = P.onArrive; P.onArrive = null; var tx0 = Math.round(P.px), tz0 = Math.round(P.pz); if (tx0 !== P.x || tz0 !== P.z) { P.x = tx0; P.z = tz0; refreshFog(); enterRoom(); cbAggro(); stairsCheck(); } if (arrive && !CB.on) arrive(); return; }
         nt = P.path[0]; ddx = nt[0] - P.px; ddz = nt[1] - P.pz; dl = Math.sqrt(ddx * ddx + ddz * ddz); }
       wx = ddx / dl; wz = ddz / dl; m = 1;
     } else {
@@ -10797,7 +10829,7 @@
     while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
     hero.rotation.y += d * Math.min(1, dt * 14);
     var tx = Math.round(P.px), tz = Math.round(P.pz);
-    if (tx !== P.x || tz !== P.z) { P.x = tx; P.z = tz; refreshFog(); enterRoom(); cbAggro(); }
+    if (tx !== P.x || tz !== P.z) { P.x = tx; P.z = tz; refreshFog(); enterRoom(); cbAggro(); stairsCheck(); }
     if (!achieved && walked > 3) { achieved = true; achieve('bipedal', 'Bipedal', 'You walked three whole tiles. The bar will be raised.', 10); }
   }
   function jump() { if (CB.on) return; if (jumpT < 0 && !gearOpen) { jumpT = 0; if (crouch) toggleCrouch(); } }
@@ -11028,7 +11060,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { CB: CB, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { CB: CB, stairs: { open: stairsOpen, check: stairsCheck, dbg: function () { return tiles.filter(function (t) { return t.gate !== undefined; }).map(function (t) { return [t.gate, t.mesh.visible, t.x, t.z]; }); } }, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

@@ -95,6 +95,7 @@
         else t.mesh.material.color.setScalar(b);
       }
       if (t.hang && cut) t.mesh.visible = false;
+      if (t.gate !== undefined && t.gate !== stairsOpen()) t.mesh.visible = false;
       if (t.wall) { var hh = cut ? 0.3 : t.h; t.mesh.scale.y = hh; t.mesh.position.y = hh / 2; }
       if (t.fade) { var hide = sum >= 1 && sum <= 5 && dif <= 1; t.mesh.material.opacity = hide ? 0.22 : 1; t.mesh.material.depthWrite = !hide; t.mesh.castShadow = !hide; }
     }
@@ -331,7 +332,7 @@
     if (P.path && !gearOpen) { // walking to a tapped spot
       var nt = P.path[0], ddx = nt[0] - P.px, ddz = nt[1] - P.pz, dl = Math.sqrt(ddx * ddx + ddz * ddz);
       if (dl <= Math.max(0.1, (crouch ? 1.5 : 3.3) * dt)) { P.px = nt[0]; P.pz = nt[1]; P.path.shift();
-        if (!P.path.length) { P.path = null; P.speed = 0; var arrive = P.onArrive; P.onArrive = null; var tx0 = Math.round(P.px), tz0 = Math.round(P.pz); if (tx0 !== P.x || tz0 !== P.z) { P.x = tx0; P.z = tz0; refreshFog(); enterRoom(); cbAggro(); } if (arrive && !CB.on) arrive(); return; }
+        if (!P.path.length) { P.path = null; P.speed = 0; var arrive = P.onArrive; P.onArrive = null; var tx0 = Math.round(P.px), tz0 = Math.round(P.pz); if (tx0 !== P.x || tz0 !== P.z) { P.x = tx0; P.z = tz0; refreshFog(); enterRoom(); cbAggro(); stairsCheck(); } if (arrive && !CB.on) arrive(); return; }
         nt = P.path[0]; ddx = nt[0] - P.px; ddz = nt[1] - P.pz; dl = Math.sqrt(ddx * ddx + ddz * ddz); }
       wx = ddx / dl; wz = ddz / dl; m = 1;
     } else {
@@ -351,7 +352,7 @@
     while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
     hero.rotation.y += d * Math.min(1, dt * 14);
     var tx = Math.round(P.px), tz = Math.round(P.pz);
-    if (tx !== P.x || tz !== P.z) { P.x = tx; P.z = tz; refreshFog(); enterRoom(); cbAggro(); }
+    if (tx !== P.x || tz !== P.z) { P.x = tx; P.z = tz; refreshFog(); enterRoom(); cbAggro(); stairsCheck(); }
     if (!achieved && walked > 3) { achieved = true; achieve('bipedal', 'Bipedal', 'You walked three whole tiles. The bar will be raised.', 10); }
   }
   function jump() { if (CB.on) return; if (jumpT < 0 && !gearOpen) { jumpT = 0; if (crouch) toggleCrouch(); } }
@@ -582,7 +583,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { CB: CB, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { CB: CB, stairs: { open: stairsOpen, check: stairsCheck, dbg: function () { return tiles.filter(function (t) { return t.gate !== undefined; }).map(function (t) { return [t.gate, t.mesh.visible, t.x, t.z]; }); } }, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

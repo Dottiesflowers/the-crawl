@@ -638,6 +638,7 @@
     if (e.boss) logEvent('Killed ' + e.name + ', boss of ' + ((LEVEL.hoods[(roomInfo(e.x, e.z) || {}).hood] || {}).name || 'the floor'), 'boss'); else if (/chief|foreman|head|warden/.test(e.kind)) logEvent('Killed a ' + e.name, 'kill');
     e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
     say('Enemy down · ' + e.name, e.def.xp + ' XP. ' + (e.kind === 'imp' ? 'The stairwell is unguarded.' : 'Its stick rolls away.'), 4200);
+    if (e.kind === 'gatekeeper') setTimeout(function () { refreshFog(); logEvent('The stairs to Floor 2 are open', 'boss'); say('SYSTEM · The stairwell is open', 'The Gatekeeper is down, and somewhere to the east a stone floor slides aside. The stairs to Floor 2 are in the Stairwell. Bring your party.', 9000); }, 2600);
     if (PROPS && PROPS.ready) setTimeout(function () { place('Coin_Pile', e.px + 0.25, e.pz + 0.2, { s: 0.6 }); refreshFog(); }, 1600);
   }
 

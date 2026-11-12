@@ -307,7 +307,7 @@
     var gh = room({ name: 'The Gatehouse', type: 'boss', x0: 188, z0: 10, x1: 213, z1: 30, line: 'The gatehouse. The thing that guards the stairs has been waiting for you specifically. It read your file.' }, SGZ);
     carveRect(gh); passage(200, 31, 200, 33, gh.id, '.', 4);
     for (xx = gh.x0 + 3; xx < gh.x1 - 2; xx += 5) { put(xx, gh.z0 + 3, 'P'); put(xx, gh.z1 - 3, 'P'); } put(gh.x0 + 1, gh.z0 + 1, 'B'); put(gh.x1 - 1, gh.z0 + 1, 'B'); put(gh.x0 + 1, gh.z1 - 1, 'B'); put(gh.x1 - 1, gh.z1 - 1, 'B');
-    var stairR = room({ name: 'The Stairwell', type: 'stairs', x0: 221, z0: 6, x1: 233, z1: 16, line: 'The stairs down to Floor 2. Step on them when your whole party is ready.' }, SGZ);
+    var stairR = room({ name: 'The Stairwell', type: 'stairs', x0: 221, z0: 6, x1: 233, z1: 16, line: 'A sealed square of stone in the middle of the floor, humming faintly. Whatever is under it answers to the Gatekeeper.' }, SGZ);
     carveRect(stairR); passage(214, 12, 220, 12, gh.id, '.', 2); put(227, 9, 'S'); put(222, 7, 'c'); put(232, 7, 'c'); var stairs = { x: 227, z: 9 };
     var lcs = room({ name: 'Last Chance Lounge', type: 'safe', x0: 180, z0: 46, x1: 192, z1: 56, line: 'A safe room before the end. Free food, a mirror, and a sign that says GOOD LUCK in six languages.' }, SGZ);
     carveRect(lcs); put(lcs.x1 + 1, 51, 'D', lcs.id); put(lcs.x1 + 2, 51, '.', appr.id); put(lcs.x1 + 3, 51, '.', appr.id); put(lcs.x0 + 1, lcs.z0 + 1, 'F'); put(lcs.x0 + 2, lcs.z0 + 1, 'F'); put(lcs.x0 + 1, lcs.z1 - 1, 'X'); put(lcs.x1 - 1, lcs.z0 + 1, 'c');
