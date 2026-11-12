@@ -10128,7 +10128,7 @@
   function safeAct(a, t) {
     var c = CHAR, now = Date.now(); if (!c) { say('Not yet', 'Create a character first.', 2500); return true; }
     c.cool = c.cool || {};
-    if (a.auto === 'link') { if (CB.on) { say('Not now', 'Finish the fight first.', 2500); return true; } if (heroTo(a.link.x, a.link.z)) { refreshFog(); enterRoom(); posSave(true); } return true; }
+    if (a.auto === 'link') { takeLink(a.link); return true; }
     if (a.auto === 'coffee') {
       c.cups = (c.cups || []).filter(function (x) { return now - x < 15 * 60000; }); c.cups.push(now);
       buffOn('caffeine', 15 * 60000); kitOneShot('Interact');
@@ -10226,6 +10226,16 @@
     '#dmBox small{font-family:Cinzel,serif;letter-spacing:.14em;color:#7A1F1A;font-size:11px}#dmBox h3{margin:8px 0 4px;font-family:Cinzel,serif;font-size:15px}#dmBox .row{display:flex;flex-wrap:wrap;gap:6px}#dmBox p{font-size:14px;margin:10px 0}' +
     '#dmBox button{width:auto !important;height:auto !important;flex:0 1 auto;white-space:nowrap;min-height:40px;padding:0 12px;border:2px solid #2e2116;border-radius:3px;background:#efe3c6;color:#2b1d12;font-family:"EB Garamond",serif;font-weight:700;font-size:15px;cursor:pointer}#dmBox button.on{background:#2b1d12;color:#F3E6CC}#dmX{background:#7A1F1A !important;color:#F3E6CC !important}';
     document.head.appendChild(c); })();
+
+  // stairs and other links: land on the landing, or the nearest free spot if something is standing there
+  function takeLink(lk) {
+    if (CB.on) { say('Not now', 'Finish the fight first.', 2500); return false; }
+    for (var rad = 0; rad <= 3; rad++) for (var dz = -rad; dz <= rad; dz++) for (var dx = -rad; dx <= rad; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== rad) continue;
+      if (heroTo(lk.x + dx, lk.z + dz)) { refreshFog(); enterRoom(); posSave(true); return true; }
+    }
+    say('Blocked', 'Something is in the way at the other end. Try again in a moment.', 3000); return false;
+  }
 
   // ===================== item effects: what the fields in items.js actually do =====================
   // throw / escape / box / buff / uses / leaves on use; ac, checks, light while carried; crit and onHit on weapons
