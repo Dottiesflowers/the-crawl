@@ -27,3 +27,4 @@ skin('shadow',[70,56,96],1.3,grip=[24,18,30],gripk=0.8)
 # glow mask: the metal, brightest along its streaky detail
 gm=np.clip(metal*(0.35+np.clip(det+0.12,0,1)*4.0),0,1)
 Image.fromarray((gm*255).astype(np.uint8)).convert('RGB').save('wskin_glow.jpg',quality=85)
+skin('crude',[120,110,96],0.8,grip=[176,150,104],gripk=1.05)   # homemade: raw pale stick wood, dull metal bits

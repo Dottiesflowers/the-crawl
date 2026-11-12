@@ -41,7 +41,7 @@
     'Cordless leaf blower': { cat: 'tool', uses: 3, throw: { fx: [{ type: 'push', tiles: 2 }] }, level: 1, desc: 'Battery shows two bars. It has shown two bars since 2019.' },
     'Bluetooth speaker': { cat: 'tool', uses: 5, throw: { fx: [{ type: 'distract', turns: 1 }], area: 2 }, tags: ['loud'], level: 1, desc: '"The Bluetooth device is ready to pair." Everything nearby turns to look.' },
     // ---- weapons ----
-    'Puglin stick': { cat: 'weapon', dmg: '1d4', level: 1, until: 3, desc: 'Chewed at one end. Still works.' },
+    'Puglin stick': { cat: 'weapon', dmg: '1d4', tags: ['wood', 'long'], level: 1, until: 3, desc: 'Chewed at one end. Still works.' },
     'Imp mace': { cat: 'weapon', dmg: '1d6', level: 1, desc: 'Company property. Heavy, spiky, and badly maintained.' },
     'Crowbar': { cat: 'weapon', dmg: '1d6', tags: ['heavy', 'lever'], level: 1, desc: 'Opens crates, doors and arguments.' },
     'Box cutter': { cat: 'weapon', dmg: '1d4', tags: ['sharp'], level: 1, desc: 'Retractable, for safety. Ha.' },
@@ -51,9 +51,9 @@
     'Cast iron skillet': { cat: 'weapon', dmg: '1d6', ac: 1, tags: ['heavy'], level: 1, desc: 'Seasoned for eleven years. +1 AC while you hold it up.' },
     'Meat tenderizer': { cat: 'weapon', dmg: '1d6', onHit: { type: 'weaken', ac: 1, turns: 1, chance: 1 }, level: 1, desc: 'The waffle pattern leaves a mark. Hits knock 1 off its armor.' },
     'Rolling pin': { cat: 'weapon', dmg: '1d4', onHit: { type: 'prone', chance: 0.25 }, level: 1, desc: 'Grandma energy. Sometimes knocks them flat.' },
-    'Broom': { cat: 'weapon', dmg: '1d4', tags: ['long', 'flammable'], level: 1, desc: 'Witches have not called dibs.' },
-    'Mop': { cat: 'weapon', dmg: '1d4', tags: ['long', 'absorbent'], level: 1, desc: 'Wet floor sign not included. Cleans up slime.' },
-    'Rake': { cat: 'weapon', dmg: '1d6', tags: ['long'], level: 1, desc: 'Every cartoon warned you.' },
+    'Broom': { cat: 'weapon', dmg: '1d4', tags: ['long', 'flammable', 'wood'], level: 1, desc: 'Witches have not called dibs.' },
+    'Mop': { cat: 'weapon', dmg: '1d4', tags: ['long', 'absorbent', 'wood'], level: 1, desc: 'Wet floor sign not included. Cleans up slime.' },
+    'Rake': { cat: 'weapon', dmg: '1d6', tags: ['long', 'wood'], level: 1, desc: 'Every cartoon warned you.' },
     'Plunger': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Unused. Allegedly.' },
     'Tennis racket': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Restrung once, in 2012.' },
     'Ergonomic keyboard': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Split down the middle, like the office.' },
@@ -88,9 +88,11 @@
     'Golden Prop Mace +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, onHit: { type: 'prone', chance: 0.25 }, tags: ['heavy'], rarity: 'Rare', level: 2, model: 'w_mace', skin: 'gold', len: 0.5, desc: 'Spray-painted gold for an awards episode. It is solid iron underneath. +1, crits on 19-20, knocks them flat a quarter of the time.' },
     'Stunt Coordinator\'s Greatsword +1': { cat: 'weapon', dmg: '2d6', twoHand: true, bonus: 1, tags: ['sharp', 'long', 'heavy'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'steel', len: 0.95, desc: 'The big one. Choreographed a thousand fights, lost none of them. 2d6, +1. Two-handed.' },
     // ammo: cat misc so it stacks (qty). ammo: { kind (matches the launcher's bow.ammo), s: damage die, acc: +N to hit, onHit: rider }. twoHand: true = no torch, shield or dagger in the off hand. Jury-rig 2 parts: wood + a tip (see ARROWS in v2_craft.js)
+    'Splintered wood': { cat: 'material', tags: ['wood', 'flammable', 'long'], level: 1, desc: 'Busted shelving, a chair leg, part of a pallet. Two of these make arrows.' },
+    'Chunk of rubble': { cat: 'material', tags: ['stone', 'heavy', 'hard'], level: 1, desc: 'A fist-sized piece of the dungeon. It came off the wall. The wall did not notice.' },
     'Prop lumber': { cat: 'material', tags: ['wood', 'flammable', 'long'], level: 2, desc: 'Pine offcuts from set construction. Straight, light, splits clean. Two of these make arrows.' },
     'River stone': { cat: 'material', tags: ['stone', 'heavy', 'hard'], level: 2, desc: 'Flat and sharp-edged, from the Jungle Set river. The river is a pump and a tarp. The stone is real.' },
-    'Scrap metal': { cat: 'material', tags: ['metal', 'sharp', 'conductive', 'heavy'], level: 2, desc: 'Bent brackets, sheet offcuts and one very confused bolt.' },
+    'Scrap metal': { cat: 'material', tags: ['metal', 'sharp', 'conductive', 'heavy'], level: 1, desc: 'Bent brackets, sheet offcuts and one very confused bolt.' },
     'Wooden arrows': { cat: 'misc', icon: 'arrows', ammo: { kind: 'arrow', s: 4 }, tags: ['wood', 'flammable'], level: 2, desc: 'Sharpened and fire-hardened. 1d4 from a bow. Jury-rig: Prop lumber + Prop lumber (10).' },
     'Stone-tipped arrows': { cat: 'misc', icon: 'arrows', ammo: { kind: 'arrow', s: 6 }, tags: ['wood', 'stone'], level: 2, desc: 'Knapped stone heads, lashed on. 1d6 from a bow. Jury-rig: Prop lumber + River stone (10).' },
     'Scrap-metal arrows': { cat: 'misc', icon: 'arrows', ammo: { kind: 'arrow', s: 6, acc: 1 }, tags: ['wood', 'metal'], level: 2, desc: 'Cut-tin broadheads. 1d6 and +1 to hit. Jury-rig: Prop lumber + Scrap metal (10).' },
@@ -177,7 +179,7 @@
   var DROPS = {
     monsters: {
       puglin: { gold: '1d6', always: ['Puglin stick'], chance: [['Half-eaten snack', 0.5], ['Shiny button', 0.3], ['Puglin grease', 0.35]] },
-      imp: { gold: '2d6+2', always: ['Imp mace', 'Security badge', 'Union card'], chance: [['Imp horn', 0.4], ['Smoke bomb', 0.1]] },
+      imp: { gold: '2d6+2', always: ['Imp mace', 'Security badge', 'Union card'], chance: [['Imp horn', 0.4], ['Scrap metal', 0.3], ['Smoke bomb', 0.1]] },
       rat: { gold: '0', chance: [['Rat tail', 0.6]] },
       bog: { gold: '1d4', chance: [['Bog slime', 0.7], ['Band-aids', 0.15]] },
       clerk: { gold: '1d6', chance: [['Clerk ink', 0.5], ['Archive pages', 0.5], ['Stapler', 0.2], ['Sticky notes', 0.2]] },
@@ -216,13 +218,13 @@
     },
     containers: {
       chest: { gold: '3d6', picks: [2, 3], from: 'a loot box', pool: ['AA batteries', 'Healing potion', 'Crowbar', 'Roll of duct tape', 'Flashlight', 'Energy bar', 'Bronze loot box coupon', 'Hard hat', 'Plain white tee', 'Grey hoodie', 'Black jeans', 'Cowboy hat', 'Work boots', 'Healing potion', 'Chef\'s knife', 'Golf club (7 iron)', 'Cast iron skillet', 'Headlamp', 'Fire extinguisher', 'Bluetooth speaker', 'Smoke bomb', 'Goblin hob-lobber', 'Tennis racket', 'WD-40', 'Bungee cords', 'Protein bar', 'Hot sauce', 'Silver loot box', 'EpiPen'] },
-      small: { gold: '1d4', picks: [1, 1], from: 'a search', pool: ['Prop lumber', 'Scrap metal', 'Energy bar', 'Bottle of water', 'Rusty key', 'Lighter', 'Ball of twine', 'Band-aids', 'Roll of toilet paper', 'Breath mints', 'Box cutter', 'Bungee cords', 'Zip ties (10)', 'Empty bottle', 'Wallet ($14 and a punch card)', 'Ibuprofen'] },
+      small: { gold: '1d4', picks: [1, 1], from: 'a search', pool: ['Splintered wood', 'Splintered wood', 'Chunk of rubble', 'Prop lumber', 'Scrap metal', 'Energy bar', 'Bottle of water', 'Rusty key', 'Lighter', 'Ball of twine', 'Band-aids', 'Roll of toilet paper', 'Breath mints', 'Box cutter', 'Bungee cords', 'Zip ties (10)', 'Empty bottle', 'Wallet ($14 and a punch card)', 'Ibuprofen'] },
       silver: { gold: '4d6', picks: [2, 4], from: 'a silver loot box', pool: ['Greater healing potion', 'Healing potion', 'Goblin hob-lobber', 'Smoke bomb', 'Jumper cables', 'Pallet jack', 'Headlamp', 'EpiPen', 'Golf club (7 iron)', 'Chef\'s knife', 'Cast iron skillet', 'Meat tenderizer'] },
-      small_office: { gold: '1d6', picks: [1, 2], from: 'a desk', pool: ['AA batteries', 'Stapler', 'Letter opener', 'Sticky notes', 'Archive pages', 'Ergonomic keyboard', 'Laminated visitor badge', '"World\'s Best Boss" mug', 'Breath mints', 'Lint roller', 'Ibuprofen', 'Box cutter'] },
-      small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['AA batteries', 'Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
+      small_office: { gold: '1d6', picks: [1, 2], from: 'a desk', pool: ['Splintered wood', 'Scrap metal', 'AA batteries', 'Stapler', 'Letter opener', 'Sticky notes', 'Archive pages', 'Ergonomic keyboard', 'Laminated visitor badge', '"World\'s Best Boss" mug', 'Breath mints', 'Lint roller', 'Ibuprofen', 'Box cutter'] },
+      small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['Splintered wood', 'Scrap metal', 'AA batteries', 'Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
       small_garden: { gold: '1d4', picks: [1, 2], from: 'the potting shed', pool: ['Rake', 'Hedge trimmers', 'Weed killer', 'Bug spray', 'Cordless leaf blower', 'Shrub sap', 'Bog slime', 'Floral foam brick', 'Bottle of water'] },
       small_bazaar: { gold: '2d4', picks: [1, 2], from: 'a stall', pool: ['Hot sauce', 'Can of cooking spray', 'Chef\'s knife', 'Rolling pin', 'Meat tenderizer', 'Cast iron skillet', 'Protein bar', 'Energy bar', 'Roll of aluminum foil', 'Bottle of water'] },
-      small_arena: { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] }
+      small_arena: { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Splintered wood', 'Scrap metal', 'Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] }
     },
     sources: {
       starting: [['Healing potion', 3]],

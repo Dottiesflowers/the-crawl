@@ -460,7 +460,7 @@
   }
   function cbMyTurn() { return CB.on && CB.order[CB.idx] === 'pc'; }
   function cbAdjacent() { return CB.enemies.filter(function (e) { return !e.dead && !e.calm && cheb(P.x, P.z, e.x, e.z) <= 1; }); }
-  function bowHeld() { return !!(CHAR && CHAR.wield && ITEMS[CHAR.wield] && ITEMS[CHAR.wield].bow); }
+  function bowHeld() { return !!(CHAR && CHAR.wield && launcherOf(CHAR.wield)); }
   // ammo for a launcher: the stack you picked (Inventory → Shoot these), else the hardest-hitting stack you carry
   function ammoPick(kind) {
     var st = (CHAR.gear || []).filter(function (g) { var I = ITEMS[g.name]; return I && I.ammo && (I.ammo.kind || 'arrow') === kind && (g.qty || 1) > 0; });
@@ -468,10 +468,10 @@
     st.sort(function (a, b) { var A = ITEMS[a.name].ammo, B = ITEMS[b.name].ammo; return (B.s + (B.acc || 0)) - (A.s + (A.acc || 0)); }); return st[0];
   }
   function cbThrowable() {
-    var bw = CHAR && CHAR.wield && ITEMS[CHAR.wield] && ITEMS[CHAR.wield].bow; // holding a bow: Throw becomes Shoot, and the bow stays in your hands
+    var bw = CHAR && CHAR.wield && launcherOf(CHAR.wield); // holding a bow: Throw becomes Shoot, and the bow stays in your hands
     if (bw) { var am = ammoPick(bw.ammo || 'arrow');
       if (!am) return { name: '(no ' + (bw.ammo || 'arrow') + 's)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true };
-      var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: A.s, acc: A.acc || 0, onHit: A.onHit || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am }; }
+      var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: A.s, acc: (A.acc || 0) + (bw.acc || 0), onHit: A.onHit || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am }; }
     if (sty('off') === 3 || (KIT && !KIT.on && sty('main') === 0 && sty('off') === 3)) return { name: 'your dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', prof: true, range: 4, long: 12, dagger: true };
     return { name: 'a rock', n: 1, s: 4, stat: 'STR', prof: false, range: 4, long: 12 };
   }

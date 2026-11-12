@@ -2924,7 +2924,7 @@
       tube(rig, T, darkM, { y0: 0.68, y1: 0.725, grow: gf + 0.006, na: 32, ny: 1, tilt: 0.13 }); bead(0.3, 0.74, gf + 0.008, 0.016, goldM); }
     // ----- hands: main and off -----
     var main = sty('main'), mc = col('main'), gw = (typeof CHAR !== 'undefined' && CHAR && CHAR.wield) ? (CHAR.gear || []).filter(function (x) { return x.name === CHAR.wield; })[0] : null;
-    var isBow = gw && typeof ITEMS !== 'undefined' && ITEMS[gw.name] && ITEMS[gw.name].bow; // a bow goes in the left hand; the right draws the string
+    var isBow = gw && typeof launcherOf === 'function' && !!launcherOf(gw.name); // a bow goes in the left hand; the right draws the string
     if (gw) { var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); (isBow ? AL : AR).el.add(wg); BOW_G = isBow ? wg : null; held.push({ g: wg, el: (isBow ? AL : AR).el, side: isBow ? -1 : 1, t: lean(isBow ? 0.05 : 0.35, 0.1) }); gearModel(wg, gw); main = 0; }
     else if (main) {
       var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); AR.el.add(wg);
@@ -7536,7 +7536,7 @@
     'Cordless leaf blower': { cat: 'tool', uses: 3, throw: { fx: [{ type: 'push', tiles: 2 }] }, level: 1, desc: 'Battery shows two bars. It has shown two bars since 2019.' },
     'Bluetooth speaker': { cat: 'tool', uses: 5, throw: { fx: [{ type: 'distract', turns: 1 }], area: 2 }, tags: ['loud'], level: 1, desc: '"The Bluetooth device is ready to pair." Everything nearby turns to look.' },
     // ---- weapons ----
-    'Puglin stick': { cat: 'weapon', dmg: '1d4', level: 1, until: 3, desc: 'Chewed at one end. Still works.' },
+    'Puglin stick': { cat: 'weapon', dmg: '1d4', tags: ['wood', 'long'], level: 1, until: 3, desc: 'Chewed at one end. Still works.' },
     'Imp mace': { cat: 'weapon', dmg: '1d6', level: 1, desc: 'Company property. Heavy, spiky, and badly maintained.' },
     'Crowbar': { cat: 'weapon', dmg: '1d6', tags: ['heavy', 'lever'], level: 1, desc: 'Opens crates, doors and arguments.' },
     'Box cutter': { cat: 'weapon', dmg: '1d4', tags: ['sharp'], level: 1, desc: 'Retractable, for safety. Ha.' },
@@ -7546,9 +7546,9 @@
     'Cast iron skillet': { cat: 'weapon', dmg: '1d6', ac: 1, tags: ['heavy'], level: 1, desc: 'Seasoned for eleven years. +1 AC while you hold it up.' },
     'Meat tenderizer': { cat: 'weapon', dmg: '1d6', onHit: { type: 'weaken', ac: 1, turns: 1, chance: 1 }, level: 1, desc: 'The waffle pattern leaves a mark. Hits knock 1 off its armor.' },
     'Rolling pin': { cat: 'weapon', dmg: '1d4', onHit: { type: 'prone', chance: 0.25 }, level: 1, desc: 'Grandma energy. Sometimes knocks them flat.' },
-    'Broom': { cat: 'weapon', dmg: '1d4', tags: ['long', 'flammable'], level: 1, desc: 'Witches have not called dibs.' },
-    'Mop': { cat: 'weapon', dmg: '1d4', tags: ['long', 'absorbent'], level: 1, desc: 'Wet floor sign not included. Cleans up slime.' },
-    'Rake': { cat: 'weapon', dmg: '1d6', tags: ['long'], level: 1, desc: 'Every cartoon warned you.' },
+    'Broom': { cat: 'weapon', dmg: '1d4', tags: ['long', 'flammable', 'wood'], level: 1, desc: 'Witches have not called dibs.' },
+    'Mop': { cat: 'weapon', dmg: '1d4', tags: ['long', 'absorbent', 'wood'], level: 1, desc: 'Wet floor sign not included. Cleans up slime.' },
+    'Rake': { cat: 'weapon', dmg: '1d6', tags: ['long', 'wood'], level: 1, desc: 'Every cartoon warned you.' },
     'Plunger': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Unused. Allegedly.' },
     'Tennis racket': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Restrung once, in 2012.' },
     'Ergonomic keyboard': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Split down the middle, like the office.' },
@@ -7583,9 +7583,11 @@
     'Golden Prop Mace +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, onHit: { type: 'prone', chance: 0.25 }, tags: ['heavy'], rarity: 'Rare', level: 2, model: 'w_mace', skin: 'gold', len: 0.5, desc: 'Spray-painted gold for an awards episode. It is solid iron underneath. +1, crits on 19-20, knocks them flat a quarter of the time.' },
     'Stunt Coordinator\'s Greatsword +1': { cat: 'weapon', dmg: '2d6', twoHand: true, bonus: 1, tags: ['sharp', 'long', 'heavy'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'steel', len: 0.95, desc: 'The big one. Choreographed a thousand fights, lost none of them. 2d6, +1. Two-handed.' },
     // ammo: cat misc so it stacks (qty). ammo: { kind (matches the launcher's bow.ammo), s: damage die, acc: +N to hit, onHit: rider }. twoHand: true = no torch, shield or dagger in the off hand. Jury-rig 2 parts: wood + a tip (see ARROWS in v2_craft.js)
+    'Splintered wood': { cat: 'material', tags: ['wood', 'flammable', 'long'], level: 1, desc: 'Busted shelving, a chair leg, part of a pallet. Two of these make arrows.' },
+    'Chunk of rubble': { cat: 'material', tags: ['stone', 'heavy', 'hard'], level: 1, desc: 'A fist-sized piece of the dungeon. It came off the wall. The wall did not notice.' },
     'Prop lumber': { cat: 'material', tags: ['wood', 'flammable', 'long'], level: 2, desc: 'Pine offcuts from set construction. Straight, light, splits clean. Two of these make arrows.' },
     'River stone': { cat: 'material', tags: ['stone', 'heavy', 'hard'], level: 2, desc: 'Flat and sharp-edged, from the Jungle Set river. The river is a pump and a tarp. The stone is real.' },
-    'Scrap metal': { cat: 'material', tags: ['metal', 'sharp', 'conductive', 'heavy'], level: 2, desc: 'Bent brackets, sheet offcuts and one very confused bolt.' },
+    'Scrap metal': { cat: 'material', tags: ['metal', 'sharp', 'conductive', 'heavy'], level: 1, desc: 'Bent brackets, sheet offcuts and one very confused bolt.' },
     'Wooden arrows': { cat: 'misc', icon: 'arrows', ammo: { kind: 'arrow', s: 4 }, tags: ['wood', 'flammable'], level: 2, desc: 'Sharpened and fire-hardened. 1d4 from a bow. Jury-rig: Prop lumber + Prop lumber (10).' },
     'Stone-tipped arrows': { cat: 'misc', icon: 'arrows', ammo: { kind: 'arrow', s: 6 }, tags: ['wood', 'stone'], level: 2, desc: 'Knapped stone heads, lashed on. 1d6 from a bow. Jury-rig: Prop lumber + River stone (10).' },
     'Scrap-metal arrows': { cat: 'misc', icon: 'arrows', ammo: { kind: 'arrow', s: 6, acc: 1 }, tags: ['wood', 'metal'], level: 2, desc: 'Cut-tin broadheads. 1d6 and +1 to hit. Jury-rig: Prop lumber + Scrap metal (10).' },
@@ -7672,7 +7674,7 @@
   var DROPS = {
     monsters: {
       puglin: { gold: '1d6', always: ['Puglin stick'], chance: [['Half-eaten snack', 0.5], ['Shiny button', 0.3], ['Puglin grease', 0.35]] },
-      imp: { gold: '2d6+2', always: ['Imp mace', 'Security badge', 'Union card'], chance: [['Imp horn', 0.4], ['Smoke bomb', 0.1]] },
+      imp: { gold: '2d6+2', always: ['Imp mace', 'Security badge', 'Union card'], chance: [['Imp horn', 0.4], ['Scrap metal', 0.3], ['Smoke bomb', 0.1]] },
       rat: { gold: '0', chance: [['Rat tail', 0.6]] },
       bog: { gold: '1d4', chance: [['Bog slime', 0.7], ['Band-aids', 0.15]] },
       clerk: { gold: '1d6', chance: [['Clerk ink', 0.5], ['Archive pages', 0.5], ['Stapler', 0.2], ['Sticky notes', 0.2]] },
@@ -7711,13 +7713,13 @@
     },
     containers: {
       chest: { gold: '3d6', picks: [2, 3], from: 'a loot box', pool: ['AA batteries', 'Healing potion', 'Crowbar', 'Roll of duct tape', 'Flashlight', 'Energy bar', 'Bronze loot box coupon', 'Hard hat', 'Plain white tee', 'Grey hoodie', 'Black jeans', 'Cowboy hat', 'Work boots', 'Healing potion', 'Chef\'s knife', 'Golf club (7 iron)', 'Cast iron skillet', 'Headlamp', 'Fire extinguisher', 'Bluetooth speaker', 'Smoke bomb', 'Goblin hob-lobber', 'Tennis racket', 'WD-40', 'Bungee cords', 'Protein bar', 'Hot sauce', 'Silver loot box', 'EpiPen'] },
-      small: { gold: '1d4', picks: [1, 1], from: 'a search', pool: ['Prop lumber', 'Scrap metal', 'Energy bar', 'Bottle of water', 'Rusty key', 'Lighter', 'Ball of twine', 'Band-aids', 'Roll of toilet paper', 'Breath mints', 'Box cutter', 'Bungee cords', 'Zip ties (10)', 'Empty bottle', 'Wallet ($14 and a punch card)', 'Ibuprofen'] },
+      small: { gold: '1d4', picks: [1, 1], from: 'a search', pool: ['Splintered wood', 'Splintered wood', 'Chunk of rubble', 'Prop lumber', 'Scrap metal', 'Energy bar', 'Bottle of water', 'Rusty key', 'Lighter', 'Ball of twine', 'Band-aids', 'Roll of toilet paper', 'Breath mints', 'Box cutter', 'Bungee cords', 'Zip ties (10)', 'Empty bottle', 'Wallet ($14 and a punch card)', 'Ibuprofen'] },
       silver: { gold: '4d6', picks: [2, 4], from: 'a silver loot box', pool: ['Greater healing potion', 'Healing potion', 'Goblin hob-lobber', 'Smoke bomb', 'Jumper cables', 'Pallet jack', 'Headlamp', 'EpiPen', 'Golf club (7 iron)', 'Chef\'s knife', 'Cast iron skillet', 'Meat tenderizer'] },
-      small_office: { gold: '1d6', picks: [1, 2], from: 'a desk', pool: ['AA batteries', 'Stapler', 'Letter opener', 'Sticky notes', 'Archive pages', 'Ergonomic keyboard', 'Laminated visitor badge', '"World\'s Best Boss" mug', 'Breath mints', 'Lint roller', 'Ibuprofen', 'Box cutter'] },
-      small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['AA batteries', 'Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
+      small_office: { gold: '1d6', picks: [1, 2], from: 'a desk', pool: ['Splintered wood', 'Scrap metal', 'AA batteries', 'Stapler', 'Letter opener', 'Sticky notes', 'Archive pages', 'Ergonomic keyboard', 'Laminated visitor badge', '"World\'s Best Boss" mug', 'Breath mints', 'Lint roller', 'Ibuprofen', 'Box cutter'] },
+      small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['Splintered wood', 'Scrap metal', 'AA batteries', 'Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
       small_garden: { gold: '1d4', picks: [1, 2], from: 'the potting shed', pool: ['Rake', 'Hedge trimmers', 'Weed killer', 'Bug spray', 'Cordless leaf blower', 'Shrub sap', 'Bog slime', 'Floral foam brick', 'Bottle of water'] },
       small_bazaar: { gold: '2d4', picks: [1, 2], from: 'a stall', pool: ['Hot sauce', 'Can of cooking spray', 'Chef\'s knife', 'Rolling pin', 'Meat tenderizer', 'Cast iron skillet', 'Protein bar', 'Energy bar', 'Roll of aluminum foil', 'Bottle of water'] },
-      small_arena: { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] }
+      small_arena: { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Splintered wood', 'Scrap metal', 'Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] }
     },
     sources: {
       starting: [['Healing potion', 3]],
@@ -8360,7 +8362,7 @@
   }
   function cbMyTurn() { return CB.on && CB.order[CB.idx] === 'pc'; }
   function cbAdjacent() { return CB.enemies.filter(function (e) { return !e.dead && !e.calm && cheb(P.x, P.z, e.x, e.z) <= 1; }); }
-  function bowHeld() { return !!(CHAR && CHAR.wield && ITEMS[CHAR.wield] && ITEMS[CHAR.wield].bow); }
+  function bowHeld() { return !!(CHAR && CHAR.wield && launcherOf(CHAR.wield)); }
   // ammo for a launcher: the stack you picked (Inventory → Shoot these), else the hardest-hitting stack you carry
   function ammoPick(kind) {
     var st = (CHAR.gear || []).filter(function (g) { var I = ITEMS[g.name]; return I && I.ammo && (I.ammo.kind || 'arrow') === kind && (g.qty || 1) > 0; });
@@ -8368,10 +8370,10 @@
     st.sort(function (a, b) { var A = ITEMS[a.name].ammo, B = ITEMS[b.name].ammo; return (B.s + (B.acc || 0)) - (A.s + (A.acc || 0)); }); return st[0];
   }
   function cbThrowable() {
-    var bw = CHAR && CHAR.wield && ITEMS[CHAR.wield] && ITEMS[CHAR.wield].bow; // holding a bow: Throw becomes Shoot, and the bow stays in your hands
+    var bw = CHAR && CHAR.wield && launcherOf(CHAR.wield); // holding a bow: Throw becomes Shoot, and the bow stays in your hands
     if (bw) { var am = ammoPick(bw.ammo || 'arrow');
       if (!am) return { name: '(no ' + (bw.ammo || 'arrow') + 's)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true };
-      var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: A.s, acc: A.acc || 0, onHit: A.onHit || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am }; }
+      var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: A.s, acc: (A.acc || 0) + (bw.acc || 0), onHit: A.onHit || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am }; }
     if (sty('off') === 3 || (KIT && !KIT.on && sty('main') === 0 && sty('off') === 3)) return { name: 'your dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', prof: true, range: 4, long: 12, dagger: true };
     return { name: 'a rock', n: 1, s: 4, stat: 'STR', prof: false, range: 4, long: 12 };
   }
@@ -10216,10 +10218,10 @@
     var wa = document.getElementById('wAmmo'); if (wa) wa.onclick = ammoCycle;
   }
   // the arrows on the string: the ones you picked stay loaded until you switch (tap the In hand card)
-  function ammoTypes() { var I = ITEMS[CHAR.wield], kind = (I && I.bow && I.bow.ammo) || 'arrow'; return (CHAR.gear || []).filter(function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; }); }
-  function ammoLine() { var a = ammoPick((ITEMS[CHAR.wield].bow.ammo) || 'arrow'); if (!a) return 'No arrows · craft some'; var n = ammoTypes().length; return esc(a.name.replace(/ arrows$/, '')) + ' ×' + (a.qty || 1) + ' · 1d' + ITEMS[a.name].ammo.s + (n > 1 ? ' · tap to switch' : ''); }
+  function ammoTypes() { var L = launcherOf(CHAR.wield), kind = (L && L.ammo) || 'arrow'; return (CHAR.gear || []).filter(function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; }); }
+  function ammoLine() { var a = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'); if (!a) return 'No arrows · craft some'; var n = ammoTypes().length; return esc(a.name.replace(/ arrows$/, '')) + ' ×' + (a.qty || 1) + ' · 1d' + ITEMS[a.name].ammo.s + (n > 1 ? ' · tap to switch' : ''); }
   function ammoCycle() { var st = ammoTypes(); if (st.length < 2) { say('Arrows', st.length ? 'That is the only kind you have.' : 'No arrows. Jury-rig some: Prop lumber + a tip.', 2400); return; }
-    var cur = ammoPick((ITEMS[CHAR.wield].bow.ammo) || 'arrow'), i = st.indexOf(cur), nx = st[(i + 1) % st.length]; CHAR.ammo = nx.name; saveChar(CHAR); wsetDraw(); if (CB.on) cbHUD();
+    var cur = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'), i = st.indexOf(cur), nx = st[(i + 1) % st.length]; CHAR.ammo = nx.name; saveChar(CHAR); wsetDraw(); if (CB.on) cbHUD();
     say('Arrows · ' + nx.name, 'Loaded. 1d' + ITEMS[nx.name].ammo.s + (ITEMS[nx.name].ammo.acc ? ', +' + ITEMS[nx.name].ammo.acc + ' to hit' : '') + (ITEMS[nx.name].ammo.onHit ? ', sets them on fire' : '') + '. ' + (nx.qty || 1) + ' left.', 2400); }
 
   // ---------- wardrobe: you only wear what you own ----------
@@ -10415,7 +10417,7 @@
   }
   // the wielded inventory item as a little 3D model in the right hand (built along +y, grip at the origin)
   // weapon skins: the same models repainted (kit2/wskin_*.jpg: only the metal changes, grips stay or get a matching wrap); enchanted ones glow
-  var WSKIN = { steel: {}, gold: {}, storm: { glow: 0x5ac8ff, fx: 'spark' }, ember: { glow: 0xff5a14, fx: 'pulse' }, frost: { glow: 0x9adcff, fx: 'pulse' }, shadow: { glow: 0x8a4aff, fx: 'pulse' } }, WSKIN_MAT = {}, WGLOW = [], wglowT = 0;
+  var WSKIN = { steel: {}, crude: {}, gold: {}, storm: { glow: 0x5ac8ff, fx: 'spark' }, ember: { glow: 0xff5a14, fx: 'pulse' }, frost: { glow: 0x9adcff, fx: 'pulse' }, shadow: { glow: 0x8a4aff, fx: 'pulse' } }, WSKIN_MAT = {}, WGLOW = [], wglowT = 0;
   function wskinMat(k) {
     if (WSKIN_MAT[k]) return WSKIN_MAT[k]; var S = WSKIN[k];
     var m = new THREE.MeshLambertMaterial({ map: kitTex('wskin_' + k + '.jpg'), side: THREE.DoubleSide }); m.color.setScalar(1.35); m.userData.lit = 1;
@@ -10426,10 +10428,17 @@
     if (!WGLOW.length) return; wglowT += dt;
     WGLOW.forEach(function (w) { w.m.emissiveIntensity = w.fx === 'spark' ? (Math.random() < 0.12 ? 2.4 : 0.55 + 0.25 * Math.sin(wglowT * 23)) : 0.75 + 0.35 * Math.sin(wglowT * 2.6); });
   }
+  // is this a bow? catalog bows say so; anything crafted and called a bow is one too (crude: a little shorter and less accurate)
+  function launcherOf(nm) {
+    if (!nm) return null; var I = typeof ITEMS !== 'undefined' && ITEMS[nm]; if (I && I.bow) return I.bow;
+    var g = typeof CHAR !== 'undefined' && CHAR ? (CHAR.gear || []).filter(function (x) { return x.name === nm; })[0] : null; if (g && g.bow) return g.bow;
+    if (g && g.cat === 'weapon' && /\b(short|long|cross)?bow\b/i.test(nm) && !/elbow|rainbow|bowl|bowtie|bow tie/i.test(nm)) return { ammo: 'arrow', range: 12, long: 36, acc: -1, crude: true };
+    return null;
+  }
   function gearModel(g0, it) {
     var k = itemKind(it), RED = 0xb02828, g = new THREE.Group(); g.scale.setScalar(1.35); g0.add(g);
     // weapons with a real model (kit2/weapons.json): grip just above the pommel, blade up; a bow is held in the middle
-    var IB = (typeof ITEMS !== 'undefined' && ITEMS[it.name]) || it;
+    var IB = (typeof ITEMS !== 'undefined' && ITEMS[it.name]) || it; if (!IB.model && launcherOf(it.name)) IB = { model: 'w_bow', len: 0.7, bow: true, skin: 'crude' }; // a homemade bow looks like a rough version of ours
     if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) {
       g.traverse(function (o) { if (!o.isMesh) return; if (IB.skin && WSKIN[IB.skin]) { o.material = wskinMat(IB.skin); return; } if (!o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); // the rust textures are dark: lift them so they read in hand
       return;

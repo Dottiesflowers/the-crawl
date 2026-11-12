@@ -340,10 +340,10 @@
     var wa = document.getElementById('wAmmo'); if (wa) wa.onclick = ammoCycle;
   }
   // the arrows on the string: the ones you picked stay loaded until you switch (tap the In hand card)
-  function ammoTypes() { var I = ITEMS[CHAR.wield], kind = (I && I.bow && I.bow.ammo) || 'arrow'; return (CHAR.gear || []).filter(function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; }); }
-  function ammoLine() { var a = ammoPick((ITEMS[CHAR.wield].bow.ammo) || 'arrow'); if (!a) return 'No arrows · craft some'; var n = ammoTypes().length; return esc(a.name.replace(/ arrows$/, '')) + ' ×' + (a.qty || 1) + ' · 1d' + ITEMS[a.name].ammo.s + (n > 1 ? ' · tap to switch' : ''); }
+  function ammoTypes() { var L = launcherOf(CHAR.wield), kind = (L && L.ammo) || 'arrow'; return (CHAR.gear || []).filter(function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; }); }
+  function ammoLine() { var a = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'); if (!a) return 'No arrows · craft some'; var n = ammoTypes().length; return esc(a.name.replace(/ arrows$/, '')) + ' ×' + (a.qty || 1) + ' · 1d' + ITEMS[a.name].ammo.s + (n > 1 ? ' · tap to switch' : ''); }
   function ammoCycle() { var st = ammoTypes(); if (st.length < 2) { say('Arrows', st.length ? 'That is the only kind you have.' : 'No arrows. Jury-rig some: Prop lumber + a tip.', 2400); return; }
-    var cur = ammoPick((ITEMS[CHAR.wield].bow.ammo) || 'arrow'), i = st.indexOf(cur), nx = st[(i + 1) % st.length]; CHAR.ammo = nx.name; saveChar(CHAR); wsetDraw(); if (CB.on) cbHUD();
+    var cur = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'), i = st.indexOf(cur), nx = st[(i + 1) % st.length]; CHAR.ammo = nx.name; saveChar(CHAR); wsetDraw(); if (CB.on) cbHUD();
     say('Arrows · ' + nx.name, 'Loaded. 1d' + ITEMS[nx.name].ammo.s + (ITEMS[nx.name].ammo.acc ? ', +' + ITEMS[nx.name].ammo.acc + ' to hit' : '') + (ITEMS[nx.name].ammo.onHit ? ', sets them on fire' : '') + '. ' + (nx.qty || 1) + ' left.', 2400); }
 
   // ---------- wardrobe: you only wear what you own ----------
@@ -539,7 +539,7 @@
   }
   // the wielded inventory item as a little 3D model in the right hand (built along +y, grip at the origin)
   // weapon skins: the same models repainted (kit2/wskin_*.jpg: only the metal changes, grips stay or get a matching wrap); enchanted ones glow
-  var WSKIN = { steel: {}, gold: {}, storm: { glow: 0x5ac8ff, fx: 'spark' }, ember: { glow: 0xff5a14, fx: 'pulse' }, frost: { glow: 0x9adcff, fx: 'pulse' }, shadow: { glow: 0x8a4aff, fx: 'pulse' } }, WSKIN_MAT = {}, WGLOW = [], wglowT = 0;
+  var WSKIN = { steel: {}, crude: {}, gold: {}, storm: { glow: 0x5ac8ff, fx: 'spark' }, ember: { glow: 0xff5a14, fx: 'pulse' }, frost: { glow: 0x9adcff, fx: 'pulse' }, shadow: { glow: 0x8a4aff, fx: 'pulse' } }, WSKIN_MAT = {}, WGLOW = [], wglowT = 0;
   function wskinMat(k) {
     if (WSKIN_MAT[k]) return WSKIN_MAT[k]; var S = WSKIN[k];
     var m = new THREE.MeshLambertMaterial({ map: kitTex('wskin_' + k + '.jpg'), side: THREE.DoubleSide }); m.color.setScalar(1.35); m.userData.lit = 1;
@@ -550,10 +550,17 @@
     if (!WGLOW.length) return; wglowT += dt;
     WGLOW.forEach(function (w) { w.m.emissiveIntensity = w.fx === 'spark' ? (Math.random() < 0.12 ? 2.4 : 0.55 + 0.25 * Math.sin(wglowT * 23)) : 0.75 + 0.35 * Math.sin(wglowT * 2.6); });
   }
+  // is this a bow? catalog bows say so; anything crafted and called a bow is one too (crude: a little shorter and less accurate)
+  function launcherOf(nm) {
+    if (!nm) return null; var I = typeof ITEMS !== 'undefined' && ITEMS[nm]; if (I && I.bow) return I.bow;
+    var g = typeof CHAR !== 'undefined' && CHAR ? (CHAR.gear || []).filter(function (x) { return x.name === nm; })[0] : null; if (g && g.bow) return g.bow;
+    if (g && g.cat === 'weapon' && /\b(short|long|cross)?bow\b/i.test(nm) && !/elbow|rainbow|bowl|bowtie|bow tie/i.test(nm)) return { ammo: 'arrow', range: 12, long: 36, acc: -1, crude: true };
+    return null;
+  }
   function gearModel(g0, it) {
     var k = itemKind(it), RED = 0xb02828, g = new THREE.Group(); g.scale.setScalar(1.35); g0.add(g);
     // weapons with a real model (kit2/weapons.json): grip just above the pommel, blade up; a bow is held in the middle
-    var IB = (typeof ITEMS !== 'undefined' && ITEMS[it.name]) || it;
+    var IB = (typeof ITEMS !== 'undefined' && ITEMS[it.name]) || it; if (!IB.model && launcherOf(it.name)) IB = { model: 'w_bow', len: 0.7, bow: true, skin: 'crude' }; // a homemade bow looks like a rough version of ours
     if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) {
       g.traverse(function (o) { if (!o.isMesh) return; if (IB.skin && WSKIN[IB.skin]) { o.material = wskinMat(IB.skin); return; } if (!o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); // the rust textures are dark: lift them so they read in hand
       return;
