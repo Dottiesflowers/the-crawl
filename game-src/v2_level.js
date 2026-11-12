@@ -682,7 +682,7 @@
     // round it, each one short street away. Studio Drive North and South cross the lot. Soundstage 9 (the gate) is
     // north of the hub, up Director's Row. Shares the Floor 1 helpers above (carving, furniture, styles).
     function backlot() {
-      decor = {}; dname = {}; D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]]; TOP = 0.36; var wstyle = {};
+      decor = {}; dname = {}; D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]]; TOP = 0.36; var wstyle = {}, links = {}, upstairs = [];
       STYLE = mkStyle(); MODERN = mkModern(); for (var mk2 in MODERN) STYLE[mk2] = MODERN[mk2];
       var xx, zz, k, i;
       function Zn(o) { o.idx = zones.length; o.rooms = []; o.rids = {}; zones.push(o); return o; }
@@ -835,6 +835,31 @@
           'r========r',
           'r========r']
         },
+        saloonUp: { name: 'Saloon Upstairs', line: 'Upstairs at the saloon: a landing and four rented rooms. The floorboards report everything you do.', theme: 'store',
+          areas: [{ name: 'Room 1', c0: 1, r0: 1, c1: 4, r1: 3 }, { name: 'Room 2', c0: 6, r0: 1, c1: 9, r1: 3 }, { name: 'Room 3', c0: 11, r0: 1, c1: 14, r1: 3 }, { name: 'The Madam\'s Room', c0: 16, r0: 1, c1: 20, r1: 3 }], rugs: [[3, 5, 15, 6, 0x5a2a3a]], rows: [
+          '######W####W####W#####',
+          '#e..C#e..C#e..C#e...C#',
+          '#....#....#....#.....#',
+          '#..p.#.d..#..o.#.d..e#',
+          '###D####D####D####D###',
+          '#L.................kk#',
+          '#..................kk#',
+          '#####W#####W#####W####']
+        },
+        hotelUp: { name: 'Hotel Upstairs', line: 'The hotel\'s upper floor: a long hall of numbered doors. Room 7 is locked from the inside.', theme: 'store',
+          areas: [{ name: 'Room 5', c0: 1, r0: 1, c1: 3, r1: 3 }, { name: 'Room 6', c0: 5, r0: 1, c1: 7, r1: 3 }, { name: 'Room 7', c0: 9, r0: 1, c1: 11, r1: 3 }, { name: 'Room 8', c0: 13, r0: 1, c1: 15, r1: 3 }, { name: 'Room 9', c0: 1, r0: 7, c1: 7, r1: 9 }, { name: 'The Bridal Suite', c0: 9, r0: 7, c1: 15, r1: 9 }], rows: [
+          '####W###W###W###W###',
+          '#e.C#e.C#e.C#e.C#kk#',
+          '#...#...#...#...#kk#',
+          '#.d.#.o.#.d.#.p.#..#',
+          '##D###D###D###D##..#',
+          '#L................L#',
+          '##D#######D#########',
+          '#e....C.#e.....eC.##',
+          '#.......#.........##',
+          '#..T....#..T....d.##',
+          '####W######W########']
+        },
         chapel: { name: 'The Chapel', sign: 'CHAPEL', line: 'A little chapel with pews and a bell rope. Quiet, for a set. The kobolds will not come in here.', rugs: [[7, 2, 8, 11, 0x6a1a1a]], rows: [
           '#######WW#######',
           '#....p.AA.p....#',
@@ -892,7 +917,14 @@
             case 'P': obj(x2, z2, '#piano', { rot: face, dx: wl ? wl[0] * 0.15 : 0, dz: wl ? wl[1] * 0.15 : 0 }, 'Piano'); dec(x2 - (wl ? wl[0] : 0), z2 - (wl ? wl[1] : 0), 'Stool', { fit: 0.3 }); break;
             case 'T': F(x2, z2, 'tableRound', 0.9, 0, 'Table'); chairsAround(x2, z2); break;
             case 'G': obj(x2, z2, '#felt', {}, 'Card table'); chairsAround(x2, z2); if (rnd() < 0.6) dec(x2, z2, 'Coin_Pile', { y: 0.76, fit: 0.18, dx: 0.12 }); break;
-            case 'k': obj(x2, z2, '#stairs', { rot: face }, 'Stairs'); break;
+            case 'k': { // one staircase across the whole block of k tiles, rising toward the back
+              var ks = [], kq = [[i, j]], seenK = {}; while (kq.length) { var kc = kq.pop(), kk = kc[0] + ',' + kc[1]; if (seenK[kk] || kc[0] < 0 || kc[1] < 0 || kc[0] >= w || kc[1] >= h || R[kc[1]].charAt(kc[0]) !== 'k') continue; seenK[kk] = 1; ks.push(kc); kq.push([kc[0] + 1, kc[1]], [kc[0] - 1, kc[1]], [kc[0], kc[1] + 1], [kc[0], kc[1] - 1]); }
+              var first = ks.reduce(function (m, q) { return q[1] < m[1] || (q[1] === m[1] && q[0] < m[0]) ? q : m; }, ks[0]);
+              var kw = {}; ks.forEach(function (q) { var pp = at(q[0], q[1]); kw[pp[0] + ',' + pp[1]] = 1; if (!(pp[0] === x2 && pp[1] === z2)) {} });
+              if (first[0] !== i || first[1] !== j) { obj(x2, z2, '#none', {}, 'Stairs'); break; }
+              var cs = ks.map(function (q) { return at(q[0], q[1]); }), kx0 = Math.min.apply(null, cs.map(function (q) { return q[0]; })), kx1 = Math.max.apply(null, cs.map(function (q) { return q[0]; })), kz0 = Math.min.apply(null, cs.map(function (q) { return q[1]; })), kz1 = Math.max.apply(null, cs.map(function (q) { return q[1]; }));
+              var cols = ks.map(function (q) { return q[0]; }), rowsK = ks.map(function (q) { return q[1]; }), sw = Math.max.apply(null, cols) - Math.min.apply(null, cols) + 1, sd = Math.max.apply(null, rowsK) - Math.min.apply(null, rowsK) + 1;
+              obj(x2, z2, '#stairs', { rot: frot, w: sw, d: sd, dx: (kx0 + kx1) / 2 - x2, dz: (kz0 + kz1) / 2 - z2 }, 'Stairs'); rm.stairsT = cs; break; }
             case 'L': if (wl) dec(x2, z2, 'Lantern_Wall', { fit: 0.32, rot: Math.atan2(-wl[0], -wl[1]), dx: wl[0] * 0.4, dz: wl[1] * 0.4, y: 1.0, hang: true, ns: true }); break;
             case 'x': obj(x2, z2, 'Crate_Wooden', { fit: 0.75, rot: rnd() * 0.5 }, 'Crate'); break;
             case 'o': obj(x2, z2, 'Barrel', { fit: 0.62, rot: rnd() * 6 }, 'Barrel'); break;
@@ -968,6 +1000,10 @@
       built.push(stamp(TPL.telegraph, 37, 118, 1, FT));
       built.push(stamp(TPL.chapel, 37, 131, 1, FT));
       built.forEach(function (b) { if (b.room.name !== 'The Chapel' && b.room.name !== 'Train Depot') pack(b.room, 'puglin', ri(1, 3), 0, 'Stunt kobold'); });
+      // upper floors live in the spare strip along the bottom of the map; the stairs take you there and back
+      var salUp = stamp(TPL.saloonUp, 9, 218, 0, FT), hotUp = stamp(TPL.hotelUp, 36, 218, 0, FT);
+      upstairs.push([built[1].room, salUp.room, 'Go upstairs', 'Go back downstairs'], [built[5].room, hotUp.room, 'Go upstairs', 'Go back downstairs']);
+      pack(salUp.room, 'puglin', 2, 0, 'Stunt kobold'); pack(hotUp.room, 'puglin', 2, 0, 'Stunt kobold');
       // the railroad along the north edge, with a train waiting (a gap where the road crosses)
       for (xx = 8; xx <= 56; xx++) if (g[69][xx] === '.' || g[69][xx] === ',') dec(xx, 69, '#track', { dz: 0.5, ns: true });
       function rolling(x0, len, kind, name) { for (var x = x0; x < x0 + len; x++) for (var z = 69; z <= 70; z++) { g[z][x] = 'o'; dname[x + ',' + z] = name; } dec(x0, 69, kind, { len: len, dz: 0.5 }); }
@@ -1068,9 +1104,13 @@
 
       // ---------- furnish ----------
       rooms.forEach(function (r) { if (r.style && STYLE[r.style]) STYLE[r.style](r); });
+      function landing(ts) { for (var a2 = 0; a2 < ts.length; a2++) for (var q = 0; q < 4; q++) { var lx = ts[a2][0] + D4[q][0], lz = ts[a2][1] + D4[q][1]; if (g[lz][lx] === '.' && !taken[lx + ',' + lz] && !ts.some(function (t3) { return t3[0] === lx && t3[1] === lz; })) return [lx, lz]; } return null; }
+      upstairs.forEach(function (u) { var a3 = u[0].stairsT, b3 = u[1].stairsT; if (!a3 || !b3) return; var la = landing(b3), lb = landing(a3); if (!la || !lb) return;
+        a3.forEach(function (t3) { links[t3[0] + ',' + t3[1]] = { x: la[0], z: la[1], label: u[2] }; }); b3.forEach(function (t3) { links[t3[0] + ',' + t3[1]] = { x: lb[0], z: lb[1], label: u[3] }; }); });
 
       // ---------- tidy up ----------
       var seen = new Uint8Array(Wd * Hd), q = [start2.x + start2.z * Wd]; seen[q[0]] = 1;
+      for (var lk in links) { var lp = links[lk]; if (!seen[lp.x + lp.z * Wd]) { seen[lp.x + lp.z * Wd] = 1; q.push(lp.x + lp.z * Wd); } }
       var PASS = { '.': 1, ',': 1, '~': 1, 'D': 1, 'H': 1, 'S': 1, '@': 1 };
       while (q.length) { var cur = q.pop(), cx4 = cur % Wd, cz4 = (cur / Wd) | 0;
         [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (dd) { var nx2 = cx4 + dd[0], nz2 = cz4 + dd[1], k2 = nx2 + nz2 * Wd; if (!inb(nx2, nz2) || seen[k2] || !PASS[g[nz2][nx2]]) return; seen[k2] = 1; q.push(k2); }); }
@@ -1079,6 +1119,6 @@
       spawns = spawns.filter(function (sp) { var c = g[sp.z] && g[sp.z][sp.x]; return (c === '.' || c === ',') && seen[sp.x + sp.z * Wd]; });
       var map = g.map(function (row) { return row.join(''); });
       for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
-      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle };
+      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle, links: links };
     }
   }

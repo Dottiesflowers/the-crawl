@@ -495,7 +495,10 @@
     '#piano': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.95, 1.05, 0.42, 0x2a1810, 0, 0.525, -0.05, { kind: 'wood' }); B(0.9, 0.06, 0.2, 0xf0ead8, 0, 0.72, 0.2, { kind: 'bone' }); B(0.9, 0.03, 0.06, 0x111111, 0, 0.76, 0.16); B(0.95, 0.08, 0.5, 0x3a2216, 0, 1.08, -0.02, { kind: 'wood' }); },
     '#felt': function (x, z, d, tx, tz) { pcyl(0.47, 0.06, 0x4a2e18, x, 0.7, z, tx, tz); pcyl(0.42, 0.03, 0x2f6a3a, x, 0.74, z, tx, tz, { kind: 'cloth' }); pcyl(0.07, 0.68, 0x3a2414, x, 0.34, z, tx, tz); pcyl(0.25, 0.04, 0x3a2414, x, 0.02, z, tx, tz);
       for (var i = 0; i < 3; i++) box(0.08, 0.005, 0.11, 0xf4f0e6, x - 0.12 + i * 0.1, 0.765, z + 0.1, tx, tz, { kind: 'cloth', noShadow: true }); },
-    '#stairs': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); for (var i = 0; i < 4; i++) B(0.92, 0.22 * (i + 1), 0.25, 0x6a4a2e, 0, 0.11 * (i + 1), 0.375 - i * 0.25, { kind: 'wood', seed: i }); },
+    '#stairs': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz), W2 = (d.w || 1) * 0.96, D = (d.d || 1) * 0.98, N = Math.max(4, Math.round(D * 3.5)), st = D / N, hs = 1.4 / N;
+      for (var i = 0; i < N; i++) { var hh = hs * (i + 1); B(W2, hh, st, i % 2 ? 0x6a4a2e : 0x74523a, 0, hh / 2, D / 2 - st * (i + 0.5), { kind: 'wood', seed: i }); }
+      [-1, 1].forEach(function (sd) { for (var k = 0; k <= 2; k++) { var oz = D / 2 - (k / 2) * D, py = 1.4 * (k / 2) + 0.45; B(0.06, py, 0.06, 0x3e2a18, sd * (W2 / 2 - 0.03), py / 2, oz - (k === 0 ? -0.02 : 0), { kind: 'wood' }); } }); },
+    '#none': function () {},
     '#bars': function (x, z, d, tx, tz) { var ax = d.ax === 'x'; for (var i = -2; i <= 2; i++) box(0.05, 1.45, 0.05, 0x3a3a40, x + (ax ? i * 0.2 : 0), 0.725, z + (ax ? 0 : i * 0.2), tx, tz, { kind: 'metal' });
       [0.1, 1.4].forEach(function (y) { box(ax ? 1.0 : 0.07, 0.07, ax ? 0.07 : 1.0, 0x2a2a30, x, y, z, tx, tz, { kind: 'metal' }); }); },
     '#forge': function (x, z, d, tx, tz) { box(1.0, 0.7, 0.85, 0x6a6460, x, 0.35, z, tx, tz, { kind: 'stone' }); box(0.7, 0.06, 0.55, 0xff6a20, x, 0.72, z, tx, tz, { glow: true }); box(0.4, 1.3, 0.4, 0x5a5450, x, 1.35, z - 0.2, tx, tz, { kind: 'stone' }); },

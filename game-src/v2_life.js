@@ -51,10 +51,11 @@
     'Sink': [{ label: 'Splash your face', auto: 'sink' }],
     'TV': [{ label: 'Watch the replay', auto: 'tv' }]
   };
-  function actsOf(t) { if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; } return ACTS[t.c]; }
+  function actsOf(t) { var lk = LEVEL.links && LEVEL.links[t.key]; if (lk) return [{ label: lk.label, auto: 'link', link: lk }, { label: 'Examine', text: 'A creaky staircase. Every step has its own opinion.' }]; if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; } return ACTS[t.c]; }
   function safeAct(a, t) {
     var c = CHAR, now = Date.now(); if (!c) { say('Not yet', 'Create a character first.', 2500); return true; }
     c.cool = c.cool || {};
+    if (a.auto === 'link') { if (CB.on) { say('Not now', 'Finish the fight first.', 2500); return true; } if (heroTo(a.link.x, a.link.z)) { refreshFog(); enterRoom(); posSave(true); } return true; }
     if (a.auto === 'coffee') {
       c.cups = (c.cups || []).filter(function (x) { return now - x < 15 * 60000; }); c.cups.push(now);
       buffOn('caffeine', 15 * 60000); kitOneShot('Interact');
