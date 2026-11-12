@@ -113,7 +113,7 @@
       '\n\nTHE PLAYER: ' + (c.name || 'a crawler') + ', human, level 1, one of humanity\'s five representatives. Charisma ' + c.stats.CHA + '. Notable skills: ' + Object.keys(c.skills).join(', ') + '. Trait: ' + c.trait + '. Flaw: ' + c.flaw + '. Carrying: ' + ((c.gear || []).map(function (g) { return g.name; }).join(', ') || 'nothing much') + '. HP ' + PC.hp + '/' + PC.max + '. Holding: ' + ((typeof pcWeapon === 'function') ? pcWeapon().name : 'nothing') + '.' +
       (e.npc ? (CB.on ? '\nA fight is happening right now.' : '') : '\nSCENE: ' + mindScene(e)) + (whisper ? '\nThe player is WHISPERING this line so only you can hear; answer quietly.' : '\nThe player is speaking out loud; anyone nearby can hear.') +
       '\n\nThis line the player rolled ' + roll.skill + ': d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total + '. If the player is trying to persuade, trick, scare, bribe or charm you, judge the attempt against ' + (e.npc ? 'DC 10 (easy ask) / 13 (real favor) / 16 (against your interests)' : 'DC ' + mindDC(e) + ' to make you stop fighting (lower for small asks)') + ' and let the roll decide whether it works, but a clever or funny line can lower the DC by 2 and an insult raises it. A natural 1 backfires; a natural 20 works if at all possible. If they are just chatting, ignore the roll.' +
-      '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree to stop fighting or not to fight them: any truce, deal, bribe accepted, surrender or promise to leave them alone counts as calm, and you must then honor it),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or "", "told_name": true only if you said your own name this line}' + ' ' + CREW_LORE + ' Monsters do not know any of this unless they work for the System (clerks, registrars, imps on the payroll), in which case they may have heard the joke.';
+      '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree to stop fighting or not to fight them: any truce, deal, bribe accepted, surrender or promise to leave them alone counts as calm, and you must then honor it),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or "", "told_name": true only if you said your own name this line, "takes": if the player hands you an item from their Carrying list and you accept it (a gift, bribe, payment or trade), its exact name as written in that list, otherwise "". Only take what they actually offered. Never claim to take something without filling this in}' + ' ' + CREW_LORE + ' Monsters do not know any of this unless they work for the System (clerks, registrars, imps on the payroll), in which case they may have heard the joke.';
     var msgs = [{ role: 'user', content: sys + '\n\n[Conversation begins.' + (text ? '' : ' The player has just walked up. Greet them in character.') + ']' }];
     e.talk.lines.slice(-14).forEach(function (l) { msgs.push({ role: l.who === 'me' ? 'user' : 'assistant', content: l.who === 'me' ? 'Player says: ' + l.text : JSON.stringify({ say: l.text }) }); });
     if (msgs[msgs.length - 1].role !== 'user') msgs.push({ role: 'user', content: 'Player says nothing and waits.' });
@@ -132,6 +132,17 @@
           talkDraw();
         });
   }
+  // an item handed over in conversation really leaves your bag (the monster keeps it: kill it later and it is in the loot)
+  function talkTake(e, nm) {
+    if (!CHAR) return; var low = nm.toLowerCase().trim(), gear = CHAR.gear || [];
+    var it = gear.filter(function (g) { return g.cat !== 'body' && g.name.toLowerCase() === low; })[0] || gear.filter(function (g) { return g.cat !== 'body' && (g.name.toLowerCase().indexOf(low) >= 0 || low.indexOf(g.name.toLowerCase()) >= 0); })[0];
+    if (!it) return;
+    var copy = JSON.parse(JSON.stringify(it)); delete copy.qty; copy.from = (e.npc ? personaOf(e).name : e.name);
+    if ((it.qty || 1) > 1) it.qty--; else { gear.splice(gear.indexOf(it), 1); if (CHAR.wield === it.name && !gear.some(function (g) { return g.name === it.name; })) CHAR.wield = null; if (CHAR.back === it.name && !gear.some(function (g) { return g.name === it.name; })) CHAR.back = null; if (it.worn) { it.worn = false; if (it.slot && look[it.slot]) look[it.slot] = [0, 0]; } }
+    if (!e.npc) { if (!e.lootStore) e.lootStore = rollDrops(e.kind, e.def.base); e.lootStore.items = (e.lootStore.items || []).concat([copy]); }
+    saveChar(CHAR); buildHero(); if (typeof hotDraw === 'function') hotDraw(); if (typeof wsetDraw === 'function') wsetDraw(); if (UI.bag) bagDraw();
+    e.talk.lines.push({ who: 'sys', text: 'You hand over your ' + it.name.toLowerCase() + '.' });
+  }
   function talkReply(e, j, roll) {
     TALK.busy = false;
     var moods = ['friendly', 'neutral', 'wary', 'hostile'];
@@ -142,6 +153,7 @@
     e.talk.lines.push({ who: 'them', text: String(j.say || '…').slice(0, 400), note: note });
     bubble(e, String(j.say || '…').replace(/\*[^*]*\*/g, '').trim().slice(0, 220) || '…', TALK.whisper);
     if (j.used_roll && roll && roll.total >= 13) skillUse(roll.skill);
+    if (j.takes) talkTake(e, String(j.takes));
     if (j.outcome === 'calm' && !e.calm) { setTimeout(function () { overcome(e); }, 1500); e.calm = true; e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : mindName(e).replace(/^the/, 'The')) + ' will not fight you.' }); if (!e.npc) mindGroup(e); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
     if (j.outcome === 'fight' && !e.npc) { e.calm = false; e.talk.mood = 'hostile'; talkDraw(); talkStore(e); setTimeout(function () { talkClose(); if (!CB.on) cbStart('Words failed. Steel next.', e); }, 1400); return; }
     talkStore(e); if (TALK.e === e) talkDraw();

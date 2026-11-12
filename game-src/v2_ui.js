@@ -225,6 +225,7 @@
     var spot = null; for (var r = 1; r <= 2 && !spot; r++) for (var dz = -r; dz <= r && !spot; dz++) for (var dx = -r; dx <= r && !spot; dx++) { var x = P.x + dx, z = P.z + dz; if ((dx || dz) && !blocksMove(x, z) && !enemyAt(x, z)) spot = [x, z]; }
     if (!spot) { say('No room', 'There is nowhere to put it down here.', 2500); return; }
     e.x = spot[0]; e.z = spot[1]; e.px = spot[0]; e.pz = spot[1]; e.obj.position.set(spot[0], 0, spot[1]); e.eaten = false; e.claimed = false; e.path = null;
+    e.dead = true; e.hp = 0; e.calm = false; e.diedAt = Date.now(); e.obj.visible = true; if (e.bar) e.bar.style.display = 'none'; // it comes out a body, and its clock starts again
     if (e.mixer && e.clips && e.clips.Death01) { e.cur = ''; cbPlay(e, 'Death01', true); }
     CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; saveChar(CHAR); if (typeof worldSave === 'function') worldSave(); refreshFog();
     say('Dropped · ' + e.name, 'It flops onto the floor. Anything hungry nearby will notice.', 3500);

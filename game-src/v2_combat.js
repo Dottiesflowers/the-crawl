@@ -248,11 +248,12 @@
   }
   var RAT_BACK = 8 * 60000; // cleared rats come back after this long, somewhere you aren't looking
   // the Underbazaar's rats come back in two waves: half after 30 minutes, the rest after an hour
+  function inBag(e) { return !!(CHAR && (CHAR.gear || []).some(function (g) { return g.cat === 'body' && g.body === e.n; })); } // a body folded into your bag does not come back to life
   function ratBack(e) { return e && e.sp && e.sp.bz ? (e.n % 2 ? 30 : 60) * 60000 : RAT_BACK; }
   setInterval(function () {
     if (!CB.ready || CB.on) return; var now = Date.now(), any = false;
     CB.enemies.forEach(function (e) {
-      if (e.def.base !== 'rat' || !e.dead || !e.diedAt || now - e.diedAt < ratBack(e)) return;
+      if (e.def.base !== 'rat' || !e.dead || !e.diedAt || now - e.diedAt < ratBack(e) || inBag(e)) return;
       if (cheb(P.x, P.z, e.sx, e.sz) < 14 || cheb(P.x, P.z, e.x, e.z) < 10) return;
       e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.looted = false; e.lootStore = null; e.calm = false; e.hp = e.max; e.diedAt = 0; e.path = null;
       e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; any = true;
@@ -266,6 +267,7 @@
     Object.keys(st.hp || {}).forEach(function (n) { if (byN[n] && !byN[n].dead) byN[n].hp = Math.max(1, st.hp[n]); });
     (st.shrubs || []).forEach(function (s) { var e = byN[s[0]]; if (e && !e.dead) { e.def = BEAST['shrub' + s[1]]; e.kind = 'shrub' + s[1]; e.lvl = s[1]; e.name = e.def.name; e.max = e.def.hp; e.hp = Math.min(e.hp, e.max); } });
     (st.rats || []).forEach(function (r) { var e = byN[r[0]]; if (e && Date.now() - r[1] < ratBack(e)) { e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; e.diedAt = r[1]; } });
+    CB.enemies.forEach(function (e) { if (inBag(e)) { e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; e.diedAt = e.diedAt || Date.now(); } });
     if (st.reserve) WORLD.reserve = st.reserve;
     mindApplyNames(st.names);
   }
@@ -281,7 +283,7 @@
   // every few minutes one dead regular monster in a zone with replacements left comes back, out of sight
   setInterval(function () {
     if (!CB.ready || !WORLD.loaded || CB.on || !WORLD.reserve) return;
-    var cands = CB.enemies.filter(function (e) { return e.dead && !e.npc && !e.boss && !e.guard && (WORLD.reserve[zoneOf(e)] || 0) > 0 && cheb(e.sx, e.sz, P.x, P.z) > 14 && visNow[e.sx + ',' + e.sz] === undefined && !enemyAt(e.sx, e.sz); });
+    var cands = CB.enemies.filter(function (e) { return e.dead && !e.npc && !e.boss && !e.guard && !inBag(e) && (WORLD.reserve[zoneOf(e)] || 0) > 0 && cheb(e.sx, e.sz, P.x, P.z) > 14 && visNow[e.sx + ',' + e.sz] === undefined && !enemyAt(e.sx, e.sz); });
     if (!cands.length) return; var e = cands[Math.floor(Math.random() * cands.length)], z = zoneOf(e);
     WORLD.reserve[z]--; if (e.def.base === 'shrub') { e.def = BEAST.shrub1; e.kind = 'shrub1'; e.lvl = 1; e.name = e.def.name; if (e.body) { e.obj.remove(e.body); e.body = null; e.mixer = null; } }
     e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.fought = false; e.looted = false; e.lootStore = null; e.calm = false; e.hp = e.def.hp; e.max = e.def.hp;

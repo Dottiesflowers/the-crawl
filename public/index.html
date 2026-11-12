@@ -8148,11 +8148,12 @@
   }
   var RAT_BACK = 8 * 60000; // cleared rats come back after this long, somewhere you aren't looking
   // the Underbazaar's rats come back in two waves: half after 30 minutes, the rest after an hour
+  function inBag(e) { return !!(CHAR && (CHAR.gear || []).some(function (g) { return g.cat === 'body' && g.body === e.n; })); } // a body folded into your bag does not come back to life
   function ratBack(e) { return e && e.sp && e.sp.bz ? (e.n % 2 ? 30 : 60) * 60000 : RAT_BACK; }
   setInterval(function () {
     if (!CB.ready || CB.on) return; var now = Date.now(), any = false;
     CB.enemies.forEach(function (e) {
-      if (e.def.base !== 'rat' || !e.dead || !e.diedAt || now - e.diedAt < ratBack(e)) return;
+      if (e.def.base !== 'rat' || !e.dead || !e.diedAt || now - e.diedAt < ratBack(e) || inBag(e)) return;
       if (cheb(P.x, P.z, e.sx, e.sz) < 14 || cheb(P.x, P.z, e.x, e.z) < 10) return;
       e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.looted = false; e.lootStore = null; e.calm = false; e.hp = e.max; e.diedAt = 0; e.path = null;
       e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; any = true;
@@ -8166,6 +8167,7 @@
     Object.keys(st.hp || {}).forEach(function (n) { if (byN[n] && !byN[n].dead) byN[n].hp = Math.max(1, st.hp[n]); });
     (st.shrubs || []).forEach(function (s) { var e = byN[s[0]]; if (e && !e.dead) { e.def = BEAST['shrub' + s[1]]; e.kind = 'shrub' + s[1]; e.lvl = s[1]; e.name = e.def.name; e.max = e.def.hp; e.hp = Math.min(e.hp, e.max); } });
     (st.rats || []).forEach(function (r) { var e = byN[r[0]]; if (e && Date.now() - r[1] < ratBack(e)) { e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; e.diedAt = r[1]; } });
+    CB.enemies.forEach(function (e) { if (inBag(e)) { e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; e.diedAt = e.diedAt || Date.now(); } });
     if (st.reserve) WORLD.reserve = st.reserve;
     mindApplyNames(st.names);
   }
@@ -8181,7 +8183,7 @@
   // every few minutes one dead regular monster in a zone with replacements left comes back, out of sight
   setInterval(function () {
     if (!CB.ready || !WORLD.loaded || CB.on || !WORLD.reserve) return;
-    var cands = CB.enemies.filter(function (e) { return e.dead && !e.npc && !e.boss && !e.guard && (WORLD.reserve[zoneOf(e)] || 0) > 0 && cheb(e.sx, e.sz, P.x, P.z) > 14 && visNow[e.sx + ',' + e.sz] === undefined && !enemyAt(e.sx, e.sz); });
+    var cands = CB.enemies.filter(function (e) { return e.dead && !e.npc && !e.boss && !e.guard && !inBag(e) && (WORLD.reserve[zoneOf(e)] || 0) > 0 && cheb(e.sx, e.sz, P.x, P.z) > 14 && visNow[e.sx + ',' + e.sz] === undefined && !enemyAt(e.sx, e.sz); });
     if (!cands.length) return; var e = cands[Math.floor(Math.random() * cands.length)], z = zoneOf(e);
     WORLD.reserve[z]--; if (e.def.base === 'shrub') { e.def = BEAST.shrub1; e.kind = 'shrub1'; e.lvl = 1; e.name = e.def.name; if (e.body) { e.obj.remove(e.body); e.body = null; e.mixer = null; } }
     e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.fought = false; e.looted = false; e.lootStore = null; e.calm = false; e.hp = e.def.hp; e.max = e.def.hp;
@@ -9816,7 +9818,7 @@
       '\n\nTHE PLAYER: ' + (c.name || 'a crawler') + ', human, level 1, one of humanity\'s five representatives. Charisma ' + c.stats.CHA + '. Notable skills: ' + Object.keys(c.skills).join(', ') + '. Trait: ' + c.trait + '. Flaw: ' + c.flaw + '. Carrying: ' + ((c.gear || []).map(function (g) { return g.name; }).join(', ') || 'nothing much') + '. HP ' + PC.hp + '/' + PC.max + '. Holding: ' + ((typeof pcWeapon === 'function') ? pcWeapon().name : 'nothing') + '.' +
       (e.npc ? (CB.on ? '\nA fight is happening right now.' : '') : '\nSCENE: ' + mindScene(e)) + (whisper ? '\nThe player is WHISPERING this line so only you can hear; answer quietly.' : '\nThe player is speaking out loud; anyone nearby can hear.') +
       '\n\nThis line the player rolled ' + roll.skill + ': d20 ' + roll.r + ' + ' + roll.b + ' = ' + roll.total + '. If the player is trying to persuade, trick, scare, bribe or charm you, judge the attempt against ' + (e.npc ? 'DC 10 (easy ask) / 13 (real favor) / 16 (against your interests)' : 'DC ' + mindDC(e) + ' to make you stop fighting (lower for small asks)') + ' and let the roll decide whether it works, but a clever or funny line can lower the DC by 2 and an insult raises it. A natural 1 backfires; a natural 20 works if at all possible. If they are just chatting, ignore the roll.' +
-      '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree to stop fighting or not to fight them: any truce, deal, bribe accepted, surrender or promise to leave them alone counts as calm, and you must then honor it),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or "", "told_name": true only if you said your own name this line}' + ' ' + CREW_LORE + ' Monsters do not know any of this unless they work for the System (clerks, registrars, imps on the payroll), in which case they may have heard the joke.';
+      '\n\nReply with JSON only, no markdown: {"say": what you say out loud, 1 to 3 short sentences, may include a brief *action* in asterisks, "mood": one of "friendly","neutral","wary","hostile", "outcome": one of "none","calm" (you agree to stop fighting or not to fight them: any truce, deal, bribe accepted, surrender or promise to leave them alone counts as calm, and you must then honor it),"fight" (you attack now),"hint" (you told them something useful), "used_roll": true if the roll decided something, "fact": optional short note about the player worth remembering, or "", "told_name": true only if you said your own name this line, "takes": if the player hands you an item from their Carrying list and you accept it (a gift, bribe, payment or trade), its exact name as written in that list, otherwise "". Only take what they actually offered. Never claim to take something without filling this in}' + ' ' + CREW_LORE + ' Monsters do not know any of this unless they work for the System (clerks, registrars, imps on the payroll), in which case they may have heard the joke.';
     var msgs = [{ role: 'user', content: sys + '\n\n[Conversation begins.' + (text ? '' : ' The player has just walked up. Greet them in character.') + ']' }];
     e.talk.lines.slice(-14).forEach(function (l) { msgs.push({ role: l.who === 'me' ? 'user' : 'assistant', content: l.who === 'me' ? 'Player says: ' + l.text : JSON.stringify({ say: l.text }) }); });
     if (msgs[msgs.length - 1].role !== 'user') msgs.push({ role: 'user', content: 'Player says nothing and waits.' });
@@ -9835,6 +9837,17 @@
           talkDraw();
         });
   }
+  // an item handed over in conversation really leaves your bag (the monster keeps it: kill it later and it is in the loot)
+  function talkTake(e, nm) {
+    if (!CHAR) return; var low = nm.toLowerCase().trim(), gear = CHAR.gear || [];
+    var it = gear.filter(function (g) { return g.cat !== 'body' && g.name.toLowerCase() === low; })[0] || gear.filter(function (g) { return g.cat !== 'body' && (g.name.toLowerCase().indexOf(low) >= 0 || low.indexOf(g.name.toLowerCase()) >= 0); })[0];
+    if (!it) return;
+    var copy = JSON.parse(JSON.stringify(it)); delete copy.qty; copy.from = (e.npc ? personaOf(e).name : e.name);
+    if ((it.qty || 1) > 1) it.qty--; else { gear.splice(gear.indexOf(it), 1); if (CHAR.wield === it.name && !gear.some(function (g) { return g.name === it.name; })) CHAR.wield = null; if (CHAR.back === it.name && !gear.some(function (g) { return g.name === it.name; })) CHAR.back = null; if (it.worn) { it.worn = false; if (it.slot && look[it.slot]) look[it.slot] = [0, 0]; } }
+    if (!e.npc) { if (!e.lootStore) e.lootStore = rollDrops(e.kind, e.def.base); e.lootStore.items = (e.lootStore.items || []).concat([copy]); }
+    saveChar(CHAR); buildHero(); if (typeof hotDraw === 'function') hotDraw(); if (typeof wsetDraw === 'function') wsetDraw(); if (UI.bag) bagDraw();
+    e.talk.lines.push({ who: 'sys', text: 'You hand over your ' + it.name.toLowerCase() + '.' });
+  }
   function talkReply(e, j, roll) {
     TALK.busy = false;
     var moods = ['friendly', 'neutral', 'wary', 'hostile'];
@@ -9845,6 +9858,7 @@
     e.talk.lines.push({ who: 'them', text: String(j.say || '…').slice(0, 400), note: note });
     bubble(e, String(j.say || '…').replace(/\*[^*]*\*/g, '').trim().slice(0, 220) || '…', TALK.whisper);
     if (j.used_roll && roll && roll.total >= 13) skillUse(roll.skill);
+    if (j.takes) talkTake(e, String(j.takes));
     if (j.outcome === 'calm' && !e.calm) { setTimeout(function () { overcome(e); }, 1500); e.calm = true; e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : mindName(e).replace(/^the/, 'The')) + ' will not fight you.' }); if (!e.npc) mindGroup(e); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
     if (j.outcome === 'fight' && !e.npc) { e.calm = false; e.talk.mood = 'hostile'; talkDraw(); talkStore(e); setTimeout(function () { talkClose(); if (!CB.on) cbStart('Words failed. Steel next.', e); }, 1400); return; }
     talkStore(e); if (TALK.e === e) talkDraw();
@@ -10087,6 +10101,7 @@
     var spot = null; for (var r = 1; r <= 2 && !spot; r++) for (var dz = -r; dz <= r && !spot; dz++) for (var dx = -r; dx <= r && !spot; dx++) { var x = P.x + dx, z = P.z + dz; if ((dx || dz) && !blocksMove(x, z) && !enemyAt(x, z)) spot = [x, z]; }
     if (!spot) { say('No room', 'There is nowhere to put it down here.', 2500); return; }
     e.x = spot[0]; e.z = spot[1]; e.px = spot[0]; e.pz = spot[1]; e.obj.position.set(spot[0], 0, spot[1]); e.eaten = false; e.claimed = false; e.path = null;
+    e.dead = true; e.hp = 0; e.calm = false; e.diedAt = Date.now(); e.obj.visible = true; if (e.bar) e.bar.style.display = 'none'; // it comes out a body, and its clock starts again
     if (e.mixer && e.clips && e.clips.Death01) { e.cur = ''; cbPlay(e, 'Death01', true); }
     CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; saveChar(CHAR); if (typeof worldSave === 'function') worldSave(); refreshFog();
     say('Dropped · ' + e.name, 'It flops onto the floor. Anything hungry nearby will notice.', 3500);
@@ -12496,7 +12511,7 @@
   }
   refreshFog(); enterRoom();
   window.__crawl = { CB: CB, stairs: { open: stairsOpen, check: stairsCheck, dbg: function () { return tiles.filter(function (t) { return t.gate !== undefined; }).map(function (t) { return [t.gate, t.mesh.visible, t.x, t.z]; }); } }, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
-  window.__crawl.t = { vfx: vfxPreview, shoot: cbThrow, ammoPick: ammoPick, arrowCraft: arrowCraft, throwable: cbThrowable, sty: sty, gear: function () { return CHAR.gear; }, char: function () { return { name: CHAR.name, isDM: !!CHAR.isDM, n: (CHAR.gear || []).length }; }, start: cbStart, give: function (n, q) { var it = item(n, q ? { qty: q } : null); invAdd(it, true); return !!it; } }; // test hooks
+  window.__crawl.t = { stash: stashBody, drop: dropBody, take: talkTake, vfx: vfxPreview, shoot: cbThrow, ammoPick: ammoPick, arrowCraft: arrowCraft, throwable: cbThrowable, sty: sty, gear: function () { return CHAR.gear; }, char: function () { return { name: CHAR.name, isDM: !!CHAR.isDM, n: (CHAR.gear || []).length }; }, start: cbStart, give: function (n, q) { var it = item(n, q ? { qty: q } : null); invAdd(it, true); return !!it; } }; // test hooks
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
   charInit(); cbHUD();
   requestAnimationFrame(loop);
