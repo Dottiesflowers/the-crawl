@@ -16,7 +16,7 @@
   // what a lit thing does when it lands: whatever it did before, plus fire
   function litThrow(it) {
     var t = it.tags || [], fx = it.throw ? JSON.parse(JSON.stringify(it.throw.fx || [])) : [{ type: 'damage', dice: '1d4' }];
-    if (!fx.some(function (f) { return f.type === 'burn'; })) fx.push({ type: 'burn', dice: t.indexOf('sticky') >= 0 ? '1d6' : '1d4', turns: t.indexOf('sticky') >= 0 ? 3 : 2 });
+    if (!fx.some(function (f) { return f.type === 'burn'; })) fx.push({ type: 'burn', dice: t.indexOf('sticky') >= 0 ? '1d6' : '1d4', turns: t.indexOf('sticky') >= 0 ? 6 : 4 });
     var area = it.throw && it.throw.area ? it.throw.area : (t.indexOf('glass') >= 0 || t.indexOf('container') >= 0 || t.indexOf('slippery') >= 0 || t.indexOf('wet') >= 0) ? 1 : 0;
     return { fx: fx, area: area };
   }

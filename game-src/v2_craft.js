@@ -81,9 +81,9 @@
     var done = false, to = setTimeout(function () { if (done) return; done = true; CRAFT.busy = false; craftApply(craftOffline(sel, idea), sel, idea); }, 25000); // never leave you hanging
     var prompt = 'You are the System, the AI running a Dungeon Crawler Carl style dungeon on D&D 5e rules. ' + CREW_LORE + '\n\nA crawler wants to jury-rig something from items in their bag. Judge it like a fair, funny DM. Physical builds use the Jury-Rig track (INT); mixtures, potions, poisons and chemistry use the Alchemy track (WIS). ' +
       'Crawler skills: Jury-Rig ' + skillLv('Jury-Rig') + ', Alchemy ' + skillLv('Alchemy') + ', INT mod ' + MOD.INT + ', WIS mod ' + MOD.WIS + '.\n\nItems:\n' + desc + '\n\nWhat they want to make: ' + (idea || '(they did not say; make the most sensible thing)') +
-      '\n\nRules: if the combination cannot plausibly make anything, ok=false and say why in comment. Otherwise design ONE item using only these fields. Recipe level 1-3 by complexity and power. Power limits: level 1 = up to 2d6 damage or 1d8 weapon or 2d4 healing; level 2 = up to 3d6, 1d10 weapon, 3d4+2 healing; level 3 = up to 4d6 area 2. ' +
-      'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. They may hand you any number of items, duplicates included (two of the same item means they want to use both). Use the parts that make sense, put only those in consumes, and judge the whole idea: more parts can make a sturdier or stronger build, but junk that does not belong adds nothing. DC 8-18.' +
-      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"dc":10,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: stickbomb (a bomb on a stick) spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
+      '\n\nRules: if the combination cannot plausibly make anything, ok=false and say why in comment. Otherwise design ONE item using only these fields. level = how hard it is to BUILD, 1-5: 1 = crude (taping, tying, stuffing, smearing, wrapping, jamming things together: anyone can do it), 2 = takes some know-how (a simple mechanism, careful measuring or mixing), 3 = a real build (springs, triggers, distilling, wiring), 4-5 = proper engineering or advanced alchemy. Be generous with crude builds: if it could physically be done with these parts, ok=true. Set ok=false only if it truly cannot work no matter who builds it. Do not lower the level because the crawler is unskilled; the game checks their skill against the level. Power limits: level 1 = up to 2d6 damage or 1d8 weapon or 2d4 healing; level 2 = up to 3d6, 1d10 weapon, 3d4+2 healing; level 3 = up to 4d6 area 2. ' +
+      'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. They may hand you any number of items, duplicates included (two of the same item means they want to use both). Use the parts that make sense, put only those in consumes, and judge the whole idea: more parts can make a sturdier or stronger build, but junk that does not belong adds nothing.' +
+      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: stickbomb (a bomb on a stick) spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
     serverSample([{ role: 'user', content: prompt }], { modelTier: 'complex', maxTokens: 600 }).then(function (r) {
       if (done) return; done = true; clearTimeout(to);
       var j = null; try { j = JSON.parse(r.text.replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {}
@@ -94,7 +94,7 @@
   function craftOffline(sel, idea) {
     var t = {}; sel.forEach(function (g) { (g.tags || []).forEach(function (x) { t[x] = 1; }); if (/lighter|match/i.test(g.name)) t.fire = 1; });
     var mats = sel.filter(function (g) { return !/lighter/i.test(g.name); }).map(function (g) { return g.name; });
-    if (t.fire && t.flammable && t.sticky) return { ok: true, track: 'alchemy', level: 2, dc: 12, why: ['flammable', 'sticky', 'fire'], name: 'Sticky firebomb', desc: 'It clings, it burns, it does not stop burning. The System is impressed and a little worried.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d6', turns: 3 }], area: 1 }, tags: ['flammable', 'sticky'], consumes: mats };
+    if (t.fire && t.flammable && t.sticky) return { ok: true, track: 'alchemy', level: 1, dc: 12, why: ['flammable', 'sticky', 'fire'], name: 'Sticky firebomb', desc: 'It clings, it burns, it does not stop burning. The System is impressed and a little worried.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d6', turns: 3 }], area: 1 }, tags: ['flammable', 'sticky'], consumes: mats };
     if (t.fire && t.flammable && (t.glass || t.container || t.paper)) return { ok: true, track: 'alchemy', level: 1, dc: 10, why: ['flammable', 'glass', 'container', 'paper'], name: 'Dungeon cocktail', desc: 'A bottle, a rag, a bad idea.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d4', turns: 2 }] }, tags: ['flammable'], consumes: mats };
     if (t.sharp && t.long && (t.binding || t.sticky)) return { ok: true, track: 'physical', level: 1, dc: 10, why: ['sharp', 'long', 'binding', 'sticky'], name: 'Taped spear', desc: 'A blade, a stick and an unreasonable amount of tape.', cat: 'weapon', dmg: '1d8', tags: ['long', 'sharp'], consumes: sel.map(function (g) { return g.name; }) };
     if (t.heavy && (t.binding || t.sticky)) return { ok: true, track: 'physical', level: 1, dc: 9, why: ['heavy', 'binding', 'sticky'], name: 'Strapped bludgeon', desc: 'Heavy thing, firmly attached to a handle-ish thing.', cat: 'weapon', dmg: '1d8', tags: ['heavy'], consumes: sel.map(function (g) { return g.name; }) };
@@ -118,29 +118,31 @@
   }
   function craftApply(j, sel, idea) {
     if (!j || !j.ok) { craftSay('no', ['That ain\'t gonna work!', 'Nope. Not happening.', 'The System laughs at you.', 'Absolutely not.'][Math.floor(Math.random() * 4)], (j && j.comment) || 'That does not go together.'); return; }
-    var track = j.track === 'alchemy' ? 'alchemy' : 'physical', sk = trackSkill(track), cs = craftSpec(j), dc = Math.max(8, Math.min(18, +j.dc || 10));
-    var stat = track === 'alchemy' ? 'WIS' : 'INT', R = roll20(false, false), b = MOD[stat] + skillLv(sk) + itemChecks(sk), tot = R.r + b, ok = R.r === 20 || (R.r !== 1 && tot >= dc);
+    // no dice: either you can build it or you can't. A level N build needs the track skill at N-1 (level 1 is for anyone)
+    var track = j.track === 'alchemy' ? 'alchemy' : 'physical', sk = trackSkill(track), cs = craftSpec(j), need = Math.max(1, Math.min(5, +j.level || 1)), myLv = skillLv(sk);
     var name = String(j.name || 'Contraption').replace(/[^\w '\-+!?]/g, '').slice(0, 40), consumes = (j.consumes || []).filter(function (n) { return sel.some(function (g) { return g.name === n; }); });
     if (!consumes.length) consumes = sel.filter(function (g) { return g.cat === 'material' || g.cat === 'consumable'; }).map(function (g) { return g.name; });
-    if (!ok) {
-      if (R.r === 1 && consumes.length) { var lost = CHAR.gear.filter(function (g) { return g.name === consumes[0]; })[0]; if (lost) itemSpend(lost); }
-      craftSay('fail', R.r === 1 ? 'It falls apart!' : 'So close. It won\'t hold.', 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (R.r === 1 ? 'It falls apart in your hands and takes the ' + consumes[0].toLowerCase() + ' with it.' : 'Close, but it will not hold. Your materials are fine.') + (j.comment ? ' ' + j.comment : ''), 6000);
-      skillUse(sk); CRAFT.sel = []; craftDraw(); return;
+    var known = CHAR.recipes && CHAR.recipes[name] && CHAR.recipes[name].inventor;
+    if (!known && myLv < need - 1) {
+      skillUse(sk);
+      craftSay('fail', 'You\'re not up to the task', 'That would work, but it is a ' + sk + ' ' + need + ' build and you are ' + sk + ' ' + myLv + '. You need ' + sk + ' ' + (need - 1) + '. Build simpler things to get there.' + (j.comment ? ' ' + j.comment : ''));
+      CRAFT.sel = []; craftDraw(); return;
     }
+    var dc = 0, R = { r: 0 }, b = 0, tot = 0;
     var used = (j.why || j.traits_used || []).map(function (x) { return String(x).toLowerCase(); }); loreLearn(sel.reduce(function (acc, g) { return acc.concat((g.tags || []).filter(function (t) { return used.indexOf(t) >= 0; }).map(function (t) { return [g, t]; })); }, []), 'That is why it worked.');
     consumes.forEach(function (n) { var g = CHAR.gear.filter(function (x) { return x.name === n; })[0]; if (g) itemSpend(g); });
     var made = Object.assign({ name: name, from: 'your own two hands', level: 1, parts: sel.map(function (g) { return g.name; }) }, cs.spec); invAdd(made, true);
     CHAR.recipes = CHAR.recipes || {}; var isNew = !CHAR.recipes[name] && !CRAFT.shared.some(function (r) { return r.name.toLowerCase() === name.toLowerCase(); });
-    var rec = { name: name, track: track, level: cs.lv, dc: dc, inputs: sel.map(function (g) { return g.name; }), keep: sel.map(function (g) { return g.name; }).filter(function (n) { return consumes.indexOf(n) < 0; }), spec: cs.spec, by: CHAR.name, byUid: NET.uid, inventor: true, idea: idea || '' };
+    var rec = { name: name, track: track, level: need, dc: dc, inputs: sel.map(function (g) { return g.name; }), keep: sel.map(function (g) { return g.name; }).filter(function (n) { return consumes.indexOf(n) < 0; }), spec: cs.spec, by: CHAR.name, byUid: NET.uid, inventor: true, idea: idea || '' };
     if (isNew) {
-      CHAR.recipes[name] = rec; if (!skillHas(sk)) skillGrant(sk, 'you built something that works'); else for (var i = 0; i < cs.lv * 2; i++) skillUse(sk);
-      logEvent('Invented ' + name + ' (' + sk + ' ' + cs.lv + ')', 'skill');
+      CHAR.recipes[name] = rec; if (!skillHas(sk)) skillGrant(sk, 'you built something that works'); else for (var i = 0; i < need * 2; i++) skillUse(sk);
+      logEvent('Invented ' + name + ' (' + sk + ' ' + need + ')', 'skill');
       if (NET.mode === 'server' && NET.uid) api('recipes', { method: 'POST', body: { recipe: rec } }).then(function (r) { CRAFT.shared = r.value || CRAFT.shared; }).catch(function () {});
       setTimeout(function () { achieve('first_invention', 'Some Assembly Required', 'You built something from garbage and it worked. The System files a patent in its own name.', 25); }, 1500);
     } else skillUse(sk);
     // experience: inventing is worth a lot, making a known recipe a little; both are practice for the track skill
-    var xp = isNew ? 30 * cs.lv + 10 : 6 * cs.lv; grantXP(xp);
-    craftSay('ok', (isNew ? 'Invented · ' : 'Made · ') + name, 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (cs.spec.desc || '') + ' +' + xp + ' XP, and ' + sk + ' practice.' + (isNew ? ' New ' + sk + ' ' + cs.lv + ' recipe, shared with the SGC.' : '') + (j.comment ? ' ' + j.comment : ''), 7000);
+    var xp = isNew ? 30 * need + 10 : 6 * need; grantXP(xp);
+    craftSay('ok', (isNew ? 'Invented · ' : 'Made · ') + name, (cs.spec.desc || '') + ' +' + xp + ' XP, and ' + sk + ' practice.' + (isNew ? ' New ' + sk + ' ' + need + ' recipe, shared with the SGC.' : '') + (j.comment ? ' ' + j.comment : ''), 7000);
     CRAFT.sel = []; saveChar(CHAR); craftDraw(); if (UI.bag) bagDraw();
   }
   function craftMake(name) {

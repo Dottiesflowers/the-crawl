@@ -7229,7 +7229,7 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
-  function cbEnd(win) {
+  function cbEnd(win) { PC.burning = 0;
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -7261,6 +7261,7 @@
       CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
       if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
       if (PC.down) { cbRingsUpdate(); cbHUD(); setTimeout(cbDeathSave, 700); return; }
+      burnPools(null);
       cbShowMoves();
     } else { c.react = true; cbShowMoves(); setTimeout(function () { cbEnemyTurn(c); }, 250); }
     cbRingsUpdate(); cbHUD();
@@ -7404,7 +7405,7 @@
   }
   function cbDash() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.res.move += 6; say('Dash', 'You double your movement this turn.', 2200); cbShowMoves(); cbHUD(); }
   function cbDisengage() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.disengage = true; say('Disengage', 'You can walk away this turn without opportunity attacks.', 2600); cbHUD(); }
-  function cbDodge() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.dodge = true; say('Dodge', 'Attacks against you have disadvantage until your next turn.', 2600); cbHUD(); }
+  function cbDodge() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.dodge = true; if (PC.burning > 0) { PC.burning = 0; say('Drop and roll', 'You put yourself out. Attacks against you have disadvantage until your next turn.', 3000); } else say('Dodge', 'Attacks against you have disadvantage until your next turn.', 2600); cbHUD(); }
   function cbPotion() {
     var it = (CHAR && CHAR.gear || []).filter(function (g) { return /potion/i.test(g.name) && g.heal; })[0]; if (it) useItem(it); else say('No potions', 'You are out of healing potions.', 2400);
   }
@@ -7482,7 +7483,15 @@
     if (!CB.on) return;
     if (e.dead || e.calm) { setTimeout(cbNext, 200); return; } // it made a deal mid-fight: it keeps its word
     if (e.weak && e.weak.turns > 0) e.weak.turns--;
-    if (e.burning && e.burning.turns > 0) { var bd = Math.max(1, rollDice(e.burning.dice)); e.hp -= bd; e.burning.turns--; floater(e.px, e.def.h + 0.3, e.pz, '-' + bd, 'dmg'); say(e.name + ' burns', bd + ' fire damage.' + (e.burning.turns ? '' : ' The flames go out.'), 2400); if (e.hp <= 0) { cbKill(e); setTimeout(cbNext, 900); return; } }
+    burnPools(e);
+    if (e.burning && e.burning.turns > 0) { // on fire: damage every turn until it goes out (a DEX save, or it spends its turn patting it out)
+      var bd = Math.max(1, rollDice(e.burning.dice)); e.hp -= bd; e.burning.turns--; floater(e.px, e.def.h + 0.3, e.pz, '-' + bd, 'dmg'); fxTag(e, 'BURNING');
+      var smart = typeof intOf === 'function' && intOf(e) === 'smart', sv = d20() + (e.def.dex || 0), out = e.burning.turns <= 0 || sv >= 10, pat = false;
+      if (!out && smart && e.hp > 0 && e.hp <= e.max * 0.6) { out = true; pat = true; }
+      if (out) e.burning.turns = 0;
+      say(e.name + ' burns', bd + ' fire damage.' + (e.hp <= 0 ? '' : pat ? ' It drops and rolls, beating out the flames. That is its whole turn.' : out ? ' The flames go out (DEX save ' + sv + ').' : ' Still burning (DEX save ' + sv + ' vs 10).'), 3200);
+      if (e.hp <= 0) { cbKill(e); setTimeout(cbNext, 900); return; }
+      if (pat) { setTimeout(cbNext, 1100); return; } }
     if (e.stunned > 0) { e.stunned--; say(e.name + ' loses its turn', e.stunned ? 'Still reeling.' : 'It shakes it off. Next turn it is back.', 2600); setTimeout(cbNext, 1000); return; }
     var speed = e.def.speed;
     if (e.prone) { e.prone = false; speed = Math.floor(speed / 2); cbPlay(e, 'Idle_Loop'); say(e.name, 'It scrambles back to its feet (half its movement).', 2200); }
@@ -7499,6 +7508,15 @@
     if (!path.length) { setTimeout(cbNext, 300); return; }
     e.path = path; cbPlay(e, 'Walk_Loop');
     e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); if (cheb(e.x, e.z, P.x, P.z) <= 1) cbEnemyAttack(e, false, cbNextAfterHit); else setTimeout(cbNext, 350); };
+  }
+  // standing in burning grease sets you alight; you burn at the start of your turn too
+  function burnPools(e) {
+    var x = e ? e.px : P.px, z = e ? e.pz : P.pz, now = Date.now();
+    var hot = VFX.pools.some(function (q) { return q.burnUntil && q.burnUntil > now && Math.hypot(q.x - x, q.z - z) <= q.r + 0.2; });
+    if (e) { if (hot && !(e.burning && e.burning.turns > 0) && !e.dead) { e.burning = { dice: '1d4', turns: 3 }; fxTag(e, 'ON FIRE'); say(e.name + ' catches fire', 'It is standing in burning grease.', 2600); } return; }
+    if (hot && !(PC.burning > 0)) { PC.burning = 3; say('You are on fire', 'You are standing in the flames. Move out, or Dodge to drop and roll.', 3600); }
+    if (PC.burning > 0) { var d = Math.max(1, rollDice('1d4')); PC.hp = Math.max(0, PC.hp - d); floater(P.px, 1.5, P.pz, '-' + d, 'pdmg'); PC.burning--; var sv = d20() + MOD.DEX; if (sv >= 10) PC.burning = 0;
+      say('You burn', d + ' fire damage.' + (PC.burning ? ' Still burning (DEX save ' + sv + ' vs 10). Dodge to drop and roll.' : ' The flames go out (DEX save ' + sv + ').'), 3600); cbHUD(); if (PC.hp <= 0) cbFall(); }
   }
   function cbNextAfterHit() { setTimeout(function () { if (!PC.down || CB.order[CB.idx] !== 'pc') cbNext(); }, 450); }
   function cbEnemyAttack(e, opportunity, then) {
@@ -9187,7 +9205,7 @@
       if ((f.type === 'stun' || f.type === 'distract') && e && !e.dead) { fxTag(e, f.type === 'stun' ? 'STUNNED' : 'DISTRACTED'); e.stunned = Math.max(e.stunned || 0, Math.min(3, f.turns || 1)); notes.push(e.name + (f.type === 'stun' ? ' is stunned' : ' is distracted') + ' for ' + e.stunned + ' turn' + (e.stunned > 1 ? 's' : '') + '.'); }
       if (f.type === 'adv') { CB.advNext = true; notes.push('Your next attack has advantage.'); }
       if (f.type === 'push' && e && !e.dead) { var sx = Math.sign(e.x - P.x), sz = Math.sign(e.z - P.z), n = 0; for (var k = 0; k < Math.min(3, f.tiles || 2); k++) { if (!walkable(e.x + sx, e.z + sz, e)) break; e.x += sx; e.z += sz; n++; } e.px = e.x; e.pz = e.z; e.obj.position.set(e.x, 0, e.z); if (n) notes.push(e.name + ' is pushed back ' + n + ' tile' + (n > 1 ? 's' : '') + '.'); }
-      if (f.type === 'burn' && e && !e.dead) { fxTag(e, 'ON FIRE'); e.burning = { dice: f.dice || '1d6', turns: Math.min(4, f.turns || 2) }; notes.push(e.name + ' is on fire.'); }
+      if (f.type === 'burn' && e && !e.dead) { fxTag(e, 'ON FIRE'); e.burning = { dice: f.dice || '1d6', turns: Math.min(6, f.turns || 2) }; notes.push(e.name + ' is on fire, and keeps burning until it puts itself out.'); }
       if (f.type === 'weaken' && e && !e.dead) { fxTag(e, 'STUCK · -' + Math.min(4, f.ac || 2) + ' AC'); e.weak = { v: Math.min(4, f.ac || 2), turns: Math.min(5, f.turns || 2) }; notes.push('Its guard is down: ' + e.weak.v + ' less armor for ' + e.weak.turns + ' turns.'); }
       if (f.type === 'calm' && e && !e.dead) { if (e.boss && !f.weak) return; e.calm = true; notes.push(e.name + ' will not fight you.'); }
       if (f.type === 'reveal' && e) { var W = weakOf(e); notes.push(W ? 'You learn something: ' + W.hint : 'You learn how it fights: AC ' + acOf(e) + ', ' + e.def.weapon + '.'); }
@@ -9648,9 +9666,9 @@
     var done = false, to = setTimeout(function () { if (done) return; done = true; CRAFT.busy = false; craftApply(craftOffline(sel, idea), sel, idea); }, 25000); // never leave you hanging
     var prompt = 'You are the System, the AI running a Dungeon Crawler Carl style dungeon on D&D 5e rules. ' + CREW_LORE + '\n\nA crawler wants to jury-rig something from items in their bag. Judge it like a fair, funny DM. Physical builds use the Jury-Rig track (INT); mixtures, potions, poisons and chemistry use the Alchemy track (WIS). ' +
       'Crawler skills: Jury-Rig ' + skillLv('Jury-Rig') + ', Alchemy ' + skillLv('Alchemy') + ', INT mod ' + MOD.INT + ', WIS mod ' + MOD.WIS + '.\n\nItems:\n' + desc + '\n\nWhat they want to make: ' + (idea || '(they did not say; make the most sensible thing)') +
-      '\n\nRules: if the combination cannot plausibly make anything, ok=false and say why in comment. Otherwise design ONE item using only these fields. Recipe level 1-3 by complexity and power. Power limits: level 1 = up to 2d6 damage or 1d8 weapon or 2d4 healing; level 2 = up to 3d6, 1d10 weapon, 3d4+2 healing; level 3 = up to 4d6 area 2. ' +
-      'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. They may hand you any number of items, duplicates included (two of the same item means they want to use both). Use the parts that make sense, put only those in consumes, and judge the whole idea: more parts can make a sturdier or stronger build, but junk that does not belong adds nothing. DC 8-18.' +
-      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"dc":10,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: stickbomb (a bomb on a stick) spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
+      '\n\nRules: if the combination cannot plausibly make anything, ok=false and say why in comment. Otherwise design ONE item using only these fields. level = how hard it is to BUILD, 1-5: 1 = crude (taping, tying, stuffing, smearing, wrapping, jamming things together: anyone can do it), 2 = takes some know-how (a simple mechanism, careful measuring or mixing), 3 = a real build (springs, triggers, distilling, wiring), 4-5 = proper engineering or advanced alchemy. Be generous with crude builds: if it could physically be done with these parts, ok=true. Set ok=false only if it truly cannot work no matter who builds it. Do not lower the level because the crawler is unskilled; the game checks their skill against the level. Power limits: level 1 = up to 2d6 damage or 1d8 weapon or 2d4 healing; level 2 = up to 3d6, 1d10 weapon, 3d4+2 healing; level 3 = up to 4d6 area 2. ' +
+      'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. They may hand you any number of items, duplicates included (two of the same item means they want to use both). Use the parts that make sense, put only those in consumes, and judge the whole idea: more parts can make a sturdier or stronger build, but junk that does not belong adds nothing.' +
+      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: stickbomb (a bomb on a stick) spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
     serverSample([{ role: 'user', content: prompt }], { modelTier: 'complex', maxTokens: 600 }).then(function (r) {
       if (done) return; done = true; clearTimeout(to);
       var j = null; try { j = JSON.parse(r.text.replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {}
@@ -9661,7 +9679,7 @@
   function craftOffline(sel, idea) {
     var t = {}; sel.forEach(function (g) { (g.tags || []).forEach(function (x) { t[x] = 1; }); if (/lighter|match/i.test(g.name)) t.fire = 1; });
     var mats = sel.filter(function (g) { return !/lighter/i.test(g.name); }).map(function (g) { return g.name; });
-    if (t.fire && t.flammable && t.sticky) return { ok: true, track: 'alchemy', level: 2, dc: 12, why: ['flammable', 'sticky', 'fire'], name: 'Sticky firebomb', desc: 'It clings, it burns, it does not stop burning. The System is impressed and a little worried.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d6', turns: 3 }], area: 1 }, tags: ['flammable', 'sticky'], consumes: mats };
+    if (t.fire && t.flammable && t.sticky) return { ok: true, track: 'alchemy', level: 1, dc: 12, why: ['flammable', 'sticky', 'fire'], name: 'Sticky firebomb', desc: 'It clings, it burns, it does not stop burning. The System is impressed and a little worried.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d6', turns: 3 }], area: 1 }, tags: ['flammable', 'sticky'], consumes: mats };
     if (t.fire && t.flammable && (t.glass || t.container || t.paper)) return { ok: true, track: 'alchemy', level: 1, dc: 10, why: ['flammable', 'glass', 'container', 'paper'], name: 'Dungeon cocktail', desc: 'A bottle, a rag, a bad idea.', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d4', turns: 2 }] }, tags: ['flammable'], consumes: mats };
     if (t.sharp && t.long && (t.binding || t.sticky)) return { ok: true, track: 'physical', level: 1, dc: 10, why: ['sharp', 'long', 'binding', 'sticky'], name: 'Taped spear', desc: 'A blade, a stick and an unreasonable amount of tape.', cat: 'weapon', dmg: '1d8', tags: ['long', 'sharp'], consumes: sel.map(function (g) { return g.name; }) };
     if (t.heavy && (t.binding || t.sticky)) return { ok: true, track: 'physical', level: 1, dc: 9, why: ['heavy', 'binding', 'sticky'], name: 'Strapped bludgeon', desc: 'Heavy thing, firmly attached to a handle-ish thing.', cat: 'weapon', dmg: '1d8', tags: ['heavy'], consumes: sel.map(function (g) { return g.name; }) };
@@ -9685,29 +9703,31 @@
   }
   function craftApply(j, sel, idea) {
     if (!j || !j.ok) { craftSay('no', ['That ain\'t gonna work!', 'Nope. Not happening.', 'The System laughs at you.', 'Absolutely not.'][Math.floor(Math.random() * 4)], (j && j.comment) || 'That does not go together.'); return; }
-    var track = j.track === 'alchemy' ? 'alchemy' : 'physical', sk = trackSkill(track), cs = craftSpec(j), dc = Math.max(8, Math.min(18, +j.dc || 10));
-    var stat = track === 'alchemy' ? 'WIS' : 'INT', R = roll20(false, false), b = MOD[stat] + skillLv(sk) + itemChecks(sk), tot = R.r + b, ok = R.r === 20 || (R.r !== 1 && tot >= dc);
+    // no dice: either you can build it or you can't. A level N build needs the track skill at N-1 (level 1 is for anyone)
+    var track = j.track === 'alchemy' ? 'alchemy' : 'physical', sk = trackSkill(track), cs = craftSpec(j), need = Math.max(1, Math.min(5, +j.level || 1)), myLv = skillLv(sk);
     var name = String(j.name || 'Contraption').replace(/[^\w '\-+!?]/g, '').slice(0, 40), consumes = (j.consumes || []).filter(function (n) { return sel.some(function (g) { return g.name === n; }); });
     if (!consumes.length) consumes = sel.filter(function (g) { return g.cat === 'material' || g.cat === 'consumable'; }).map(function (g) { return g.name; });
-    if (!ok) {
-      if (R.r === 1 && consumes.length) { var lost = CHAR.gear.filter(function (g) { return g.name === consumes[0]; })[0]; if (lost) itemSpend(lost); }
-      craftSay('fail', R.r === 1 ? 'It falls apart!' : 'So close. It won\'t hold.', 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (R.r === 1 ? 'It falls apart in your hands and takes the ' + consumes[0].toLowerCase() + ' with it.' : 'Close, but it will not hold. Your materials are fine.') + (j.comment ? ' ' + j.comment : ''), 6000);
-      skillUse(sk); CRAFT.sel = []; craftDraw(); return;
+    var known = CHAR.recipes && CHAR.recipes[name] && CHAR.recipes[name].inventor;
+    if (!known && myLv < need - 1) {
+      skillUse(sk);
+      craftSay('fail', 'You\'re not up to the task', 'That would work, but it is a ' + sk + ' ' + need + ' build and you are ' + sk + ' ' + myLv + '. You need ' + sk + ' ' + (need - 1) + '. Build simpler things to get there.' + (j.comment ? ' ' + j.comment : ''));
+      CRAFT.sel = []; craftDraw(); return;
     }
+    var dc = 0, R = { r: 0 }, b = 0, tot = 0;
     var used = (j.why || j.traits_used || []).map(function (x) { return String(x).toLowerCase(); }); loreLearn(sel.reduce(function (acc, g) { return acc.concat((g.tags || []).filter(function (t) { return used.indexOf(t) >= 0; }).map(function (t) { return [g, t]; })); }, []), 'That is why it worked.');
     consumes.forEach(function (n) { var g = CHAR.gear.filter(function (x) { return x.name === n; })[0]; if (g) itemSpend(g); });
     var made = Object.assign({ name: name, from: 'your own two hands', level: 1, parts: sel.map(function (g) { return g.name; }) }, cs.spec); invAdd(made, true);
     CHAR.recipes = CHAR.recipes || {}; var isNew = !CHAR.recipes[name] && !CRAFT.shared.some(function (r) { return r.name.toLowerCase() === name.toLowerCase(); });
-    var rec = { name: name, track: track, level: cs.lv, dc: dc, inputs: sel.map(function (g) { return g.name; }), keep: sel.map(function (g) { return g.name; }).filter(function (n) { return consumes.indexOf(n) < 0; }), spec: cs.spec, by: CHAR.name, byUid: NET.uid, inventor: true, idea: idea || '' };
+    var rec = { name: name, track: track, level: need, dc: dc, inputs: sel.map(function (g) { return g.name; }), keep: sel.map(function (g) { return g.name; }).filter(function (n) { return consumes.indexOf(n) < 0; }), spec: cs.spec, by: CHAR.name, byUid: NET.uid, inventor: true, idea: idea || '' };
     if (isNew) {
-      CHAR.recipes[name] = rec; if (!skillHas(sk)) skillGrant(sk, 'you built something that works'); else for (var i = 0; i < cs.lv * 2; i++) skillUse(sk);
-      logEvent('Invented ' + name + ' (' + sk + ' ' + cs.lv + ')', 'skill');
+      CHAR.recipes[name] = rec; if (!skillHas(sk)) skillGrant(sk, 'you built something that works'); else for (var i = 0; i < need * 2; i++) skillUse(sk);
+      logEvent('Invented ' + name + ' (' + sk + ' ' + need + ')', 'skill');
       if (NET.mode === 'server' && NET.uid) api('recipes', { method: 'POST', body: { recipe: rec } }).then(function (r) { CRAFT.shared = r.value || CRAFT.shared; }).catch(function () {});
       setTimeout(function () { achieve('first_invention', 'Some Assembly Required', 'You built something from garbage and it worked. The System files a patent in its own name.', 25); }, 1500);
     } else skillUse(sk);
     // experience: inventing is worth a lot, making a known recipe a little; both are practice for the track skill
-    var xp = isNew ? 30 * cs.lv + 10 : 6 * cs.lv; grantXP(xp);
-    craftSay('ok', (isNew ? 'Invented · ' : 'Made · ') + name, 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (cs.spec.desc || '') + ' +' + xp + ' XP, and ' + sk + ' practice.' + (isNew ? ' New ' + sk + ' ' + cs.lv + ' recipe, shared with the SGC.' : '') + (j.comment ? ' ' + j.comment : ''), 7000);
+    var xp = isNew ? 30 * need + 10 : 6 * need; grantXP(xp);
+    craftSay('ok', (isNew ? 'Invented · ' : 'Made · ') + name, (cs.spec.desc || '') + ' +' + xp + ' XP, and ' + sk + ' practice.' + (isNew ? ' New ' + sk + ' ' + need + ' recipe, shared with the SGC.' : '') + (j.comment ? ' ' + j.comment : ''), 7000);
     CRAFT.sel = []; saveChar(CHAR); craftDraw(); if (UI.bag) bagDraw();
   }
   function craftMake(name) {
@@ -9756,7 +9776,7 @@
   function vfxPool(x, z, r, col, secs, burnSecs) {
     var m = new THREE.Mesh(new THREE.PlaneGeometry(r * 2.2, r * 2.2), new THREE.MeshBasicMaterial({ map: vfxTex('splat'), color: col, transparent: true, opacity: 0.72, depthWrite: false }));
     m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6.28; m.position.set(x, 0.03 + Math.random() * 0.01, z); m.renderOrder = 4; scene.add(m);
-    VFX.pools.push({ m: m, x: x, z: z, r: r, t: 0, life: secs || 45, burn: burnSecs || 0 });
+    VFX.pools.push({ m: m, x: x, z: z, r: r, t: 0, life: secs || 45, burn: burnSecs || 0, burnUntil: burnSecs ? Date.now() + burnSecs * 1000 : 0 });
   }
   // a thrown thing flies in an arc, then lands
   function vfxThrow(it, tx, tz, lit, land) {
@@ -9772,7 +9792,7 @@
     var tags = it.tags || [], fx = (T && T.fx || []).map(function (f) { return f.type; }), area = (T && T.area) || 0;
     var col = tags.indexOf('toxic') >= 0 ? 0x7a4aa0 : /slime|goo|bog/i.test(it.name) || tags.indexOf('wet') >= 0 ? 0x3a7a2a : tags.indexOf('slippery') >= 0 || /grease|oil/i.test(it.name) ? 0x6a5418 : tags.indexOf('sticky') >= 0 || fx.indexOf('prone') >= 0 ? 0xd08a2a : 0x7a6a5a;
     var liquid = area > 0 || fx.indexOf('prone') >= 0 || tags.indexOf('sticky') >= 0 || tags.indexOf('slippery') >= 0 || tags.indexOf('wet') >= 0 || tags.indexOf('glass') >= 0;
-    if (liquid) { vfxPool(tx, tz, Math.max(0.7, area + 0.6), col, 50, lit ? 7 : 0); vfxBurst(tx, tz, col, 26, 2.2); }
+    if (liquid) { vfxPool(tx, tz, Math.max(0.7, area + 0.6), col, 60, lit ? 24 : 0); vfxBurst(tx, tz, col, 26, 2.2); }
     if (lit || fx.indexOf('burn') >= 0) { vfxFlame(tx, 0.2, tz, Math.max(0.8, area * 1.6 + 0.6), 40); vfxFlash(tx, tz, 0xff8a30); }
     else if (area > 0 && fx.indexOf('damage') >= 0) { vfxSmoke(tx, 0.3, tz, area * 1.5, 16); vfxFlash(tx, tz, 0xfff0c0); }
     else if (!liquid) vfxBurst(tx, tz, 0xb8a888, 12, 1.4);
@@ -9794,6 +9814,7 @@
       if (q.burn && q.t < q.burn && Math.random() < dt * 30) vfxFlame(q.x, 0.05, q.z, q.r * 1.6, 1);
       if (q.t > q.life - 5) q.m.material.opacity = 0.72 * Math.max(0, (q.life - q.t) / 5);
       if (q.t >= q.life) { scene.remove(q.m); VFX.pools.splice(i, 1); } }
+    if (typeof PC !== 'undefined' && PC.burning > 0 && Math.random() < dt * 22) vfxFlame(P.px, 0.3 + Math.random() * 1.1, P.pz, 0.35, 1);
     // anything on fire keeps burning where you can see it
     if (typeof CB !== 'undefined') CB.enemies.forEach(function (e) { if (e.dead || !e.burning || !(e.burning.turns > 0) || !e.obj.visible) return; if (Math.random() < dt * 22) vfxFlame(e.px, (e.def.h || 0.8) * (0.2 + Math.random() * 0.6), e.pz, 0.35, 1); });
   }
@@ -9816,7 +9837,7 @@
   // what a lit thing does when it lands: whatever it did before, plus fire
   function litThrow(it) {
     var t = it.tags || [], fx = it.throw ? JSON.parse(JSON.stringify(it.throw.fx || [])) : [{ type: 'damage', dice: '1d4' }];
-    if (!fx.some(function (f) { return f.type === 'burn'; })) fx.push({ type: 'burn', dice: t.indexOf('sticky') >= 0 ? '1d6' : '1d4', turns: t.indexOf('sticky') >= 0 ? 3 : 2 });
+    if (!fx.some(function (f) { return f.type === 'burn'; })) fx.push({ type: 'burn', dice: t.indexOf('sticky') >= 0 ? '1d6' : '1d4', turns: t.indexOf('sticky') >= 0 ? 6 : 4 });
     var area = it.throw && it.throw.area ? it.throw.area : (t.indexOf('glass') >= 0 || t.indexOf('container') >= 0 || t.indexOf('slippery') >= 0 || t.indexOf('wet') >= 0) ? 1 : 0;
     return { fx: fx, area: area };
   }
@@ -10793,7 +10814,7 @@
     requestAnimationFrame(loop);
   }
   refreshFog(); enterRoom();
-  window.__crawl = { CB: CB, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl = { CB: CB, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

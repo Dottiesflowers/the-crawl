@@ -450,7 +450,7 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
-  function cbEnd(win) {
+  function cbEnd(win) { PC.burning = 0;
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -482,6 +482,7 @@
       CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
       if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
       if (PC.down) { cbRingsUpdate(); cbHUD(); setTimeout(cbDeathSave, 700); return; }
+      burnPools(null);
       cbShowMoves();
     } else { c.react = true; cbShowMoves(); setTimeout(function () { cbEnemyTurn(c); }, 250); }
     cbRingsUpdate(); cbHUD();
@@ -625,7 +626,7 @@
   }
   function cbDash() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.res.move += 6; say('Dash', 'You double your movement this turn.', 2200); cbShowMoves(); cbHUD(); }
   function cbDisengage() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.disengage = true; say('Disengage', 'You can walk away this turn without opportunity attacks.', 2600); cbHUD(); }
-  function cbDodge() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.dodge = true; say('Dodge', 'Attacks against you have disadvantage until your next turn.', 2600); cbHUD(); }
+  function cbDodge() { if (!cbMyTurn() || CB.busy || !CB.res.action) return; CB.res.action = 0; CB.dodge = true; if (PC.burning > 0) { PC.burning = 0; say('Drop and roll', 'You put yourself out. Attacks against you have disadvantage until your next turn.', 3000); } else say('Dodge', 'Attacks against you have disadvantage until your next turn.', 2600); cbHUD(); }
   function cbPotion() {
     var it = (CHAR && CHAR.gear || []).filter(function (g) { return /potion/i.test(g.name) && g.heal; })[0]; if (it) useItem(it); else say('No potions', 'You are out of healing potions.', 2400);
   }
@@ -703,7 +704,15 @@
     if (!CB.on) return;
     if (e.dead || e.calm) { setTimeout(cbNext, 200); return; } // it made a deal mid-fight: it keeps its word
     if (e.weak && e.weak.turns > 0) e.weak.turns--;
-    if (e.burning && e.burning.turns > 0) { var bd = Math.max(1, rollDice(e.burning.dice)); e.hp -= bd; e.burning.turns--; floater(e.px, e.def.h + 0.3, e.pz, '-' + bd, 'dmg'); say(e.name + ' burns', bd + ' fire damage.' + (e.burning.turns ? '' : ' The flames go out.'), 2400); if (e.hp <= 0) { cbKill(e); setTimeout(cbNext, 900); return; } }
+    burnPools(e);
+    if (e.burning && e.burning.turns > 0) { // on fire: damage every turn until it goes out (a DEX save, or it spends its turn patting it out)
+      var bd = Math.max(1, rollDice(e.burning.dice)); e.hp -= bd; e.burning.turns--; floater(e.px, e.def.h + 0.3, e.pz, '-' + bd, 'dmg'); fxTag(e, 'BURNING');
+      var smart = typeof intOf === 'function' && intOf(e) === 'smart', sv = d20() + (e.def.dex || 0), out = e.burning.turns <= 0 || sv >= 10, pat = false;
+      if (!out && smart && e.hp > 0 && e.hp <= e.max * 0.6) { out = true; pat = true; }
+      if (out) e.burning.turns = 0;
+      say(e.name + ' burns', bd + ' fire damage.' + (e.hp <= 0 ? '' : pat ? ' It drops and rolls, beating out the flames. That is its whole turn.' : out ? ' The flames go out (DEX save ' + sv + ').' : ' Still burning (DEX save ' + sv + ' vs 10).'), 3200);
+      if (e.hp <= 0) { cbKill(e); setTimeout(cbNext, 900); return; }
+      if (pat) { setTimeout(cbNext, 1100); return; } }
     if (e.stunned > 0) { e.stunned--; say(e.name + ' loses its turn', e.stunned ? 'Still reeling.' : 'It shakes it off. Next turn it is back.', 2600); setTimeout(cbNext, 1000); return; }
     var speed = e.def.speed;
     if (e.prone) { e.prone = false; speed = Math.floor(speed / 2); cbPlay(e, 'Idle_Loop'); say(e.name, 'It scrambles back to its feet (half its movement).', 2200); }
@@ -720,6 +729,15 @@
     if (!path.length) { setTimeout(cbNext, 300); return; }
     e.path = path; cbPlay(e, 'Walk_Loop');
     e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); if (cheb(e.x, e.z, P.x, P.z) <= 1) cbEnemyAttack(e, false, cbNextAfterHit); else setTimeout(cbNext, 350); };
+  }
+  // standing in burning grease sets you alight; you burn at the start of your turn too
+  function burnPools(e) {
+    var x = e ? e.px : P.px, z = e ? e.pz : P.pz, now = Date.now();
+    var hot = VFX.pools.some(function (q) { return q.burnUntil && q.burnUntil > now && Math.hypot(q.x - x, q.z - z) <= q.r + 0.2; });
+    if (e) { if (hot && !(e.burning && e.burning.turns > 0) && !e.dead) { e.burning = { dice: '1d4', turns: 3 }; fxTag(e, 'ON FIRE'); say(e.name + ' catches fire', 'It is standing in burning grease.', 2600); } return; }
+    if (hot && !(PC.burning > 0)) { PC.burning = 3; say('You are on fire', 'You are standing in the flames. Move out, or Dodge to drop and roll.', 3600); }
+    if (PC.burning > 0) { var d = Math.max(1, rollDice('1d4')); PC.hp = Math.max(0, PC.hp - d); floater(P.px, 1.5, P.pz, '-' + d, 'pdmg'); PC.burning--; var sv = d20() + MOD.DEX; if (sv >= 10) PC.burning = 0;
+      say('You burn', d + ' fire damage.' + (PC.burning ? ' Still burning (DEX save ' + sv + ' vs 10). Dodge to drop and roll.' : ' The flames go out (DEX save ' + sv + ').'), 3600); cbHUD(); if (PC.hp <= 0) cbFall(); }
   }
   function cbNextAfterHit() { setTimeout(function () { if (!PC.down || CB.order[CB.idx] !== 'pc') cbNext(); }, 450); }
   function cbEnemyAttack(e, opportunity, then) {

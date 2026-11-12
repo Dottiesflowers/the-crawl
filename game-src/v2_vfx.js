@@ -38,7 +38,7 @@
   function vfxPool(x, z, r, col, secs, burnSecs) {
     var m = new THREE.Mesh(new THREE.PlaneGeometry(r * 2.2, r * 2.2), new THREE.MeshBasicMaterial({ map: vfxTex('splat'), color: col, transparent: true, opacity: 0.72, depthWrite: false }));
     m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6.28; m.position.set(x, 0.03 + Math.random() * 0.01, z); m.renderOrder = 4; scene.add(m);
-    VFX.pools.push({ m: m, x: x, z: z, r: r, t: 0, life: secs || 45, burn: burnSecs || 0 });
+    VFX.pools.push({ m: m, x: x, z: z, r: r, t: 0, life: secs || 45, burn: burnSecs || 0, burnUntil: burnSecs ? Date.now() + burnSecs * 1000 : 0 });
   }
   // a thrown thing flies in an arc, then lands
   function vfxThrow(it, tx, tz, lit, land) {
@@ -54,7 +54,7 @@
     var tags = it.tags || [], fx = (T && T.fx || []).map(function (f) { return f.type; }), area = (T && T.area) || 0;
     var col = tags.indexOf('toxic') >= 0 ? 0x7a4aa0 : /slime|goo|bog/i.test(it.name) || tags.indexOf('wet') >= 0 ? 0x3a7a2a : tags.indexOf('slippery') >= 0 || /grease|oil/i.test(it.name) ? 0x6a5418 : tags.indexOf('sticky') >= 0 || fx.indexOf('prone') >= 0 ? 0xd08a2a : 0x7a6a5a;
     var liquid = area > 0 || fx.indexOf('prone') >= 0 || tags.indexOf('sticky') >= 0 || tags.indexOf('slippery') >= 0 || tags.indexOf('wet') >= 0 || tags.indexOf('glass') >= 0;
-    if (liquid) { vfxPool(tx, tz, Math.max(0.7, area + 0.6), col, 50, lit ? 7 : 0); vfxBurst(tx, tz, col, 26, 2.2); }
+    if (liquid) { vfxPool(tx, tz, Math.max(0.7, area + 0.6), col, 60, lit ? 24 : 0); vfxBurst(tx, tz, col, 26, 2.2); }
     if (lit || fx.indexOf('burn') >= 0) { vfxFlame(tx, 0.2, tz, Math.max(0.8, area * 1.6 + 0.6), 40); vfxFlash(tx, tz, 0xff8a30); }
     else if (area > 0 && fx.indexOf('damage') >= 0) { vfxSmoke(tx, 0.3, tz, area * 1.5, 16); vfxFlash(tx, tz, 0xfff0c0); }
     else if (!liquid) vfxBurst(tx, tz, 0xb8a888, 12, 1.4);
@@ -76,6 +76,7 @@
       if (q.burn && q.t < q.burn && Math.random() < dt * 30) vfxFlame(q.x, 0.05, q.z, q.r * 1.6, 1);
       if (q.t > q.life - 5) q.m.material.opacity = 0.72 * Math.max(0, (q.life - q.t) / 5);
       if (q.t >= q.life) { scene.remove(q.m); VFX.pools.splice(i, 1); } }
+    if (typeof PC !== 'undefined' && PC.burning > 0 && Math.random() < dt * 22) vfxFlame(P.px, 0.3 + Math.random() * 1.1, P.pz, 0.35, 1);
     // anything on fire keeps burning where you can see it
     if (typeof CB !== 'undefined') CB.enemies.forEach(function (e) { if (e.dead || !e.burning || !(e.burning.turns > 0) || !e.obj.visible) return; if (Math.random() < dt * 22) vfxFlame(e.px, (e.def.h || 0.8) * (0.2 + Math.random() * 0.6), e.pz, 0.35, 1); });
   }
