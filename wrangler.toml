@@ -22,3 +22,28 @@ AI_MODEL_BIG = "claude-sonnet-5-5"
 # Secrets (set in the Cloudflare dashboard, never in this file):
 #   ANTHROPIC_API_KEY  your Anthropic API key
 #   DM_INVITE          the one invite code that creates the DM (game master) account
+
+# ---------- the test server: a second, separate world (its own accounts and saves) ----------
+# Deployed from the `staging` branch by a second Cloudflare Worker with the deploy command:
+#   npx wrangler deploy --env staging
+# Set the same two secrets on that Worker in the dashboard.
+[env.staging]
+name = "the-crawl-staging"
+workers_dev = true
+
+[env.staging.assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[env.staging.durable_objects.bindings]]
+name = "CAMPAIGN"
+class_name = "Campaign"
+
+[[env.staging.migrations]]
+tag = "v1"
+new_sqlite_classes = ["Campaign"]
+
+[env.staging.vars]
+AI_MODEL = "claude-haiku-5-5"
+AI_MODEL_BIG = "claude-sonnet-5-5"
+STAGING = "1"

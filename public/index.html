@@ -10928,6 +10928,10 @@
     }
     say('Blocked', 'Something is in the way at the other end. Try again in a moment.', 3000); return false;
   }
+  // the test server says so, so nobody mistakes it for the real game
+  (function () { if (!/staging/i.test(location.hostname)) return; var b = document.createElement('div'); b.textContent = 'TEST SERVER'; b.setAttribute('role', 'status');
+    b.style.cssText = 'position:fixed;left:50%;bottom:4px;transform:translateX(-50%);z-index:90;padding:2px 10px;background:#7A1F1A;color:#F3E9D2;font:700 12px Cinzel,serif;letter-spacing:.14em;border-radius:3px;pointer-events:none;opacity:.9';
+    document.body.appendChild(b); })();
 
   // ===================== item effects: what the fields in items.js actually do =====================
   // throw / escape / box / buff / uses / leaves on use; ac, checks, light while carried; crit and onHit on weapons
