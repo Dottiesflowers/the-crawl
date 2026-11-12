@@ -462,7 +462,8 @@
     timber: { col: 0x7a5638, post: 0x4e3420, kind: 'wood', h: 1.45, t: 0.16 }, plaster: { col: 0xe4ddce, post: 0xcfc6b4, kind: 'skin', h: 1.55, t: 0.16 },
     canvas: { col: 0xf2ece0, post: 0x8a7a60, kind: 'skin', h: 1.35, t: 0.08 }, panel: { col: 0xaab4c2, post: 0x58667a, kind: 'metal', h: 1.6, t: 0.2, trim: 0x3df2e0 },
     manor: { col: 0x4e4048, post: 0x2a2026, kind: 'wood', h: 1.7, t: 0.2, wain: 0x3a2a20 }, stone: { col: 0x8a8478, post: 0x6e685e, kind: 'stone', h: 1.15, t: 0.32 },
-    siding: { col: 0xe8e0c8, post: 0xf4f0e6, kind: 'skin', h: 1.45, t: 0.16 }, stage: { col: 0x2e2e36, post: 0x1c1c22, kind: 'metal', h: 2.3, t: 0.26 }
+    siding: { col: 0xe8e0c8, post: 0xf4f0e6, kind: 'skin', h: 1.45, t: 0.16 }, stage: { col: 0x2e2e36, post: 0x1c1c22, kind: 'metal', h: 2.3, t: 0.26 },
+    keep: { col: 0x8a8070, post: 0x6a6052, kind: 'stone', h: 1.75, t: 0.34 }
   };
   function timberWall(x, z, st, v) {
     var parts = st.split(':'), sty = parts[0], o = {}; parts.slice(1).forEach(function (p) { var kv = p.split('='); o[kv[0]] = kv.length > 1 ? kv[1] : true; });

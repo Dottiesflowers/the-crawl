@@ -32,7 +32,7 @@
     if (NET.mode === 'server' && NET.uid && CHAR) api('kv/fog-' + CHAR.name.replace(/[^\w-]/g, '').slice(0, 40)).then(function (j) { var v = j && (j.value !== undefined ? j.value : j.v); if (typeof v === 'string' && v) { fogMerge(v); FOG.total = 0; FOG.seen = 0; refreshFog(); fogSave(); } }).catch(function () {});
   }
   var lastSavedPos = '';
-  function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); var pp = FLOOR === 2 ? CHAR.pos2 : CHAR.pos; if (pp && heroTo(pp.x, pp.z)) { refreshFog(); enterRoom(); } else if (FLOOR === 2) { refreshFog(); enterRoom(); } }
+  function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); var pp = FLOOR === 2 ? CHAR.pos2 : CHAR.pos; if (pp && heroTo(pp.x, pp.z)) { refreshFog(); enterRoom(); } else { heroTo(LEVEL.start.x, LEVEL.start.z); refreshFog(); enterRoom(); } }
   function posStash() { if (!CHAR) return; CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; fogSave(); saveChar(CHAR); worldSave(); }
   function posSave(force) {
     if (!CHAR || CB.on) return; var k = P.x + ',' + P.z; if (!force && k === lastSavedPos) return; lastSavedPos = k;
