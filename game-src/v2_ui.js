@@ -180,7 +180,7 @@
     if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Shoot these first']);
     acts = acts.concat(lampActs(it));
     if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
-    if ((it.cat === 'consumable' && (it.heal || it.buff)) || it.throw || it.escape || burnsKnown(it)) acts.push(hotHas(it.name) ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
+    if ((it.cat === 'consumable' && (it.heal || it.buff)) || it.throw || it.escape || burnsKnown(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
     if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); }
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
@@ -204,6 +204,7 @@
     if (a === 'use') useItem(it);
     if (a === 'drop') dropBody(it);
     if (a === 'hot') { hotPut(it.name); }
+    if (a === 'hotO') { hotPut(it.name, false, hotKind(it) === 'eat' ? 'hotbar2' : 'hotbar'); }
     if (a === 'unhot') hotOff(it.name);
     if (a === 'light') { aimStart(it, true); return; }
     saveChar(CHAR); bagDraw(); wsetDraw();
@@ -250,13 +251,18 @@
   // two hot bars: Consumables (eat and drink: a bonus action) and Gear (throw, light, use: an action)
   function hotKind(it) { return it && it.cat === 'consumable' && (it.heal || it.buff) && !it.throw && !it.escape ? 'eat' : 'gear'; }
   function hotKey(kind) { return kind === 'eat' ? 'hotbar' : 'hotbar2'; }
-  function hotPut(name, quiet) {
-    var it = (CHAR.gear || []).filter(function (g) { return g.name === name; })[0], k = hotKey(hotKind(it)), o = k === 'hotbar' ? 'hotbar2' : 'hotbar';
+  function hotClean() { // slots whose item has left the bag are empty again (sold, given away, eaten elsewhere)
+    if (!CHAR) return; var have = {}; (CHAR.gear || []).forEach(function (g) { have[g.name] = 1; });
+    ['hotbar', 'hotbar2'].forEach(function (k) { if (CHAR[k]) CHAR[k] = CHAR[k].slice(0, HOT_N).map(function (n) { return n && have[n] ? n : null; }); });
+  }
+  function hotPut(name, quiet, bar) {
+    hotClean(); var it = (CHAR.gear || []).filter(function (g) { return g.name === name; })[0], k = bar || hotKey(hotKind(it)), o = k === 'hotbar' ? 'hotbar2' : 'hotbar';
     CHAR[k] = CHAR[k] || []; while (CHAR[k].length < HOT_N) CHAR[k].push(null);
     if (CHAR[o]) CHAR[o] = CHAR[o].map(function (n) { return n === name ? null : n; });
     if (CHAR[k].indexOf(name) >= 0) return; var i = CHAR[k].indexOf(null);
     if (i < 0) { if (!quiet) say('Hot bar full', 'Take something off the ' + (k === 'hotbar' ? 'Consumables' : 'Gear') + ' bar first (in your inventory).', 2600); return; }
     CHAR[k][i] = name; saveChar(CHAR); hotDraw();
+    if (!quiet) say('Hot bar · ' + name, 'On the ' + (k === 'hotbar' ? 'Consumables' : 'Gear') + ' bar, slot ' + (k === 'hotbar' ? i + 1 : (i + 6) % 10) + '. Close your bag to see it.', 2600);
   }
   function hotOff(name) { ['hotbar', 'hotbar2'].forEach(function (k) { CHAR[k] = (CHAR[k] || []).map(function (n) { return n === name ? null : n; }); }); hotDraw(); }
   function hotHas(name) { return (CHAR.hotbar || []).indexOf(name) >= 0 || (CHAR.hotbar2 || []).indexOf(name) >= 0; }
@@ -268,7 +274,7 @@
   }
   function hotItem(i, k) { var n = CHAR && CHAR[k || 'hotbar'] && CHAR[k || 'hotbar'][i]; return n ? (CHAR.gear || []).filter(function (g) { return g.name === n; })[0] || null : null; }
   function hotDraw() {
-    var el = document.getElementById('hotbar');
+    hotClean(); var el = document.getElementById('hotbar');
     if (!el) { el = document.createElement('div'); el.id = 'hotbar'; document.body.appendChild(el); }
     var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead && !UI.bag && !(typeof CRAFT !== 'undefined' && CRAFT.open); el.style.display = show ? 'flex' : 'none'; if (!show) return;
     var html = '', mine = !CB.on || (cbMyTurn() && !CB.busy);
@@ -282,7 +288,7 @@
     if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html;
       el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); hotUse(+b.dataset.h, b.dataset.k); }); }); }
   }
-  function hotUse(i, k) { var it = hotItem(i, k); if (!it) return; if (k === 'hotbar2' && canAim(it)) aimStart(it, !it.throw); else useItem(it); }
+  function hotUse(i, k) { var it = hotItem(i, k); if (!it) return; if (canAim(it) && (it.throw || k === 'hotbar2')) aimStart(it, !it.throw); else useItem(it); } // throwables aim from either bar
   window.addEventListener('keydown', function (ev) {
     if (!CHAR || ev.repeat || /INPUT|TEXTAREA/.test((ev.target || {}).tagName || '') || UI.bag || gearOpen) return; var d = '1234567890'.indexOf(ev.key); if (d < 0) return;
     if (d < 5) hotUse(d, 'hotbar'); else hotUse(d - 5, 'hotbar2');

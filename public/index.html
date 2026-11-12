@@ -10056,7 +10056,7 @@
     if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Shoot these first']);
     acts = acts.concat(lampActs(it));
     if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
-    if ((it.cat === 'consumable' && (it.heal || it.buff)) || it.throw || it.escape || burnsKnown(it)) acts.push(hotHas(it.name) ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
+    if ((it.cat === 'consumable' && (it.heal || it.buff)) || it.throw || it.escape || burnsKnown(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
     if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); }
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
@@ -10080,6 +10080,7 @@
     if (a === 'use') useItem(it);
     if (a === 'drop') dropBody(it);
     if (a === 'hot') { hotPut(it.name); }
+    if (a === 'hotO') { hotPut(it.name, false, hotKind(it) === 'eat' ? 'hotbar2' : 'hotbar'); }
     if (a === 'unhot') hotOff(it.name);
     if (a === 'light') { aimStart(it, true); return; }
     saveChar(CHAR); bagDraw(); wsetDraw();
@@ -10126,13 +10127,18 @@
   // two hot bars: Consumables (eat and drink: a bonus action) and Gear (throw, light, use: an action)
   function hotKind(it) { return it && it.cat === 'consumable' && (it.heal || it.buff) && !it.throw && !it.escape ? 'eat' : 'gear'; }
   function hotKey(kind) { return kind === 'eat' ? 'hotbar' : 'hotbar2'; }
-  function hotPut(name, quiet) {
-    var it = (CHAR.gear || []).filter(function (g) { return g.name === name; })[0], k = hotKey(hotKind(it)), o = k === 'hotbar' ? 'hotbar2' : 'hotbar';
+  function hotClean() { // slots whose item has left the bag are empty again (sold, given away, eaten elsewhere)
+    if (!CHAR) return; var have = {}; (CHAR.gear || []).forEach(function (g) { have[g.name] = 1; });
+    ['hotbar', 'hotbar2'].forEach(function (k) { if (CHAR[k]) CHAR[k] = CHAR[k].slice(0, HOT_N).map(function (n) { return n && have[n] ? n : null; }); });
+  }
+  function hotPut(name, quiet, bar) {
+    hotClean(); var it = (CHAR.gear || []).filter(function (g) { return g.name === name; })[0], k = bar || hotKey(hotKind(it)), o = k === 'hotbar' ? 'hotbar2' : 'hotbar';
     CHAR[k] = CHAR[k] || []; while (CHAR[k].length < HOT_N) CHAR[k].push(null);
     if (CHAR[o]) CHAR[o] = CHAR[o].map(function (n) { return n === name ? null : n; });
     if (CHAR[k].indexOf(name) >= 0) return; var i = CHAR[k].indexOf(null);
     if (i < 0) { if (!quiet) say('Hot bar full', 'Take something off the ' + (k === 'hotbar' ? 'Consumables' : 'Gear') + ' bar first (in your inventory).', 2600); return; }
     CHAR[k][i] = name; saveChar(CHAR); hotDraw();
+    if (!quiet) say('Hot bar · ' + name, 'On the ' + (k === 'hotbar' ? 'Consumables' : 'Gear') + ' bar, slot ' + (k === 'hotbar' ? i + 1 : (i + 6) % 10) + '. Close your bag to see it.', 2600);
   }
   function hotOff(name) { ['hotbar', 'hotbar2'].forEach(function (k) { CHAR[k] = (CHAR[k] || []).map(function (n) { return n === name ? null : n; }); }); hotDraw(); }
   function hotHas(name) { return (CHAR.hotbar || []).indexOf(name) >= 0 || (CHAR.hotbar2 || []).indexOf(name) >= 0; }
@@ -10144,7 +10150,7 @@
   }
   function hotItem(i, k) { var n = CHAR && CHAR[k || 'hotbar'] && CHAR[k || 'hotbar'][i]; return n ? (CHAR.gear || []).filter(function (g) { return g.name === n; })[0] || null : null; }
   function hotDraw() {
-    var el = document.getElementById('hotbar');
+    hotClean(); var el = document.getElementById('hotbar');
     if (!el) { el = document.createElement('div'); el.id = 'hotbar'; document.body.appendChild(el); }
     var show = CHAR && !gearOpen && !CC && !AUTH.open && !CHAR.dead && !UI.bag && !(typeof CRAFT !== 'undefined' && CRAFT.open); el.style.display = show ? 'flex' : 'none'; if (!show) return;
     var html = '', mine = !CB.on || (cbMyTurn() && !CB.busy);
@@ -10158,7 +10164,7 @@
     if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html;
       el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); hotUse(+b.dataset.h, b.dataset.k); }); }); }
   }
-  function hotUse(i, k) { var it = hotItem(i, k); if (!it) return; if (k === 'hotbar2' && canAim(it)) aimStart(it, !it.throw); else useItem(it); }
+  function hotUse(i, k) { var it = hotItem(i, k); if (!it) return; if (canAim(it) && (it.throw || k === 'hotbar2')) aimStart(it, !it.throw); else useItem(it); } // throwables aim from either bar
   window.addEventListener('keydown', function (ev) {
     if (!CHAR || ev.repeat || /INPUT|TEXTAREA/.test((ev.target || {}).tagName || '') || UI.bag || gearOpen) return; var d = '1234567890'.indexOf(ev.key); if (d < 0) return;
     if (d < 5) hotUse(d, 'hotbar'); else hotUse(d - 5, 'hotbar2');
@@ -10991,6 +10997,8 @@
   }
   function throwItem(it, e, o) {
     o = o || {}; var T = o.T || it.throw, spot = o.spot;
+    if (T && /bomb|grenade|explos|cocktail|molotov|firework|dynamite|blast/i.test(it.name + ' ' + (it.tags || []).join(' ')) && !(T.fx || []).some(function (f) { return f.type === 'damage'; })) { // something called a bomb that only burned or knocked down: it also hurts
+      T = JSON.parse(JSON.stringify(T)); T.fx = [{ type: 'damage', dice: it.crafted ? '2d6' : '1d6' }].concat(T.fx || []); }
     if (!e && !spot) { say('No target', 'Nothing in range to throw that at' + (T.vs === 'plant' ? ' (it only works on plants)' : '') + '.', 2600); return false; }
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', 'Throwing takes your action, on your turn.', 2500); return false; }
     var tx = e ? e.x : spot.x, tz = e ? e.z : spot.z, Rg = throwRange();
@@ -11238,6 +11246,7 @@
     if (j.throw && j.throw.fx) {
       var ok = { damage: 1, burn: 1, stun: 1, distract: 1, prone: 1, push: 1, weaken: 1 };
       spec.throw = { fx: j.throw.fx.filter(function (f) { return f && ok[f.type]; }).slice(0, 3).map(function (f) { var o = { type: f.type }; if (f.dice) o.dice = clampDice(f.dice, lv + 1, 6) || '1d6'; if (f.turns) o.turns = Math.min(3, +f.turns || 1); if (f.tiles) o.tiles = Math.min(3, +f.tiles || 1); if (f.ac) o.ac = Math.min(2, +f.ac || 1); return o; }), area: Math.min(lv >= 3 ? 2 : 1, +j.throw.area || 0) };
+      if (/bomb|grenade|explos|cocktail|molotov|firework|dynamite|blast/i.test(String(j.name || '') + ' ' + (j.tags || []).join(' ')) && !spec.throw.fx.some(function (f) { return f.type === 'damage'; })) spec.throw.fx.unshift({ type: 'damage', dice: lv >= 2 ? '2d6' : '1d6+1' });
       if (!spec.throw.fx.length) delete spec.throw;
     }
     if (+j.uses > 1 && spec.cat === 'tool') spec.uses = Math.min(5, +j.uses);
@@ -11560,11 +11569,12 @@
     if (!AIM.on || ev.target !== canvas || !AIM.down) return; var d = AIM.down; AIM.down = null;
     if (Math.abs(ev.clientX - d.x) + Math.abs(ev.clientY - d.y) > 14) return; // a drag to look around
     ev.stopImmediatePropagation();
-    var best = null, bd = 46 * 46;
-    CB.enemies.forEach(function (e) { if (e.dead || e.npc || !e.obj.visible) return; var s = toScreen(e.px, (e.def.h || 1) * 0.5, e.pz), dx = s.x - ev.clientX, dy = s.y - ev.clientY, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = e; } });
-    var spot = null;
-    if (!best) { var r = canvas.getBoundingClientRect(); cbRay.setFromCamera(new THREE.Vector2((ev.clientX - r.left) / r.width * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1), cam); if (cbRay.ray.intersectPlane(cbPlane, cbHit)) spot = { x: Math.round(cbHit.x), z: Math.round(cbHit.z) }; }
-    aimAt(best, spot);
+    var T0 = AIM.it ? (AIM.lit ? litThrow(AIM.it) : AIM.it.throw) : null, splash = !!(T0 && T0.area);
+    var spot = null, r = canvas.getBoundingClientRect(); cbRay.setFromCamera(new THREE.Vector2((ev.clientX - r.left) / r.width * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1), cam); if (cbRay.ray.intersectPlane(cbPlane, cbHit)) spot = { x: Math.round(cbHit.x), z: Math.round(cbHit.z) };
+    var onTile = spot ? CB.enemies.filter(function (e) { return !e.dead && !e.npc && e.obj.visible && e.x === spot.x && e.z === spot.z; })[0] : null;
+    var best = onTile || null, bd = (splash ? 22 : 46) * (splash ? 22 : 46); // a splash throw only snaps to a creature you tapped right on; otherwise it lands on the tile you tapped
+    if (!best) CB.enemies.forEach(function (e) { if (e.dead || e.npc || !e.obj.visible) return; var s = toScreen(e.px, (e.def.h || 1) * 0.5, e.pz), dx = s.x - ev.clientX, dy = s.y - ev.clientY, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = e; } });
+    aimAt(best, best ? null : spot);
   }, true);
   window.addEventListener('keydown', function (ev) { if (AIM.on && ev.key === 'Escape') { aimStop(); ev.stopPropagation(); } }, true);
   function aimAt(e, spot) {
@@ -12511,7 +12521,7 @@
   }
   refreshFog(); enterRoom();
   window.__crawl = { CB: CB, stairs: { open: stairsOpen, check: stairsCheck, dbg: function () { return tiles.filter(function (t) { return t.gate !== undefined; }).map(function (t) { return [t.gate, t.mesh.visible, t.x, t.z]; }); } }, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
-  window.__crawl.t = { stash: stashBody, drop: dropBody, take: talkTake, vfx: vfxPreview, shoot: cbThrow, ammoPick: ammoPick, arrowCraft: arrowCraft, throwable: cbThrowable, sty: sty, gear: function () { return CHAR.gear; }, char: function () { return { name: CHAR.name, isDM: !!CHAR.isDM, n: (CHAR.gear || []).length }; }, start: cbStart, give: function (n, q) { var it = item(n, q ? { qty: q } : null); invAdd(it, true); return !!it; } }; // test hooks
+  window.__crawl.t = { hotPut: hotPut, hotItem: hotItem, throwIt: throwItem, charRaw: function () { return CHAR; }, stash: stashBody, drop: dropBody, take: talkTake, vfx: vfxPreview, shoot: cbThrow, ammoPick: ammoPick, arrowCraft: arrowCraft, throwable: cbThrowable, sty: sty, gear: function () { return CHAR.gear; }, char: function () { return { name: CHAR.name, isDM: !!CHAR.isDM, n: (CHAR.gear || []).length }; }, start: cbStart, give: function (n, q) { var it = item(n, q ? { qty: q } : null); invAdd(it, true); return !!it; } }; // test hooks
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
   charInit(); cbHUD();
   requestAnimationFrame(loop);

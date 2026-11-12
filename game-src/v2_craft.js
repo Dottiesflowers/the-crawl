@@ -124,6 +124,7 @@
     if (j.throw && j.throw.fx) {
       var ok = { damage: 1, burn: 1, stun: 1, distract: 1, prone: 1, push: 1, weaken: 1 };
       spec.throw = { fx: j.throw.fx.filter(function (f) { return f && ok[f.type]; }).slice(0, 3).map(function (f) { var o = { type: f.type }; if (f.dice) o.dice = clampDice(f.dice, lv + 1, 6) || '1d6'; if (f.turns) o.turns = Math.min(3, +f.turns || 1); if (f.tiles) o.tiles = Math.min(3, +f.tiles || 1); if (f.ac) o.ac = Math.min(2, +f.ac || 1); return o; }), area: Math.min(lv >= 3 ? 2 : 1, +j.throw.area || 0) };
+      if (/bomb|grenade|explos|cocktail|molotov|firework|dynamite|blast/i.test(String(j.name || '') + ' ' + (j.tags || []).join(' ')) && !spec.throw.fx.some(function (f) { return f.type === 'damage'; })) spec.throw.fx.unshift({ type: 'damage', dice: lv >= 2 ? '2d6' : '1d6+1' });
       if (!spec.throw.fx.length) delete spec.throw;
     }
     if (+j.uses > 1 && spec.cat === 'tool') spec.uses = Math.min(5, +j.uses);

@@ -52,11 +52,12 @@
     if (!AIM.on || ev.target !== canvas || !AIM.down) return; var d = AIM.down; AIM.down = null;
     if (Math.abs(ev.clientX - d.x) + Math.abs(ev.clientY - d.y) > 14) return; // a drag to look around
     ev.stopImmediatePropagation();
-    var best = null, bd = 46 * 46;
-    CB.enemies.forEach(function (e) { if (e.dead || e.npc || !e.obj.visible) return; var s = toScreen(e.px, (e.def.h || 1) * 0.5, e.pz), dx = s.x - ev.clientX, dy = s.y - ev.clientY, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = e; } });
-    var spot = null;
-    if (!best) { var r = canvas.getBoundingClientRect(); cbRay.setFromCamera(new THREE.Vector2((ev.clientX - r.left) / r.width * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1), cam); if (cbRay.ray.intersectPlane(cbPlane, cbHit)) spot = { x: Math.round(cbHit.x), z: Math.round(cbHit.z) }; }
-    aimAt(best, spot);
+    var T0 = AIM.it ? (AIM.lit ? litThrow(AIM.it) : AIM.it.throw) : null, splash = !!(T0 && T0.area);
+    var spot = null, r = canvas.getBoundingClientRect(); cbRay.setFromCamera(new THREE.Vector2((ev.clientX - r.left) / r.width * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1), cam); if (cbRay.ray.intersectPlane(cbPlane, cbHit)) spot = { x: Math.round(cbHit.x), z: Math.round(cbHit.z) };
+    var onTile = spot ? CB.enemies.filter(function (e) { return !e.dead && !e.npc && e.obj.visible && e.x === spot.x && e.z === spot.z; })[0] : null;
+    var best = onTile || null, bd = (splash ? 22 : 46) * (splash ? 22 : 46); // a splash throw only snaps to a creature you tapped right on; otherwise it lands on the tile you tapped
+    if (!best) CB.enemies.forEach(function (e) { if (e.dead || e.npc || !e.obj.visible) return; var s = toScreen(e.px, (e.def.h || 1) * 0.5, e.pz), dx = s.x - ev.clientX, dy = s.y - ev.clientY, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = e; } });
+    aimAt(best, best ? null : spot);
   }, true);
   window.addEventListener('keydown', function (ev) { if (AIM.on && ev.key === 'Escape') { aimStop(); ev.stopPropagation(); } }, true);
   function aimAt(e, spot) {

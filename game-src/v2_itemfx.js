@@ -42,6 +42,8 @@
   }
   function throwItem(it, e, o) {
     o = o || {}; var T = o.T || it.throw, spot = o.spot;
+    if (T && /bomb|grenade|explos|cocktail|molotov|firework|dynamite|blast/i.test(it.name + ' ' + (it.tags || []).join(' ')) && !(T.fx || []).some(function (f) { return f.type === 'damage'; })) { // something called a bomb that only burned or knocked down: it also hurts
+      T = JSON.parse(JSON.stringify(T)); T.fx = [{ type: 'damage', dice: it.crafted ? '2d6' : '1d6' }].concat(T.fx || []); }
     if (!e && !spot) { say('No target', 'Nothing in range to throw that at' + (T.vs === 'plant' ? ' (it only works on plants)' : '') + '.', 2600); return false; }
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', 'Throwing takes your action, on your turn.', 2500); return false; }
     var tx = e ? e.x : spot.x, tz = e ? e.z : spot.z, Rg = throwRange();
