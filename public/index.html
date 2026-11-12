@@ -9603,6 +9603,8 @@
     var have = (r.inputs || []).every(function (n) { return CHAR.gear.some(function (g) { return g.name === n; }); });
     return { mine: !!mine, skillOk: mine || lv >= r.level, have: have };
   }
+  // results show inside the jury-rig screen (the normal system message sits behind it)
+  function craftSay(kind, title, text) { CRAFT.result = { kind: kind, title: title, text: text, at: Date.now() }; say(title, text, 6000); craftDraw(); }
   function craftDraw() {
     var el = document.getElementById('craft'); if (!el || !CRAFT.open) return; var items = craftItems(), q = CRAFT.q.toLowerCase();
     var ideaEl = document.getElementById('crIdea'); if (ideaEl) CRAFT.idea = ideaEl.value;
@@ -9622,7 +9624,7 @@
           return '<button type="button" class="' + (n ? 'on' : '') + '" data-cg="' + i + '"' + (left ? '' : ' disabled') + '>' + itemIcon(o.it) + '<span>' + esc(o.it.name) + '</span>' + ((o.it.tags || []).length ? '<i>' + (loreKnown(o.it).length ? esc(loreKnown(o.it).slice(0, 2).join(', ')) : '') + (loreHidden(o.it).length ? (loreKnown(o.it).length ? ' ' : '') + '?' : '') + '</i>' : '') + (o.all.length > 1 ? '<b class="qn">×' + left + '</b>' : '') + '</button>'; }).join('') : '<p class="hint">Nothing matches.</p>') + '</div>' +
         '<div class="cbottom"><label for="crIdea">What are you trying to make?</label><input id="crIdea" type="text" maxlength="160" placeholder="e.g. a sticky firebomb, a spear, something that heals" value="' + esc(CRAFT.idea) + '">' +
         '<div class="csel"><h3>Selected items <small>' + CRAFT.sel.length + '</small></h3>' + (CRAFT.sel.length ? CRAFT.sel.map(function (g, i) { return '<button type="button" class="cs" data-un="' + i + '" aria-label="Remove ' + esc(g.name) + '">' + itemIcon(g) + '<span>' + esc(g.name) + '</span><b aria-hidden="true">×</b></button>'; }).join('') : '<p class="hint">Tap items above to add them. Use as many as your idea needs.</p>') + '</div>' +
-        '<button type="button" class="go" id="crGo"' + (CRAFT.sel.length >= 2 && !CRAFT.busy ? '' : ' disabled') + '>' + (CRAFT.busy ? 'The System is thinking…' : 'Jury-rig it') + '</button><p class="hint">The System decides if it works, what roll it takes and what you get. Piling on junk does not help; the right parts do. Inventions become recipes the whole SGC can see.</p></div></div>' +
+        (CRAFT.busy ? '<div class="cres think"><b>The System is thinking…</b><p>Somewhere, a very large AI squints at your pile of junk.</p></div>' : CRAFT.result ? '<div class="cres ' + CRAFT.result.kind + '" role="status"><b>' + esc(CRAFT.result.title) + '</b><p>' + esc(CRAFT.result.text) + '</p></div>' : '') + '<button type="button" class="go" id="crGo"' + (CRAFT.sel.length >= 2 && !CRAFT.busy ? '' : ' disabled') + '>' + (CRAFT.busy ? 'The System is thinking…' : 'Jury-rig it') + '</button><p class="hint">The System decides if it works, what roll it takes and what you get. Piling on junk does not help; the right parts do. Inventions become recipes the whole SGC can see.</p></div></div>' +
       '<div class="crec"><h3>Recipes</h3>' + (recs || '<p class="hint">None yet. Invent something.</p>') + '</div></div>';
     document.getElementById('crX').onclick = craftToggle;
     document.getElementById('crBag').onclick = function () { craftToggle(); bagToggle(); };
@@ -9639,19 +9641,21 @@
 
   // ---------- inventing ----------
   function craftInvent(idea) {
-    if (CRAFT.busy || CRAFT.sel.length < 2) return; var sel = CRAFT.sel.slice();
+    if (CRAFT.busy) return; if (CRAFT.sel.length < 2) { craftSay('no', 'Need more parts', 'Pick at least two things to put together.'); return; } var sel = CRAFT.sel.slice(); CRAFT.result = null;
     var desc = sel.map(function (g) { return g.name + ' [' + (g.cat || 'misc') + (g.tags && g.tags.length ? '; ' + g.tags.join(', ') : '') + (g.dmg ? '; ' + g.dmg : '') + (g.heal ? '; heals ' + g.heal : '') + ']: ' + (g.desc || ''); }).join('\n');
     if (!NET.sample) { craftApply(craftOffline(sel, idea), sel, idea); return; }
-    CRAFT.busy = true; craftDraw();
+    CRAFT.busy = true; CRAFT.result = null; craftDraw();
+    var done = false, to = setTimeout(function () { if (done) return; done = true; CRAFT.busy = false; craftApply(craftOffline(sel, idea), sel, idea); }, 25000); // never leave you hanging
     var prompt = 'You are the System, the AI running a Dungeon Crawler Carl style dungeon on D&D 5e rules. ' + CREW_LORE + '\n\nA crawler wants to jury-rig something from items in their bag. Judge it like a fair, funny DM. Physical builds use the Jury-Rig track (INT); mixtures, potions, poisons and chemistry use the Alchemy track (WIS). ' +
       'Crawler skills: Jury-Rig ' + skillLv('Jury-Rig') + ', Alchemy ' + skillLv('Alchemy') + ', INT mod ' + MOD.INT + ', WIS mod ' + MOD.WIS + '.\n\nItems:\n' + desc + '\n\nWhat they want to make: ' + (idea || '(they did not say; make the most sensible thing)') +
       '\n\nRules: if the combination cannot plausibly make anything, ok=false and say why in comment. Otherwise design ONE item using only these fields. Recipe level 1-3 by complexity and power. Power limits: level 1 = up to 2d6 damage or 1d8 weapon or 2d4 healing; level 2 = up to 3d6, 1d10 weapon, 3d4+2 healing; level 3 = up to 4d6 area 2. ' +
       'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. They may hand you any number of items, duplicates included (two of the same item means they want to use both). Use the parts that make sense, put only those in consumes, and judge the whole idea: more parts can make a sturdier or stronger build, but junk that does not belong adds nothing. DC 8-18.' +
       '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"dc":10,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: stickbomb (a bomb on a stick) spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
     serverSample([{ role: 'user', content: prompt }], { modelTier: 'complex', maxTokens: 600 }).then(function (r) {
+      if (done) return; done = true; clearTimeout(to);
       var j = null; try { j = JSON.parse(r.text.replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {}
-      CRAFT.busy = false; craftApply(j || craftOffline(sel, idea), sel, idea);
-    }).catch(function () { CRAFT.busy = false; craftApply(craftOffline(sel, idea), sel, idea); });
+      CRAFT.busy = false; try { craftApply(j || craftOffline(sel, idea), sel, idea); } catch (x) { console.error(x); craftSay('no', 'Something broke', 'The System choked on that one. Try again.'); }
+    }).catch(function () { if (done) return; done = true; clearTimeout(to); CRAFT.busy = false; craftApply(craftOffline(sel, idea), sel, idea); });
   }
   // without the AI: a handful of sensible combinations by tag
   function craftOffline(sel, idea) {
@@ -9680,14 +9684,14 @@
     return { lv: lv, spec: spec };
   }
   function craftApply(j, sel, idea) {
-    if (!j || !j.ok) { say('Jury-rig · no', (j && j.comment) || 'That does not go together.', 5000); craftDraw(); return; }
+    if (!j || !j.ok) { craftSay('no', ['That ain\'t gonna work!', 'Nope. Not happening.', 'The System laughs at you.', 'Absolutely not.'][Math.floor(Math.random() * 4)], (j && j.comment) || 'That does not go together.'); return; }
     var track = j.track === 'alchemy' ? 'alchemy' : 'physical', sk = trackSkill(track), cs = craftSpec(j), dc = Math.max(8, Math.min(18, +j.dc || 10));
     var stat = track === 'alchemy' ? 'WIS' : 'INT', R = roll20(false, false), b = MOD[stat] + skillLv(sk) + itemChecks(sk), tot = R.r + b, ok = R.r === 20 || (R.r !== 1 && tot >= dc);
     var name = String(j.name || 'Contraption').replace(/[^\w '\-+!?]/g, '').slice(0, 40), consumes = (j.consumes || []).filter(function (n) { return sel.some(function (g) { return g.name === n; }); });
     if (!consumes.length) consumes = sel.filter(function (g) { return g.cat === 'material' || g.cat === 'consumable'; }).map(function (g) { return g.name; });
     if (!ok) {
       if (R.r === 1 && consumes.length) { var lost = CHAR.gear.filter(function (g) { return g.name === consumes[0]; })[0]; if (lost) itemSpend(lost); }
-      say('Jury-rig · it fails', 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (R.r === 1 ? 'It falls apart in your hands and takes the ' + consumes[0].toLowerCase() + ' with it.' : 'Close, but it will not hold. Your materials are fine.') + (j.comment ? ' ' + j.comment : ''), 6000);
+      craftSay('fail', R.r === 1 ? 'It falls apart!' : 'So close. It won\'t hold.', 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (R.r === 1 ? 'It falls apart in your hands and takes the ' + consumes[0].toLowerCase() + ' with it.' : 'Close, but it will not hold. Your materials are fine.') + (j.comment ? ' ' + j.comment : ''), 6000);
       skillUse(sk); CRAFT.sel = []; craftDraw(); return;
     }
     var used = (j.why || j.traits_used || []).map(function (x) { return String(x).toLowerCase(); }); loreLearn(sel.reduce(function (acc, g) { return acc.concat((g.tags || []).filter(function (t) { return used.indexOf(t) >= 0; }).map(function (t) { return [g, t]; })); }, []), 'That is why it worked.');
@@ -9703,7 +9707,7 @@
     } else skillUse(sk);
     // experience: inventing is worth a lot, making a known recipe a little; both are practice for the track skill
     var xp = isNew ? 30 * cs.lv + 10 : 6 * cs.lv; grantXP(xp);
-    say((isNew ? 'Invented · ' : 'Made · ') + name, 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (cs.spec.desc || '') + ' +' + xp + ' XP, and ' + sk + ' practice.' + (isNew ? ' New ' + sk + ' ' + cs.lv + ' recipe, shared with the SGC.' : '') + (j.comment ? ' ' + j.comment : ''), 7000);
+    craftSay('ok', (isNew ? 'Invented · ' : 'Made · ') + name, 'd20 ' + R.r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc + '. ' + (cs.spec.desc || '') + ' +' + xp + ' XP, and ' + sk + ' practice.' + (isNew ? ' New ' + sk + ' ' + cs.lv + ' recipe, shared with the SGC.' : '') + (j.comment ? ' ' + j.comment : ''), 7000);
     CRAFT.sel = []; saveChar(CHAR); craftDraw(); if (UI.bag) bagDraw();
   }
   function craftMake(name) {
@@ -10038,6 +10042,7 @@
       '#craft label{font-family:Cinzel,serif;font-size:11px;color:#5a4430;margin-top:4px}#craft input{height:38px;padding:0 10px;border:1px solid #6b5a3a;border-radius:3px;background:rgba(255,250,235,.7);font-family:"EB Garamond",serif;font-size:15px}',
       '#craft .go{height:44px;border:0;border-radius:3px;background:radial-gradient(circle at 50% 30%,#a8302a,#5e1410);color:#F3E6CC;font-family:Cinzel,serif;font-weight:800;font-size:14px}#craft .go:disabled{opacity:.45}',
       '#craft .hint{margin:0;font-style:italic;font-size:12.5px;color:#5a4430}',
+      '#craft .cres{padding:8px 12px;border-radius:3px;border:2px solid #6b5a3a;background:rgba(255,250,235,.6)}#craft .cres b{display:block;font-family:Cinzel,serif;font-size:15px}#craft .cres p{margin:2px 0 0;font-size:14px;line-height:1.3}#craft .cres.no{border-color:#7A1F1A;background:rgba(160,40,30,.12)}#craft .cres.no b{color:#7A1F1A;font-size:18px}#craft .cres.fail{border-color:#a0702a;background:rgba(200,140,40,.14)}#craft .cres.fail b{color:#8a5a10}#craft .cres.ok{border-color:#3a6a2a;background:rgba(70,140,50,.14)}#craft .cres.ok b{color:#2a5a1a}#craft .cres.think b{color:#5a4430}@keyframes crpop{0%{transform:scale(.96);opacity:.3}100%{transform:none;opacity:1}}#craft .cres{animation:crpop .25s ease-out}',
       '#cblog{position:fixed;z-index:6;right:16px;bottom:140px;width:min(320px,40vw);max-height:42vh;overflow:hidden;display:none;padding:6px 10px;background:rgba(20,14,8,.78);border:1px solid #5A4A30;border-radius:4px;color:#E9DCC0;font-family:"EB Garamond",serif;font-size:12.5px;pointer-events:none}#cblog.on{display:block}#cblog h4{margin:0 0 3px;font-family:Cinzel,serif;font-size:10px;letter-spacing:.08em;color:#C9B48A}#cblog p{margin:0 0 4px;opacity:.6;line-height:1.25}#cblog p.new{opacity:1}#cblog b{font-family:Cinzel,serif;font-size:.85em;color:#E0B868}@media (min-width:1000px) and (min-height:600px){#cblog{font-size:15px;width:380px}#cblog h4{font-size:12px}}@media (max-width:700px){#cblog{display:none !important}}',
       '.floater.status{color:#ffd860;font-family:Cinzel,serif;font-size:14px;letter-spacing:.05em}@media (min-width:1000px) and (min-height:600px){.floater{font-size:20px !important}.floater.status{font-size:18px !important}}',
       '#bagInfo .traits{margin:4px 0}#bagInfo .traits b{color:#7A1F1A;font-family:Cinzel,serif;font-size:.85em}#bagInfo .traits .unk{color:#8a7a5a;font-style:italic}',
