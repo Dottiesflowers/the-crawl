@@ -232,6 +232,7 @@
 
   // animation state, called every frame from the main loop
   function kitAnimate(dt, speed, air, crouching, torch) {
+    if (typeof wglowTick === 'function') wglowTick(dt);
     if (!KIT.on) return;
     var want;
     if (KIT.shot) { KIT.shotT -= dt; if (KIT.shotT > 0.12 && !air && speed < 0.05) want = KIT.shot; else KIT.shot = null; }

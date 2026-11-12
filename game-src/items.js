@@ -73,6 +73,20 @@
     'Rusty flanged mace': { cat: 'weapon', dmg: '1d8', onHit: { type: 'prone', chance: 0.15 }, tags: ['heavy'], level: 2, model: 'w_mace', len: 0.46, desc: 'Iron flanges on a stick. Sometimes knocks them flat.' },
     'Rusty spear': { cat: 'weapon', dmg: '1d8', tags: ['long', 'sharp'], level: 2, model: 'w_spear', len: 1.05, desc: 'Taller than you. The tip is the only part that was ever sharpened.' },
     'Bandit\'s shortbow': { cat: 'weapon', dmg: '1d4', bow: { n: 1, s: 6, range: 16, long: 48 }, tags: ['light'], rarity: 'Uncommon', level: 2, model: 'w_bow', len: 0.72, desc: 'Hold it and Throw becomes Shoot: 1d6 arrows out to 16 tiles (48 at disadvantage). Up close it is just a stick (1d4).' },
+    // clean steel: the same weapons, cared for. skin: repaint (steel, gold, storm, ember, frost, shadow) · acc: +N to hit (not magic)
+    // edmg: { dice, type } extra damage of a type on every hit (doubled on a crit, doubled again vs monsters weak to it)
+    'Steel arming sword': { cat: 'weapon', dmg: '1d6', crit: 19, acc: 1, tags: ['sharp'], rarity: 'Uncommon', level: 2, model: 'w_sword1', skin: 'steel', len: 0.48, desc: 'No rust. Somebody oiled this. +1 to hit, crits on 19-20.' },
+    'Steel longsword': { cat: 'weapon', dmg: '1d8', acc: 1, tags: ['sharp', 'long'], rarity: 'Uncommon', level: 2, model: 'w_sword2', skin: 'steel', len: 0.66, desc: 'The hero\'s sword, the one for close-ups. +1 to hit.' },
+    'Steel broadsword': { cat: 'weapon', dmg: '1d8', acc: 1, onHit: { type: 'weaken', ac: 1, turns: 1, chance: 0.25 }, tags: ['sharp'], rarity: 'Uncommon', level: 2, model: 'w_sword3', skin: 'steel', len: 0.56, desc: 'Clean, wide and heavy. +1 to hit; sometimes knocks a chunk off their armor.' },
+    'Steel battleaxe': { cat: 'weapon', dmg: '1d10', acc: 1, tags: ['sharp', 'heavy'], rarity: 'Uncommon', level: 2, model: 'w_axe2', skin: 'steel', len: 0.55, desc: 'Sharpened on both sides. +1 to hit.' },
+    'Steel spear': { cat: 'weapon', dmg: '1d8', acc: 1, tags: ['long', 'sharp'], rarity: 'Uncommon', level: 2, model: 'w_spear', skin: 'steel', len: 1.05, desc: 'A proper spear with a proper point. +1 to hit.' },
+    // uniques: bosses and elites only
+    'Stormcaller Longsword +1': { cat: 'weapon', dmg: '1d8', bonus: 1, edmg: { dice: '1d4', type: 'lightning' }, tags: ['sharp', 'long', 'conductive'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'storm', len: 0.7, desc: 'Blue steel that will not stop crackling. +1 to hit and damage, plus 1d4 lightning on every hit. Animatronics hate it.' },
+    'Emberbrand Battleaxe +1': { cat: 'weapon', dmg: '1d10', bonus: 1, edmg: { dice: '1d4', type: 'fire' }, tags: ['sharp', 'heavy', 'fire'], rarity: 'Rare', level: 2, model: 'w_axe2', skin: 'ember', len: 0.6, desc: 'Black iron, hot to the touch, smells like a pyro test. +1, plus 1d4 fire. Mushrooms burn.' },
+    'Frostbite Arming Sword +1': { cat: 'weapon', dmg: '1d6', crit: 19, bonus: 1, edmg: { dice: '1d4', type: 'cold' }, onHit: { type: 'stun', turns: 1, chance: 0.1 }, tags: ['sharp'], rarity: 'Rare', level: 2, model: 'w_sword1', skin: 'frost', len: 0.5, desc: 'Frosted white, and it fogs your breath. +1, plus 1d4 cold; now and then the cold locks them up for a turn.' },
+    'Nightshade Spear +1': { cat: 'weapon', dmg: '1d8', bonus: 1, edmg: { dice: '1d4', type: 'necrotic' }, tags: ['long', 'sharp'], rarity: 'Rare', level: 2, model: 'w_spear', skin: 'shadow', len: 1.1, desc: 'The point drinks the light around it. +1, plus 1d4 necrotic.' },
+    'Golden Prop Mace +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, onHit: { type: 'prone', chance: 0.25 }, tags: ['heavy'], rarity: 'Rare', level: 2, model: 'w_mace', skin: 'gold', len: 0.5, desc: 'Spray-painted gold for an awards episode. It is solid iron underneath. +1, crits on 19-20, knocks them flat a quarter of the time.' },
+    'Stunt Coordinator\'s Greatsword +1': { cat: 'weapon', dmg: '2d6', bonus: 1, tags: ['sharp', 'long', 'heavy'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'steel', len: 0.95, desc: 'The big one. Choreographed a thousand fights, lost none of them. 2d6, +1.' },
     // ---- tools ----
     'Roll of duct tape': { cat: 'tool', tags: ['sticky', 'binding'], level: 1, desc: 'The universal fix. The System has rules about it, but no one has read them.' },
     'Flashlight': { cat: 'tool', light: true, level: 1, desc: 'Works. For now.' },
@@ -177,18 +191,18 @@
       headliner: { gold: '8d6', always: ['Silver loot box', 'Goblin hob-lobber'], oneOf: ['Headliner\'s Mic Stand +1'] },
       // Floor 2 casts
       extra: { gold: '1d6', chance: [['Rusty arming sword', 0.35], ['Rusty spear', 0.15], ['Craft services sandwich', 0.3]] },
-      stuntdouble: { gold: '2d6', chance: [['Rusty longsword', 0.4], ['Rusty broadsword', 0.25], ['Healing potion', 0.3]] },
-      stuntknight: { gold: '3d6', always: ['Healing potion'], oneOf: ['Rusty longsword', 'Rusty battleaxe', 'Rusty flanged mace', 'Rusty broadsword'] },
+      stuntdouble: { gold: '2d6', chance: [['Rusty longsword', 0.4], ['Rusty broadsword', 0.25], ['Steel arming sword', 0.12], ['Healing potion', 0.3]] },
+      stuntknight: { gold: '3d6', always: ['Healing potion'], chance: [['Stunt Coordinator\'s Greatsword +1', 0.1]], oneOf: ['Steel longsword', 'Steel broadsword', 'Steel battleaxe', 'Rusty longsword', 'Rusty battleaxe', 'Rusty flanged mace'] },
       crew: { gold: '1d6', chance: [['Roll of duct tape', 0.4], ['AA batteries', 0.3], ['Rusty hatchet', 0.1]] },
       crew_lead: { gold: '2d6', always: ['Roll of duct tape'], chance: [['Healing potion', 0.4], ['Bandit\'s shortbow', 0.2]] },
       truffle: { gold: '1d4', chance: [['Shrub sap', 0.4], ['Band-aids', 0.15]] },
       truffle_big: { gold: '2d4', chance: [['Shrub sap', 0.6], ['Healing potion', 0.25]] },
-      truffle_king: { gold: '3d6', always: ['Healing potion'], chance: [['Rusty hatchet', 0.3]] },
+      truffle_king: { gold: '3d6', always: ['Healing potion'], chance: [['Rusty hatchet', 0.3], ['Emberbrand Battleaxe +1', 0.1]] },
       automaton: { gold: '1d6', chance: [['AA batteries', 0.5], ['WD-40', 0.2]] },
-      automaton_big: { gold: '2d6', always: ['AA batteries'], chance: [['Healing potion', 0.3], ['Rusty flanged mace', 0.2]] },
-      groundskeeper: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Hedge trimmers', 'Rusty battleaxe'] },
-      butler: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Rusty broadsword', 'Bandit\'s shortbow'] },
-      showrunner: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Bandit\'s shortbow', 'Rusty longsword'] },
+      automaton_big: { gold: '2d6', always: ['AA batteries'], chance: [['Healing potion', 0.3], ['Rusty flanged mace', 0.2], ['Frostbite Arming Sword +1', 0.1]] },
+      groundskeeper: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Nightshade Spear +1', 'Emberbrand Battleaxe +1'] },
+      butler: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Stormcaller Longsword +1', 'Frostbite Arming Sword +1'] },
+      showrunner: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Golden Prop Mace +1', 'Stormcaller Longsword +1'] },
       gatekeeper: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Gatekeeper\'s Keyring'] }
     },
     containers: {

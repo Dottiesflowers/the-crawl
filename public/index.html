@@ -7311,6 +7311,7 @@
 
   // animation state, called every frame from the main loop
   function kitAnimate(dt, speed, air, crouching, torch) {
+    if (typeof wglowTick === 'function') wglowTick(dt);
     if (!KIT.on) return;
     var want;
     if (KIT.shot) { KIT.shotT -= dt; if (KIT.shotT > 0.12 && !air && speed < 0.05) want = KIT.shot; else KIT.shot = null; }
@@ -7523,6 +7524,20 @@
     'Rusty flanged mace': { cat: 'weapon', dmg: '1d8', onHit: { type: 'prone', chance: 0.15 }, tags: ['heavy'], level: 2, model: 'w_mace', len: 0.46, desc: 'Iron flanges on a stick. Sometimes knocks them flat.' },
     'Rusty spear': { cat: 'weapon', dmg: '1d8', tags: ['long', 'sharp'], level: 2, model: 'w_spear', len: 1.05, desc: 'Taller than you. The tip is the only part that was ever sharpened.' },
     'Bandit\'s shortbow': { cat: 'weapon', dmg: '1d4', bow: { n: 1, s: 6, range: 16, long: 48 }, tags: ['light'], rarity: 'Uncommon', level: 2, model: 'w_bow', len: 0.72, desc: 'Hold it and Throw becomes Shoot: 1d6 arrows out to 16 tiles (48 at disadvantage). Up close it is just a stick (1d4).' },
+    // clean steel: the same weapons, cared for. skin: repaint (steel, gold, storm, ember, frost, shadow) · acc: +N to hit (not magic)
+    // edmg: { dice, type } extra damage of a type on every hit (doubled on a crit, doubled again vs monsters weak to it)
+    'Steel arming sword': { cat: 'weapon', dmg: '1d6', crit: 19, acc: 1, tags: ['sharp'], rarity: 'Uncommon', level: 2, model: 'w_sword1', skin: 'steel', len: 0.48, desc: 'No rust. Somebody oiled this. +1 to hit, crits on 19-20.' },
+    'Steel longsword': { cat: 'weapon', dmg: '1d8', acc: 1, tags: ['sharp', 'long'], rarity: 'Uncommon', level: 2, model: 'w_sword2', skin: 'steel', len: 0.66, desc: 'The hero\'s sword, the one for close-ups. +1 to hit.' },
+    'Steel broadsword': { cat: 'weapon', dmg: '1d8', acc: 1, onHit: { type: 'weaken', ac: 1, turns: 1, chance: 0.25 }, tags: ['sharp'], rarity: 'Uncommon', level: 2, model: 'w_sword3', skin: 'steel', len: 0.56, desc: 'Clean, wide and heavy. +1 to hit; sometimes knocks a chunk off their armor.' },
+    'Steel battleaxe': { cat: 'weapon', dmg: '1d10', acc: 1, tags: ['sharp', 'heavy'], rarity: 'Uncommon', level: 2, model: 'w_axe2', skin: 'steel', len: 0.55, desc: 'Sharpened on both sides. +1 to hit.' },
+    'Steel spear': { cat: 'weapon', dmg: '1d8', acc: 1, tags: ['long', 'sharp'], rarity: 'Uncommon', level: 2, model: 'w_spear', skin: 'steel', len: 1.05, desc: 'A proper spear with a proper point. +1 to hit.' },
+    // uniques: bosses and elites only
+    'Stormcaller Longsword +1': { cat: 'weapon', dmg: '1d8', bonus: 1, edmg: { dice: '1d4', type: 'lightning' }, tags: ['sharp', 'long', 'conductive'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'storm', len: 0.7, desc: 'Blue steel that will not stop crackling. +1 to hit and damage, plus 1d4 lightning on every hit. Animatronics hate it.' },
+    'Emberbrand Battleaxe +1': { cat: 'weapon', dmg: '1d10', bonus: 1, edmg: { dice: '1d4', type: 'fire' }, tags: ['sharp', 'heavy', 'fire'], rarity: 'Rare', level: 2, model: 'w_axe2', skin: 'ember', len: 0.6, desc: 'Black iron, hot to the touch, smells like a pyro test. +1, plus 1d4 fire. Mushrooms burn.' },
+    'Frostbite Arming Sword +1': { cat: 'weapon', dmg: '1d6', crit: 19, bonus: 1, edmg: { dice: '1d4', type: 'cold' }, onHit: { type: 'stun', turns: 1, chance: 0.1 }, tags: ['sharp'], rarity: 'Rare', level: 2, model: 'w_sword1', skin: 'frost', len: 0.5, desc: 'Frosted white, and it fogs your breath. +1, plus 1d4 cold; now and then the cold locks them up for a turn.' },
+    'Nightshade Spear +1': { cat: 'weapon', dmg: '1d8', bonus: 1, edmg: { dice: '1d4', type: 'necrotic' }, tags: ['long', 'sharp'], rarity: 'Rare', level: 2, model: 'w_spear', skin: 'shadow', len: 1.1, desc: 'The point drinks the light around it. +1, plus 1d4 necrotic.' },
+    'Golden Prop Mace +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, onHit: { type: 'prone', chance: 0.25 }, tags: ['heavy'], rarity: 'Rare', level: 2, model: 'w_mace', skin: 'gold', len: 0.5, desc: 'Spray-painted gold for an awards episode. It is solid iron underneath. +1, crits on 19-20, knocks them flat a quarter of the time.' },
+    'Stunt Coordinator\'s Greatsword +1': { cat: 'weapon', dmg: '2d6', bonus: 1, tags: ['sharp', 'long', 'heavy'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'steel', len: 0.95, desc: 'The big one. Choreographed a thousand fights, lost none of them. 2d6, +1.' },
     // ---- tools ----
     'Roll of duct tape': { cat: 'tool', tags: ['sticky', 'binding'], level: 1, desc: 'The universal fix. The System has rules about it, but no one has read them.' },
     'Flashlight': { cat: 'tool', light: true, level: 1, desc: 'Works. For now.' },
@@ -7627,18 +7642,18 @@
       headliner: { gold: '8d6', always: ['Silver loot box', 'Goblin hob-lobber'], oneOf: ['Headliner\'s Mic Stand +1'] },
       // Floor 2 casts
       extra: { gold: '1d6', chance: [['Rusty arming sword', 0.35], ['Rusty spear', 0.15], ['Craft services sandwich', 0.3]] },
-      stuntdouble: { gold: '2d6', chance: [['Rusty longsword', 0.4], ['Rusty broadsword', 0.25], ['Healing potion', 0.3]] },
-      stuntknight: { gold: '3d6', always: ['Healing potion'], oneOf: ['Rusty longsword', 'Rusty battleaxe', 'Rusty flanged mace', 'Rusty broadsword'] },
+      stuntdouble: { gold: '2d6', chance: [['Rusty longsword', 0.4], ['Rusty broadsword', 0.25], ['Steel arming sword', 0.12], ['Healing potion', 0.3]] },
+      stuntknight: { gold: '3d6', always: ['Healing potion'], chance: [['Stunt Coordinator\'s Greatsword +1', 0.1]], oneOf: ['Steel longsword', 'Steel broadsword', 'Steel battleaxe', 'Rusty longsword', 'Rusty battleaxe', 'Rusty flanged mace'] },
       crew: { gold: '1d6', chance: [['Roll of duct tape', 0.4], ['AA batteries', 0.3], ['Rusty hatchet', 0.1]] },
       crew_lead: { gold: '2d6', always: ['Roll of duct tape'], chance: [['Healing potion', 0.4], ['Bandit\'s shortbow', 0.2]] },
       truffle: { gold: '1d4', chance: [['Shrub sap', 0.4], ['Band-aids', 0.15]] },
       truffle_big: { gold: '2d4', chance: [['Shrub sap', 0.6], ['Healing potion', 0.25]] },
-      truffle_king: { gold: '3d6', always: ['Healing potion'], chance: [['Rusty hatchet', 0.3]] },
+      truffle_king: { gold: '3d6', always: ['Healing potion'], chance: [['Rusty hatchet', 0.3], ['Emberbrand Battleaxe +1', 0.1]] },
       automaton: { gold: '1d6', chance: [['AA batteries', 0.5], ['WD-40', 0.2]] },
-      automaton_big: { gold: '2d6', always: ['AA batteries'], chance: [['Healing potion', 0.3], ['Rusty flanged mace', 0.2]] },
-      groundskeeper: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Hedge trimmers', 'Rusty battleaxe'] },
-      butler: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Rusty broadsword', 'Bandit\'s shortbow'] },
-      showrunner: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Bandit\'s shortbow', 'Rusty longsword'] },
+      automaton_big: { gold: '2d6', always: ['AA batteries'], chance: [['Healing potion', 0.3], ['Rusty flanged mace', 0.2], ['Frostbite Arming Sword +1', 0.1]] },
+      groundskeeper: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Nightshade Spear +1', 'Emberbrand Battleaxe +1'] },
+      butler: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Stormcaller Longsword +1', 'Frostbite Arming Sword +1'] },
+      showrunner: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Golden Prop Mace +1', 'Stormcaller Longsword +1'] },
       gatekeeper: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Gatekeeper\'s Keyring'] }
     },
     containers: {
@@ -7853,13 +7868,13 @@
   BEAST.stuntknight = own('knight', { name: 'Stunt knight', ac: 15, hp: 24, speed: 5, atk: 5, dmg: [1, 10, 2], weapon: 'arming sword and shield', str: 3, xp: 160, h: 1.85, lines: ['Full plate, a shield, and a choreographer it stopped listening to.'] });
   BEAST.crew = own('crew', { name: 'Stagehand', ac: 10, hp: 7, speed: 6, atk: 2, dmg: [1, 4, 1], weapon: 'wrench', xp: 25, h: 1.7, lines: ['Wears all black so the camera can\'t see it. You can.'] });
   BEAST.crew_lead = own('crew', { name: 'Key grip', ac: 12, hp: 15, speed: 6, atk: 4, dmg: [1, 6, 2], weapon: 'C-stand', str: 2, xp: 75, h: 1.85, tint: 0xc0b0a0, lines: ['Runs the grips. Swings a C-stand like it owes him money.'] });
-  BEAST.truffle = own('truffle', { name: 'Truffle man', ac: 10, hp: 9, speed: 4, atk: 3, dmg: [1, 6, 0], weapon: 'mossy fists', str: 2, dex: 0, xp: 35, h: 1.25, lines: ['A walking mushroom with a scarf. Smells incredible. Hits like a log.'] });
-  BEAST.truffle_big = own('truffle', { name: 'Old-growth truffle', ac: 12, hp: 18, speed: 4, atk: 4, dmg: [1, 8, 2], weapon: 'mossy fists', str: 3, dex: 0, xp: 90, h: 1.6, tint: 0xb8c8a0, lines: ['Older, wider, and covered in its own grandchildren.'] });
-  BEAST.truffle_king = own('truffle', { name: 'Morel monarch', ac: 13, hp: 28, speed: 4, atk: 5, dmg: [2, 6, 2], weapon: 'mossy fists', str: 4, dex: 0, xp: 170, h: 1.95, tint: 0xd0a080, lines: ['It has a crown of smaller mushrooms. They are all watching you.'] });
-  BEAST.groundskeeper = own('truffle', { name: 'The Groundskeeper', ac: 15, hp: 60, speed: 4, atk: 6, dmg: [2, 8, 3], weapon: 'hedge trimmer', str: 5, dex: 0, init: 0, pp: 13, xp: 650, h: 2.6, tint: 0x90a870, boss: true, lines: ['Keeps the Jungle Set tidy. Has been composting crawlers, and the jungle has never looked better.'] });
-  BEAST.automaton = own('robot', { name: 'Animatronic', ac: 13, hp: 12, speed: 5, atk: 3, dmg: [1, 6, 1], weapon: 'brass fists', str: 2, dex: 0, xp: 60, h: 1.75, lines: ['A clockwork servant from the haunted-manor set. It is still serving. You are the course.'] });
-  BEAST.automaton_big = own('robot', { name: 'Footman unit', ac: 15, hp: 22, speed: 5, atk: 4, dmg: [1, 8, 2], weapon: 'brass fists', str: 3, dex: 0, xp: 140, h: 2.0, tint: 0xd0d8e0, lines: ['Polished, upright, and programmed to remove guests who overstay.'] });
-  BEAST.butler = own('robot', { name: 'The Butler Unit', ac: 16, hp: 64, speed: 5, atk: 6, dmg: [2, 8, 3], weapon: 'silver tray', str: 4, dex: 1, init: 2, pp: 14, xp: 700, h: 2.5, tint: 0xffd890, boss: true, lines: ['Head of the manor staff. Its manners are flawless. So is its right hook.'] });
+  BEAST.truffle = own('truffle', { vuln: ['fire'],  name: 'Truffle man', ac: 10, hp: 9, speed: 4, atk: 3, dmg: [1, 6, 0], weapon: 'mossy fists', str: 2, dex: 0, xp: 35, h: 1.25, lines: ['A walking mushroom with a scarf. Smells incredible. Hits like a log.'] });
+  BEAST.truffle_big = own('truffle', { vuln: ['fire'],  name: 'Old-growth truffle', ac: 12, hp: 18, speed: 4, atk: 4, dmg: [1, 8, 2], weapon: 'mossy fists', str: 3, dex: 0, xp: 90, h: 1.6, tint: 0xb8c8a0, lines: ['Older, wider, and covered in its own grandchildren.'] });
+  BEAST.truffle_king = own('truffle', { vuln: ['fire'],  name: 'Morel monarch', ac: 13, hp: 28, speed: 4, atk: 5, dmg: [2, 6, 2], weapon: 'mossy fists', str: 4, dex: 0, xp: 170, h: 1.95, tint: 0xd0a080, lines: ['It has a crown of smaller mushrooms. They are all watching you.'] });
+  BEAST.groundskeeper = own('truffle', { vuln: ['fire'],  name: 'The Groundskeeper', ac: 15, hp: 60, speed: 4, atk: 6, dmg: [2, 8, 3], weapon: 'hedge trimmer', str: 5, dex: 0, init: 0, pp: 13, xp: 650, h: 2.6, tint: 0x90a870, boss: true, lines: ['Keeps the Jungle Set tidy. Has been composting crawlers, and the jungle has never looked better.'] });
+  BEAST.automaton = own('robot', { vuln: ['lightning'],  name: 'Animatronic', ac: 13, hp: 12, speed: 5, atk: 3, dmg: [1, 6, 1], weapon: 'brass fists', str: 2, dex: 0, xp: 60, h: 1.75, lines: ['A clockwork servant from the haunted-manor set. It is still serving. You are the course.'] });
+  BEAST.automaton_big = own('robot', { vuln: ['lightning'],  name: 'Footman unit', ac: 15, hp: 22, speed: 5, atk: 4, dmg: [1, 8, 2], weapon: 'brass fists', str: 3, dex: 0, xp: 140, h: 2.0, tint: 0xd0d8e0, lines: ['Polished, upright, and programmed to remove guests who overstay.'] });
+  BEAST.butler = own('robot', { vuln: ['lightning'],  name: 'The Butler Unit', ac: 16, hp: 64, speed: 5, atk: 6, dmg: [2, 8, 3], weapon: 'silver tray', str: 4, dex: 1, init: 2, pp: 14, xp: 700, h: 2.5, tint: 0xffd890, boss: true, lines: ['Head of the manor staff. Its manners are flawless. So is its right hook.'] });
   BEAST.showrunner = own('dracul', { name: 'The Showrunner', ac: 16, hp: 75, speed: 6, atk: 7, dmg: [2, 8, 4], weapon: 'claws and a rolled-up script', str: 4, dex: 2, init: 3, pp: 15, xp: 900, h: 2.1, boss: true, lines: ['A dragon in a blazer. Runs every sitcom on Maple Lane, and has notes on your performance.'] });
   var NPCS = { pip: { name: 'Pip', exam: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile.' },
     vrell: { name: 'Producer Vrell', exam: 'A tall grey alien in a lanyard that says EXECUTIVE PRODUCER. Huge black eyes, long fingers, a tablet. This is one of the ones who took you.' },
@@ -8452,9 +8467,13 @@
     if (PC.hidden) { PC.hidden = false; }
     if (hit) {
       var raw = d(crit ? Wp.n * 2 : Wp.n, Wp.s), dm = Math.max(1, raw + Wp.dmgB); e.hp -= dm;
+      var exTxt = ''; if (Wp.edmg) { // enchanted: extra typed damage (doubled dice on a crit, double again if it is weak to that)
+        var xm = /(\d+)d(\d+)/.exec(Wp.edmg.dice), xr = xm ? d((crit ? 2 : 1) * +xm[1], +xm[2]) : 0, weak = (e.def.vuln || []).indexOf(Wp.edmg.type) >= 0; if (weak) xr *= 2;
+        if (xr) { e.hp -= xr; dm += xr; exTxt = ' (' + xr + ' of it ' + Wp.edmg.type + (weak ? ', and it is weak to that' : '') + ')'; setTimeout(function () { floater(e.px + 0.3, e.def.h + 0.55, e.pz, '+' + xr + ' ' + Wp.edmg.type, 'crit'); }, 260); }
+      }
       diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, dd: (crit ? Wp.n * 2 : Wp.n) + 'd' + Wp.s, ds: Wp.s, raw: raw, db: Wp.dmgB, dm: dm, why: why });
       floater(e.px, e.def.h + 0.25, e.pz, (crit ? 'CRIT ' : '') + '-' + dm, crit ? 'crit' : 'dmg');
-      say((opt.label || (crit ? 'Critical hit' : 'Hit')) + ' · ' + Wp.name + ' · ' + line, e.name + ' takes ' + dm + ' damage' + (e.hp <= 0 ? ' and goes down.' : ' (' + Math.max(0, e.hp) + ' / ' + e.max + ' left).') + (Wp.note ? ' ' + Wp.note : ''), 5200);
+      say((opt.label || (crit ? 'Critical hit' : 'Hit')) + ' · ' + Wp.name + ' · ' + line, e.name + ' takes ' + dm + ' damage' + exTxt + (e.hp <= 0 ? ' and goes down.' : ' (' + Math.max(0, e.hp) + ' / ' + e.max + ' left).') + (Wp.note ? ' ' + Wp.note : ''), 5200);
       if (Wp.skey && !opt.ranged) skillCount(Wp.skey);
       if (Wp.onHit && e.hp > 0 && Math.random() < (Wp.onHit.chance || 1)) { var ohn = fxApply([Wp.onHit], e); if (ohn) say('Hit · ' + Wp.name, ohn, 2600); }
       if (e.hp <= 0) cbKill(e); else if (!e.prone) cbPlay(e, 'Hit_Chest', true);
@@ -10044,7 +10063,7 @@
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
     var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
     var bon = +it.bonus || 0, sk = weaponSkillKey(it); // enchanted: +1 weapons add to hit and damage, 5e style; weapon skills add to hit
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + weaponSkillBonus(sk) + buffHit(), dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk, crit: +it.crit || 20, onHit: it.onHit || null };
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + (+it.acc || 0) + weaponSkillBonus(sk) + buffHit(), edmg: it.edmg || null, dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk, crit: +it.crit || 20, onHit: it.onHit || null };
   }
 
   // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------
@@ -10265,11 +10284,26 @@
     return '<svg class="ico" viewBox="0 0 28 28" width="30" height="30" aria-hidden="true">' + svg + '</svg>';
   }
   // the wielded inventory item as a little 3D model in the right hand (built along +y, grip at the origin)
+  // weapon skins: the same models repainted (kit2/wskin_*.jpg: only the metal changes, grips stay or get a matching wrap); enchanted ones glow
+  var WSKIN = { steel: {}, gold: {}, storm: { glow: 0x5ac8ff, fx: 'spark' }, ember: { glow: 0xff5a14, fx: 'pulse' }, frost: { glow: 0x9adcff, fx: 'pulse' }, shadow: { glow: 0x8a4aff, fx: 'pulse' } }, WSKIN_MAT = {}, WGLOW = [], wglowT = 0;
+  function wskinMat(k) {
+    if (WSKIN_MAT[k]) return WSKIN_MAT[k]; var S = WSKIN[k];
+    var m = new THREE.MeshLambertMaterial({ map: kitTex('wskin_' + k + '.jpg'), side: THREE.DoubleSide }); m.color.setScalar(1.35); m.userData.lit = 1;
+    if (S.glow) { m.emissive = new THREE.Color(S.glow); m.emissiveMap = kitTex('wskin_glow.jpg'); m.emissiveIntensity = 0.8; WGLOW.push({ m: m, fx: S.fx }); }
+    return (WSKIN_MAT[k] = m);
+  }
+  function wglowTick(dt) { // electric blades crackle, the others breathe
+    if (!WGLOW.length) return; wglowT += dt;
+    WGLOW.forEach(function (w) { w.m.emissiveIntensity = w.fx === 'spark' ? (Math.random() < 0.12 ? 2.4 : 0.55 + 0.25 * Math.sin(wglowT * 23)) : 0.75 + 0.35 * Math.sin(wglowT * 2.6); });
+  }
   function gearModel(g0, it) {
     var k = itemKind(it), RED = 0xb02828, g = new THREE.Group(); g.scale.setScalar(1.35); g0.add(g);
     // weapons with a real model (kit2/weapons.json): grip just above the pommel, blade up; a bow is held in the middle
     var IB = (typeof ITEMS !== 'undefined' && ITEMS[it.name]) || it;
-    if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) { g.traverse(function (o) { if (o.isMesh && !o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); return; } // the rust textures are dark: lift them so they read in hand
+    if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) {
+      g.traverse(function (o) { if (!o.isMesh) return; if (IB.skin && WSKIN[IB.skin]) { o.material = wskinMat(IB.skin); return; } if (!o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); // the rust textures are dark: lift them so they read in hand
+      return;
+    }
     if (k === 'shears') { [-1, 1].forEach(function (s) { var a = new THREE.Group(); a.rotation.z = s * 0.12; g.add(a); part(a, 0.022, 0.09, 0.02, RED, s * 0.012, 0.0, 0); part(a, 0.012, 0.11, 0.006, STEEL, s * 0.004, 0.1, s * 0.004, 'metal'); }); part(g, 0.02, 0.02, 0.03, DARK, 0, 0.05, 0); }
     else if (k === 'knife') { part(g, 0.024, 0.1, 0.024, 0x4a3020, 0, 0, 0, 'wood'); part(g, 0.03, 0.012, 0.03, STEEL, 0, 0.055, 0, 'metal'); part(g, 0.028, 0.13, 0.006, STEEL, 0.004, 0.125, 0, 'metal'); }
     else if (k === 'hammer') { part(g, 0.028, 0.3, 0.028, WOOD, 0, 0.1, 0, 'wood'); part(g, 0.13, 0.05, 0.05, METAL_D, 0.02, 0.26, 0, 'metal'); }
@@ -10741,7 +10775,7 @@
     var el = document.createElement('div'); el.id = 'dmBox'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'DM mode');
     el.innerHTML = '<small>DM MODE</small><h3>Floors</h3><div class="row"><button type="button" data-f="1"' + (FLOOR === 1 ? ' class="on"' : '') + '>Floor 1 · Basic Training</button><button type="button" data-f="2"' + (FLOOR === 2 ? ' class="on"' : '') + '>Floor 2 · The Backlot</button></div>' +
       '<h3>Monsters on this floor</h3><div class="row"><button type="button" id="dmPeace" class="' + (DM.peace ? 'on' : '') + '">' + (DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight') + '</button></div>' +
-      '<h3>Test gear</h3><div class="row"><button type="button" id="dmRusty">Give me the rusty weapons</button></div>' +
+      '<h3>Test gear</h3><div class="row"><button type="button" id="dmRusty">Give me every Soundstage weapon</button></div>' +
       '<p>Your spot on each floor is saved, so you come back where you left. Gear, level and gold travel with you.</p><p><a href="credits.html" target="_blank" rel="noopener">Asset credits</a></p><button type="button" id="dmX">Close</button>';
     document.body.appendChild(el);
     el.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { var f = +b.getAttribute('data-f'); if (f === FLOOR) return; if (CB.on) { say('DM mode', 'Finish the fight first.', 2500); return; } b.textContent = 'Going…'; dmFloor(f); }; });
@@ -10749,7 +10783,7 @@
     document.getElementById('dmRusty').onclick = function () { // every Soundstage weapon into your bag (skips ones you already have)
       var have = {}, got = 0; (CHAR.gear || []).forEach(function (x) { have[x.name] = 1; });
       Object.keys(ITEMS).forEach(function (n) { if (ITEMS[n].model && !have[n]) { var it = item(n, { from: 'DM mode' }); if (it) { CHAR.gear.push(it); got++; } } });
-      saveChar(CHAR); this.textContent = got ? 'Added ' + got + ' weapons' : 'You have them all'; say('DM mode', got ? got + ' rusty weapons are in your bag. Wield one from Inventory.' : 'Already in your bag.', 3000);
+      saveChar(CHAR); this.textContent = got ? 'Added ' + got + ' weapons' : 'You have them all'; say('DM mode', got ? got + ' weapons are in your bag. Wield one from Inventory.' : 'Already in your bag.', 3000);
     };
     document.getElementById('dmX').onclick = function () { el.remove(); };
   }

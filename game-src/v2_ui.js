@@ -296,7 +296,7 @@
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
     var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
     var bon = +it.bonus || 0, sk = weaponSkillKey(it); // enchanted: +1 weapons add to hit and damage, 5e style; weapon skills add to hit
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + weaponSkillBonus(sk) + buffHit(), dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk, crit: +it.crit || 20, onHit: it.onHit || null };
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + (+it.acc || 0) + weaponSkillBonus(sk) + buffHit(), edmg: it.edmg || null, dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk, crit: +it.crit || 20, onHit: it.onHit || null };
   }
 
   // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------
@@ -517,11 +517,26 @@
     return '<svg class="ico" viewBox="0 0 28 28" width="30" height="30" aria-hidden="true">' + svg + '</svg>';
   }
   // the wielded inventory item as a little 3D model in the right hand (built along +y, grip at the origin)
+  // weapon skins: the same models repainted (kit2/wskin_*.jpg: only the metal changes, grips stay or get a matching wrap); enchanted ones glow
+  var WSKIN = { steel: {}, gold: {}, storm: { glow: 0x5ac8ff, fx: 'spark' }, ember: { glow: 0xff5a14, fx: 'pulse' }, frost: { glow: 0x9adcff, fx: 'pulse' }, shadow: { glow: 0x8a4aff, fx: 'pulse' } }, WSKIN_MAT = {}, WGLOW = [], wglowT = 0;
+  function wskinMat(k) {
+    if (WSKIN_MAT[k]) return WSKIN_MAT[k]; var S = WSKIN[k];
+    var m = new THREE.MeshLambertMaterial({ map: kitTex('wskin_' + k + '.jpg'), side: THREE.DoubleSide }); m.color.setScalar(1.35); m.userData.lit = 1;
+    if (S.glow) { m.emissive = new THREE.Color(S.glow); m.emissiveMap = kitTex('wskin_glow.jpg'); m.emissiveIntensity = 0.8; WGLOW.push({ m: m, fx: S.fx }); }
+    return (WSKIN_MAT[k] = m);
+  }
+  function wglowTick(dt) { // electric blades crackle, the others breathe
+    if (!WGLOW.length) return; wglowT += dt;
+    WGLOW.forEach(function (w) { w.m.emissiveIntensity = w.fx === 'spark' ? (Math.random() < 0.12 ? 2.4 : 0.55 + 0.25 * Math.sin(wglowT * 23)) : 0.75 + 0.35 * Math.sin(wglowT * 2.6); });
+  }
   function gearModel(g0, it) {
     var k = itemKind(it), RED = 0xb02828, g = new THREE.Group(); g.scale.setScalar(1.35); g0.add(g);
     // weapons with a real model (kit2/weapons.json): grip just above the pommel, blade up; a bow is held in the middle
     var IB = (typeof ITEMS !== 'undefined' && ITEMS[it.name]) || it;
-    if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) { g.traverse(function (o) { if (o.isMesh && !o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); return; } // the rust textures are dark: lift them so they read in hand
+    if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) {
+      g.traverse(function (o) { if (!o.isMesh) return; if (IB.skin && WSKIN[IB.skin]) { o.material = wskinMat(IB.skin); return; } if (!o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); // the rust textures are dark: lift them so they read in hand
+      return;
+    }
     if (k === 'shears') { [-1, 1].forEach(function (s) { var a = new THREE.Group(); a.rotation.z = s * 0.12; g.add(a); part(a, 0.022, 0.09, 0.02, RED, s * 0.012, 0.0, 0); part(a, 0.012, 0.11, 0.006, STEEL, s * 0.004, 0.1, s * 0.004, 'metal'); }); part(g, 0.02, 0.02, 0.03, DARK, 0, 0.05, 0); }
     else if (k === 'knife') { part(g, 0.024, 0.1, 0.024, 0x4a3020, 0, 0, 0, 'wood'); part(g, 0.03, 0.012, 0.03, STEEL, 0, 0.055, 0, 'metal'); part(g, 0.028, 0.13, 0.006, STEEL, 0.004, 0.125, 0, 'metal'); }
     else if (k === 'hammer') { part(g, 0.028, 0.3, 0.028, WOOD, 0, 0.1, 0, 'wood'); part(g, 0.13, 0.05, 0.05, METAL_D, 0.02, 0.26, 0, 'metal'); }
