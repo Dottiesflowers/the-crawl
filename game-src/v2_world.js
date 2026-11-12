@@ -326,7 +326,7 @@
     var ft = floorTex(fid, fid === 'hall' ? ((x + z) % 2) + 2 * Math.floor(r * 2) : v);
     if (wet && waterTex.indexOf(ft) < 0) { ft.wrapS = ft.wrapT = THREE.RepeatWrapping; waterTex.push(ft); }
     floorQuad(ft, x, wet ? -0.04 : 0, z);
-    var dl = LEVEL.decor[x + ',' + z]; if (dl) dl.forEach(function (d) { if (d.m === '#rug') { box(d.w, 0.02, d.d, d.col, x + (d.w % 2 ? 0 : 0.5), 0.004, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', seed: 7, noShadow: true }); box(d.w + 0.12, 0.012, d.d + 0.12, 0xc9a227, x + (d.w % 2 ? 0 : 0.5), 0.0, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', noShadow: true }); } });
+    var dl = LEVEL.decor[x + ',' + z]; if (dl) dl.forEach(function (d) { if (d.m === '#throne') { throneAt(x, z, d.rot || 0); return; } if (d.m === '#rug') { box(d.w, 0.02, d.d, d.col, x + (d.w % 2 ? 0 : 0.5), 0.004, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', seed: 7, noShadow: true }); box(d.w + 0.12, 0.012, d.d + 0.12, 0xc9a227, x + (d.w % 2 ? 0 : 0.5), 0.0, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', noShadow: true }); } });
     if (c === 'D') {
       var horiz = ch(x - 1, z) === '#';
       [-0.44, 0.44].forEach(function (o) { box(0.16, 1.5, 0.16, 0x4a3420, x + (horiz ? o : 0), 0.75, z + (horiz ? 0 : o), x, z, { fade: true, kind: 'wood' });
@@ -406,6 +406,18 @@
         box(0.24, 0.1, 0.18, 0x7d766e, x + 0.2, 0.05, z - 0.2, x, z, { seed: 1 }); box(0.12, 0.07, 0.12, 0x6a645c, x + 0.02, 0.035, z - 0.08, x, z, { seed: 2 });
       } else if (rid === 'store' && r2 > 0.9) { box(0.32, 0.2, 0.26, 0xb09a6a, x + 0.1, 0.1, z, x, z, { kind: 'cloth', seed: 4 }); box(0.1, 0.07, 0.1, 0xb09a6a, x + 0.1, 0.23, z, x, z, { kind: 'cloth' }); box(0.12, 0.02, 0.12, 0x6a4e2a, x + 0.1, 0.2, z, x, z); }
     }
+  }
+
+  // Grik's throne, built at person scale: a stepped stone dais, a high-backed chair, a red cushion and a crest of bottle caps
+  function throneAt(x, z, rot) {
+    var c = Math.cos(rot), s = Math.sin(rot);
+    function at(w, h, d, col, ox, y, oz, o) { var m = box(w, h, d, col, x + ox * c + oz * s, y, z - ox * s + oz * c, x, z, o || {}); m.mesh.rotation.y = rot; return m; }
+    at(1.7, 0.16, 1.7, 0x4e4840, 0, 0.08, 0, { seed: 3 }); at(1.25, 0.14, 1.25, 0x5e574d, 0, 0.23, 0, { seed: 5 });
+    at(0.72, 0.3, 0.62, 0x4a2e16, 0, 0.45, 0.02); at(0.72, 0.08, 0.62, 0x5a3a1e, 0, 0.62, 0.02); at(0.62, 0.07, 0.5, 0x8a1a1a, 0, 0.69, 0.04, { kind: 'cloth' });
+    at(0.72, 1.15, 0.1, 0x5a3a1e, 0, 1.2, -0.28); at(0.6, 0.9, 0.04, 0x8a1a1a, 0, 1.15, -0.22, { kind: 'cloth' });
+    at(0.09, 0.26, 0.6, 0x4a2e16, -0.36, 0.8, 0.02); at(0.09, 0.26, 0.6, 0x4a2e16, 0.36, 0.8, 0.02);
+    at(0.86, 0.1, 0.14, 0xc9a227, 0, 1.82, -0.28, { kind: 'metal' });
+    for (var i = -2; i <= 2; i++) at(0.1, 0.03, 0.1, [0xc9a227, 0xb0b0b0, 0xc84a2a][(i + 3) % 3], i * 0.16, 1.9 + (i % 2 ? 0.04 : 0.08), -0.28, { kind: 'metal' });
   }
 
   // ---------- streaming: only the chunks around the hero exist in the scene ----------

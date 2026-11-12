@@ -56,6 +56,7 @@
       '@media (min-width:1000px) and (min-height:600px){#hotbar button{width:66px;height:66px}#hotbar svg{width:38px;height:38px}#hotbar .hb small{font-size:11.5px}#hotbar b{font-size:14px}}',
       '@media (max-width:700px){#hotbar{left:8px;transform:none;bottom:auto;top:150px;padding:4px;gap:4px}#hotbar .hs{flex-direction:column}#hotbar button{width:46px;height:46px}#hotbar svg{width:26px;height:26px}#hotbar .hb small em{display:none}#hotbar .hb small{font-size:8px;max-width:46px;overflow:hidden}}',
       'body.cb #hotbar{bottom:96px}',
+      '@media (max-height:500px){#camBar{top:44px !important;right:142px !important;flex-direction:column}}',
       '#hotbar{pointer-events:none}#hotbar button{pointer-events:auto}#stick{z-index:8 !important}',
       '@media (max-height:500px) and (min-width:701px){#hotbar{bottom:4px;left:calc(158px + env(safe-area-inset-left));transform:none;flex-direction:column;padding:2px 5px 3px;gap:1px}#hotbar .hb{display:flex;align-items:center;gap:4px}#hotbar .hb small{display:none}#hotbar .hs{gap:3px}#hotbar button{width:30px;height:30px;padding:1px}#hotbar svg{width:17px;height:17px}#hotbar b{font-size:9px;right:2px;bottom:0}#hotbar i{font-size:7px;left:2px}body.cb #hotbar{bottom:4px}#aimBar{bottom:78px}}',
       '#buffs{position:fixed;z-index:5;left:10px;top:96px;display:flex;flex-wrap:wrap;gap:4px;max-width:240px}',

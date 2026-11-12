@@ -636,7 +636,7 @@
       for (k = 0; k < ri(2, 4); k++) { var x3 = ri(c.x0 + 1, c.x1 - 1), z3 = ri(c.z0 + 1, c.z1 - 1); if (freeT(x3, z3, c)) dec(x3, z3, pick(['Coin_Pile', 'Bag', 'Vase_Rubble_Medium', 'Bucket_Wooden_1', 'Rope_2']), { fit: 0.32, rot: rnd() * 6, ns: true }); }
     });
     (function () { var c = center(wboss); // Grik's throne: a big chair on crates, bottle caps everywhere
-      if (freeT(c[0], wboss.z0 + 2, wboss)) { obj(c[0], wboss.z0 + 2, 'Crate_Wooden', { fit: 1.0 }, 'Throne'); dec(c[0], wboss.z0 + 2, 'Chair_1', { y: 0.82, fit: 0.9, rot: 0 }); }
+      if (freeT(c[0], wboss.z0 + 2, wboss)) obj(c[0], wboss.z0 + 2, '#throne', { rot: 0 }, 'Grik\'s throne');
       for (var k = 0; k < 18; k++) { var x2 = c[0] + ri(-7, 7), z2 = c[1] + ri(-5, 5); if (freeT(x2, z2, wboss)) dec(x2, z2, pick(['Coin_Pile', 'Coin_Pile_2', 'Coin_Pile']), { fit: 0.35 + rnd() * 0.2, rot: rnd() * 6, ns: true }); }
       alongWall(wboss, 4, function (x, z, w) { banner(x, z, w, 'Banner_2'); return true; });
     })();
