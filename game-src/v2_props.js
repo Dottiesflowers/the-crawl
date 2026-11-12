@@ -20,8 +20,8 @@
     return m;
   }
   function propLoad() {
-    var L = new THREE.GLTFLoader(), left = 4;
-    ['props', 'nature', 'furn', 'props2'].forEach(function (nm) {
+    var L = new THREE.GLTFLoader(), left = 5;
+    ['props', 'nature', 'furn', 'props2', 'weapons'].forEach(function (nm) {
       fetch(KDIR + nm + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         var bin = atob(j.glb), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
         L.parse(u.buffer, KDIR, function (g) {

@@ -412,7 +412,7 @@
       { label: 'Shove: push away', tag: 'Athletics contest', ok: r.action && adj.length > 0, fn: function () { cbShove(true); } },
       { label: 'Grapple', tag: 'Athletics contest · speed 0', ok: r.action && adj.length > 0, fn: cbGrapple },
       { label: 'Hide', tag: 'Stealth vs their Perception', ok: r.action && adj.length === 0, fn: cbHide },
-      { label: 'Throw ' + Wt.name, tag: Wt.n + 'd' + Wt.s + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action, fn: function () { CB.aim = 'throw'; say('Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal throw; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
+      { label: (Wt.bow ? 'Shoot ' : 'Throw ') + Wt.name, tag: Wt.n + 'd' + Wt.s + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action, fn: function () { CB.aim = 'throw'; say(Wt.bow ? 'Shoot' : 'Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal ' + (Wt.bow ? 'shot' : 'throw') + '; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
     ]);
   }
   function cbMenuToggle(which) {
@@ -459,6 +459,8 @@
   function cbMyTurn() { return CB.on && CB.order[CB.idx] === 'pc'; }
   function cbAdjacent() { return CB.enemies.filter(function (e) { return !e.dead && !e.calm && cheb(P.x, P.z, e.x, e.z) <= 1; }); }
   function cbThrowable() {
+    var bw = CHAR && CHAR.wield && ITEMS[CHAR.wield] && ITEMS[CHAR.wield].bow; // holding a bow: Throw becomes Shoot, and the bow stays in your hands
+    if (bw) return { name: 'an arrow', n: bw.n, s: bw.s, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true };
     if (sty('off') === 3 || (KIT && !KIT.on && sty('main') === 0 && sty('off') === 3)) return { name: 'your dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', prof: true, range: 4, long: 12, dagger: true };
     return { name: 'a rock', n: 1, s: 4, stat: 'STR', prof: false, range: 4, long: 12 };
   }
@@ -638,10 +640,10 @@
   function cbAfterMyMove() { setTimeout(function () { CB.busy = false; cbShowMoves(); cbHUD(); if (!CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }, 500); }
   function cbThrow(e) {
     var Wt = cbThrowable(), dist = cheb(P.x, P.z, e.x, e.z);
-    if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can throw up to ' + Wt.long + '.', 2600); return; }
+    if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can ' + (Wt.bow ? 'shoot' : 'throw') + ' up to ' + Wt.long + '.', 2600); return; }
     if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is between you and ' + e.name + '.', 2600); return; }
     CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); kitOneShot('Spell_Simple_Shoot'); cbHUD();
-    var Wp = { name: 'thrown ' + Wt.name.replace(/^(your|a) /, ''), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat], dmgB: MOD[Wt.stat], range: Wt.range };
+    var Wp = { name: (Wt.bow ? 'an arrow' : 'thrown ' + Wt.name.replace(/^(your|a) /, '')), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat], dmgB: MOD[Wt.stat], range: Wt.range };
     setTimeout(function () {
       cbResolve(e, Wp, { ranged: true });
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }

@@ -63,6 +63,16 @@
     'Cordless drill': { cat: 'weapon', dmg: '1d6', checks: { Lockpicking: 2 }, level: 1, desc: 'Two batteries, neither charged. +2 to locks.' },
     'Jumper cables': { cat: 'weapon', dmg: '2d4', tags: ['conductive'], rarity: 'Uncommon', level: 1, desc: 'Red to dead, black to back. Or something.' },
     'Pallet jack': { cat: 'weapon', dmg: '1d10', tags: ['heavy'], rarity: 'Uncommon', level: 1, desc: 'Requires a forklift certification you do not have.' },
+    // Floor 2: real weapons off the fantasy set on Soundstage 9 (they were props until the System made them real; the rust is real too)
+    // model: the held 3D model from kit2/weapons.json · len: its length in hand · bow: shoots arrows (range/long in tiles)
+    'Rusty arming sword': { cat: 'weapon', dmg: '1d6', crit: 19, tags: ['sharp'], level: 2, model: 'w_sword1', len: 0.48, desc: 'A one-handed sword from the props department. Someone forgot to blunt it. Crits on 19-20.' },
+    'Rusty longsword': { cat: 'weapon', dmg: '1d8', tags: ['sharp', 'long'], level: 2, model: 'w_sword2', len: 0.66, desc: 'Long, heavy and orange with rust. Looks great on camera, works great off it.' },
+    'Rusty broadsword': { cat: 'weapon', dmg: '1d8', onHit: { type: 'weaken', ac: 1, turns: 1, chance: 0.25 }, tags: ['sharp'], level: 2, model: 'w_sword3', len: 0.56, desc: 'Wide blade, dented guard. Sometimes knocks a chunk off their armor.' },
+    'Rusty hatchet': { cat: 'weapon', dmg: '1d6', tags: ['sharp'], level: 2, model: 'w_axe1', len: 0.4, desc: 'A bearded axe from the bandit camp scene. The beard is the blade, not a man.' },
+    'Rusty battleaxe': { cat: 'weapon', dmg: '1d10', tags: ['sharp', 'heavy'], rarity: 'Uncommon', level: 2, model: 'w_axe2', len: 0.55, desc: 'Double-bladed and badly balanced. Hits like a falling set wall.' },
+    'Rusty flanged mace': { cat: 'weapon', dmg: '1d8', onHit: { type: 'prone', chance: 0.15 }, tags: ['heavy'], level: 2, model: 'w_mace', len: 0.46, desc: 'Iron flanges on a stick. Sometimes knocks them flat.' },
+    'Rusty spear': { cat: 'weapon', dmg: '1d8', tags: ['long', 'sharp'], level: 2, model: 'w_spear', len: 1.05, desc: 'Taller than you. The tip is the only part that was ever sharpened.' },
+    'Bandit\'s shortbow': { cat: 'weapon', dmg: '1d4', bow: { n: 1, s: 6, range: 16, long: 48 }, tags: ['light'], rarity: 'Uncommon', level: 2, model: 'w_bow', len: 0.72, desc: 'Hold it and Throw becomes Shoot: 1d6 arrows out to 16 tiles (48 at disadvantage). Up close it is just a stick (1d4).' },
     // ---- tools ----
     'Roll of duct tape': { cat: 'tool', tags: ['sticky', 'binding'], level: 1, desc: 'The universal fix. The System has rules about it, but no one has read them.' },
     'Flashlight': { cat: 'tool', light: true, level: 1, desc: 'Works. For now.' },
@@ -165,6 +175,20 @@
       archivist: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Archivist\'s Lantern'] },
       gardener: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['The Gardener\'s Shears +1'] },
       headliner: { gold: '8d6', always: ['Silver loot box', 'Goblin hob-lobber'], oneOf: ['Headliner\'s Mic Stand +1'] },
+      // Floor 2 casts
+      extra: { gold: '1d6', chance: [['Rusty arming sword', 0.35], ['Rusty spear', 0.15], ['Craft services sandwich', 0.3]] },
+      stuntdouble: { gold: '2d6', chance: [['Rusty longsword', 0.4], ['Rusty broadsword', 0.25], ['Healing potion', 0.3]] },
+      stuntknight: { gold: '3d6', always: ['Healing potion'], oneOf: ['Rusty longsword', 'Rusty battleaxe', 'Rusty flanged mace', 'Rusty broadsword'] },
+      crew: { gold: '1d6', chance: [['Roll of duct tape', 0.4], ['AA batteries', 0.3], ['Rusty hatchet', 0.1]] },
+      crew_lead: { gold: '2d6', always: ['Roll of duct tape'], chance: [['Healing potion', 0.4], ['Bandit\'s shortbow', 0.2]] },
+      truffle: { gold: '1d4', chance: [['Shrub sap', 0.4], ['Band-aids', 0.15]] },
+      truffle_big: { gold: '2d4', chance: [['Shrub sap', 0.6], ['Healing potion', 0.25]] },
+      truffle_king: { gold: '3d6', always: ['Healing potion'], chance: [['Rusty hatchet', 0.3]] },
+      automaton: { gold: '1d6', chance: [['AA batteries', 0.5], ['WD-40', 0.2]] },
+      automaton_big: { gold: '2d6', always: ['AA batteries'], chance: [['Healing potion', 0.3], ['Rusty flanged mace', 0.2]] },
+      groundskeeper: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Hedge trimmers', 'Rusty battleaxe'] },
+      butler: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Rusty broadsword', 'Bandit\'s shortbow'] },
+      showrunner: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Bandit\'s shortbow', 'Rusty longsword'] },
       gatekeeper: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Gatekeeper\'s Keyring'] }
     },
     containers: {

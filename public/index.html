@@ -7349,8 +7349,8 @@
     return m;
   }
   function propLoad() {
-    var L = new THREE.GLTFLoader(), left = 4;
-    ['props', 'nature', 'furn', 'props2'].forEach(function (nm) {
+    var L = new THREE.GLTFLoader(), left = 5;
+    ['props', 'nature', 'furn', 'props2', 'weapons'].forEach(function (nm) {
       fetch(KDIR + nm + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         var bin = atob(j.glb), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
         L.parse(u.buffer, KDIR, function (g) {
@@ -7513,6 +7513,16 @@
     'Cordless drill': { cat: 'weapon', dmg: '1d6', checks: { Lockpicking: 2 }, level: 1, desc: 'Two batteries, neither charged. +2 to locks.' },
     'Jumper cables': { cat: 'weapon', dmg: '2d4', tags: ['conductive'], rarity: 'Uncommon', level: 1, desc: 'Red to dead, black to back. Or something.' },
     'Pallet jack': { cat: 'weapon', dmg: '1d10', tags: ['heavy'], rarity: 'Uncommon', level: 1, desc: 'Requires a forklift certification you do not have.' },
+    // Floor 2: real weapons off the fantasy set on Soundstage 9 (they were props until the System made them real; the rust is real too)
+    // model: the held 3D model from kit2/weapons.json · len: its length in hand · bow: shoots arrows (range/long in tiles)
+    'Rusty arming sword': { cat: 'weapon', dmg: '1d6', crit: 19, tags: ['sharp'], level: 2, model: 'w_sword1', len: 0.48, desc: 'A one-handed sword from the props department. Someone forgot to blunt it. Crits on 19-20.' },
+    'Rusty longsword': { cat: 'weapon', dmg: '1d8', tags: ['sharp', 'long'], level: 2, model: 'w_sword2', len: 0.66, desc: 'Long, heavy and orange with rust. Looks great on camera, works great off it.' },
+    'Rusty broadsword': { cat: 'weapon', dmg: '1d8', onHit: { type: 'weaken', ac: 1, turns: 1, chance: 0.25 }, tags: ['sharp'], level: 2, model: 'w_sword3', len: 0.56, desc: 'Wide blade, dented guard. Sometimes knocks a chunk off their armor.' },
+    'Rusty hatchet': { cat: 'weapon', dmg: '1d6', tags: ['sharp'], level: 2, model: 'w_axe1', len: 0.4, desc: 'A bearded axe from the bandit camp scene. The beard is the blade, not a man.' },
+    'Rusty battleaxe': { cat: 'weapon', dmg: '1d10', tags: ['sharp', 'heavy'], rarity: 'Uncommon', level: 2, model: 'w_axe2', len: 0.55, desc: 'Double-bladed and badly balanced. Hits like a falling set wall.' },
+    'Rusty flanged mace': { cat: 'weapon', dmg: '1d8', onHit: { type: 'prone', chance: 0.15 }, tags: ['heavy'], level: 2, model: 'w_mace', len: 0.46, desc: 'Iron flanges on a stick. Sometimes knocks them flat.' },
+    'Rusty spear': { cat: 'weapon', dmg: '1d8', tags: ['long', 'sharp'], level: 2, model: 'w_spear', len: 1.05, desc: 'Taller than you. The tip is the only part that was ever sharpened.' },
+    'Bandit\'s shortbow': { cat: 'weapon', dmg: '1d4', bow: { n: 1, s: 6, range: 16, long: 48 }, tags: ['light'], rarity: 'Uncommon', level: 2, model: 'w_bow', len: 0.72, desc: 'Hold it and Throw becomes Shoot: 1d6 arrows out to 16 tiles (48 at disadvantage). Up close it is just a stick (1d4).' },
     // ---- tools ----
     'Roll of duct tape': { cat: 'tool', tags: ['sticky', 'binding'], level: 1, desc: 'The universal fix. The System has rules about it, but no one has read them.' },
     'Flashlight': { cat: 'tool', light: true, level: 1, desc: 'Works. For now.' },
@@ -7615,6 +7625,20 @@
       archivist: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Archivist\'s Lantern'] },
       gardener: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['The Gardener\'s Shears +1'] },
       headliner: { gold: '8d6', always: ['Silver loot box', 'Goblin hob-lobber'], oneOf: ['Headliner\'s Mic Stand +1'] },
+      // Floor 2 casts
+      extra: { gold: '1d6', chance: [['Rusty arming sword', 0.35], ['Rusty spear', 0.15], ['Craft services sandwich', 0.3]] },
+      stuntdouble: { gold: '2d6', chance: [['Rusty longsword', 0.4], ['Rusty broadsword', 0.25], ['Healing potion', 0.3]] },
+      stuntknight: { gold: '3d6', always: ['Healing potion'], oneOf: ['Rusty longsword', 'Rusty battleaxe', 'Rusty flanged mace', 'Rusty broadsword'] },
+      crew: { gold: '1d6', chance: [['Roll of duct tape', 0.4], ['AA batteries', 0.3], ['Rusty hatchet', 0.1]] },
+      crew_lead: { gold: '2d6', always: ['Roll of duct tape'], chance: [['Healing potion', 0.4], ['Bandit\'s shortbow', 0.2]] },
+      truffle: { gold: '1d4', chance: [['Shrub sap', 0.4], ['Band-aids', 0.15]] },
+      truffle_big: { gold: '2d4', chance: [['Shrub sap', 0.6], ['Healing potion', 0.25]] },
+      truffle_king: { gold: '3d6', always: ['Healing potion'], chance: [['Rusty hatchet', 0.3]] },
+      automaton: { gold: '1d6', chance: [['AA batteries', 0.5], ['WD-40', 0.2]] },
+      automaton_big: { gold: '2d6', always: ['AA batteries'], chance: [['Healing potion', 0.3], ['Rusty flanged mace', 0.2]] },
+      groundskeeper: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Hedge trimmers', 'Rusty battleaxe'] },
+      butler: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Rusty broadsword', 'Bandit\'s shortbow'] },
+      showrunner: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Bandit\'s shortbow', 'Rusty longsword'] },
       gatekeeper: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Gatekeeper\'s Keyring'] }
     },
     containers: {
@@ -8220,7 +8244,7 @@
       { label: 'Shove: push away', tag: 'Athletics contest', ok: r.action && adj.length > 0, fn: function () { cbShove(true); } },
       { label: 'Grapple', tag: 'Athletics contest · speed 0', ok: r.action && adj.length > 0, fn: cbGrapple },
       { label: 'Hide', tag: 'Stealth vs their Perception', ok: r.action && adj.length === 0, fn: cbHide },
-      { label: 'Throw ' + Wt.name, tag: Wt.n + 'd' + Wt.s + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action, fn: function () { CB.aim = 'throw'; say('Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal throw; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
+      { label: (Wt.bow ? 'Shoot ' : 'Throw ') + Wt.name, tag: Wt.n + 'd' + Wt.s + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action, fn: function () { CB.aim = 'throw'; say(Wt.bow ? 'Shoot' : 'Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal ' + (Wt.bow ? 'shot' : 'throw') + '; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
     ]);
   }
   function cbMenuToggle(which) {
@@ -8267,6 +8291,8 @@
   function cbMyTurn() { return CB.on && CB.order[CB.idx] === 'pc'; }
   function cbAdjacent() { return CB.enemies.filter(function (e) { return !e.dead && !e.calm && cheb(P.x, P.z, e.x, e.z) <= 1; }); }
   function cbThrowable() {
+    var bw = CHAR && CHAR.wield && ITEMS[CHAR.wield] && ITEMS[CHAR.wield].bow; // holding a bow: Throw becomes Shoot, and the bow stays in your hands
+    if (bw) return { name: 'an arrow', n: bw.n, s: bw.s, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true };
     if (sty('off') === 3 || (KIT && !KIT.on && sty('main') === 0 && sty('off') === 3)) return { name: 'your dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', prof: true, range: 4, long: 12, dagger: true };
     return { name: 'a rock', n: 1, s: 4, stat: 'STR', prof: false, range: 4, long: 12 };
   }
@@ -8446,10 +8472,10 @@
   function cbAfterMyMove() { setTimeout(function () { CB.busy = false; cbShowMoves(); cbHUD(); if (!CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }, 500); }
   function cbThrow(e) {
     var Wt = cbThrowable(), dist = cheb(P.x, P.z, e.x, e.z);
-    if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can throw up to ' + Wt.long + '.', 2600); return; }
+    if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can ' + (Wt.bow ? 'shoot' : 'throw') + ' up to ' + Wt.long + '.', 2600); return; }
     if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is between you and ' + e.name + '.', 2600); return; }
     CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); kitOneShot('Spell_Simple_Shoot'); cbHUD();
-    var Wp = { name: 'thrown ' + Wt.name.replace(/^(your|a) /, ''), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat], dmgB: MOD[Wt.stat], range: Wt.range };
+    var Wp = { name: (Wt.bow ? 'an arrow' : 'thrown ' + Wt.name.replace(/^(your|a) /, '')), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat], dmgB: MOD[Wt.stat], range: Wt.range };
     setTimeout(function () {
       cbResolve(e, Wp, { ranged: true });
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }
@@ -10165,7 +10191,7 @@
       if (kind === 'bomb' && /stick|pole|broom|mop|handle|\brod\b|\bbat\b|club|cane|pipe/.test(parts)) return 'stickbomb'; }
     if (k0) return k0;
     if (it.cat === 'clothing') return 'cloth_' + ({ kTop: 'top', kPants: 'pants', kBoots: 'shoes', kHead: 'hat', kNeck: 'scarf', kShoulder: 'top' }[it.slot] || 'top');
-    var K0 = [['spear', /spear|pike|lance|javelin|trident|halberd|glaive/], ['bomb', /bomb|grenade|cocktail|molotov|explosive|firework|hob-lobber/], ['headlamp', /headlamp|head lamp/], ['battery', /batter(y|ies)\b|\baa\b/],
+    var K0 = [['bow', /\bbow\b|shortbow|longbow|crossbow/], ['spear', /spear|pike|lance|javelin|trident|halberd|glaive/], ['bomb', /bomb|grenade|cocktail|molotov|explosive|firework|hob-lobber/], ['headlamp', /headlamp|head lamp/], ['battery', /batter(y|ies)\b|\baa\b/],
       ['horn', /horn\b|horns|antler|tusk/], ['slime', /slime|goo\b|ooze|jelly/], ['tail', /tail\b/], ['grease', /grease|lard|\bwax\b|\btub\b/], ['sap', /\bsap\b|resin|amber|honey|syrup/], ['ink', /\bink\b|inkwell/],
       ['emptybottle', /empty bottle|\bjar\b|vial/], ['potion', /potion|elixir|tonic|antidote/], ['pages', /page|paper|document|\bfile\b|\bform\b|letter\b|\bmap\b|\bnote|receipt|coupon|sticky notes|toilet paper/],
       ['pan', /skillet|\bpan\b|\bpot\b|\bwok\b/], ['helmet', /helmet|hard hat|\bhelm\b/], ['sword', /sword|saber|sabre|machete|katana|cleaver/], ['axe', /\baxe\b|hatchet/], ['lootbox', /loot box|\bchest\b|\bcrate\b/],
@@ -10181,6 +10207,7 @@
   }
   var ICON = {
     stickbomb: '<path d="M4 26L14 16" stroke="#8a5a30" stroke-width="3.2" stroke-linecap="round"/><g transform="rotate(-45 18 10)"><rect x="12" y="5" width="12" height="10" rx="2" fill="#e8dcc0" stroke="#8a7a5a"/><path d="M14 7.5h8M14 10h8M14 12.5h6" stroke="#b8a888" stroke-width=".7"/><rect x="16.2" y="4.4" width="3.2" height="11.2" fill="#9aa0a6" stroke="#6a7076" stroke-width=".5"/></g><path d="M14.5 17.5c0 2 1 3 .2 4.5M18.5 16c1 2 .4 3 .4 4.5" stroke="#c8a040" stroke-width="1.5" stroke-linecap="round"/><path d="M22.5 4.5l1.5-2.5M24.5 6.5l3-1M21 3.5V1" stroke="#ff9a2a" stroke-width="1.4"/>',
+    bow: '<path d="M8 4c10 4 10 18 0 22" fill="none" stroke="#7a4a28" stroke-width="2.6" stroke-linecap="round"/><path d="M8 4v22" stroke="#d8d0b8" stroke-width=".9"/><path d="M5 15h17" stroke="#8a5a30" stroke-width="1.4"/><path d="M22 15l-3-2v4z" fill="#cfd6da"/>',
     spear: '<path d="M5 25L19 11" stroke="#8a5a30" stroke-width="2.6" stroke-linecap="round"/><path d="M18 12l2-7 6-2-2 6z" fill="#dfe6ea" stroke="#8a939d" stroke-width=".7"/><path d="M15.5 13.5l3 3" stroke="#3a3a3a" stroke-width="2.2"/>',
     bomb: '<circle cx="13" cy="17" r="7" fill="#2a2a2a" stroke="#555"/><path d="M17 11l3-3" stroke="#8a7a5a" stroke-width="2"/><path d="M20 8l2-2M21 5h3M22 9l2 1" stroke="#ff9a2a" stroke-width="1.6"/><circle cx="10.5" cy="14.5" r="1.6" fill="#777"/>',
     headlamp: '<path d="M5 16c0-7 18-7 18 0" fill="none" stroke="#3a3a3a" stroke-width="3"/><rect x="10" y="12" width="8" height="7" rx="2" fill="#555" stroke="#888" stroke-width=".6"/><circle cx="14" cy="15.5" r="2.4" fill="#ffe27a"/><path d="M12 20l-4 6M16 20l4 6" stroke="rgba(255,226,122,.6)" stroke-width="1.4"/>',
@@ -10240,6 +10267,9 @@
   // the wielded inventory item as a little 3D model in the right hand (built along +y, grip at the origin)
   function gearModel(g0, it) {
     var k = itemKind(it), RED = 0xb02828, g = new THREE.Group(); g.scale.setScalar(1.35); g0.add(g);
+    // weapons with a real model (kit2/weapons.json): grip just above the pommel, blade up; a bow is held in the middle
+    var IB = (typeof ITEMS !== 'undefined' && ITEMS[it.name]) || it;
+    if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) { g.traverse(function (o) { if (o.isMesh && !o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); return; } // the rust textures are dark: lift them so they read in hand
     if (k === 'shears') { [-1, 1].forEach(function (s) { var a = new THREE.Group(); a.rotation.z = s * 0.12; g.add(a); part(a, 0.022, 0.09, 0.02, RED, s * 0.012, 0.0, 0); part(a, 0.012, 0.11, 0.006, STEEL, s * 0.004, 0.1, s * 0.004, 'metal'); }); part(g, 0.02, 0.02, 0.03, DARK, 0, 0.05, 0); }
     else if (k === 'knife') { part(g, 0.024, 0.1, 0.024, 0x4a3020, 0, 0, 0, 'wood'); part(g, 0.03, 0.012, 0.03, STEEL, 0, 0.055, 0, 'metal'); part(g, 0.028, 0.13, 0.006, STEEL, 0.004, 0.125, 0, 'metal'); }
     else if (k === 'hammer') { part(g, 0.028, 0.3, 0.028, WOOD, 0, 0.1, 0, 'wood'); part(g, 0.13, 0.05, 0.05, METAL_D, 0.02, 0.26, 0, 'metal'); }
@@ -10711,10 +10741,16 @@
     var el = document.createElement('div'); el.id = 'dmBox'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'DM mode');
     el.innerHTML = '<small>DM MODE</small><h3>Floors</h3><div class="row"><button type="button" data-f="1"' + (FLOOR === 1 ? ' class="on"' : '') + '>Floor 1 · Basic Training</button><button type="button" data-f="2"' + (FLOOR === 2 ? ' class="on"' : '') + '>Floor 2 · The Backlot</button></div>' +
       '<h3>Monsters on this floor</h3><div class="row"><button type="button" id="dmPeace" class="' + (DM.peace ? 'on' : '') + '">' + (DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight') + '</button></div>' +
+      '<h3>Test gear</h3><div class="row"><button type="button" id="dmRusty">Give me the rusty weapons</button></div>' +
       '<p>Your spot on each floor is saved, so you come back where you left. Gear, level and gold travel with you.</p><p><a href="credits.html" target="_blank" rel="noopener">Asset credits</a></p><button type="button" id="dmX">Close</button>';
     document.body.appendChild(el);
     el.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { var f = +b.getAttribute('data-f'); if (f === FLOOR) return; if (CB.on) { say('DM mode', 'Finish the fight first.', 2500); return; } b.textContent = 'Going…'; dmFloor(f); }; });
     document.getElementById('dmPeace').onclick = function () { DM.peace = !DM.peace; DM['peace' + FLOOR] = DM.peace; dmSave(); this.classList.toggle('on', DM.peace); this.textContent = DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight'; };
+    document.getElementById('dmRusty').onclick = function () { // every Soundstage weapon into your bag (skips ones you already have)
+      var have = {}, got = 0; (CHAR.gear || []).forEach(function (x) { have[x.name] = 1; });
+      Object.keys(ITEMS).forEach(function (n) { if (ITEMS[n].model && !have[n]) { var it = item(n, { from: 'DM mode' }); if (it) { CHAR.gear.push(it); got++; } } });
+      saveChar(CHAR); this.textContent = got ? 'Added ' + got + ' weapons' : 'You have them all'; say('DM mode', got ? got + ' rusty weapons are in your bag. Wield one from Inventory.' : 'Already in your bag.', 3000);
+    };
     document.getElementById('dmX').onclick = function () { el.remove(); };
   }
   (function () { var c = document.createElement('style'); c.textContent = '#dmBox{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:70;width:min(420px,92vw);max-height:92vh;overflow-y:auto;padding:14px 18px;background:linear-gradient(180deg,#F3E9D2,#E6D7B5);border:3px double #2e2116;border-radius:4px;color:#2b1d12;font-family:"EB Garamond",serif;box-shadow:0 10px 40px rgba(0,0,0,.7)}' +
@@ -12136,6 +12172,7 @@
   }
   refreshFog(); enterRoom();
   window.__crawl = { CB: CB, stairs: { open: stairsOpen, check: stairsCheck, dbg: function () { return tiles.filter(function (t) { return t.gate !== undefined; }).map(function (t) { return [t.gate, t.mesh.visible, t.x, t.z]; }); } }, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
+  window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();
