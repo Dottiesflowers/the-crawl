@@ -710,7 +710,7 @@
       var GEN_ROOF = ["########################################", "#......................................#", "#.p..................................H.#", "#....................................p.#", "#.......{..............................#", "#......................................#", "#........................}.............#", "#......................................#", "#......................................#", "#......................................#", "#......................................#", "#......................................#", "#......................................#", "#......................................#", "#############..........................#", "#...........#..........................#", "#.zZic.....C#..........................#", "#...........#..........................#", "#...........D..................#########", "#.....m.....#..................#.kk...##", "#...........#..................D.kk...##", "#.X.......u.#..................#....L.##", "#...........#..................#########", "########################################"];
       var GEN_STAGE = ["##############################################################", "###############................................###############", "##yyIIIy......#................................#............##", "##............#................................#............##", "##............#................................#............##", "##............#................................#............##", "##...q...q....D................................#......$.....##", "##............#................................#............##", "##..........f.#................................D............##", "###############................................#............##", "#..............................................#............##", "#..............................................###############", "#.).................)....................)...................#", "#..........................................................).#", "#............................................................#", "#............................................................#", "#..]]]].]]]]]].]]]]]].]]]]...........[[[[[.[[[[[.[[[[[.[[[[..#", "#..H.....H.....H.....H.......................................#", "#.......................................I.....I.....I........#", "#............................................................#", "#............................................................#", "#............................................................#", "#.........o...................(..............................#", "#.................R..........................................#", "#............................................................#", "#............................................................#", "#.........................................0.....0............#", "#............................................................#", "#.........o...................`..............................#", "#.................R..........................................#", "#............................................................#", "#.....x%.....................................................#", "#............................................................#", "#............................................................#", "#............................................................#", "#............................................................#", "#.)........................................................).#", "#.......................m.x........x.........................#", "#............................................................#", "#############################DDDD#############################"];
       var TPL = {
-        saloon: { name: 'The Saloon', sign: 'SALOON', line: 'Swinging doors, a long bar, a piano that plays itself badly and three card games nobody is winning.',
+        saloon: { pal: { T: 0x6a4a2e, m: 0x6a4a2e, B: 0x5a3a22, K: 0x6a4a2e, u: 0x7a3a2a }, name: 'The Saloon', sign: 'SALOON', line: 'Swinging doors, a long bar, a piano that plays itself badly and three card games nobody is winning.',
           areas: [{ name: 'Saloon Storeroom', c0: 11, r0: 1, c1: 15, r1: 4 }, { name: 'The Back Room', c0: 17, r0: 1, c1: 20, r1: 4 }], rugs: [[9, 6, 11, 13, 0x7a2a1e]], rows: [
           '######W#####W#########',
           '#SSSSSS...#xx.o.#e..e#',
@@ -731,7 +731,7 @@
           'r====================r',
           '   H      H  H      H ']
         },
-        store: { name: 'General Store', sign: 'GENERAL STORE', line: 'Shelves to the ceiling, barrels of everything and a counter with a bell nobody rings.', rows: [
+        store: { pal: { T: 0x6a4a2e, m: 0x6a4a2e, B: 0x5a3a22, K: 0x6a4a2e, u: 0x7a3a2a }, name: 'General Store', sign: 'GENERAL STORE', line: 'Shelves to the ceiling, barrels of everything and a counter with a bell nobody rings.', rows: [
           '####W#####W#####',
           '#hhhhh..hhhhhh.#',
           '#..............#',
@@ -748,7 +748,7 @@
           'r==============r',
           '  H          H  ']
         },
-        bank: { name: 'The Bank', sign: 'BANK', line: 'A bank with a vault behind bars and a teller cage. The money is fake. The vault is not.',
+        bank: { pal: { T: 0x6a4a2e, m: 0x6a4a2e, B: 0x5a3a22, K: 0x6a4a2e, u: 0x7a3a2a }, name: 'The Bank', sign: 'BANK', line: 'A bank with a vault behind bars and a teller cage. The money is fake. The vault is not.',
           areas: [{ name: 'The Vault', c0: 1, r0: 1, c1: 4, r1: 2 }, { name: 'Manager\'s Office', c0: 6, r0: 1, c1: 10, r1: 2 }], rows: [
           '############',
           '#VV.x#C..d.#',
@@ -764,7 +764,7 @@
           'r==========r',
           '  H      H  ']
         },
-        jail: { name: 'Sheriff\'s Office', sign: 'SHERIFF', line: 'The sheriff\'s office and three cells. The cells have not been cleaned since the pilot episode.',
+        jail: { pal: { T: 0x6a4a2e, m: 0x6a4a2e, B: 0x5a3a22, K: 0x6a4a2e, u: 0x7a3a2a }, name: 'Sheriff\'s Office', sign: 'SHERIFF', line: 'The sheriff\'s office and three cells. The cells have not been cleaned since the pilot episode.',
           areas: [{ name: 'The Cells', c0: 1, r0: 1, c1: 8, r1: 2 }], rows: [
           '##############',
           '#e.#e.#e.#hhC#',
@@ -780,7 +780,7 @@
           'r============r',
           '  H        H  ']
         },
-        depot: { name: 'Train Depot', sign: 'DEPOT', line: 'A train depot with benches, a ticket window and a timetable for trains that never leave.', rows: [
+        depot: { pal: { T: 0x6a4a2e, m: 0x6a4a2e, B: 0x5a3a22, K: 0x6a4a2e, u: 0x7a3a2a }, name: 'Train Depot', sign: 'DEPOT', line: 'A train depot with benches, a ticket window and a timetable for trains that never leave.', rows: [
           '##W####W####',
           '#L........h#',
           '#.nn..nn...#',
@@ -794,7 +794,7 @@
           'r==========r',
           'r==========r']
         },
-        hotel: { name: 'The Hotel', sign: 'HOTEL', line: 'A hotel lobby, four rooms upstairs that are actually downstairs, and a guest book full of stunt doubles.',
+        hotel: { pal: { T: 0x6a4a2e, m: 0x6a4a2e, B: 0x5a3a22, K: 0x6a4a2e, u: 0x7a3a2a }, name: 'The Hotel', sign: 'HOTEL', line: 'A hotel lobby, four rooms upstairs that are actually downstairs, and a guest book full of stunt doubles.',
           areas: [{ name: 'Hotel Room 1', c0: 1, r0: 1, c1: 3, r1: 2 }, { name: 'Hotel Room 2', c0: 5, r0: 1, c1: 7, r1: 2 }, { name: 'Hotel Room 3', c0: 9, r0: 1, c1: 11, r1: 2 }, { name: 'Hotel Room 4', c0: 13, r0: 1, c1: 15, r1: 2 }],
           rugs: [[8, 5, 11, 9, 0x2a4a3a]], rows: [
           '####W###W###W###W###',
@@ -813,7 +813,7 @@
           'r==================r',
           '  H              H  ']
         },
-        telegraph: { name: 'Telegraph Office', sign: 'TELEGRAPH', line: 'A telegraph office. The machine clicks on its own. Nobody here knows Morse code.', rows: [
+        telegraph: { pal: { T: 0x6a4a2e, m: 0x6a4a2e, B: 0x5a3a22, K: 0x6a4a2e, u: 0x7a3a2a }, name: 'Telegraph Office', sign: 'TELEGRAPH', line: 'A telegraph office. The machine clicks on its own. Nobody here knows Morse code.', rows: [
           '###W##W###',
           '#h..dd..h#',
           '#........#',
@@ -825,7 +825,7 @@
           'r========r',
           'r========r']
         },
-        saloonUp: { name: 'Saloon Upstairs', line: 'Upstairs at the saloon: a landing and four rented rooms. The floorboards report everything you do.', theme: 'store',
+        saloonUp: { pal: { T: 0x6a4a2e, m: 0x6a4a2e, B: 0x5a3a22, K: 0x6a4a2e, u: 0x7a3a2a }, name: 'Saloon Upstairs', line: 'Upstairs at the saloon: a landing and four rented rooms. The floorboards report everything you do.', theme: 'store',
           areas: [{ name: 'Room 1', c0: 1, r0: 1, c1: 4, r1: 3 }, { name: 'Room 2', c0: 6, r0: 1, c1: 9, r1: 3 }, { name: 'Room 3', c0: 11, r0: 1, c1: 14, r1: 3 }, { name: 'The Madam\'s Room', c0: 16, r0: 1, c1: 20, r1: 3 }], rugs: [[3, 5, 15, 6, 0x5a2a3a]], rows: [
           '######W####W####W#####',
           '#e..C#e..C#e..C#e...C#',
@@ -836,7 +836,7 @@
           '#..................kk#',
           '#####W#####W#####W####']
         },
-        hotelUp: { name: 'Hotel Upstairs', line: 'The hotel\'s upper floor: a long hall of numbered doors. Room 7 is locked from the inside.', theme: 'store',
+        hotelUp: { pal: { T: 0x6a4a2e, m: 0x6a4a2e, B: 0x5a3a22, K: 0x6a4a2e, u: 0x7a3a2a }, name: 'Hotel Upstairs', line: 'The hotel\'s upper floor: a long hall of numbered doors. Room 7 is locked from the inside.', theme: 'store',
           areas: [{ name: 'Room 5', c0: 1, r0: 1, c1: 3, r1: 3 }, { name: 'Room 6', c0: 5, r0: 1, c1: 7, r1: 3 }, { name: 'Room 7', c0: 9, r0: 1, c1: 11, r1: 3 }, { name: 'Room 8', c0: 13, r0: 1, c1: 15, r1: 3 }, { name: 'Room 9', c0: 1, r0: 7, c1: 7, r1: 9 }, { name: 'The Bridal Suite', c0: 9, r0: 7, c1: 15, r1: 9 }], rows: [
           '####W###W###W###W###',
           '#e.C#e.C#e.C#e.C#kk#',
@@ -867,7 +867,7 @@
           'r==============r']
         },
         // ---- Catering Village: canvas tents ----
-        craft: { name: 'Craft Services', type: 'safe', wall: 'canvas', stripe: 0xc8302a, theme: 'tent', line: 'The craft services tent. Free food, hot coffee and a crew that has seen things.', rows: [
+        craft: { pal: { m: 0xeeeae0, z: 0xd8d0c0, c: 0xd8d0c0 }, name: 'Craft Services', type: 'safe', wall: 'canvas', stripe: 0xc8302a, theme: 'tent', line: 'The craft services tent. Free food, hot coffee and a crew that has seen things.', rows: [
           '##W######W######W##',
           '#zzOicZ...........#',
           '#.................#',
@@ -878,7 +878,7 @@
           '#L......p........L#',
           '#######DD##########']
         },
-        bunk: { name: 'The Bunkhouse', type: 'safe', wall: 'canvas', stripe: 0x2a5a8a, theme: 'tent', line: 'Bunks for the crawlers, a washroom and a TV that only gets the show.',
+        bunk: { pal: { b: 0x5a6a3a, m: 0xeeeae0, u: 0x4a5a3a }, name: 'The Bunkhouse', type: 'safe', wall: 'canvas', stripe: 0x2a5a8a, theme: 'tent', line: 'Bunks for the crawlers, a washroom and a TV that only gets the show.',
           areas: [{ name: 'Washroom', c0: 14, r0: 1, c1: 16, r1: 3, type: 'safe' }], rows: [
           '###W#####W#####W##',
           '#b.b.b.b.b.b.#X.X#',
@@ -906,7 +906,7 @@
           '#L.x%.....R..L#',
           '######DD#######']
         },
-        ward: { name: 'Wardrobe Tent', type: 'safe', wall: 'canvas', stripe: 0xc8962a, theme: 'tent', line: 'Racks of costumes from every set on the lot, and a mirror that is nicer to you than it should be.', rows: [
+        ward: { pal: { u: 0x8a2a5a, C: 0xc8a8c8 }, name: 'Wardrobe Tent', type: 'safe', wall: 'canvas', stripe: 0xc8962a, theme: 'tent', line: 'Racks of costumes from every set on the lot, and a mirror that is nicer to you than it should be.', rows: [
           '##W####W####W##',
           '#CCCC...CCCC..#',
           '#.............#',
@@ -915,7 +915,7 @@
           '#L..u......f.L#',
           '######DD#######']
         },
-        prod: { name: 'Production Office', type: 'safe', wall: 'canvas', stripe: 0x3a3a3a, theme: 'tent', line: 'Call sheets, clipboards and a whiteboard with today\'s shoots on it.', rows: [
+        prod: { pal: { q: 0xd8d0c0, m: 0xeeeae0, f: 0x6a7078 }, name: 'Production Office', type: 'safe', wall: 'canvas', stripe: 0x3a3a3a, theme: 'tent', line: 'Call sheets, clipboards and a whiteboard with today\'s shoots on it.', rows: [
           '##W####W####W##',
           '#ff..y....ff..#',
           '#.............#',
@@ -951,7 +951,7 @@
           '#####.XQi.#####',
           '    #######    ']
         },
-        showrunner: { name: 'The Showrunner\'s House', type: 'boss', wall: 'siding', wallCol: 0xf0e6d0, theme: 'house', line: 'The biggest house on the street, with bleachers for a live studio audience right there in the living room.',
+        showrunner: { pal: { u: 0xf0e6d0, E: 0xe8d8b0, z: 0xf4f0e6, n: 0x9ab0c8 }, name: 'The Showrunner\'s House', type: 'boss', wall: 'siding', wallCol: 0xf0e6d0, theme: 'house', line: 'The biggest house on the street, with bleachers for a live studio audience right there in the living room.',
           areas: [{ name: 'Showrunner\'s Kitchen', c0: 1, r0: 1, c1: 5, r1: 5, type: 'room' }, { name: 'Master Bedroom', c0: 21, r0: 1, c1: 27, r1: 5, type: 'room' }], rows: [
           '#######W#######W#######W#####',
           '#ziOcZ#nnnnnnnnnnnnn#E..N..t#',
@@ -984,23 +984,23 @@
           '####  ##  ####']
         },
         // ---- the big ones, drawn by tools_tplgen.py ----
-        manor: { name: 'Blackwood Manor', wall: 'manor', theme: 'manor', line: 'A haunted house set. Animatronics on timers, secret doors and a butler who is mostly hydraulics.', rows: GEN_MANOR,
+        manor: { pal: { t: 0x8a6a7a, u: 0x6a1a2a, m: 0x3a2418, C: 0x8a7078, z: 0x3a2a20, Z: 0x4a4a44, n: 0x6a5a5a }, name: 'Blackwood Manor', wall: 'manor', theme: 'manor', line: 'A haunted house set. Animatronics on timers, secret doors and a butler who is mostly hydraulics.', rows: GEN_MANOR,
           areas: [{ name: 'The Kitchen', c0: 1, r0: 1, c1: 12, r1: 12 }, { name: 'The Ballroom', c0: 14, r0: 1, c1: 41, r1: 12, type: 'boss', line: 'A ballroom where the dancers are on a track. The Butler Unit is waiting by the punch bowl.' }, { name: 'The Study', c0: 43, r0: 1, c1: 54, r1: 5 },
             { name: 'The Portrait Gallery', c0: 43, r0: 7, c1: 54, r1: 12 }, { name: 'The Library', c0: 1, r0: 14, c1: 20, r1: 26 }, { name: 'The Foyer', c0: 22, r0: 14, c1: 33, r1: 26 }, { name: 'The Dining Hall', c0: 35, r0: 14, c1: 54, r1: 26 }] },
-        manorUp: { name: 'Blackwood Manor, Upstairs', wall: 'manor', theme: 'manor', line: 'The upper floor. Every door creaks in a different key.', rows: GEN_MANORUP,
+        manorUp: { pal: { E: 0x5a1a2a, e: 0x8a7a8a, C: 0x8a7078, u: 0x2a2a4a, t: 0x8a6a7a }, name: 'Blackwood Manor, Upstairs', wall: 'manor', theme: 'manor', line: 'The upper floor. Every door creaks in a different key.', rows: GEN_MANORUP,
           areas: [{ name: 'Master Bedroom', c0: 1, r0: 1, c1: 10, r1: 5 }, { name: 'The Nursery', c0: 12, r0: 1, c1: 21, r1: 5 }, { name: 'Upstairs Study', c0: 23, r0: 1, c1: 32, r1: 5 }, { name: 'Guest Room', c0: 34, r0: 1, c1: 43, r1: 5 }, { name: 'The Bathroom', c0: 45, r0: 1, c1: 54, r1: 5 },
             { name: 'The Landing', c0: 1, r0: 7, c1: 54, r1: 9, type: 'corridor' }, { name: 'Servant\'s Room', c0: 1, r0: 11, c1: 10, r1: 15 }, { name: 'The Blue Room', c0: 12, r0: 11, c1: 21, r1: 15 }, { name: 'Attic Storage', c0: 23, r0: 11, c1: 32, r1: 15 },
             { name: 'The Red Room', c0: 34, r0: 11, c1: 43, r1: 15 }, { name: 'The Widow\'s Room', c0: 45, r0: 11, c1: 54, r1: 15 }] },
-        ship: { name: 'Starship Valiant', wall: 'panel', theme: 'ship', line: 'A starship set. Foam walls, blinking panels and costume goblins who think they are a real crew.', rows: GEN_SHIP,
+        ship: { pal: { b: 0x8a96a8, e: 0xe8ecf0, E: 0x3a4a6a, u: 0x2a3a5a, m: 0xc8ccd2, I: 0x3a4a5a, z: 0xb8c0cc, Z: 0xd8dce0, x: 0x9ab0c8, C: 0xb8c4d0, t: 0xa8b4c4, q: 0xc8ccd2, f: 0xa8b0bc, y: 0x3a4a5a }, name: 'Starship Valiant', wall: 'panel', theme: 'ship', line: 'A starship set. Foam walls, blinking panels and costume goblins who think they are a real crew.', rows: GEN_SHIP,
           areas: [{ name: 'Main Corridor', c0: 31, r0: 9, c1: 34, r1: 35, type: 'corridor' }, { name: 'Cross Corridor', c0: 1, r0: 18, c1: 64, r1: 19, type: 'corridor' },
             { name: 'The Bridge', c0: 22, r0: 1, c1: 43, r1: 8, type: 'boss', line: 'The bridge. Captain Zorr is in the big chair, and he has never once broken character.' }, { name: 'Briefing Room', c0: 1, r0: 1, c1: 20, r1: 8 }, { name: 'Science Lab', c0: 45, r0: 1, c1: 64, r1: 8 },
             { name: 'Med Bay', c0: 1, r0: 10, c1: 14, r1: 16 }, { name: 'Captain\'s Quarters', c0: 16, r0: 10, c1: 29, r1: 16 }, { name: 'The Holodeck', c0: 36, r0: 10, c1: 49, r1: 16, theme: 'stage' }, { name: 'Transporter Room', c0: 51, r0: 10, c1: 64, r1: 16 },
             { name: 'Mess Hall', c0: 1, r0: 21, c1: 20, r1: 27 }, { name: 'Rec Room', c0: 22, r0: 21, c1: 29, r1: 27 }, { name: 'Crew Quarters', c0: 36, r0: 21, c1: 64, r1: 27 }, { name: 'Cargo Hold', c0: 1, r0: 29, c1: 29, r1: 35 }, { name: 'Engine Room', c0: 36, r0: 29, c1: 64, r1: 35 }] },
-        writers: { name: 'The Writers\' Building', wall: 'plaster', theme: 'office', line: 'The writers are on strike. Picket signs, cold coffee and imps with opinions.', rows: GEN_WRITERS,
+        writers: { pal: { q: 0xc8b89a, u: 0x3a5a6a, m: 0xd8d0c0, f: 0x8a8f96 }, name: 'The Writers\' Building', wall: 'plaster', theme: 'office', line: 'The writers are on strike. Picket signs, cold coffee and imps with opinions.', rows: GEN_WRITERS,
           areas: [{ name: 'Writers\' Room A', c0: 1, r0: 1, c1: 14, r1: 10 }, { name: 'Writers\' Room B', c0: 16, r0: 1, c1: 29, r1: 10 }, { name: 'The Script Library', c0: 31, r0: 1, c1: 44, r1: 10 }, { name: 'Head Writer\'s Office', c0: 46, r0: 1, c1: 60, r1: 10 },
             { name: 'Upper Hall', c0: 1, r0: 12, c1: 60, r1: 13, type: 'corridor' }, { name: 'The Cubicle Farm', c0: 1, r0: 15, c1: 40, r1: 23 }, { name: 'Writers\' Break Room', c0: 42, r0: 15, c1: 60, r1: 23 }, { name: 'Lower Hall', c0: 1, r0: 25, c1: 60, r1: 26, type: 'corridor' },
             { name: 'Strike Headquarters', c0: 1, r0: 28, c1: 22, r1: 36 }, { name: 'The Lobby', c0: 24, r0: 28, c1: 37, r1: 36 }, { name: 'The Mailroom', c0: 39, r0: 28, c1: 60, r1: 36 }] },
-        roof: { name: 'The Penthouse Green', type: 'boss', wall: 'stone', theme: 'green', line: 'A rooftop putting green, mowed to a sixteenth of an inch. Do not step on it. Somebody is watching.', rows: GEN_ROOF,
+        roof: { pal: { u: 0x2a5a3a, m: 0x6a4a2e, z: 0x6a4a2e }, name: 'The Penthouse Green', type: 'boss', wall: 'stone', theme: 'green', line: 'A rooftop putting green, mowed to a sixteenth of an inch. Do not step on it. Somebody is watching.', rows: GEN_ROOF,
           areas: [{ name: 'Dermot\'s Clubhouse', c0: 1, r0: 15, c1: 11, r1: 22, type: 'room', theme: 'house' }, { name: 'Roof Access', c0: 32, r0: 19, c1: 37, r1: 21, type: 'room', theme: 'stage' }] },
         stage: { name: 'Soundstage 9', type: 'boss', wall: 'stage', theme: 'stage', line: 'A cavernous stage, half a western street and half a starship. A crane in the middle. The Director is watching.', rows: GEN_STAGE,
           areas: [{ name: 'Control Booth', c0: 2, r0: 2, c1: 13, r1: 8, type: 'room' }, { name: 'The Freight Elevator', c0: 48, r0: 2, c1: 59, r1: 10, type: 'stairs', line: 'A freight elevator to the floor below. It only runs when the Director says cut.' }] }
@@ -1116,7 +1116,7 @@
             case 'O': F(x2, z2, 'kitchenStove', 0.98, face, 'Stove', wl ? { dx: wl[0] * 0.06, dz: wl[1] * 0.06 } : {}); break;
             case 'i': F(x2, z2, wsBase === 'siding' && /Bathroom|Upstairs/.test(nm) ? 'bathroomSink' : 'kitchenSink', 0.8, face, 'Sink', wl ? { dx: wl[0] * 0.1, dz: wl[1] * 0.1 } : {}); break;
             case 'c': if (F(x2, z2, 'kitchenCabinet', 0.98, face, 'Coffee machine', wl ? { dx: wl[0] * 0.06, dz: wl[1] * 0.06 } : {})) dec(x2, z2, 'kitchenCoffeeMachine', { on: { m: 'kitchenCabinet', fit: 0.98 }, fit: 0.32, rot: face }); break;
-            case 'v': F(x2, z2, 'kitchenFridgeLarge', 0.9, face, 'Vending machine', wl ? { dx: wl[0] * 0.1, dz: wl[1] * 0.1 } : {}); break;
+            case 'v': F(x2, z2, 'kitchenFridgeLarge', 0.9, face, 'Vending machine', wl ? { dx: wl[0] * 0.1, dz: wl[1] * 0.1, paint: 0xb8282a } : { paint: 0xb8282a }); break;
             case 'Q': F(x2, z2, 'shower', 0.9, face, 'Shower'); break;
             case '^': obj(x2, z2, '#hearth', { rot: face, dx: wl ? wl[0] * 0.2 : 0, dz: wl ? wl[1] * 0.2 : 0 }, 'Fireplace'); break;
             case '+': dec(x2, z2, 'Chandelier', { y: 2.3, fit: 1.2, hang: true, ns: true }); break;
@@ -1133,6 +1133,10 @@
             case 'D': if (!signDone && j === lastWall && T.sign) { signDone = true; dec(x2, z2, '#sign', { text: T.sign, rot: frot, dx: fv[0] * 0.2 + (rot === 0 ? 0.5 : rot === 2 ? -0.5 : 0), dz: fv[1] * 0.2 + (rot === 1 ? 0.5 : rot === 3 ? -0.5 : 0), y: 1.72 }); } break;
           }
         }
+        // reskins: the template's palette (and the caller's) repaints the main furniture on those tiles
+        var pal = {}; [T.pal, o.pal].forEach(function (pp) { if (pp) for (var kp in pp) pal[kp] = pp[kp]; });
+        if (Object.keys(pal).length) for (j = 0; j < h; j++) for (i = 0; i < w; i++) { c = R[j].charAt(i); if (pal[c] === undefined) continue; p = at(i, j);
+          (decor[p[0] + ',' + p[1]] || []).forEach(function (d) { if (d.on || d.hang || d.m.charAt(0) === '#') return; if (/^[A-Z]/.test(d.m)) d.tint = pal[c]; else d.paint = pal[c]; }); }
         return { room: rm, porch: porch, all: all, box: bb };
       }
       // ---------- streets ----------
@@ -1158,7 +1162,7 @@
       var start2 = { x: 119, z: 116 }; put(start2.x, start2.z, '@', vil.id);
       spawns.push({ kind: 'imp', npc: 'pip', x: 121, z: 116, room: vil.id }); taken['121,116'] = 1;
       [[100, 104], [108, 104], [130, 104], [138, 104], [130, 117], [138, 117], [100, 117]].forEach(function (p) { if (freeT(p[0], p[1], vil)) diningSet(p[0], p[1], vil, true); });
-      F(112, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine'); F(113, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine');
+      F(112, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine', { paint: 0xb8282a }); F(113, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine', { paint: 0x2a5ab8 });
       obj(124, 107, 'BookStand', { h: 1.2 }, 'Call sheet board');
       for (xx = 80; xx <= 158; xx += 6) { if (freeT(xx, 108, vil)) obj(xx, 108, 'lampSquareFloor', { h: 1.5 }, 'Lamp'); if (freeT(xx, 115, vil)) obj(xx, 115, 'lampSquareFloor', { h: 1.5 }, 'Lamp'); }
       for (k = 0; k < 40; k++) { var ex = rnd() < 0.5 ? ri(77, 80) : ri(158, 161), ez = ri(81, 143); if (freeT(ex, ez, vil)) obj(ex, ez, pick(['CommonTree_1', 'CommonTree_3']), { fit: 2.0 + rnd(), rot: rnd() * 6 }, 'Tree'); }
@@ -1253,10 +1257,10 @@
       var ML = Zn({ name: 'Maple Lane', theme: 'lawn', line: 'A sitcom street. Six identical houses, perfect lawns and a laugh track that never stops.' });
       var lane = area({ name: 'Maple Lane', type: 'corridor', x0: 8, z0: 171, x1: 110, z1: 213 }, ML);
       var mstreet = area({ name: 'Maple Lane', type: 'corridor', theme: 'lot', x0: 8, z0: 196, x1: 115, z1: 200 }, ML); area({ name: 'Maple Lane', type: 'corridor', x0: 50, z0: 167, x1: 54, z1: 170 }, ML);
-      var HCOL = [0xe8e0c8, 0xc8d8e0, 0xe8c8c0, 0xd0e0c0, 0xeed8a0, 0xd8c8e0];
+      var HCOL = [0xe8e0c8, 0xc8d8e0, 0xe8c8c0, 0xd0e0c0, 0xeed8a0, 0xd8c8e0], HSOFA = [0x8a3a2a, 0x2a5a7a, 0x6a7a3a, 0xc8962a, 0x7a3a6a, 0x3a6a5a], HKIT = [0xf4f0e6, 0xa8c8a0, 0xe8d0a0, 0xc8d8e8, 0xe8c0b0, 0xd0d0d0];
       for (i = 0; i < 6; i++) {
-        var hx = 10 + i * 17, hb = stamp(TPL.house, hx, 174, 0, ML, { name: 'No. ' + (i + 1) + ' Maple Lane', wallCol: HCOL[i] });
-        var hu = stamp(TPL.houseUp, 54 + i * 17, 244, 0, ML, { name: 'No. ' + (i + 1) + ', Upstairs', wallCol: HCOL[i] }); roofRing(hu.box, 2);
+        var hx = 10 + i * 17, hb = stamp(TPL.house, hx, 174, 0, ML, { name: 'No. ' + (i + 1) + ' Maple Lane', wallCol: HCOL[i], pal: { u: HSOFA[i], z: HKIT[i], c: HKIT[i], m: 0xc8a878 } });
+        var hu = stamp(TPL.houseUp, 54 + i * 17, 244, 0, ML, { name: 'No. ' + (i + 1) + ', Upstairs', wallCol: HCOL[i], pal: { E: HSOFA[(i + 2) % 6], C: HKIT[(i + 3) % 6] } }); roofRing(hu.box, 2);
         upstairs.push([hb.room, hu.room, 'Go upstairs', 'Go back downstairs']);
         pack(hb.room, 'puglin', ri(1, 2), 0, 'Laugh-track gremlin'); if (rnd() < 0.5) pack(hu.room, 'puglin', 1, 0, 'Laugh-track gremlin');
         for (xx = hx; xx <= hx + 14; xx++) if (Math.abs(xx - hx - 7) > 0 && freeT(xx, 193, lane)) obj(xx, 193, '#rail', { ax: 'x', col: 0xf4f0e6, picket: true }, 'Picket fence');

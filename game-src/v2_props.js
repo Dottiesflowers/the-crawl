@@ -48,13 +48,22 @@
     var tx = o.tx !== undefined ? o.tx : Math.round(x), tz = o.tz !== undefined ? o.tz : Math.round(z), M = propMatrix(name, o);
     PROPS.lib[name].traverse(function (m) {
       if (!m.isMesh) return;
-      var mesh = new THREE.Mesh(m.geometry, propMat(m.material.name || '', o.fade));
+      var mesh = new THREE.Mesh(m.geometry, propMat(m.material.name || '', o.fade)), recol = false;
+      // reskins: paint swaps the model's main colour, tint shades the whole thing (both stay put under the fog)
+      if (o.paint !== undefined && m.material.name === propMain(name)) { mesh.material.color.set(o.paint).convertSRGBToLinear().multiplyScalar(0.85); recol = true; }
+      if (o.tint !== undefined) { mesh.material.color.multiply(new THREE.Color(o.tint).convertSRGBToLinear()); recol = true; }
       _pm.multiplyMatrices(M, m.matrixWorld); _pm.decompose(mesh.position, mesh.quaternion, mesh.scale);
-      var t = reg(mesh, tx, tz, { fade: o.fade, hang: o.hang, noShadow: o.noShadow, mob: o.mob, tint: /^KN_/.test(m.material.name || '') });
+      var t = reg(mesh, tx, tz, { fade: o.fade, hang: o.hang, noShadow: o.noShadow, mob: o.mob, tint: recol || /^KN_/.test(m.material.name || '') });
       if (o.lid && /lid|top/i.test(m.name + ' ' + (m.parent ? m.parent.name : ''))) t.lid = true;
     });
     if (o.block) PROPBLOCK[tx + ',' + tz] = 1;
   }
+  // the material that covers most of a model (its 'main colour'), worked out once per model
+  var PMAIN = {};
+  function propMain(name) { if (PMAIN[name] !== undefined) return PMAIN[name]; var cnt = {}, best = null, bn = -1;
+    PROPS.lib[name].traverse(function (m) { if (!m.isMesh) return; var k = m.material.name || '', n = (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count);
+      if (/^KN_(\d+)_(\d+)_(\d+)/.test(k)) { var c = /^KN_(\d+)_(\d+)_(\d+)/.exec(k), lum = +c[1] + +c[2] + +c[3]; if (lum < 90 || lum > 690) n *= 0.3; } cnt[k] = (cnt[k] || 0) + n; });
+    for (var k in cnt) if (cnt[k] > bn) { bn = cnt[k]; best = k; } return (PMAIN[name] = best); }
   // a prop held by the hero (no fog), centred on its grip
   function propInto(group, name, o) {
     if (!PROPS.lib[name]) return false; o = o || {}; o.x = 0; o.z = 0;
@@ -75,7 +84,7 @@
     if (!propsOn()) return;
     var c = ch(x, z), r = hash(x, z), r2 = hash(x + 31, z + 17), th = roomAt(x, z);
     var dl = LEVEL.decor[x + ',' + z]; // set dressing from the generator
-    if (dl) dl.forEach(function (d) { if (d.m.charAt(0) === '#') return; var y = d.on ? propTop(d.on) + (d.y || 0) : d.y; place(d.m, x + (d.dx || 0), z + (d.dz || 0), { fit: d.fit, h: d.h, s: d.s, rot: d.rot || 0, rx: d.rx, y: y, tx: x, tz: z, hang: d.hang, noShadow: d.ns || !!y }); });
+    if (dl) dl.forEach(function (d) { if (d.m.charAt(0) === '#') return; var y = d.on ? propTop(d.on) + (d.y || 0) : d.y; place(d.m, x + (d.dx || 0), z + (d.dz || 0), { fit: d.fit, h: d.h, s: d.s, rot: d.rot || 0, rx: d.rx, y: y, tx: x, tz: z, hang: d.hang, noShadow: d.ns || !!y, tint: d.tint, paint: d.paint }); });
     if (c === 'C') place('Chest_Wood', x, z, { fit: 0.78, rot: 0, lid: true });
     else if (c === 'K') place(r > 0.5 ? 'Crate_Wooden' : 'Crate_Metal', x, z, { fit: 0.82, rot: (r2 - 0.5) * 0.5 });
     else if (c === 'R') place(r > 0.6 ? 'Barrel_Apples' : 'Barrel', x, z, { fit: 0.62, rot: r * 6 });
