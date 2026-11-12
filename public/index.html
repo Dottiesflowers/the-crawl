@@ -2613,7 +2613,7 @@
     part(parent, 0.03, 0.03, 0.03, 0xf0ead8, 0.07, -0.08, 0.03); part(parent, 0.03, 0.03, 0.03, 0xf0ead8, 0.07, -0.03, 0.03);
   }
   // ---------- smooth body surfaces: a stack of cross-sections skinned into one continuous shape ----------
-  var heroGeos = [], held = [], kitHold = {}, TAU = 6.28319;
+  var heroGeos = [], held = [], kitHold = {}, TAU = 6.28319, BOW_G = null; // BOW_G: the held bow, stood upright while drawing
   function sp(v, n) { return v < 0 ? -Math.pow(-v, 2 / n) : Math.pow(v, 2 / n); }
   function RG(rows) { return rows.map(function (r) { return [r[0], r[1], r[2], r[3] || 0, r[4] || 2, r[5] || 0]; }).sort(function (a, b) { return a[0] - b[0]; }); }
   function ringAt(R, y) { // rows: [height, half-width, half-depth, centre z, squareness, centre x]
@@ -2924,7 +2924,8 @@
       tube(rig, T, darkM, { y0: 0.68, y1: 0.725, grow: gf + 0.006, na: 32, ny: 1, tilt: 0.13 }); bead(0.3, 0.74, gf + 0.008, 0.016, goldM); }
     // ----- hands: main and off -----
     var main = sty('main'), mc = col('main'), gw = (typeof CHAR !== 'undefined' && CHAR && CHAR.wield) ? (CHAR.gear || []).filter(function (x) { return x.name === CHAR.wield; })[0] : null;
-    if (gw) { var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); AR.el.add(wg); held.push({ g: wg, el: AR.el, side: 1, t: lean(0.35, 0.1) }); gearModel(wg, gw); main = 0; }
+    var isBow = gw && typeof ITEMS !== 'undefined' && ITEMS[gw.name] && ITEMS[gw.name].bow; // a bow goes in the left hand; the right draws the string
+    if (gw) { var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); (isBow ? AL : AR).el.add(wg); BOW_G = isBow ? wg : null; held.push({ g: wg, el: (isBow ? AL : AR).el, side: isBow ? -1 : 1, t: lean(isBow ? 0.05 : 0.35, 0.1) }); gearModel(wg, gw); main = 0; }
     else if (main) {
       var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); AR.el.add(wg);
       if (main === 5) { wg.rotation.x = 1.0; kitHold.bass = wg; } else held.push({ g: wg, el: AR.el, side: 1, t: lean(main === 3 ? 0.06 : 0.5, 0.12) });
@@ -7329,9 +7330,46 @@
     else KIT.curA.timeScale = 1;
     KIT.mixer.update(dt);
     var main = sty('main'), off = sty('off');
-    var want2 = { torchArm_l: off === 2 && !air, grip_r: main > 0 && main !== 5, grip_l: off === 3 || off === 1 };
+    var bowH = typeof bowHeld === 'function' && bowHeld();
+    var want2 = { torchArm_l: off === 2 && !air && !bowH, grip_r: main > 0 && main !== 5 && !bowH, grip_l: off === 3 || off === 1 || bowH };
     Object.keys(want2).forEach(function (k) { var a = kitOver(k); if (want2[k] && !a.isRunning()) { a.reset(); a.play(); } if (!want2[k] && a.isRunning()) a.stop(); });
     KIT.overMixer.update(dt);
+    if (KIT.bowT != null) kitBowPose(dt);
+  }
+  // ---------- archery: no bow clip in the animation set, so the arms are posed in code ----------
+  // 0-0.3 s raise the bow and nock, 0.3-0.75 draw the string to the chin, release at 0.75 (the arrow leaves from the bow hand), hold, lower
+  var _bv = new THREE.Vector3(), _bc = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bq2 = new THREE.Quaternion(), _bd = new THREE.Vector3();
+  function kitBowShot(onRelease) { if (!KIT || !KIT.on) { if (onRelease) onRelease(P.px, 1.15, P.pz); return; } KIT.bowT = 0; KIT.bowRel = onRelease; KIT.bowFired = false; }
+  function bonePoint(bone, child, target, w) { // turn a bone so its child sits on the line to target
+    bone.getWorldPosition(_bv); child.getWorldPosition(_bc); var cur = _bc.sub(_bv).normalize(), des = _bd.copy(target).sub(_bv).normalize();
+    _bq.setFromUnitVectors(cur, des); bone.getWorldQuaternion(_bq2); _bq.multiply(_bq2); bone.parent.getWorldQuaternion(_bq2); _bq2.invert(); _bq.premultiply(_bq2);
+    bone.quaternion.slerp(_bq, w); bone.updateMatrixWorld(true);
+  }
+  function kitBowPose(dt) {
+    var B = KIT.bones, t = (KIT.bowT += dt); if (!B.upperarm_l || !B.upperarm_r) { KIT.bowT = null; return; }
+    var w = t < 0.25 ? t / 0.25 : t > 1.15 ? Math.max(0, 1 - (t - 1.15) / 0.25) : 1; w = w * w * (3 - 2 * w);
+    hero.updateMatrixWorld(true);
+    var ry = hero.rotation.y, fwd = new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry)), side = new THREE.Vector3(fwd.z, 0, -fwd.x), up = new THREE.Vector3(0, 1, 0);
+    var sL = B.upperarm_l.getWorldPosition(new THREE.Vector3()), sR = B.upperarm_r.getWorldPosition(new THREE.Vector3()), arm = sL.distanceTo(B.hand_l.getWorldPosition(new THREE.Vector3())) || 0.5;
+    var cen = sL.clone().add(sR).multiplyScalar(0.5);
+    var bowPt = cen.clone().addScaledVector(fwd, arm * 1.05).addScaledVector(up, arm * 0.05);         // bow arm straight out in front, across the chest
+    var d = Math.min(1, Math.max(0, (t - 0.3) / 0.45)); if (KIT.bowFired) d = 1;
+    var chin = cen.clone().addScaledVector(fwd, arm * 0.12).addScaledVector(up, arm * 0.18);          // string hand anchors at the chin
+    var handT = bowPt.clone().lerp(chin, d * d * (3 - 2 * d));
+    var elbow = sR.clone().lerp(handT, 0.5).addScaledVector(side.clone().multiplyScalar(sR.clone().sub(cen).dot(side) > 0 ? 1 : -1), arm * 0.25 * d).addScaledVector(fwd, -arm * 0.25 * d).addScaledVector(up, arm * 0.08 * d);
+    bonePoint(B.upperarm_l, B.lowerarm_l, bowPt, w); bonePoint(B.lowerarm_l, B.hand_l, bowPt.clone().addScaledVector(fwd, arm), w);
+    bonePoint(B.upperarm_r, B.lowerarm_r, elbow, w); bonePoint(B.lowerarm_r, B.hand_r, handT, w);
+    if (BOW_G && BOW_G.parent) { // stand the bow upright, its face toward the target, while it is up
+      var m4 = new THREE.Matrix4().makeBasis(side, up, fwd), qw = new THREE.Quaternion().setFromRotationMatrix(m4), qp = new THREE.Quaternion(); BOW_G.parent.getWorldQuaternion(qp); qw.premultiply(qp.invert());
+      if (!BOW_G.userData.q0) BOW_G.userData.q0 = BOW_G.quaternion.clone(); BOW_G.quaternion.copy(BOW_G.userData.q0).slerp(qw, w);
+      if (t > 1.4) BOW_G.quaternion.copy(BOW_G.userData.q0);
+    }
+    // the nocked arrow, string hand to bow hand, until it is loosed
+    if (!KIT.bowArrow && typeof vfxMeshArrow === 'function') { KIT.bowArrow = vfxMeshArrow(false); scene.add(KIT.bowArrow); }
+    var hL = B.hand_l.getWorldPosition(new THREE.Vector3()), hR = B.hand_r.getWorldPosition(new THREE.Vector3());
+    if (KIT.bowArrow) { KIT.bowArrow.visible = t > 0.15 && !KIT.bowFired; KIT.bowArrow.position.copy(hR).lerp(hL, 0.5).addScaledVector(fwd, 0.12); KIT.bowArrow.lookAt(hL.clone().addScaledVector(fwd, 0.5)); KIT.bowArrow.scale.setScalar(Math.max(0.6, hR.distanceTo(hL) / 0.45)); }
+    if (t >= 0.75 && !KIT.bowFired) { KIT.bowFired = true; var cb = KIT.bowRel; KIT.bowRel = null; if (cb) cb(hL.x, hL.y, hL.z); }
+    if (t > 1.4) { KIT.bowT = null; if (KIT.bowArrow) KIT.bowArrow.visible = false; }
   }
   kitLoad();
 
@@ -8320,6 +8358,7 @@
   }
   function cbMyTurn() { return CB.on && CB.order[CB.idx] === 'pc'; }
   function cbAdjacent() { return CB.enemies.filter(function (e) { return !e.dead && !e.calm && cheb(P.x, P.z, e.x, e.z) <= 1; }); }
+  function bowHeld() { return !!(CHAR && CHAR.wield && ITEMS[CHAR.wield] && ITEMS[CHAR.wield].bow); }
   // ammo for a launcher: the stack you picked (Inventory → Shoot these), else the hardest-hitting stack you carry
   function ammoPick(kind) {
     var st = (CHAR.gear || []).filter(function (g) { var I = ITEMS[g.name]; return I && I.ammo && (I.ammo.kind || 'arrow') === kind && (g.qty || 1) > 0; });
@@ -8441,7 +8480,7 @@
     cbMenuClose();
     var e = enemyAt(x, z);
     if (CB.aim === 'throw') { if (e && !e.calm) { CB.aim = null; cbThrow(e); } else say('Throw', 'Tap a monster to throw at it.', 2000); return; }
-    if (e && !e.calm) { cbApproachAndAttack(e); return; }
+    if (e && !e.calm) { if (bowHeld()) { if (!CB.res.action) say('No action left', 'Shooting takes your action. End your turn or move.', 2400); else cbThrow(e); return; } cbApproachAndAttack(e); return; }
     if (!CB.reach || CB.reach.dist[x + ',' + z] === undefined || !CB.reach.dist[x + ',' + z]) { if (CB.res.move <= 0) say('Out of movement', 'You have used all your movement this turn. Attack, use an action, or end your turn.', 2600); return; }
     cbWalk(pathTo(CB.reach, x, z));
   }
@@ -8475,6 +8514,10 @@
   }
   function cbAttackButton(offhand) {
     if (!cbMyTurn() || CB.busy || PC.down) return;
+    if (bowHeld() && !offhand) { // a bow shoots: the weakest monster you can see in range
+      var Wb = cbThrowable(), tg = CB.enemies.filter(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0 && cheb(P.x, P.z, q.x, q.z) <= Wb.long && los(P.x, P.z, q.x, q.z); });
+      if (!tg.length) { say('No shot', 'Nothing you can see within ' + Wb.long + ' tiles. Move, or tap a target.', 2600); return; }
+      tg.sort(function (a, b) { return a.hp - b.hp; }); if (CB.res.action) cbThrow(tg[0]); return; }
     var near = cbAdjacent();
     if (!near.length) { say('Nobody in reach', 'Tap an enemy to walk over and hit it, or throw something from the Actions menu.', 2800); return; }
     near.sort(function (a, b) { return a.hp - b.hp; }); cbAttack(near[0], offhand);
@@ -8487,6 +8530,7 @@
     if (e.prone) { if (dist <= 1) { adv = true; why.push('target prone'); } else { dis = true; why.push('prone target at range'); } }
     if (e.grappled && dist <= 1) { adv = true; why.push('grappled'); }
     if (opt.ranged && cbAdjacent().length) { dis = true; why.push('enemy next to you'); }
+    else if (opt.close) { dis = true; why.push('too close for a bow'); }
     if (opt.ranged && dist > Wp.range) { dis = true; why.push('long range'); }
     if (CB.advNext) { adv = true; why.push('opening'); CB.advNext = false; }
     var cover = opt.ranged && hasCover(P.x, P.z, e.x, e.z) ? 2 : 0, ac = acOf(e) + cover;
@@ -8522,16 +8566,18 @@
     var Wt = cbThrowable(), dist = cheb(P.x, P.z, e.x, e.z);
     if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can ' + (Wt.bow ? 'shoot' : 'throw') + ' up to ' + Wt.long + '.', 2600); return; }
     if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is between you and ' + e.name + '.', 2600); return; }
-    CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); kitOneShot('Spell_Simple_Shoot'); cbHUD();
+    CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); if (!Wt.bow) kitOneShot('Spell_Simple_Shoot'); cbHUD();
     if (Wt.empty) { say('Out of arrows', 'Jury-rig some (Prop lumber + a tip) or find some.', 2600); return; }
     var Wp = { name: (Wt.bow ? Wt.ammo.name.toLowerCase().replace(/s$/, '') : 'thrown ' + Wt.name.replace(/^(your|a) /, '')), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat] + (Wt.acc || 0), dmgB: MOD[Wt.stat], range: Wt.range, onHit: Wt.onHit || null };
-    if (Wt.bow) { CB.shot = CB.shot || {}; CB.shot[Wt.ammo.name] = (CB.shot[Wt.ammo.name] || 0) + 1; Wt.ammo.qty = (Wt.ammo.qty || 1) - 1; if (Wt.ammo.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(Wt.ammo), 1); saveChar(CHAR); }
+    if (Wt.bow) { CB.shot = CB.shot || {}; CB.shot[Wt.ammo.name] = (CB.shot[Wt.ammo.name] || 0) + 1; Wt.ammo.qty = (Wt.ammo.qty || 1) - 1; if (Wt.ammo.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(Wt.ammo), 1); saveChar(CHAR); if (typeof wsetDraw === 'function') wsetDraw(); }
+    var close = Wt.bow && cheb(P.x, P.z, e.x, e.z) <= 2;
     var flyK = Wt.bow ? (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow') : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
-    setTimeout(function () { vfxBolt(flyK, P.px, P.pz, e.px, e.pz, function () {
-      cbResolve(e, Wp, { ranged: true });
+    var fly = function (x0, y0, z0) { vfxBolt(flyK, x0, z0, e.px, e.pz, function () {
+      cbResolve(e, Wp, { ranged: true, close: close });
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }
       cbAfterMyMove();
-    }, { ty: (e.def.h || 1) * 0.6 }); }, 260);
+    }, { ty: (e.def.h || 1) * 0.6, y0: y0 }); };
+    if (Wt.bow) kitBowShot(fly); else setTimeout(function () { fly(P.px, 1.15, P.pz); }, 260);
   }
   function cbContest(e) { // your Athletics against their Athletics or Acrobatics, whichever is better for them
     var me = d20() + MOD.STR + skillLv('Athletics') - (hasTrait('Bad Back') ? 2 : 0), them = d20() + Math.max(e.def.str, e.def.dex) + (e.kind === 'imp' ? 2 : 0);
@@ -10143,10 +10189,17 @@
     var el = document.getElementById('wset'); if (!el) return; var w = wieldItem(), b = backItem();
     el.style.display = !CHAR || gearOpen || CC || AUTH.open ? 'none' : '';
     el.innerHTML = '<div class="wb"><small>On back</small>' + (b ? esc(b.name) + (b.dmg ? ' · ' + esc(b.dmg) : '') : '<i>nothing</i>') + '</div>' +
-      '<div class="wh"><small>In hand</small><b>' + (w ? esc(w.name) : 'Fists') + '</b><span>' + (w && w.dmg ? esc(w.dmg) + (w.bonus ? ' · +' + w.bonus : '') : '1 + STR') + '</span></div>' +
+      '<div class="wh"' + (bowHeld() ? ' id="wAmmo" role="button" tabindex="0" style="cursor:pointer"' : '') + '><small>In hand</small><b>' + (w ? esc(w.name) : 'Fists') + '</b><span>' + (bowHeld() ? ammoLine() : w && w.dmg ? esc(w.dmg) + (w.bonus ? ' · +' + w.bonus : '') : '1 + STR') + '</span></div>' +
       '<button type="button" id="wSwap" aria-label="Swap weapons"' + (b ? '' : ' disabled') + '><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>';
     document.getElementById('wSwap').onclick = swapWeapons;
+    var wa = document.getElementById('wAmmo'); if (wa) wa.onclick = ammoCycle;
   }
+  // the arrows on the string: the ones you picked stay loaded until you switch (tap the In hand card)
+  function ammoTypes() { var I = ITEMS[CHAR.wield], kind = (I && I.bow && I.bow.ammo) || 'arrow'; return (CHAR.gear || []).filter(function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; }); }
+  function ammoLine() { var a = ammoPick((ITEMS[CHAR.wield].bow.ammo) || 'arrow'); if (!a) return 'No arrows · craft some'; var n = ammoTypes().length; return esc(a.name.replace(/ arrows$/, '')) + ' ×' + (a.qty || 1) + ' · 1d' + ITEMS[a.name].ammo.s + (n > 1 ? ' · tap to switch' : ''); }
+  function ammoCycle() { var st = ammoTypes(); if (st.length < 2) { say('Arrows', st.length ? 'That is the only kind you have.' : 'No arrows. Jury-rig some: Prop lumber + a tip.', 2400); return; }
+    var cur = ammoPick((ITEMS[CHAR.wield].bow.ammo) || 'arrow'), i = st.indexOf(cur), nx = st[(i + 1) % st.length]; CHAR.ammo = nx.name; saveChar(CHAR); wsetDraw(); if (CB.on) cbHUD();
+    say('Arrows · ' + nx.name, 'Loaded. 1d' + ITEMS[nx.name].ammo.s + (ITEMS[nx.name].ammo.acc ? ', +' + ITEMS[nx.name].ammo.acc + ' to hit' : '') + (ITEMS[nx.name].ammo.onHit ? ', sets them on fire' : '') + '. ' + (nx.qty || 1) + ' left.', 2400); }
 
   // ---------- wardrobe: you only wear what you own ----------
   var CLOTH_SLOTS = ['kHead', 'kNeck', 'kTop', 'kShoulder', 'kPants', 'kBoots'];

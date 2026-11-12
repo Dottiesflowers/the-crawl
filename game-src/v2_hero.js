@@ -512,7 +512,7 @@
     part(parent, 0.03, 0.03, 0.03, 0xf0ead8, 0.07, -0.08, 0.03); part(parent, 0.03, 0.03, 0.03, 0xf0ead8, 0.07, -0.03, 0.03);
   }
   // ---------- smooth body surfaces: a stack of cross-sections skinned into one continuous shape ----------
-  var heroGeos = [], held = [], kitHold = {}, TAU = 6.28319;
+  var heroGeos = [], held = [], kitHold = {}, TAU = 6.28319, BOW_G = null; // BOW_G: the held bow, stood upright while drawing
   function sp(v, n) { return v < 0 ? -Math.pow(-v, 2 / n) : Math.pow(v, 2 / n); }
   function RG(rows) { return rows.map(function (r) { return [r[0], r[1], r[2], r[3] || 0, r[4] || 2, r[5] || 0]; }).sort(function (a, b) { return a[0] - b[0]; }); }
   function ringAt(R, y) { // rows: [height, half-width, half-depth, centre z, squareness, centre x]
@@ -823,7 +823,8 @@
       tube(rig, T, darkM, { y0: 0.68, y1: 0.725, grow: gf + 0.006, na: 32, ny: 1, tilt: 0.13 }); bead(0.3, 0.74, gf + 0.008, 0.016, goldM); }
     // ----- hands: main and off -----
     var main = sty('main'), mc = col('main'), gw = (typeof CHAR !== 'undefined' && CHAR && CHAR.wield) ? (CHAR.gear || []).filter(function (x) { return x.name === CHAR.wield; })[0] : null;
-    if (gw) { var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); AR.el.add(wg); held.push({ g: wg, el: AR.el, side: 1, t: lean(0.35, 0.1) }); gearModel(wg, gw); main = 0; }
+    var isBow = gw && typeof ITEMS !== 'undefined' && ITEMS[gw.name] && ITEMS[gw.name].bow; // a bow goes in the left hand; the right draws the string
+    if (gw) { var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); (isBow ? AL : AR).el.add(wg); BOW_G = isBow ? wg : null; held.push({ g: wg, el: (isBow ? AL : AR).el, side: isBow ? -1 : 1, t: lean(isBow ? 0.05 : 0.35, 0.1) }); gearModel(wg, gw); main = 0; }
     else if (main) {
       var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); AR.el.add(wg);
       if (main === 5) { wg.rotation.x = 1.0; kitHold.bass = wg; } else held.push({ g: wg, el: AR.el, side: 1, t: lean(main === 3 ? 0.06 : 0.5, 0.12) });

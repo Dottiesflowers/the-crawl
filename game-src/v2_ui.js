@@ -327,10 +327,17 @@
     var el = document.getElementById('wset'); if (!el) return; var w = wieldItem(), b = backItem();
     el.style.display = !CHAR || gearOpen || CC || AUTH.open ? 'none' : '';
     el.innerHTML = '<div class="wb"><small>On back</small>' + (b ? esc(b.name) + (b.dmg ? ' · ' + esc(b.dmg) : '') : '<i>nothing</i>') + '</div>' +
-      '<div class="wh"><small>In hand</small><b>' + (w ? esc(w.name) : 'Fists') + '</b><span>' + (w && w.dmg ? esc(w.dmg) + (w.bonus ? ' · +' + w.bonus : '') : '1 + STR') + '</span></div>' +
+      '<div class="wh"' + (bowHeld() ? ' id="wAmmo" role="button" tabindex="0" style="cursor:pointer"' : '') + '><small>In hand</small><b>' + (w ? esc(w.name) : 'Fists') + '</b><span>' + (bowHeld() ? ammoLine() : w && w.dmg ? esc(w.dmg) + (w.bonus ? ' · +' + w.bonus : '') : '1 + STR') + '</span></div>' +
       '<button type="button" id="wSwap" aria-label="Swap weapons"' + (b ? '' : ' disabled') + '><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>';
     document.getElementById('wSwap').onclick = swapWeapons;
+    var wa = document.getElementById('wAmmo'); if (wa) wa.onclick = ammoCycle;
   }
+  // the arrows on the string: the ones you picked stay loaded until you switch (tap the In hand card)
+  function ammoTypes() { var I = ITEMS[CHAR.wield], kind = (I && I.bow && I.bow.ammo) || 'arrow'; return (CHAR.gear || []).filter(function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; }); }
+  function ammoLine() { var a = ammoPick((ITEMS[CHAR.wield].bow.ammo) || 'arrow'); if (!a) return 'No arrows · craft some'; var n = ammoTypes().length; return esc(a.name.replace(/ arrows$/, '')) + ' ×' + (a.qty || 1) + ' · 1d' + ITEMS[a.name].ammo.s + (n > 1 ? ' · tap to switch' : ''); }
+  function ammoCycle() { var st = ammoTypes(); if (st.length < 2) { say('Arrows', st.length ? 'That is the only kind you have.' : 'No arrows. Jury-rig some: Prop lumber + a tip.', 2400); return; }
+    var cur = ammoPick((ITEMS[CHAR.wield].bow.ammo) || 'arrow'), i = st.indexOf(cur), nx = st[(i + 1) % st.length]; CHAR.ammo = nx.name; saveChar(CHAR); wsetDraw(); if (CB.on) cbHUD();
+    say('Arrows · ' + nx.name, 'Loaded. 1d' + ITEMS[nx.name].ammo.s + (ITEMS[nx.name].ammo.acc ? ', +' + ITEMS[nx.name].ammo.acc + ' to hit' : '') + (ITEMS[nx.name].ammo.onHit ? ', sets them on fire' : '') + '. ' + (nx.qty || 1) + ' left.', 2400); }
 
   // ---------- wardrobe: you only wear what you own ----------
   var CLOTH_SLOTS = ['kHead', 'kNeck', 'kTop', 'kShoulder', 'kPants', 'kBoots'];

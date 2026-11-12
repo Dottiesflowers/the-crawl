@@ -458,6 +458,7 @@
   }
   function cbMyTurn() { return CB.on && CB.order[CB.idx] === 'pc'; }
   function cbAdjacent() { return CB.enemies.filter(function (e) { return !e.dead && !e.calm && cheb(P.x, P.z, e.x, e.z) <= 1; }); }
+  function bowHeld() { return !!(CHAR && CHAR.wield && ITEMS[CHAR.wield] && ITEMS[CHAR.wield].bow); }
   // ammo for a launcher: the stack you picked (Inventory → Shoot these), else the hardest-hitting stack you carry
   function ammoPick(kind) {
     var st = (CHAR.gear || []).filter(function (g) { var I = ITEMS[g.name]; return I && I.ammo && (I.ammo.kind || 'arrow') === kind && (g.qty || 1) > 0; });
@@ -579,7 +580,7 @@
     cbMenuClose();
     var e = enemyAt(x, z);
     if (CB.aim === 'throw') { if (e && !e.calm) { CB.aim = null; cbThrow(e); } else say('Throw', 'Tap a monster to throw at it.', 2000); return; }
-    if (e && !e.calm) { cbApproachAndAttack(e); return; }
+    if (e && !e.calm) { if (bowHeld()) { if (!CB.res.action) say('No action left', 'Shooting takes your action. End your turn or move.', 2400); else cbThrow(e); return; } cbApproachAndAttack(e); return; }
     if (!CB.reach || CB.reach.dist[x + ',' + z] === undefined || !CB.reach.dist[x + ',' + z]) { if (CB.res.move <= 0) say('Out of movement', 'You have used all your movement this turn. Attack, use an action, or end your turn.', 2600); return; }
     cbWalk(pathTo(CB.reach, x, z));
   }
@@ -613,6 +614,10 @@
   }
   function cbAttackButton(offhand) {
     if (!cbMyTurn() || CB.busy || PC.down) return;
+    if (bowHeld() && !offhand) { // a bow shoots: the weakest monster you can see in range
+      var Wb = cbThrowable(), tg = CB.enemies.filter(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0 && cheb(P.x, P.z, q.x, q.z) <= Wb.long && los(P.x, P.z, q.x, q.z); });
+      if (!tg.length) { say('No shot', 'Nothing you can see within ' + Wb.long + ' tiles. Move, or tap a target.', 2600); return; }
+      tg.sort(function (a, b) { return a.hp - b.hp; }); if (CB.res.action) cbThrow(tg[0]); return; }
     var near = cbAdjacent();
     if (!near.length) { say('Nobody in reach', 'Tap an enemy to walk over and hit it, or throw something from the Actions menu.', 2800); return; }
     near.sort(function (a, b) { return a.hp - b.hp; }); cbAttack(near[0], offhand);
@@ -625,6 +630,7 @@
     if (e.prone) { if (dist <= 1) { adv = true; why.push('target prone'); } else { dis = true; why.push('prone target at range'); } }
     if (e.grappled && dist <= 1) { adv = true; why.push('grappled'); }
     if (opt.ranged && cbAdjacent().length) { dis = true; why.push('enemy next to you'); }
+    else if (opt.close) { dis = true; why.push('too close for a bow'); }
     if (opt.ranged && dist > Wp.range) { dis = true; why.push('long range'); }
     if (CB.advNext) { adv = true; why.push('opening'); CB.advNext = false; }
     var cover = opt.ranged && hasCover(P.x, P.z, e.x, e.z) ? 2 : 0, ac = acOf(e) + cover;
@@ -660,16 +666,18 @@
     var Wt = cbThrowable(), dist = cheb(P.x, P.z, e.x, e.z);
     if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can ' + (Wt.bow ? 'shoot' : 'throw') + ' up to ' + Wt.long + '.', 2600); return; }
     if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is between you and ' + e.name + '.', 2600); return; }
-    CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); kitOneShot('Spell_Simple_Shoot'); cbHUD();
+    CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); if (!Wt.bow) kitOneShot('Spell_Simple_Shoot'); cbHUD();
     if (Wt.empty) { say('Out of arrows', 'Jury-rig some (Prop lumber + a tip) or find some.', 2600); return; }
     var Wp = { name: (Wt.bow ? Wt.ammo.name.toLowerCase().replace(/s$/, '') : 'thrown ' + Wt.name.replace(/^(your|a) /, '')), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat] + (Wt.acc || 0), dmgB: MOD[Wt.stat], range: Wt.range, onHit: Wt.onHit || null };
-    if (Wt.bow) { CB.shot = CB.shot || {}; CB.shot[Wt.ammo.name] = (CB.shot[Wt.ammo.name] || 0) + 1; Wt.ammo.qty = (Wt.ammo.qty || 1) - 1; if (Wt.ammo.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(Wt.ammo), 1); saveChar(CHAR); }
+    if (Wt.bow) { CB.shot = CB.shot || {}; CB.shot[Wt.ammo.name] = (CB.shot[Wt.ammo.name] || 0) + 1; Wt.ammo.qty = (Wt.ammo.qty || 1) - 1; if (Wt.ammo.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(Wt.ammo), 1); saveChar(CHAR); if (typeof wsetDraw === 'function') wsetDraw(); }
+    var close = Wt.bow && cheb(P.x, P.z, e.x, e.z) <= 2;
     var flyK = Wt.bow ? (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow') : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
-    setTimeout(function () { vfxBolt(flyK, P.px, P.pz, e.px, e.pz, function () {
-      cbResolve(e, Wp, { ranged: true });
+    var fly = function (x0, y0, z0) { vfxBolt(flyK, x0, z0, e.px, e.pz, function () {
+      cbResolve(e, Wp, { ranged: true, close: close });
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }
       cbAfterMyMove();
-    }, { ty: (e.def.h || 1) * 0.6 }); }, 260);
+    }, { ty: (e.def.h || 1) * 0.6, y0: y0 }); };
+    if (Wt.bow) kitBowShot(fly); else setTimeout(function () { fly(P.px, 1.15, P.pz); }, 260);
   }
   function cbContest(e) { // your Athletics against their Athletics or Acrobatics, whichever is better for them
     var me = d20() + MOD.STR + skillLv('Athletics') - (hasTrait('Bad Back') ? 2 : 0), them = d20() + Math.max(e.def.str, e.def.dex) + (e.kind === 'imp' ? 2 : 0);
