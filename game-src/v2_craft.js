@@ -73,8 +73,21 @@
   }
 
   // ---------- inventing ----------
+  // arrows are fixed recipes (no AI): something wooden for the shafts + something for the tips, exactly two parts
+  var ARROWS = [[function (g) { return /imp horn/i.test(g.name); }, 'Horn-tipped arrows', 6], [function (g) { return tg(g, 'metal'); }, 'Scrap-metal arrows', 10], [function (g) { return tg(g, 'stone'); }, 'Stone-tipped arrows', 10],
+    [function (g) { return !tg(g, 'wood') && tg(g, 'flammable'); }, 'Pitch arrows', 6], [function (g) { return tg(g, 'wood'); }, 'Wooden arrows', 10]];
+  function tg(g, t) { return (g.tags || []).indexOf(t) >= 0; }
+  function arrowCraft(sel) {
+    if (sel.length !== 2) return false; var w = sel.filter(function (g) { return tg(g, 'wood') && !ITEMS[g.name].ammo; }); if (!w.length || sel.some(function (g) { return ITEMS[g.name] && ITEMS[g.name].ammo; })) return false;
+    var shaft = w[0], tip = sel[0] === shaft ? sel[1] : sel[0], r = ARROWS.filter(function (a) { return a[0](tip); })[0]; if (!r) return false;
+    itemSpend(shaft); itemSpend(tip); var made = item(r[1], { qty: r[2], from: 'your own two hands' }); invAdd(made, true); saveChar(CHAR);
+    skillUse(trackSkill('physical')); CRAFT.sel = [];
+    craftSay('ok', 'Made ' + r[2] + ' ' + r[1].toLowerCase(), 'Shafts from ' + shaft.name.toLowerCase() + ', tips from ' + tip.name.toLowerCase() + '. ' + (ITEMS[r[1]].desc || '').split('. ')[0] + '.');
+    return true;
+  }
   function craftInvent(idea) {
     if (CRAFT.busy) return; if (CRAFT.sel.length < 2) { craftSay('no', 'Need more parts', 'Pick at least two things to put together.'); return; } var sel = CRAFT.sel.slice(); CRAFT.result = null;
+    if (arrowCraft(sel)) return;
     var desc = sel.map(function (g) { return g.name + ' [' + (g.cat || 'misc') + (g.tags && g.tags.length ? '; ' + g.tags.join(', ') : '') + (g.dmg ? '; ' + g.dmg : '') + (g.heal ? '; heals ' + g.heal : '') + ']: ' + (g.desc || ''); }).join('\n');
     if (!NET.sample) { craftApply(craftOffline(sel, idea), sel, idea); return; }
     CRAFT.busy = true; CRAFT.result = null; craftDraw();

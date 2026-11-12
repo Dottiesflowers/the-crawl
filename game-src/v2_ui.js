@@ -175,6 +175,7 @@
     if (canBack(it) && CHAR.wield !== it.name) acts.push(CHAR.back === it.name ? ['unback', 'Take off back'] : ['back', 'Wear on back']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
+    if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Shoot these first']);
     acts = acts.concat(lampActs(it));
     if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
     if ((it.cat === 'consumable' && (it.heal || it.buff)) || it.throw || it.escape || burnsKnown(it)) acts.push(hotHas(it.name) ? ['unhot', 'Take off hot bar'] : ['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
@@ -182,15 +183,18 @@
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       loreLine(it) + (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
-      '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
+      '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (ITEMS[it.name] && ITEMS[it.name].twoHand ? ' · two-handed' : '') + (ITEMS[it.name] && ITEMS[it.name].ammo ? ' · ' + (it.qty || 1) + ' arrows · 1d' + ITEMS[it.name].ammo.s : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
       '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
   }
   function bagAct(a, it) {
     if (!it) return;
     if (a === 'back') { if (CHAR.wield === it.name && (CHAR.gear || []).filter(function (g) { return g.name === it.name; }).length < 2) CHAR.wield = null; CHAR.back = it.name; buildHero(); say('On your back · ' + it.name, 'Swap to it any time. In a fight the first swap each turn is free.', 3000); }
     if (a === 'unback') { CHAR.back = null; buildHero(); }
+    if (a === 'wield' && ITEMS[it.name] && ITEMS[it.name].twoHand && look.off[0]) setTimeout(function () { say('Two-handed', it.name + ' takes both hands. Your off hand is empty while you hold it.', 3200); }, 1400);
     if (a === 'wield') { if (CHAR.back === it.name && (CHAR.gear || []).filter(function (g) { return g.name === it.name; }).length < 2) CHAR.back = CHAR.wield || null; CHAR.wield = it.name; buildHero(); say('In hand · ' + it.name, 'You will fight with it: ' + it.dmg + ' damage.', 3000); }
     if (a === 'unwield') { CHAR.wield = null; buildHero(); }
+    if (a === 'nock') { CHAR.ammo = it.name; saveChar(CHAR); say('Arrows · ' + it.name, 'Your bow shoots these first.', 2600); }
+    if (a === 'unnock') { CHAR.ammo = null; saveChar(CHAR); }
     if (a === 'wear') wear(it);
     if (a === 'unwear') { it.worn = false; look[it.slot] = [0, 0]; buildHero(); saveLook(); }
     if (/^lamp/.test(a)) lampAct(a, it);
@@ -459,6 +463,7 @@
   }
   var ICON = {
     stickbomb: '<path d="M4 26L14 16" stroke="#8a5a30" stroke-width="3.2" stroke-linecap="round"/><g transform="rotate(-45 18 10)"><rect x="12" y="5" width="12" height="10" rx="2" fill="#e8dcc0" stroke="#8a7a5a"/><path d="M14 7.5h8M14 10h8M14 12.5h6" stroke="#b8a888" stroke-width=".7"/><rect x="16.2" y="4.4" width="3.2" height="11.2" fill="#9aa0a6" stroke="#6a7076" stroke-width=".5"/></g><path d="M14.5 17.5c0 2 1 3 .2 4.5M18.5 16c1 2 .4 3 .4 4.5" stroke="#c8a040" stroke-width="1.5" stroke-linecap="round"/><path d="M22.5 4.5l1.5-2.5M24.5 6.5l3-1M21 3.5V1" stroke="#ff9a2a" stroke-width="1.4"/>',
+    arrows: '<path d="M6 24L22 8M9 25L25 9M5 21L21 5" stroke="#8a5a30" stroke-width="1.6"/><path d="M22 8l1-4 3 1zM25 9l1-4 3 1zM21 5l1-4 3 1z" fill="#cfd6da"/><path d="M6 24l-2 1 1-3zM9 25l-2 1 1-3zM5 21l-2 1 1-3z" fill="#c84a3a"/>',
     bow: '<path d="M8 4c10 4 10 18 0 22" fill="none" stroke="#7a4a28" stroke-width="2.6" stroke-linecap="round"/><path d="M8 4v22" stroke="#d8d0b8" stroke-width=".9"/><path d="M5 15h17" stroke="#8a5a30" stroke-width="1.4"/><path d="M22 15l-3-2v4z" fill="#cfd6da"/>',
     spear: '<path d="M5 25L19 11" stroke="#8a5a30" stroke-width="2.6" stroke-linecap="round"/><path d="M18 12l2-7 6-2-2 6z" fill="#dfe6ea" stroke="#8a939d" stroke-width=".7"/><path d="M15.5 13.5l3 3" stroke="#3a3a3a" stroke-width="2.2"/>',
     bomb: '<circle cx="13" cy="17" r="7" fill="#2a2a2a" stroke="#555"/><path d="M17 11l3-3" stroke="#8a7a5a" stroke-width="2"/><path d="M20 8l2-2M21 5h3M22 9l2 1" stroke="#ff9a2a" stroke-width="1.6"/><circle cx="10.5" cy="14.5" r="1.6" fill="#777"/>',

@@ -56,7 +56,8 @@
     main: [0, 0], off: [2, 0], back: [3, 0] };
   try { var saved = JSON.parse(localStorage.getItem('crawl-look7') || 'null'); if (saved) for (var k in look) if (saved[k] && saved[k].length === 2 && saved[k][0] < SLOT[k].styles.length) look[k] = saved[k]; } catch (e) {}
   function col(key) { var s = SLOT[key]; return s.colors[look[key][1] % s.colors.length]; }
-  function sty(key) { return look[key][0]; }
+  function sty(key) { if (key === 'off' && twoHandHeld()) return 0; return look[key][0]; } // a two-handed weapon empties the off hand (the torch comes back when you put it away)
+  function twoHandHeld() { return typeof CHAR !== 'undefined' && CHAR && CHAR.wield && typeof ITEMS !== 'undefined' && ITEMS[CHAR.wield] && !!ITEMS[CHAR.wield].twoHand; }
 
   var hero = new THREE.Group(); scene.add(hero);
   var blob = new THREE.Mesh(new THREE.CircleGeometry(0.26, 14), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }));

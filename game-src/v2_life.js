@@ -143,7 +143,7 @@
     var el = document.createElement('div'); el.id = 'dmBox'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'DM mode');
     el.innerHTML = '<small>DM MODE</small><h3>Floors</h3><div class="row"><button type="button" data-f="1"' + (FLOOR === 1 ? ' class="on"' : '') + '>Floor 1 · Basic Training</button><button type="button" data-f="2"' + (FLOOR === 2 ? ' class="on"' : '') + '>Floor 2 · The Backlot</button></div>' +
       '<h3>Monsters on this floor</h3><div class="row"><button type="button" id="dmPeace" class="' + (DM.peace ? 'on' : '') + '">' + (DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight') + '</button></div>' +
-      '<h3>Test gear</h3><div class="row"><button type="button" id="dmRusty">Give me every Soundstage weapon</button></div>' +
+      '<h3>Test gear</h3><div class="row"><button type="button" id="dmRusty">Give me every Soundstage weapon</button><button type="button" id="dmAll">Give me every item in the game</button></div>' +
       '<p>Your spot on each floor is saved, so you come back where you left. Gear, level and gold travel with you.</p><p><a href="credits.html" target="_blank" rel="noopener">Asset credits</a></p><button type="button" id="dmX">Close</button>';
     document.body.appendChild(el);
     el.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { var f = +b.getAttribute('data-f'); if (f === FLOOR) return; if (CB.on) { say('DM mode', 'Finish the fight first.', 2500); return; } b.textContent = 'Going…'; dmFloor(f); }; });
@@ -152,6 +152,12 @@
       var have = {}, got = 0; (CHAR.gear || []).forEach(function (x) { have[x.name] = 1; });
       Object.keys(ITEMS).forEach(function (n) { if (ITEMS[n].model && !have[n]) { var it = item(n, { from: 'DM mode' }); if (it) { CHAR.gear.push(it); got++; } } });
       saveChar(CHAR); this.textContent = got ? 'Added ' + got + ' weapons' : 'You have them all'; say('DM mode', got ? got + ' weapons are in your bag. Wield one from Inventory.' : 'Already in your bag.', 3000);
+    };
+    document.getElementById('dmAll').onclick = function () { // one of everything in items.js (ammo and stackables come as a stack), skipping what you already carry
+      var have = {}, got = 0; (CHAR.gear || []).forEach(function (x) { have[x.name] = 1; });
+      Object.keys(ITEMS).forEach(function (n) { if (have[n]) return; var it = item(n, { from: 'DM mode' }); if (!it) return; if (ITEMS[n].ammo) it.qty = 20; CHAR.gear.push(it); got++; });
+      saveChar(CHAR); if (typeof hotAuto === 'function') hotAuto(); this.textContent = got ? 'Added ' + got + ' items' : 'You have everything';
+      say('DM mode', got ? got + ' items are in your bag (arrows come in stacks of 20). Use the inventory search and category chips to find things.' : 'You already carry one of everything.', 4500);
     };
     document.getElementById('dmX').onclick = function () { el.remove(); };
   }
