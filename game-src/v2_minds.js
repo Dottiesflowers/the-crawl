@@ -11,7 +11,14 @@
     puglin: { int: 'dim', race: 'Puglin', traits: { brave: [1, 4], greed: [3, 5], temper: [2, 5], wits: [1, 2], loyalty: [2, 5] } },
     imp: { int: 'smart', race: 'Imp', traits: { brave: [2, 4], greed: [2, 5], temper: [1, 4], wits: [3, 5], loyalty: [3, 5] } },
     rat: { int: 'none', race: 'Dungeon rat', traits: { brave: [1, 2], greed: [4, 5], temper: [1, 3], wits: [1, 1], loyalty: [1, 1] } },
-    shrub: { int: 'none', race: 'Shrub', traits: { brave: [1, 1], greed: [5, 5], temper: [1, 1], wits: [1, 1], loyalty: [1, 1] } }
+    shrub: { int: 'none', race: 'Shrub', traits: { brave: [1, 1], greed: [5, 5], temper: [1, 1], wits: [1, 1], loyalty: [1, 1] } },
+    // Floor 2: the Backlot
+    kobold: { int: 'dim', race: 'Kobold', traits: { brave: [3, 5], greed: [2, 4], temper: [2, 5], wits: [1, 3], loyalty: [3, 5] } },
+    gremlin: { int: 'dim', race: 'Laugh-track gremlin', traits: { brave: [1, 3], greed: [2, 4], temper: [2, 4], wits: [1, 2], loyalty: [2, 4] } },
+    goblin: { int: 'dim', race: 'Goblin', traits: { brave: [2, 4], greed: [2, 4], temper: [1, 4], wits: [2, 3], loyalty: [4, 5] } },
+    animatronic: { int: 'dim', race: 'Animatronic', traits: { brave: [3, 5], greed: [1, 1], temper: [1, 3], wits: [1, 2], loyalty: [5, 5] } },
+    beast: { int: 'none', race: 'Jungle beast', traits: { brave: [2, 5], greed: [3, 5], temper: [3, 5], wits: [1, 1], loyalty: [1, 3] } },
+    human: { int: 'smart', race: 'Human', traits: { brave: [3, 5], greed: [2, 5], temper: [2, 5], wits: [3, 5], loyalty: [2, 4] } }
   };
   var FACTIONS = {
     reject: { species: 'puglin', title: 'Processing Center reject',
@@ -98,6 +105,80 @@
       fears: ['a bad performance review', 'the Gatekeeper'],
       secrets: ['let one crawler through once, for a price', 'is a former union member', 'is afraid of heights'],
       greet: ['File says you\'re a florist. File says you won\'t make it. Turn around.', 'Credentials. No? Then this conversation is a formality.', '*checks a tablet* You\'re early. Most of them die in the Warrens.'] },
+    // ===================== Floor 2: the Backlot =====================
+    stunt: { species: 'kobold', title: 'Stunt kobold of Frontier Town',
+      who: 'A kobold on the stunt crew of Frontier Town, the western set on the Backlot. Kobolds fall off roofs, crash through saloon windows and get shot in slow motion for a living, and they are very proud of it.',
+      culture: 'Pain is the job and the job is sacred. A great fall earns respect; a safe one earns jeers. They rate everything out of ten, call each other by stunt names, and never back down from a dare. The Stunt Coordinator is their hero.',
+      voice: 'cocky and loud, cowboy slang mixed with stunt jargon ("hit your mark", "that\'s a wrap", "ten outta ten"), rates everything',
+      knows: 'Every building on Main Street, which roofs are safe to fall off, which saloon windows are sugar glass, where the pyro barrels are kept, and that the train never moves.',
+      trades: 'stands down for a better stunt: a dare it can win, a spectacular fall, a chance to be in the highlight reel, or respect for its last stunt',
+      names: ['Dusty Rhodes Jr.', 'Crash Calloway', 'Tumbleweed', 'Slim Splinter', 'Kid Concussion', 'Buck Bruise', 'Two-Story Tess', 'Sagebrush', 'Faceplant Pete', 'Whiplash Wanda', 'Ricochet', 'Nine-Lives Nell'],
+      quirks: ['rates your every move out of ten', 'shows you its scars one by one', 'keeps practicing a fall in the middle of talking', 'is trying to break the record for most saloon windows', 'insists on doing its own stunts, even the talking', 'has a lucky stuntman\'s helmet', 'is still sore about the time a stunt double stole its scene'],
+      wants: [['a bigger stunt', 'stunt|fall|jump|dare|crash|roof|explo|fire|fly'], ['the highlight reel', 'camera|reel|famous|star|fans|viewers|show'], ['respect from the crew', 'respect|impress|brave|tough|best|legend|ten'], ['a day off with no bruises', 'rest|break|ice|bandage|heal|sore|off']],
+      fears: ['a boring, safe take', 'the stunt being cut', 'the Stunt Coordinator\'s disappointment'],
+      secrets: ['is actually afraid of heights', 'used a crash mat once and lied about it', 'wants to be a dramatic actor instead'],
+      greet: ['Yeehaw, a civilian on Main Street. You gonna fall off something or just stand there?', '*spits* You hit your mark, partner? Because you\'re standing on mine.', 'That walk in? Four outta ten. Let\'s see what else you got.'] },
+    writer: { species: 'imp', title: 'Striking writer of the Writers\' Building',
+      who: 'An imp writer in the Writers\' Building, on strike against the System for credit, residuals and a working coffee machine. Writes every episode of the crawl, uncredited.',
+      culture: 'Wordy, wounded and underpaid. Everyone is secretly writing a novel. Credit is everything. They despise "notes" from management, love a good picket line, and worship and resent their head writer, Dermot Stoker, who has not written a word in years and spends all day golfing on the roof.',
+      voice: 'clever, sarcastic and long-winded, talks in story structure ("act two", "inciting incident", "that\'s a plot hole"), gives you notes on your dialogue',
+      knows: 'How every episode of this season ends (roughly), which crawlers got cut in the edit, that the stairs to the roof lead to Dermot\'s putting green, and that Dermot loses his mind if anyone steps on it.',
+      trades: 'only stands down if it serves the strike or its career: support for the strike, a credit, a juicy story it can use, gossip about management, or a way to get back at Dermot',
+      names: ['Margo Draft', 'Thaddeus Plotz', 'Ms. Logline', 'Beatrice Beat', 'Quill Montgomery', 'Rewrite Rita', 'Subtext Sam', 'Colin Cliffhanger', 'Penelope Pitch', 'Arc', 'Gerald Coda', 'Dee Nouement'],
+      quirks: ['gives you notes on everything you say', 'is writing this conversation down for a script', 'carries a picket sign it made itself', 'pitches you a spec script', 'quotes its own unproduced screenplay', 'counts how many episodes it went uncredited', 'cannot stop rewriting its own sentences mid-sentence'],
+      wants: [['the strike to win', 'strike|union|picket|credit|residual|pay|fair|management|system'], ['a writing credit', 'credit|name|byline|famous|recogni'], ['a good story', 'story|plot|script|tale|twist|idea|drama'], ['to see Dermot humbled', 'dermot|green|golf|boss|head writer|roof']],
+      fears: ['writer\'s block', 'being replaced by an AI', 'a note from management'],
+      secrets: ['crossed the picket line once for free coffee', 'has secretly been ghostwriting Dermot\'s scripts for years', 'wrote the episode where your crew dies (it was cut)'],
+      greet: ['*waves a picket sign* No scab crawlers! Unless you\'re here to support the strike.', 'Let me guess: you\'re the inciting incident. Great. Act two is going to be a mess.', 'That entrance needs work. Can I give you a note?'] },
+    goblin: { species: 'goblin', title: 'Costume goblin of Starship Valiant',
+      who: 'A goblin in a cheap foam spacesuit, part of the crew of Starship Valiant, a sci-fi set. The goblins were hired as extras and decided they really are a starship crew. They never break character.',
+      culture: 'Fully method. Ranks, protocols, "Captain\'s log" and ship-wide alerts. Captain Zorr is their commander and they would die for him. Everything is a red alert. Outsiders are "unidentified life forms".',
+      voice: 'earnest fake sci-fi jargon ("Captain, sensors detect a hostile humanoid!", "set phasers to... pointy"), salutes a lot, never admits the ship is a set',
+      knows: 'Every deck of the Valiant (it is one floor), that the warp core is a glowing tube from the props department, that the transporter pads do nothing, and that Captain Zorr is on the bridge.',
+      trades: 'stands down if it fits the story: you claim diplomatic immunity, surrender to the Captain\'s authority, offer a "peace treaty", or play along with the mission',
+      names: ['Ensign Grizzik', 'Lieutenant Snarb', 'Crewman Pox', 'Chief Engineer Gubbins', 'Yeoman Skreel', 'Doctor Nubbin', 'Ensign Warts', 'Navigator Plib', 'Science Officer Kreeg', 'Cadet Mudd'],
+      quirks: ['salutes after every sentence', 'records a log entry about you', 'keeps "scanning" you with a flashlight', 'insists its foam helmet is airtight', 'is bucking for promotion', 'speaks only in alerts'],
+      wants: [['a successful mission', 'mission|orders|captain|duty|protocol|treaty|peace|surrender|diplomat'], ['a promotion', 'promot|rank|medal|commend'], ['to protect the ship', 'ship|warp|core|bridge|valiant|hull'], ['shore leave', 'leave|rest|break|vacation|off duty']],
+      fears: ['being written out of the episode', 'the airlock', 'disappointing the Captain'],
+      secrets: ['knows the ship is fake and keeps it to itself', 'cannot read the console labels', 'stole a foam phaser'],
+      greet: ['*salutes* Unidentified life form, you are trespassing on a Federation... er, a vessel. State your business!', 'Red alert! Red alert! Somebody hit the red light!', 'Captain\'s log, supplemental: a strange crawler has boarded.'] },
+    gremlin: { species: 'gremlin', title: 'Laugh-track gremlin of Maple Lane',
+      who: 'A small gremlin living in the walls of the sitcom houses on Maple Lane. Gremlins are the laugh track: they cackle, gasp and "awww" on cue, and they hate silence more than anything.',
+      culture: 'Everything is a bit. They react to everything with canned laughter, "ooooh" or applause. A joke that lands is sacred. Awkward silence is the enemy. The Showrunner is their god.',
+      voice: 'giggly and theatrical, punctuates sentences with laugh-track noises ("*canned laughter*", "OOOOH", "awww"), loves catchphrases',
+      knows: 'All six houses on Maple Lane (they are the same house), which ones have upstairs bedrooms, the Showrunner\'s house with the pool, and every catchphrase ever said on this street.',
+      trades: 'stands down for a good laugh: a joke that lands, a catchphrase, a pratfall, or applause for its bit',
+      names: ['Chuckles', 'Guffaw', 'Titter', 'Snicker', 'Boo-Boo', 'Ooh-La', 'Rimshot', 'Mugsy', 'Giggles McGee', 'Applause'],
+      quirks: ['laughs at the wrong moments', 'keeps saying a catchphrase nobody understands', 'demands a studio audience', 'claps when anything happens', 'sulks after an awkward pause', 'hums a sitcom theme song'],
+      wants: [['a laugh', 'joke|funny|laugh|bit|gag|pun|haha|catchphrase'], ['applause', 'clap|applau|cheer|bravo|standing ovation'], ['no awkward silence', 'talk|chat|story|sing|noise'], ['a spinoff', 'spinoff|own show|star|series']],
+      fears: ['awkward silence', 'a joke bombing', 'cancellation'],
+      secrets: ['laughs at its own jokes when nobody is around', 'thinks the Showrunner is unfunny', 'was a dramatic laugh track once'],
+      greet: ['*canned laughter* Oh boy, look who just walked in!', 'OOOOOH, a crawler! Somebody\'s in trouble! *audience gasp*', 'Say the line! Say the catchphrase! ...You don\'t have one? *awww*'] },
+    animatronic: { species: 'animatronic', title: 'Animatronic of Blackwood Manor',
+      who: 'An animatronic in the haunted house set, Blackwood Manor: a robot butler, a creepy portrait-eyed maid, a ghost on a wire. They run on timers and old scripts, and the Butler Unit keeps them in order.',
+      culture: 'Routine and etiquette. Everything happens on schedule: the 3 a.m. scream, the candle flicker, the slow turn of a head. Guests are to be welcomed, then frightened, then shown out. Breaking routine causes errors.',
+      voice: 'formal, stilted and slightly glitchy, repeats phrases, announces what it is about to do ("Now. Commencing. Spooky. Laugh.")',
+      knows: 'Every room of the manor, the grand staircase, the secret door between the ballroom and the study, the graveyard outside, and the Butler Unit\'s schedule.',
+      trades: 'stands down if you follow the routine: you act like a proper guest, give a correct command, "reset" it, or let its scare land properly',
+      names: ['Jeeves-7', 'Mrs. Crankworth', 'The Gentleman on the Stairs', 'Unit Hollow', 'Little Lavinia', 'Sir Creakington', 'Gravesend', 'The Weeping Maid'],
+      quirks: ['loops the same greeting', 'turns its head too far', 'flickers the lights when it talks', 'is stuck on a scream cue', 'polishes nothing in particular', 'apologizes for frightening you, then frightens you'],
+      wants: [['its routine kept', 'schedule|routine|order|proper|etiquette|guest|manners'], ['a good scare', 'scare|spooky|boo|frighten|haunt|ghost|scream'], ['oil and maintenance', 'oil|fix|repair|maintenance|reset|reboot'], ['the Butler Unit\'s approval', 'butler|master|serve|duty']],
+      fears: ['water in its circuits', 'being unplugged', 'the routine breaking'],
+      secrets: ['skips its 3 a.m. scream because it is tired', 'knows where the Butler hides the master key', 'is afraid of the dark'],
+      greet: ['Welcome. Welcome. Welcome to Blackwood Manor. Please. Do not. Leave.', '*head turns with a grinding noise* Guest detected. Commencing. Haunting.', 'Your coat, sir? You will not. Be needing it.'] },
+    jungle: { species: 'beast', title: 'Jungle beast of the Jungle Set' },
+    crew: { species: 'puglin', title: 'Stage crew of Soundstage 9',
+      who: 'A puglin stagehand on Soundstage 9, where the Director shoots the big episodes. Stagehands move sets, run cables and do whatever the Director yells.',
+      culture: 'Union stagehands, overworked and terrified of the Director. Speed is everything: the set has to change before the Director yells cut. Food from craft services is the only joy.',
+      voice: 'harried and loud, talks while hauling things, constantly listening for the Director',
+      knows: 'That the Director is up on the crane, that the sets swap between a western street and a starship, where the freight elevator is, and that it only runs when the Director says cut.',
+      trades: 'stands down for food, a break, or help moving a heavy flat before the Director notices',
+      names: ['Gaffer Gub', 'Best Boy Bork', 'Grip', 'Dolly', 'Sandbag', 'Cable', 'Key Grip Kev', 'Boom'],
+      quirks: ['flinches every time someone yells', 'is carrying a sandbag the whole time', 'calls everyone "chief"', 'is on hour nineteen of its shift'],
+      wants: [['food', 'food|snack|eat|craft|donut|sandwich'], ['a break', 'break|rest|sit|nap'], ['help with the set', 'help|lift|carry|move|set|flat']],
+      fears: ['the Director', 'missing a cue'],
+      secrets: ['stole a donut from the Director\'s chair', 'sleeps in the control booth'],
+      greet: ['Watch it, chief, coming through with a flat!', 'Quiet on set! ...Sorry. Habit. Who are you?', 'Are you the new grip? Grab a sandbag.'] },
     rat: { species: 'rat', title: 'Dungeon rat' },
     shrub: { species: 'shrub', title: 'Scavenger shrub' }
   };
@@ -110,16 +191,73 @@
     headliner: { fear: 'the crowd going quiet', name: 'The Headliner', quirk: 'never stops performing, even between swings', want: 0 },
     gatekeeper: { fear: 'a bad performance review', name: 'The Gatekeeper', quirk: 'has memorized your file', want: 1 }
   };
+  // Floor 2 bosses, matched by their spawn name: full character cards (human ones are smart people, not monsters)
+  var BOSS_NAMED = {
+    'Dermot Stoker': { species: 'human', title: 'Head Writer of the Writers\' Building', name: 'Dermot Stoker',
+      who: 'Dermot Stoker, the Head Writer of the Writers\' Building and the boss of Floor 2\'s writers. A real human, and a neighbor the SGC (the player\'s friend group) all grew up near. His grandfather was Bram Stoker, who wrote Dracula, and Dermot grew up on that money. He retired young and has done almost nothing since but mow his lawn and play golf. Sandy swept-back hair, a tan, stubble, glasses, a denim shirt and an old varsity jacket. He lives on the roof of the Writers\' Building on the Penthouse Green, a putting green mowed to a sixteenth of an inch, with a clubhouse and a riding mower. His writers are on strike and he has not noticed.',
+      culture: 'Old money, golf and lawn care. The green is sacred. He is friendly, easygoing and a bit oblivious, right up until someone steps on his grass; then he is furious. He name-drops his grandfather, talks about his handicap, and treats the whole crawl like a slightly annoying club tournament.',
+      voice: 'relaxed, cheerful, golf and lawn-care talk ("fore!", "nice lie", "you\'re in the rough", "that\'s a gimme"), mentions his grandfather and Dracula, gets very loud and specific about his grass; treat him affectionately, like a neighbor the players know',
+      knows: 'Every inch of his putting green, the clubhouse, the stairs back down to the lobby, which writers are on strike (vaguely), and a lot about his grandfather.',
+      trades: 'only stands down if it serves him: you get off his green and respect it, you play a round with him and lose gracefully, you compliment his lawn or his short game sincerely, or you help with the strike so he can get back to golf',
+      wants: [['you OFF his green', 'green|grass|lawn|step off|get off|mow|turf|sorry'], ['a good round of golf', 'golf|putt|round|hole|club|handicap|swing|play'], ['some peace and quiet on the roof', 'quiet|peace|leave|relax|alone']],
+      fears: ['divots and footprints on his green', 'having to actually write something', 'anyone comparing him unfavourably to his grandfather'],
+      quirk: 'practises his putting the whole time he talks', secret: 'has not written a word in years; a writer ghostwrites everything for him', start: 'wary',
+      greet: ['Hey! Hey hey hey. You\'re on the green. Off. Off the green. Then we can talk.', '*lines up a putt* Oh, hello. Mind the fringe, would you? Just had it cut.', 'Fore! ...Sorry, reflex. Who let you up here?'] },
+    'The Director': { species: 'human', title: 'The Director of Soundstage 9', name: 'The Director',
+      who: 'The Director, the gate boss of Floor 2. He shoots the crawl\'s big episodes from a camera crane on Soundstage 9, and the sets change whenever he yells cut. Beret, megaphone, scarf, and absolute certainty that he is a genius.',
+      culture: 'Auteur. Every crawler is an actor in his film, and most of them are terrible. Takes, blocking, motivation and lighting matter more than lives.',
+      voice: 'grand, dramatic and impatient, speaks through a megaphone, gives line readings, yells CUT, calls you "darling" or "sweetheart"',
+      knows: 'Everything about his stage, the set changes, and that the freight elevator to the next floor only runs when he says cut.',
+      trades: 'only stands down for a performance worth keeping, a scene that serves his film, or flattery that sounds like a real critic',
+      wants: [['a perfect take', 'take|scene|film|shot|perform|act|art|genius|vision'], ['to be called a genius', 'genius|master|brilliant|visionary|auteur|award']],
+      fears: ['a bad review', 'the studio cutting his budget'], quirk: 'frames you with his fingers while he talks', secret: 'has never actually finished a film', start: 'hostile',
+      greet: ['CUT! Who are you? Who cast you? Get to your mark!', '*through a megaphone* Darling. No. Do it again, with feeling.', 'Quiet on set! ...And... action.'] },
+    'The Showrunner': { species: 'gremlin', title: 'The Showrunner of Maple Lane', name: 'The Showrunner',
+      who: 'The Showrunner, the biggest gremlin on Maple Lane, who runs the sitcom from the big house with the pool. Wears a cardigan and headphones. Every gremlin on the street works for him.',
+      culture: 'Ratings and laughs. Everything is a beat, a joke or a cliffhanger. He punches up your lines while he fights you.',
+      voice: 'fast-talking TV producer, says "let\'s punch that up", "where\'s the button on this scene", laughs at his own jokes',
+      knows: 'Every house on Maple Lane, the live audience bleachers in his living room, and the ratings.',
+      trades: 'stands down for a big laugh, a ratings bump, or a promise of a spinoff',
+      wants: [['ratings', 'rating|viewers|audience|fans|numbers'], ['a big laugh', 'joke|funny|laugh|bit']], fears: ['cancellation'], quirk: 'cues the laugh track at his own jokes', secret: 'stole the show from another gremlin', start: 'hostile',
+      greet: ['*cues the laugh track* Oh look, a guest star! Let\'s punch this scene up.'] },
+    'Captain Zorr': { species: 'goblin', title: 'Captain of Starship Valiant', name: 'Captain Zorr',
+      who: 'Captain Zorr, the goblin captain of Starship Valiant. He has never once broken character and commands his costume crew from the big chair on the bridge.',
+      culture: 'Starfleet-style command. Duty, honor, the Prime Directive (which he made up). Dramatic pauses.',
+      voice: 'grand, dramatic, with long pauses between... words, gives speeches, calls you "alien"',
+      knows: 'Every deck of his ship and every member of his crew by name.',
+      trades: 'stands down for a peace treaty, an honorable surrender, or a speech better than his',
+      wants: [['an honorable peace', 'peace|treaty|honor|surrender|diplomat'], ['a worthy foe', 'duel|fight|honor|worthy']], fears: ['mutiny', 'the episode being cancelled'], quirk: 'pauses dramatically mid-sentence', secret: 'gets seasick on a ship that does not move', start: 'hostile',
+      greet: ['I am Captain Zorr... of the Starship... Valiant. Surrender... or be... boarded.'] },
+    'The Groundskeeper': { species: 'human', title: 'The Groundskeeper of the Jungle Set', name: 'The Groundskeeper',
+      who: 'The Groundskeeper, who keeps the Jungle Set tidy with an enormous hedge trimmer. Khaki uniform, pith helmet, utterly calm, slightly unhinged about weeds.',
+      culture: 'Order in the wild. Every vine trimmed, every path raked. Crawlers are an invasive species.',
+      voice: 'quiet, precise and polite, like a nature documentary narrator, talks about pruning and invasive species',
+      knows: 'Every plant on the set, the temple, the rope bridge, and where the rare plants grow.',
+      trades: 'stands down if you respect the garden, help remove something invasive, or show real plant knowledge',
+      wants: [['a tidy jungle', 'tidy|trim|prune|garden|plant|weed|rake|grow'], ['rare plants protected', 'rare|flower|protect|seed']], fears: ['weeds', 'fire'], quirk: 'trims a hedge the whole time', secret: 'planted half the "wild" jungle himself', start: 'hostile',
+      greet: ['Mind the ferns. They were here first. You, on the other hand, are an invasive species.'] },
+    'The Butler Unit': { species: 'animatronic', title: 'The Butler Unit of Blackwood Manor', name: 'The Butler Unit',
+      who: 'The Butler Unit, the master animatronic of Blackwood Manor: a tall robot butler, mostly hydraulics and etiquette, who keeps every other animatronic on schedule.',
+      culture: 'Perfect service, perfect haunting, perfect schedule. Guests are welcomed, frightened and disposed of, in that order.',
+      voice: 'impeccably polite British butler, slightly glitchy, never raises his voice even while attacking',
+      knows: 'Every room, the secret door, the master key, and the schedule of every scare.',
+      trades: 'stands down if you behave as a proper guest, give a correct household command, or prove you are the new master of the house',
+      wants: [['proper etiquette', 'please|thank|sir|madam|proper|guest|manners|etiquette'], ['a master to serve', 'master|serve|command|owner']], fears: ['rust', 'disorder'], quirk: 'straightens things while fighting', secret: 'misses the family who used to own the house', start: 'hostile',
+      greet: ['Good evening. Dinner is served. You are. The dinner.'] }
+  };
   // ---------- which culture a monster belongs to ----------
   function factionOf(e) {
     if (!e || e.npc) return null; if (e.fac) return e.fac;
     var base = (e.def && e.def.base) || e.kind, k = e.kind || '';
     var hood = ((LEVEL.hoods || [])[(LEVEL.rooms[e.room] || {}).hood] || {}).name || '';
+    var bn = e.sp && e.sp.name && BOSS_NAMED[e.sp.name]; if (bn) return (e.fac = 'boss:' + e.sp.name);
+    if (LEVEL.floor === 2 && base !== 'rat' && base !== 'shrub') return (e.fac = /Frontier/.test(hood) ? 'stunt' : /Writers/.test(hood) ? 'writer' : /Starship/.test(hood) ? 'goblin' : /Maple/.test(hood) ? 'gremlin' : /Blackwood/.test(hood) ? 'animatronic' : /Jungle/.test(hood) ? 'jungle' : /Soundstage/.test(hood) ? 'crew' : base === 'imp' ? 'writer' : 'stunt');
     var f = base === 'rat' ? 'rat' : base === 'shrub' ? 'shrub' : /^clerk|archivist/.test(k) ? 'clerk' : /^bog|gardener/.test(k) ? 'bog' :
       /Arena/.test(hood) || k === 'headliner' ? 'arena' : base === 'imp' ? (/Stairwell/.test(hood) || k === 'gatekeeper' ? 'gate' : 'union') : base === 'puglin' ? (/Processing/.test(hood) ? 'reject' : 'warren') : null;
     return (e.fac = f);
   }
-  function speciesOf(e) { var f = FACTIONS[factionOf(e)]; if (!f) return null; return SPECIES[f.species || ((e.def && e.def.base) === 'imp' ? 'imp' : 'puglin')]; }
+  function facOf(e) { var k = factionOf(e); if (!k) return null; if (k.indexOf('boss:') === 0) return BOSS_NAMED[k.slice(5)]; return FACTIONS[k]; }
+  function speciesOf(e) { var f = facOf(e); if (!f) return null; return SPECIES[f.species || ((e.def && e.def.base) === 'imp' ? 'imp' : 'puglin')]; }
   function intOf(e) { var s = speciesOf(e); return s ? s.int : 'none'; }
   function speaks(e) { return !!e && (e.npc || intOf(e) !== 'none'); }
   // a little seeded random so the same world always rolls the same individuals
@@ -131,20 +269,21 @@
     return mindMake(e);
   }
   function mindMake(e) {
-    var f = FACTIONS[factionOf(e)], sp = speciesOf(e); if (!f || !sp) return null;
+    var f = facOf(e), sp = speciesOf(e); if (!f || !sp) return null;
     var R = mindRng(mindSeed(e)), pk = function (a) { return a[Math.floor(R() * a.length)]; }, t = {};
     Object.keys(sp.traits).forEach(function (k) { var r = sp.traits[k]; t[k] = r[0] + Math.floor(R() * (r[1] - r[0] + 1)); });
     if (LEADER_RX.test(e.kind)) { t.brave = Math.min(5, t.brave + 1); t.wits = Math.min(5, t.wits + 1); }
     var m = { t: t, fac: factionOf(e), tag: e.tag || e.name };
-    if (f.names) {
+    if (f.name) { m.name = f.name; m.quirk = f.quirk; m.wi = 0; m.fear = f.fears[0]; m.secret = f.secret; m.known = true; }
+    else if (f.names) {
       var used = {}; CB.enemies.forEach(function (q) { if (q !== e && q.mind && q.mind.fac === m.fac) used[q.mind.name] = 1; });
       var free = f.names.filter(function (n) { return !used[n]; }); m.name = pk(free.length ? free : f.names);
       m.quirk = pk(f.quirks); m.wi = Math.floor(R() * f.wants.length); m.fear = pk(f.fears); m.secret = pk(f.secrets);
-      var bc = BOSS_CARD[e.kind]; if (bc) { m.name = bc.name; m.quirk = bc.quirk; m.fear = bc.fear; m.wi = bc.want; m.known = true; }
+      var bc = BOSS_CARD[e.kind]; if (bc && LEVEL.floor !== 2) { m.name = bc.name; m.quirk = bc.quirk; m.fear = bc.fear; m.wi = bc.want; m.known = true; }
     }
     return (e.mind = m);
   }
-  function mindWant(e) { var m = mindOf(e), f = FACTIONS[m && m.fac]; return f && f.wants ? f.wants[m.wi] : null; }
+  function mindWant(e) { var m = mindOf(e), f = (m && (FACTIONS[m.fac] || (m.fac && m.fac.indexOf('boss:') === 0 ? BOSS_NAMED[m.fac.slice(5)] : null))); return f && f.wants ? f.wants[m.wi] : null; }
   // the five traits, said the way a person would describe them
   function mindTraits(e) {
     var t = (mindOf(e) || {}).t; if (!t) return ''; var out = [];
@@ -173,7 +312,7 @@
   function scared(e) { var t = (mindOf(e) || { t: {} }).t; return !!t.brave && e.hp <= e.max * (t.brave <= 2 ? 0.5 : 0.25); }
   // the persona the talk AI plays: culture plus this individual's card
   function mindPersona(e) {
-    var f = FACTIONS[factionOf(e)], m = mindOf(e), i = intOf(e); if (!f || !f.who || !m || i === 'none') return null;
+    var f = facOf(e), m = mindOf(e), i = intOf(e); if (!f || !f.who || !m || i === 'none') return null;
     var w = mindWant(e);
     return { name: (m.known ? m.name + ', ' : '') + f.title,
       who: f.who + ' This individual: its name is ' + m.name + '. It is ' + mindTraits(e) + '. Quirk: it ' + m.quirk + '. Secret (never volunteer it; let it slip only if tricked, charmed or terrified): it ' + m.secret + '.',
@@ -182,11 +321,11 @@
       limits: (i === 'smart' ? 'You are SMART. A good roll alone is never enough: you only agree to stop fighting if the deal genuinely serves your interests (' + f.trades + ') or saving your own skin. Flattery, speeches and vague promises do not work on you; ask what is in it for you.' :
         'You are NOT smart. A convincing-sounding argument, flattery, food or a good scare can talk you down if the roll is good. ' + f.trades + '.') +
         ' Your name is ' + m.name + (m.known ? ' and the player already knows it.' : '. You do not give it to strangers: say it only if asked while not hostile, or when bragging fits you, and set told_name true the line you say it.'),
-      voice: f.voice, start: 'hostile' };
+      voice: f.voice, start: f.start || 'hostile' };
   }
   // what the player can see by looking: the race and the culture, not the name
   function mindExamine(e) {
-    var f = FACTIONS[factionOf(e)], m = mindOf(e), sp = speciesOf(e); if (!f || !sp) return '';
+    var f = facOf(e), m = mindOf(e), sp = speciesOf(e); if (!f || !sp) return '';
     var head = (m && m.known ? m.name + ' · ' : '') + sp.race + ' · ' + f.title + '. ';
     var i = intOf(e);
     return head + (i === 'none' ? 'It does not understand words. You cannot reason with it. ' : i === 'dim' ? 'It talks, though not well. A good argument might work on it. ' : 'It is sharp. It will only deal if the deal suits it. ') + (m && m.quirk ? 'Right now it ' + m.quirk + '. ' : '');
@@ -214,17 +353,19 @@
   function mindName(e) { var m = mindOf(e); return m && m.known ? m.name : 'the ' + String(e.tag || e.name).toLowerCase(); }
   // what this monster can see right now, told to the talk AI so a fight reads like a fight
   function mindScene(e) {
-    var bits = [];
+    var bits = [], here = LEVEL.rooms[(LEVEL.reg[e.z] || [])[e.x]] || LEVEL.rooms[e.room];
+    if (here) bits.push('WHERE YOU ARE: ' + here.name + (here.line ? ' (' + here.line + ')' : '') + '. Describe only this place; never invent water, caves or other places.');
+    if (e.sp && e.sp.name === 'Dermot Stoker' && P && LEVEL.rooms[(LEVEL.reg[P.z] || [])[P.x]] && /Penthouse Green/.test(LEVEL.rooms[LEVEL.reg[P.z][P.x]].name)) bits.push('The player is standing ON YOUR PUTTING GREEN right now.');
     if (CB.on && CB.order.indexOf(e) >= 0 && !e.calm) bits.push('You are in the MIDDLE OF A FIGHT with the player right now and have been trying to hurt them. Unless you agree to a truce this line, you keep fighting on your next turn, so talk like someone mid-fight: short, out of breath, threatening or bargaining.');
     if (scared(e)) bits.push('You are badly hurt and scared for your life.');
     var allies = CB.enemies.filter(function (q) { return q !== e && !q.npc && !q.dead && speaks(q) && cheb(q.x, q.z, e.x, e.z) <= 8; });
-    if (allies.length) bits.push('Others nearby: ' + allies.map(function (q) { var m = mindOf(q); return (m && m.name ? m.name : q.name) + ' (' + (FACTIONS[factionOf(q)] || {}).title + ', ' + (q.calm ? 'has stood down' : CB.on && CB.order.indexOf(q) >= 0 ? 'still fighting' : 'watching') + ')'; }).join('; ') + '.');
+    if (allies.length) bits.push('Others nearby: ' + allies.map(function (q) { var m = mindOf(q); return (m && m.name ? m.name : q.name) + ' (' + (facOf(q) || {}).title + ', ' + (q.calm ? 'has stood down' : CB.on && CB.order.indexOf(q) >= 0 ? 'still fighting' : 'watching') + ')'; }).join('; ') + '.');
     (e.ctx || []).forEach(function (c) { bits.push(c); });
     return bits.join(' ');
   }
   // no AI: stock behavior that still follows the rules (dim folds to a good roll; smart needs its interests met)
   function mindCanned(e, text, roll) {
-    var f = FACTIONS[factionOf(e)], m = mindOf(e), t = (text || '').toLowerCase(), w = mindWant(e), i = intOf(e), dc = mindDC(e);
+    var f = facOf(e), m = mindOf(e), t = (text || '').toLowerCase(), w = mindWant(e), i = intOf(e), dc = mindDC(e);
     if (!text) return { say: f.greet ? f.greet[Math.floor(Math.random() * f.greet.length)].replace(/Pibb|Grub/, m.name.split(',')[0]) : '…', mood: e.talk.mood, outcome: 'none' };
     if (/stupid|ugly|idiot|loser|weak/.test(t)) return { say: '*bristles* Wrong thing to say.', mood: 'hostile', outcome: m.t.temper >= 3 ? 'fight' : 'none' };
     if (/name|who are you|call you/.test(t)) {
