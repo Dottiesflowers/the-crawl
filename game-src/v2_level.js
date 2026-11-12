@@ -14,6 +14,8 @@
     function ri(a, b) { return a + Math.floor(rnd() * (b - a + 1)); }
     function pick(a) { return a[Math.floor(rnd() * a.length)]; }
     var g = [], reg = [], rooms = [], spawns = [], zones = [], x, z, i, wstyle = {}, links = {};
+    // downloaded models face different ways; these turn them so their front faces the room (props2 kit)
+    var PIANO_ROT = 0, DESK_ROT = { metalDesk: 0, cubicle: 0, officeDesk: 0, desk: 0 }, CAR_ROT = 0;
     for (z = 0; z < Hd; z++) { g.push([]); reg.push([]); for (x = 0; x < Wd; x++) { g[z].push('#'); reg[z].push(-1); } }
     function inb(x, z) { return x > 0 && z > 0 && x < Wd - 1 && z < Hd - 1; }
     function isFloor(c) { return c === '.' || c === ',' || c === '~'; }
@@ -164,7 +166,7 @@
     var GEN1_GATE_AREAS = [{ name: 'The Approach', c0: 30, r0: 29, c1: 39, r1: 68, type: 'hall' }, { name: 'The Gatehouse', c0: 17, r0: 5, c1: 51, r1: 27, type: 'boss' }, { name: 'The Stairwell', c0: 55, r0: 2, c1: 67, r1: 15, type: 'stairs' }, { name: 'Gate Passage', c0: 53, r0: 9, c1: 53, r1: 11, type: 'corridor' }, { name: 'Last Chance Lounge', c0: 13, r0: 43, c1: 28, r1: 55, type: 'safe' }, { name: 'The Trophy Room', c0: 41, r0: 47, c1: 55, r1: 59, type: 'room' }];
     var TPL1 = {
       pc: { name: 'The Processing Center', wall: 'plaster', theme: 'studio', rows: GEN1_PC, areas: GEN1_PC_AREAS, pal: { u: 0x3a6a8a, m: 0xe8e8e8, q: 0xd8d8d8, b: 0x5a6a7a, f: 0x8a9098, z: 0xe8e8e8, c: 0xe8e8e8 } },
-      union: { name: 'Imp Union Hall', wall: 'plaster', theme: 'office', rows: GEN1_UNION, areas: GEN1_UNION_AREAS, pal: { q: 0x8a7a6a, u: 0x6a4a3a, m: 0x7a6a5a, f: 0x6a6f76, z: 0xb8a888, c: 0xb8a888, K: 0x6a5a4a } },
+      union: { desk: 'metalDesk', name: 'Imp Union Hall', wall: 'plaster', theme: 'office', rows: GEN1_UNION, areas: GEN1_UNION_AREAS, pal: { q: 0x8a7a6a, u: 0x6a4a3a, m: 0x7a6a5a, f: 0x6a6f76, z: 0xb8a888, c: 0xb8a888, K: 0x6a5a4a } },
       archive: { name: 'The Flooded Archive', wall: 'keep', theme: 'water', rows: GEN1_ARCHIVE, areas: GEN1_ARCHIVE_AREAS },
       gate: { name: 'The Stairwell Gate', wall: 'keep', theme: 'gate', rows: GEN1_GATE, areas: GEN1_GATE_AREAS, pal: { u: 0x5a1a1a, m: 0x3a2418, b: 0x5a3a2a } }
     };
@@ -669,6 +671,16 @@
     return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start, hoods: zones, stairs: stairs, lost: lost, decor: decor, dname: dname, wstyle: wstyle, links: links };
 
     // ===================== building templates, used by both floors =====================
+    // downloaded models face different ways; these turn them so their front faces the room (props2 kit)
+    // park a vehicle: cars take 3 x 2 tiles along ax, the motorbike 2 x 1
+    function park(x, z, model, ax, name) {
+      var bike = model === 'motorcycle', L = bike ? 2 : 3, Wd2 = bike ? 1 : 2, ts = [];
+      for (var a = 0; a < L; a++) for (var b = 0; b < Wd2; b++) ts.push(ax === 'x' ? [x + a, z + b] : [x + b, z + a]);
+      if (!ts.every(function (t) { return freeT(t[0], t[1]); })) return false;
+      ts.forEach(function (t) { g[t[1]][t[0]] = 'o'; dname[t[0] + ',' + t[1]] = name; });
+      dec(x, z, model, { fit: bike ? 1.7 : 3.1, rot: (ax === 'x' ? Math.PI / 2 : 0) + CAR_ROT + (rnd() < 0.5 ? Math.PI : 0), dx: ax === 'x' ? (L - 1) / 2 : (Wd2 - 1) / 2, dz: ax === 'x' ? (Wd2 - 1) / 2 : (L - 1) / 2 });
+      return true;
+    }
       // stamp a template: (ox, oz) is the top-left of where it lands; rot turns the front: 0 south, 1 west, 2 north, 3 east
       // Template letters (walls and floors): # wall · W window · D door · ? secret door · ] western flat · [ starship panel
       //   . floor · = boardwalk · r railing · ~ water · | pillar · space: leave the ground as it is
@@ -731,7 +743,7 @@
             case 'K': F(x2, z2, 'kitchenBar', 0.98, frot, 'Counter'); break;
             case 's': dec(x2, z2, 'stoolBar', { fit: 0.3, rot: rnd() }); break;
             case 'S': obj(x2, z2, rnd() < 0.7 ? 'Shelf_Small_Bottles' : 'Shelf_Simple', hugOr(wl, { fit: 0.95 }), 'Bottle shelf'); break;
-            case 'P': obj(x2, z2, '#piano', { rot: face, dx: wl ? wl[0] * 0.15 : 0, dz: wl ? wl[1] * 0.15 : 0 }, 'Piano'); dec(x2 - (wl ? wl[0] : 0), z2 - (wl ? wl[1] : 0), 'Stool', { fit: 0.3 }); break;
+            case 'P': obj(x2, z2, 'piano', { fit: 1.35, rot: face + PIANO_ROT, dx: wl ? wl[0] * 0.12 : 0, dz: wl ? wl[1] * 0.12 : 0 }, 'Piano'); break;
             case 'T': F(x2, z2, 'tableRound', 0.9, 0, 'Table'); chairsAround(x2, z2); break;
             case 'G': obj(x2, z2, '#felt', {}, 'Card table'); chairsAround(x2, z2); if (rnd() < 0.6) dec(x2, z2, 'Coin_Pile', { y: 0.76, fit: 0.18, dx: 0.12 }); break;
             case 'k': { // one staircase across the whole block of k tiles, rising toward the back
@@ -766,8 +778,10 @@
             case '!': obj(x2, z2, 'Workbench', { fit: 1.2, rot: face }, 'Workbench'); break;
             case 'a': obj(x2, z2, 'Anvil', { fit: 0.7, rot: 0.3 }, 'Anvil'); break;
             case '&': obj(x2, z2, '#forge', { rot: face }, 'Forge'); break;
-            case 'q': { var dr = wl ? [-wl[0], -wl[1]] : fv, drot = Math.atan2(dr[0], dr[1]);
-              if (F(x2, z2, 'desk', 0.98, drot, 'Desk')) { onTop(x2, z2, 'computerScreen', { m: 'desk', fit: 0.98 }, { fit: 0.42, rot: drot, dx: -dr[0] * 0.1, dz: -dr[1] * 0.1 }); onTop(x2, z2, 'computerKeyboard', { m: 'desk', fit: 0.98 }, { fit: 0.34, rot: drot, dx: dr[0] * 0.12, dz: dr[1] * 0.12 });
+            case 'q': { var dr = wl ? [-wl[0], -wl[1]] : fv, drot = Math.atan2(dr[0], dr[1]), rnm = ((rooms[reg[z2][x2]] || {}).name) || '';
+              var dmod = /Cubicle|Overtime/.test(rnm) ? 'cubicle' : /Head Writer|Steward/.test(rnm) ? 'officeDesk' : T.desk || 'desk';
+              if (dmod === 'cubicle' || dmod === 'officeDesk') { F(x2, z2, dmod, 1.0, drot + DESK_ROT[dmod], dmod === 'cubicle' ? 'Cubicle' : 'Desk'); break; }
+              if (F(x2, z2, dmod, 0.98, drot + (DESK_ROT[dmod] || 0), 'Desk')) { onTop(x2, z2, 'computerScreen', { m: dmod, fit: 0.98 }, { fit: 0.42, rot: drot, dx: -dr[0] * 0.1, dz: -dr[1] * 0.1 }); onTop(x2, z2, 'computerKeyboard', { m: dmod, fit: 0.98 }, { fit: 0.34, rot: drot, dx: dr[0] * 0.12, dz: dr[1] * 0.12 });
                 var chx = x2 + dr[0], chz = z2 + dr[1]; if (g[chz] && g[chz][chx] === '.' && !taken[chx + ',' + chz]) dec(chx, chz, 'chairDesk', { fit: 0.5, rot: drot + Math.PI + (rnd() - 0.5) * 0.6, dx: -dr[0] * 0.18, dz: -dr[1] * 0.18 }); } break; }
             case 'f': F(x2, z2, 'bookcaseClosedWide', 0.95, face, 'Filing cabinet', wl ? { dx: wl[0] * 0.22, dz: wl[1] * 0.22 } : {}); break;
             case 'm': if (F(x2, z2, 'table', 0.98, 0, 'Table')) { chairsAround(x2, z2, 'chairCushion', 'm'); if (rnd() < 0.4) onTop(x2, z2, pick(['mug', 'books', 'laptop']), { m: 'table', fit: 0.98 }, { fit: 0.25, rot: rnd() * 6 }); } break;
@@ -1123,7 +1137,7 @@
             { name: 'The Bridge', c0: 22, r0: 1, c1: 43, r1: 8, type: 'boss', line: 'The bridge. Captain Zorr is in the big chair, and he has never once broken character.' }, { name: 'Briefing Room', c0: 1, r0: 1, c1: 20, r1: 8 }, { name: 'Science Lab', c0: 45, r0: 1, c1: 64, r1: 8 },
             { name: 'Med Bay', c0: 1, r0: 10, c1: 14, r1: 16 }, { name: 'Captain\'s Quarters', c0: 16, r0: 10, c1: 29, r1: 16 }, { name: 'The Holodeck', c0: 36, r0: 10, c1: 49, r1: 16, theme: 'stage' }, { name: 'Transporter Room', c0: 51, r0: 10, c1: 64, r1: 16 },
             { name: 'Mess Hall', c0: 1, r0: 21, c1: 20, r1: 27 }, { name: 'Rec Room', c0: 22, r0: 21, c1: 29, r1: 27 }, { name: 'Crew Quarters', c0: 36, r0: 21, c1: 64, r1: 27 }, { name: 'Cargo Hold', c0: 1, r0: 29, c1: 29, r1: 35 }, { name: 'Engine Room', c0: 36, r0: 29, c1: 64, r1: 35 }] },
-        writers: { pal: { q: 0xc8b89a, u: 0x3a5a6a, m: 0xd8d0c0, f: 0x8a8f96 }, name: 'The Writers\' Building', wall: 'plaster', theme: 'office', line: 'The writers are on strike. Picket signs, cold coffee and imps with opinions.', rows: GEN_WRITERS,
+        writers: { desk: 'metalDesk', pal: { q: 0xc8b89a, u: 0x3a5a6a, m: 0xd8d0c0, f: 0x8a8f96 }, name: 'The Writers\' Building', wall: 'plaster', theme: 'office', line: 'The writers are on strike. Picket signs, cold coffee and imps with opinions.', rows: GEN_WRITERS,
           areas: [{ name: 'Writers\' Room A', c0: 1, r0: 1, c1: 14, r1: 10 }, { name: 'Writers\' Room B', c0: 16, r0: 1, c1: 29, r1: 10 }, { name: 'The Script Library', c0: 31, r0: 1, c1: 44, r1: 10 }, { name: 'Head Writer\'s Office', c0: 46, r0: 1, c1: 60, r1: 10 },
             { name: 'Upper Hall', c0: 1, r0: 12, c1: 60, r1: 13, type: 'corridor' }, { name: 'The Cubicle Farm', c0: 1, r0: 15, c1: 40, r1: 23 }, { name: 'Writers\' Break Room', c0: 42, r0: 15, c1: 60, r1: 23 }, { name: 'Lower Hall', c0: 1, r0: 25, c1: 60, r1: 26, type: 'corridor' },
             { name: 'Strike Headquarters', c0: 1, r0: 28, c1: 22, r1: 36 }, { name: 'The Lobby', c0: 24, r0: 28, c1: 37, r1: 36 }, { name: 'The Mailroom', c0: 39, r0: 28, c1: 60, r1: 36 }] },
@@ -1260,6 +1274,7 @@
         for (zz = 187; zz <= 195; zz++) if (g[zz][hx + 7] === '.' || g[zz][hx + 7] === ',') dec(hx + 7, zz, '#path', { ns: true });
         if (freeT(hx + 9, 194, lane)) obj(hx + 9, 194, '#mailbox', { rot: 0 }, 'Mailbox');
         if (freeT(hx + 2, 190, lane)) obj(hx + 2, 190, 'CommonTree_3', { fit: 2.0, rot: rnd() * 6 }, 'Tree');
+        park(hx + 11, 188, ['hatchback', 'rustyCar', 'rustyCar2'][i % 3], 'z', ['Hatchback', 'Classic car', 'Classic car'][i % 3]);
       }
       var srh = stamp(TPL.showrunner, 40, 203, 2, ML); spawnIn(srh.room, 'puglin', { tier: 3, name: 'The Showrunner', boss: true });
       for (xx = 44; xx <= 64; xx++) for (zz = 211; zz <= 212; zz++) put(xx, zz, '~', lane.id);
@@ -1284,6 +1299,9 @@
       for (zz = 181; zz <= 205; zz += 3) for (xx = 214; xx <= 228; xx += 3) if (rnd() < 0.85 && freeT(xx, zz)) obj(xx, zz, '#grave', { rot: (rnd() - 0.5) * 0.3, seed: xx * 31 + zz }, 'Headstone');
       trees(grounds, 50, ['DeadTree_2', 'Pine_2']); greens(grounds, 60, ['Mushroom_Common', 'Grass_Wispy_Tall', 'Rock_Medium_1']);
 
+      // ---------- parked vehicles ----------
+      [[20, 57, 'rustyCar'], [96, 57, 'rustyCar2'], [140, 61, 'hatchback'], [210, 57, 'rustyCar'], [30, 165, 'rustyCar2'], [150, 161, 'rustyCar'], [200, 165, 'hatchback']].forEach(function (q) { park(q[0], q[1], q[2], 'x', q[2] === 'hatchback' ? 'Hatchback' : 'Classic car'); });
+      park(172, 172, 'rustyCar', 'x', 'Rusted car'); park(72, 30, 'motorcycle', 'z', 'Motorbike'); park(100, 40, 'motorcycle', 'x', 'Stunt bike'); park(160, 47, 'motorcycle', 'x', 'Motorbike');
       // ---------- dressing for the streets ----------
       [nDrive, sDrive].concat(loop).forEach(function (r) { lamps(r, 11); });
       for (k = 0; k < 30; k++) { var sr2 = pick([nDrive, sDrive].concat(loop)), qx = ri(sr2.x0, sr2.x1), qz = ri(sr2.z0, sr2.z1); if (freeT(qx, qz, sr2) && wallOf(qx, qz)) { var w3 = wallOf(qx, qz); obj(qx, qz, pick(['Crate_Metal', 'Crate_Wooden', 'Barrel', 'cardboardBoxClosed']), hug(w3, { fit: 0.7 }), 'Gear'); } }

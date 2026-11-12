@@ -143,7 +143,7 @@
     var el = document.createElement('div'); el.id = 'dmBox'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'DM mode');
     el.innerHTML = '<small>DM MODE</small><h3>Floors</h3><div class="row"><button type="button" data-f="1"' + (FLOOR === 1 ? ' class="on"' : '') + '>Floor 1 · Basic Training</button><button type="button" data-f="2"' + (FLOOR === 2 ? ' class="on"' : '') + '>Floor 2 · The Backlot</button></div>' +
       '<h3>Monsters on this floor</h3><div class="row"><button type="button" id="dmPeace" class="' + (DM.peace ? 'on' : '') + '">' + (DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight') + '</button></div>' +
-      '<p>Your spot on each floor is saved, so you come back where you left. Gear, level and gold travel with you.</p><button type="button" id="dmX">Close</button>';
+      '<p>Your spot on each floor is saved, so you come back where you left. Gear, level and gold travel with you.</p><p><a href="credits.html" target="_blank" rel="noopener">Asset credits</a></p><button type="button" id="dmX">Close</button>';
     document.body.appendChild(el);
     el.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { var f = +b.getAttribute('data-f'); if (f === FLOOR) return; if (CB.on) { say('DM mode', 'Finish the fight first.', 2500); return; } b.textContent = 'Going…'; dmFloor(f); }; });
     document.getElementById('dmPeace').onclick = function () { DM.peace = !DM.peace; DM['peace' + FLOOR] = DM.peace; dmSave(); this.classList.toggle('on', DM.peace); this.textContent = DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight'; };

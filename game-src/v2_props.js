@@ -6,6 +6,11 @@
   var PROPBLOCK = {};
   var PTEX = [[/WoodTrim/, 'v_woodtrim.jpg'], [/MI_Vine/, 'v_vine.png'], [/MetalOrnaments/, 'trim_metal.jpg'], [/Bark_NormalTree/, 'n_bark.jpg'], [/Bark_Twisted|Bark_Dead/, 'n_bark2.jpg'], [/Leaves_NormalTree/, 'n_treeleaves.png'], [/Leaves_TwistedTree/, 'n_twleaves.png'], [/Leaves_Pine/, 'n_pine.png'], [/^Flowers/, 'n_flowers.png'], [/Trim_Furniture/, 'trim_furniture.jpg'], [/Trim_Metal/, 'trim_metal.jpg'], [/Trim_Props/, 'trim_props.jpg'], [/Trim_Cloth|Banner/, 'trim_cloth.jpg'],
     [/Page/, 'page.jpg'], [/Mushrooms/, 'n_mushrooms.jpg'], [/Rocks|Bark/, 'n_rocks.jpg'], [/Grass/, 'n_grass.jpg'], [/Leaves|Flowers/, 'n_leaves.png']];
+  // downloaded models (materials named TX_...) keep their own texture and colour, drawn with the same simple lighting
+  function propMatTX(src, fade) {
+    return new THREE.MeshLambertMaterial({ map: src.map || null, color: src.color ? src.color.clone() : new THREE.Color(1, 1, 1), side: THREE.DoubleSide, transparent: !!fade || !!src.transparent, opacity: src.opacity === undefined ? 1 : src.opacity, alphaTest: src.alphaTest || 0 });
+  }
+  function propMatFor(mat, fade) { return /^TX_/.test(mat.name || '') ? propMatTX(mat, fade) : propMat(mat.name || '', fade); }
   function propMat(name, fade) {
     var kn = /^KN_(\d+)_(\d+)_(\d+)/.exec(name); // Kenney furniture: flat colours, no texture
     if (kn) return new THREE.MeshLambertMaterial({ color: new THREE.Color(+kn[1] / 255, +kn[2] / 255, +kn[3] / 255).convertSRGBToLinear().multiplyScalar(0.85), transparent: !!fade });
@@ -15,8 +20,8 @@
     return m;
   }
   function propLoad() {
-    var L = new THREE.GLTFLoader(), left = 3;
-    ['props', 'nature', 'furn'].forEach(function (nm) {
+    var L = new THREE.GLTFLoader(), left = 4;
+    ['props', 'nature', 'furn', 'props2'].forEach(function (nm) {
       fetch(KDIR + nm + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         var bin = atob(j.glb), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
         L.parse(u.buffer, KDIR, function (g) {
@@ -25,6 +30,7 @@
             if (p.normalized || p.isInterleavedBufferAttribute) { // read through the accessor so interleaved (padded) data comes out right
               var a = p.isInterleavedBufferAttribute ? p.data.array : p.array, k = !p.normalized ? 1 : a instanceof Int16Array ? 1 / 32767 : a instanceof Uint16Array ? 1 / 65535 : a instanceof Int8Array ? 1 / 127 : 1 / 255, f = new Float32Array(p.count * 3);
               for (var i = 0; i < p.count; i++) { f[i * 3] = p.getX(i) * k; f[i * 3 + 1] = p.getY(i) * k; f[i * 3 + 2] = p.getZ(i) * k; } o.geometry.setAttribute('position', new THREE.BufferAttribute(f, 3)); }
+            if (!o.geometry.attributes.normal) { if (o.geometry.index) o.geometry = o.geometry.toNonIndexed(); o.geometry.computeVertexNormals(); } // models without normals: flat shading
           });
           g.scene.updateMatrixWorld(true);
           g.scene.children.forEach(function (n) { if (n.name.indexOf('P_') === 0) { var key = n.name.slice(2); PROPS.lib[key] = n; PROPS.box[key] = new THREE.Box3().setFromObject(n); } });
@@ -48,12 +54,12 @@
     var tx = o.tx !== undefined ? o.tx : Math.round(x), tz = o.tz !== undefined ? o.tz : Math.round(z), M = propMatrix(name, o);
     PROPS.lib[name].traverse(function (m) {
       if (!m.isMesh) return;
-      var mesh = new THREE.Mesh(m.geometry, propMat(m.material.name || '', o.fade)), recol = false;
+      var mesh = new THREE.Mesh(m.geometry, propMatFor(m.material, o.fade)), recol = false;
       // reskins: paint swaps the model's main colour, tint shades the whole thing (both stay put under the fog)
       if (o.paint !== undefined && m.material.name === propMain(name)) { mesh.material.color.set(o.paint).convertSRGBToLinear().multiplyScalar(0.85); recol = true; }
       if (o.tint !== undefined) { mesh.material.color.multiply(new THREE.Color(o.tint).convertSRGBToLinear()); recol = true; }
       _pm.multiplyMatrices(M, m.matrixWorld); _pm.decompose(mesh.position, mesh.quaternion, mesh.scale);
-      var t = reg(mesh, tx, tz, { fade: o.fade, hang: o.hang, noShadow: o.noShadow, mob: o.mob, tint: recol || /^KN_/.test(m.material.name || '') });
+      var t = reg(mesh, tx, tz, { fade: o.fade, hang: o.hang, noShadow: o.noShadow, mob: o.mob, tint: recol || /^(KN|TX)_/.test(m.material.name || '') });
       if (o.lid && /lid|top/i.test(m.name + ' ' + (m.parent ? m.parent.name : ''))) t.lid = true;
     });
     if (o.block) PROPBLOCK[tx + ',' + tz] = 1;
@@ -70,7 +76,7 @@
     var holder = new THREE.Group(), M = new THREE.Matrix4().compose(new THREE.Vector3(o.gx || 0, o.gy || 0, o.gz || 0), new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rx || 0, o.rot || 0, o.rz || 0)), new THREE.Vector3(o.s, o.s, o.s));
     PROPS.lib[name].traverse(function (m) {
       if (!m.isMesh) return; var k = 'held' + (m.material.name || '');
-      if (!PROPS.mats[k]) PROPS.mats[k] = propMat(m.material.name || '');
+      if (!PROPS.mats[k]) PROPS.mats[k] = propMatFor(m.material);
       var mesh = new THREE.Mesh(m.geometry, PROPS.mats[k]); _pm.multiplyMatrices(M, m.matrixWorld); _pm.decompose(mesh.position, mesh.quaternion, mesh.scale); mesh.castShadow = true; holder.add(mesh);
     });
     group.add(holder); return true;
