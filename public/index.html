@@ -1573,7 +1573,12 @@
     try { var q = new URLSearchParams(location.search); if (q.get('floor')) d.floor = +q.get('floor'); if (q.get('peace')) d['peace' + (d.floor === 2 ? 2 : 1)] = q.get('peace') === '1'; } catch (e) {}
     if (d.floor !== 2) d.floor = 1; if (d.peace1 === undefined) d.peace1 = false; if (d.peace2 === undefined) d.peace2 = true; // monsters on Floor 2 start peaceful while it is being built
     d.peace = d['peace' + d.floor]; return d; })();
+  if (DM.as !== 'dm') DM.as = 'player'; if (DM.immortal === undefined) DM.immortal = true;
   function dmSave() { try { localStorage.setItem('crawl-dm', JSON.stringify(DM)); } catch (e) {} }
+  // DM mode: a separate DM character on this device. It never touches your real character, your server save or the shared world;
+  // monsters ignore it until you aggro one; it carries everything and (by default) cannot die
+  function isDM() { return DM.as === 'dm'; }
+  function dmAs(who) { DM.as = who; dmSave(); try { if (typeof posStash === 'function') posStash(); } catch (e) {} setTimeout(function () { location.href = location.pathname; }, 150); }
   function dmFloor(n) { DM.floor = n; dmSave(); try { if (typeof posStash === 'function') posStash(); } catch (e) {} setTimeout(function () { location.href = location.pathname; }, 150); }
   var FLOOR = DM.floor;
   var LEVEL = FLOOR === 2 ? genLevel(2026, 2) : genLevel(1970), MAP = LEVEL.map;
@@ -8101,7 +8106,7 @@
   function worldSave() {
     if (!CB.ready || !WORLD.loaded) return; var st = worldState();
     try { localStorage.setItem(worldKey(), JSON.stringify(st)); } catch (x) {}
-    if (NET.mode === 'server' && NET.uid) { clearTimeout(worldSave.t); worldSave.t = setTimeout(function () { api('kv/world', { method: 'PUT', body: { value: st } }).catch(function () {}); }, 2000); }
+    if (NET.mode === 'server' && NET.uid && !(CHAR && CHAR.isDM)) { clearTimeout(worldSave.t); worldSave.t = setTimeout(function () { api('kv/world', { method: 'PUT', body: { value: st } }).catch(function () {}); }, 2000); }
   }
   var RAT_BACK = 8 * 60000; // cleared rats come back after this long, somewhere you aren't looking
   // the Underbazaar's rats come back in two waves: half after 30 minutes, the rest after an hour
@@ -8334,7 +8339,8 @@
   function cbStart(why, first) {
     if (CB.on || !CB.ready || (CHAR && CHAR.dead)) return;
     if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
-    var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || (!e.def.timid && cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8))); });
+    var solo = CB.dmPick === 'one' && first; CB.dmSolo = !!solo; CB.dmPick = null;
+    var foes = solo ? [first] : CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || (!e.def.timid && cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8))); });
     if (!foes.length) return;
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
     CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
@@ -8360,6 +8366,7 @@
   }
   function cbJoin(e, why) {
     if (!CB.on || CB.order.indexOf(e) >= 0 || e.dead || e.calm) return;
+    if (CB.dmSolo) return; // the DM pulled just one: nobody else joins
     e.init = d20() + e.def.init; e.react = true; e.prone = false; e.grappled = false; e.fought = true;
     var initOf = function (c) { return c === 'pc' ? PC.init : c.init; }, at = CB.order.length;
     for (var i = 0; i < CB.order.length; i++) if (e.init > initOf(CB.order[i])) { at = i; break; }
@@ -8376,7 +8383,7 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
-  function cbEnd(win) { PC.burning = 0;
+  function cbEnd(win) { PC.burning = 0; CB.dmSolo = false;
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -8577,6 +8584,7 @@
 
   // ---------- death saving throws ----------
   function cbFall() {
+    if (isDM() && DM.immortal) { PC.hp = PC.max; cbHUD(); say('DM mode', 'The DM does not die. Back to full HP. (Turn this off in the DM panel to test dying.)', 3500); return; }
     PC.hp = 0; PC.down = true; PC.saves = { s: 0, f: 0 }; PC.hidden = false; CB.path = null; CB.busy = false; kitOneShot('Death01', true);
     CB.enemies.forEach(function (e) { e.grappled = false; });
     say('Downed', 'You drop. On each of your turns you roll a death save: 10 or more is a success. Three successes and you stabilise; three failures and you die. A natural 20 puts you back on your feet.', 7000);
@@ -8779,7 +8787,7 @@
   }
   // a monster that can see you, close by, starts the fight
   function cbAggro() {
-    if (CB.on || !CB.ready || DM.peace || inSafeRoom(P.x, P.z) || (CHAR && CHAR.dead)) return;
+    if (CB.on || !CB.ready || DM.peace || isDM() || inSafeRoom(P.x, P.z) || (CHAR && CHAR.dead)) return;
     for (var i = 0; i < CB.enemies.length; i++) {
       var e = CB.enemies[i]; if (e.dead || e.calm || e.def.timid) continue;
       var r = e.guard ? 2 : 3;
@@ -8802,6 +8810,11 @@
   function enemyActs(e) {
     if (e.dead) return [{ label: 'Search the body', loot: true }].concat(harvestOf(e) && !e.harvested && !e.eaten ? [{ label: 'Harvest ' + harvestOf(e).toLowerCase(), harvest: true }] : []).concat([{ label: 'Stash the whole body', stash: true }, { label: 'Examine', text: 'Very dead. ' + (e.looted ? 'Already picked clean.' : 'Its pockets look promising.') }]);
     var talk = { label: NET.sample ? 'Talk (say anything)' : 'Talk', talk: true };
+    if (isDM() && !e.npc) { var dmA = [{ label: 'DM: aggro this one', fnx: function () { CB.dmPick = 'one'; cbStart('The DM points at ' + e.name + '.', e); } }, { label: 'DM: aggro it and its friends', fnx: function () { CB.dmPick = 'group'; cbStart('The DM points at ' + e.name + ' and everyone near it.', e); } }];
+      return dmA.concat(enemyActsBase(e, talk)); }
+    return enemyActsBase(e, talk);
+  }
+  function enemyActsBase(e, talk) {
     if (e.npc) return [talk,
       { label: 'Examine', text: (NPCS[e.npc] || NPCS.pip).exam + ' Not a threat in here.' },
       e.npc === 'pip' ? { label: 'Read their mood', stat: 'WIS', dc: 8, win: 'Overworked, underpaid, and quietly rooting for you.', lose: 'Hard to tell under all that sweating.' } : { label: 'Read their mood', stat: 'WIS', dc: 14, win: 'Behind the calm, it is worried about the ratings. You are the ratings.', lose: 'Those eyes give away nothing. Nothing at all.' }];
@@ -8941,6 +8954,7 @@
     cbSaveChar(); if (typeof cbHUD === 'function') cbHUD(); if (typeof drawRows === 'function') drawRows();
   }
   function saveChar(c) {
+    if (c && c.isDM) { var dd = JSON.parse(JSON.stringify(c)); dd.look = look; try { localStorage.setItem(dmKey(), JSON.stringify(dd)); } catch (e) {} return; } // DM saves stay on this device
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
       gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, pos2: c.pos2 || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], hotbar2: c.hotbar2 || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, buffs: c.buffs || {}, swUsed: !!c.swUsed, cool: c.cool || {}, cups: c.cups || [], counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, lore: c.lore || {}, cleared1: c.cleared1 || 0, born: c.born || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
@@ -8975,8 +8989,18 @@
       if (c && c.stats) loadChar(c); else ccOpen();
     });
   }
+  function dmKey() { return 'crawl-dmchar-' + (NET.uid || 'local'); }
+  function dmCharFrom(real) {
+    var d = null; try { d = JSON.parse(localStorage.getItem(dmKey()) || 'null'); } catch (e) {}
+    if (!d || !d.stats) { d = JSON.parse(JSON.stringify(real)); d.gear = []; d.wield = null; d.back = null; d.pos = null; d.pos2 = null; d.xp = 0; d.dead = false; d.recipes = {}; d.gold = 9999; }
+    d.name = 'DM'; d.isDM = true; d.realName = real.name;
+    var have = {}; (d.gear || []).forEach(function (g) { have[g.name] = 1; }); // full reign: one of everything, always (new items appear as they are added)
+    Object.keys(ITEMS).forEach(function (n) { if (have[n]) return; var it = item(n, { from: 'DM mode' }); if (!it) return; if (ITEMS[n].ammo) it.qty = 99; (d.gear = d.gear || []).push(it); });
+    return d;
+  }
   function loadChar(c) {
-    applyChar(c);
+    if (isDM() && !c.isDM) c = dmCharFrom(c);
+    applyChar(c); if (c.isDM) { CHAR.isDM = true; CHAR.realName = c.realName; setTimeout(function () { say('DM mode', 'You are the DM: a separate character on this device. Your real character is untouched. Monsters ignore you until you tap one and choose DM: aggro.', 6500); }, 1800); }
     if (c.look) { for (var k in c.look) if (look[k]) look[k] = c.look[k]; buildHero(); }
   }
   function signedIn(me) {
@@ -10801,13 +10825,23 @@
   function dmPanel() {
     var old = document.getElementById('dmBox'); if (old) { old.remove(); return; }
     var el = document.createElement('div'); el.id = 'dmBox'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'DM mode');
-    el.innerHTML = '<small>DM MODE</small><h3>Floors</h3><div class="row"><button type="button" data-f="1"' + (FLOOR === 1 ? ' class="on"' : '') + '>Floor 1 · Basic Training</button><button type="button" data-f="2"' + (FLOOR === 2 ? ' class="on"' : '') + '>Floor 2 · The Backlot</button></div>' +
-      '<h3>Monsters on this floor</h3><div class="row"><button type="button" id="dmPeace" class="' + (DM.peace ? 'on' : '') + '">' + (DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight') + '</button></div>' +
+    el.innerHTML = '<small>DM MODE</small><h3>Playing as</h3><div class="row"><button type="button" data-as="player"' + (!isDM() ? ' class="on"' : '') + '>' + esc((CHAR && !CHAR.isDM && CHAR.name) || (CHAR && CHAR.realName) || 'My character') + '</button><button type="button" data-as="dm"' + (isDM() ? ' class="on"' : '') + '>The DM (sandbox)</button></div>' +
+      (isDM() ? '<p>The DM is a separate character on this device: everything you do here stays here. Monsters ignore you; tap one and choose <b>DM: aggro</b> to fight it.</p><div class="row"><button type="button" id="dmImm" class="' + (DM.immortal ? 'on' : '') + '">' + (DM.immortal ? 'Can\'t die: on' : 'Can\'t die: off') + '</button></div>' +
+        '<h3>Give any item</h3><input id="dmQ" type="search" placeholder="Search items (name, kind, tag)" autocomplete="off" style="width:100%;box-sizing:border-box;min-height:40px;padding:6px 10px;border:2px solid #2e2116;border-radius:3px;background:#fffaf0;font:16px EB Garamond,serif"><div id="dmItems" class="row" style="margin-top:6px;max-height:220px;overflow-y:auto"></div>' : '') +
+      '<h3>Floors</h3><div class="row"><button type="button" data-f="1"' + (FLOOR === 1 ? ' class="on"' : '') + '>Floor 1 · Basic Training</button><button type="button" data-f="2"' + (FLOOR === 2 ? ' class="on"' : '') + '>Floor 2 · The Backlot</button></div>' +
+      (isDM() ? '' : '<h3>Monsters on this floor</h3><div class="row"><button type="button" id="dmPeace" class="' + (DM.peace ? 'on' : '') + '">' + (DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight') + '</button></div>') +
       '<h3>Test gear</h3><div class="row"><button type="button" id="dmRusty">Give me every Soundstage weapon</button><button type="button" id="dmAll">Give me every item in the game</button></div>' +
       '<p>Your spot on each floor is saved, so you come back where you left. Gear, level and gold travel with you.</p><p><a href="credits.html" target="_blank" rel="noopener">Asset credits</a></p><button type="button" id="dmX">Close</button>';
     document.body.appendChild(el);
     el.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { var f = +b.getAttribute('data-f'); if (f === FLOOR) return; if (CB.on) { say('DM mode', 'Finish the fight first.', 2500); return; } b.textContent = 'Going…'; dmFloor(f); }; });
-    document.getElementById('dmPeace').onclick = function () { DM.peace = !DM.peace; DM['peace' + FLOOR] = DM.peace; dmSave(); this.classList.toggle('on', DM.peace); this.textContent = DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight'; };
+    el.querySelectorAll('[data-as]').forEach(function (b) { b.onclick = function () { var w = b.getAttribute('data-as'); if (w === DM.as) return; if (CB.on) { say('DM mode', 'Finish the fight first.', 2500); return; } b.textContent = 'Switching…'; dmAs(w); }; });
+    var imm = document.getElementById('dmImm'); if (imm) imm.onclick = function () { DM.immortal = !DM.immortal; dmSave(); this.classList.toggle('on', DM.immortal); this.textContent = DM.immortal ? 'Can\'t die: on' : 'Can\'t die: off'; };
+    var dq = document.getElementById('dmQ'); if (dq) { var dmList = function () { var q = dq.value.trim().toLowerCase(), box = document.getElementById('dmItems');
+        var names = Object.keys(ITEMS).filter(function (n) { var I = ITEMS[n]; return !q || (n + ' ' + I.cat + ' ' + (I.tags || []).join(' ') + ' ' + (I.rarity || '')).toLowerCase().indexOf(q) >= 0; }).slice(0, 60);
+        box.innerHTML = names.map(function (n) { return '<button type="button" data-give="' + esc(n) + '">' + esc(n) + '</button>'; }).join('') || '<p>Nothing matches.</p>';
+        box.querySelectorAll('[data-give]').forEach(function (b) { b.onclick = function () { var n = b.getAttribute('data-give'), it = item(n, { from: 'DM mode' }); if (!it) return; if (ITEMS[n].ammo) it.qty = 20; invAdd(it, true); saveChar(CHAR); b.textContent = n + ' ✓'; }; }); };
+      dq.oninput = dmList; dq.addEventListener('keydown', function (ev) { ev.stopPropagation(); }); dmList(); }
+    var pz = document.getElementById('dmPeace'); if (pz) pz.onclick = function () { DM.peace = !DM.peace; DM['peace' + FLOOR] = DM.peace; dmSave(); this.classList.toggle('on', DM.peace); this.textContent = DM.peace ? 'Peaceful: they ignore you' : 'Hostile: they attack on sight'; };
     document.getElementById('dmRusty').onclick = function () { // every Soundstage weapon into your bag (skips ones you already have)
       var have = {}, got = 0; (CHAR.gear || []).forEach(function (x) { have[x.name] = 1; });
       Object.keys(ITEMS).forEach(function (n) { if (ITEMS[n].model && !have[n]) { var it = item(n, { from: 'DM mode' }); if (it) { CHAR.gear.push(it); got++; } } });
@@ -11690,12 +11724,12 @@
     var out = [], i = 0; while (i < W * H) { if (tileState[i]) { var j = i; while (j < W * H && tileState[j]) j++; out.push(i.toString(36) + ',' + (j - i).toString(36)); i = j; } else i++; }
     var str = out.join(';'); try { localStorage.setItem(fogKey(), str); } catch (e) {}
     // the server copy is what survives a new phone, a cleared browser or Safari's storage limits
-    if (NET.mode === 'server' && NET.uid && str !== fogSave.last) { fogSave.last = str; clearTimeout(fogSave.t); fogSave.t = setTimeout(function () { api('kv/fog-' + (CHAR ? CHAR.name : '').replace(/[^\w-]/g, '').slice(0, 40), { method: 'PUT', body: { value: str } }).catch(function () {}); }, 3000); }
+    if (NET.mode === 'server' && NET.uid && !(CHAR && CHAR.isDM) && str !== fogSave.last) { fogSave.last = str; clearTimeout(fogSave.t); fogSave.t = setTimeout(function () { api('kv/fog-' + (CHAR ? CHAR.name : '').replace(/[^\w-]/g, '').slice(0, 40), { method: 'PUT', body: { value: str } }).catch(function () {}); }, 3000); }
   }
   function fogMerge(s) { if (!s) return; s.split(';').forEach(function (p) { var a = p.split(','), st = parseInt(a[0], 36), n = parseInt(a[1], 36); for (var k = 0; k < n && st + k < W * H; k++) tileState[st + k] = 1; }); }
   function fogLoad() {
     var s; try { s = localStorage.getItem(fogKey()); } catch (e) {} fogMerge(s); FOG.total = 0; FOG.seen = 0;
-    if (NET.mode === 'server' && NET.uid && CHAR) api('kv/fog-' + CHAR.name.replace(/[^\w-]/g, '').slice(0, 40)).then(function (j) { var v = j && (j.value !== undefined ? j.value : j.v); if (typeof v === 'string' && v) { fogMerge(v); FOG.total = 0; FOG.seen = 0; refreshFog(); fogSave(); } }).catch(function () {});
+    if (NET.mode === 'server' && NET.uid && CHAR && !CHAR.isDM) api('kv/fog-' + CHAR.name.replace(/[^\w-]/g, '').slice(0, 40)).then(function (j) { var v = j && (j.value !== undefined ? j.value : j.v); if (typeof v === 'string' && v) { fogMerge(v); FOG.total = 0; FOG.seen = 0; refreshFog(); fogSave(); } }).catch(function () {});
   }
   var lastSavedPos = '';
   function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); var pp = FLOOR === 2 ? CHAR.pos2 : CHAR.pos; if (pp && heroTo(pp.x, pp.z)) { refreshFog(); enterRoom(); } else { heroTo(LEVEL.start.x, LEVEL.start.z); refreshFog(); enterRoom(); } }
@@ -12254,7 +12288,7 @@
   }
   refreshFog(); enterRoom();
   window.__crawl = { CB: CB, stairs: { open: stairsOpen, check: stairsCheck, dbg: function () { return tiles.filter(function (t) { return t.gate !== undefined; }).map(function (t) { return [t.gate, t.mesh.visible, t.x, t.z]; }); } }, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
-  window.__crawl.t = { ammoPick: ammoPick, arrowCraft: arrowCraft, throwable: cbThrowable, sty: sty, gear: function () { return CHAR.gear; }, give: function (n, q) { var it = item(n, q ? { qty: q } : null); invAdd(it, true); return !!it; } }; // test hooks
+  window.__crawl.t = { ammoPick: ammoPick, arrowCraft: arrowCraft, throwable: cbThrowable, sty: sty, gear: function () { return CHAR.gear; }, char: function () { return { name: CHAR.name, isDM: !!CHAR.isDM, n: (CHAR.gear || []).length }; }, start: cbStart, give: function (n, q) { var it = item(n, q ? { qty: q } : null); invAdd(it, true); return !!it; } }; // test hooks
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
   charInit(); cbHUD();
   requestAnimationFrame(loop);

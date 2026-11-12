@@ -123,6 +123,7 @@
     cbSaveChar(); if (typeof cbHUD === 'function') cbHUD(); if (typeof drawRows === 'function') drawRows();
   }
   function saveChar(c) {
+    if (c && c.isDM) { var dd = JSON.parse(JSON.stringify(c)); dd.look = look; try { localStorage.setItem(dmKey(), JSON.stringify(dd)); } catch (e) {} return; } // DM saves stay on this device
     var doc = { name: c.name, stats: c.stats, skills: c.skills, trait: c.trait, traitFx: c.traitFx || c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawFx: c.flawFx || c.flaw, flawDesc: c.flawDesc || '',
       gear: c.gear || [], gold: c.gold || 0, wield: c.wield || null, back: c.back || null, freeWardrobe: !!c.freeWardrobe, xp: c.xp || 0, level: c.level || 1, look: look, interview: c.interview || [], pos: c.pos || null, pos2: c.pos2 || null, skillPts: c.skillPts || 0, statPts: c.statPts || 0, skillXP: c.skillXP || {}, ach: c.ach || {}, zones: c.zones || {}, hotbar: c.hotbar || [], hotbar2: c.hotbar2 || [], tries: c.tries || [], potionsGiven: !!c.potionsGiven, dead: c.dead || null, skillDefs: c.skillDefs || {}, buffs: c.buffs || {}, swUsed: !!c.swUsed, cool: c.cool || {}, cups: c.cups || [], counts: c.counts || {}, log: c.log || [], secrets: c.secrets || {}, lore: c.lore || {}, cleared1: c.cleared1 || 0, born: c.born || null, updated: Date.now() };
     try { localStorage.setItem(NET.mode === 'server' ? 'crawl-char-' + NET.uid : 'crawl-char1', JSON.stringify(doc)); } catch (e) {}
@@ -157,8 +158,18 @@
       if (c && c.stats) loadChar(c); else ccOpen();
     });
   }
+  function dmKey() { return 'crawl-dmchar-' + (NET.uid || 'local'); }
+  function dmCharFrom(real) {
+    var d = null; try { d = JSON.parse(localStorage.getItem(dmKey()) || 'null'); } catch (e) {}
+    if (!d || !d.stats) { d = JSON.parse(JSON.stringify(real)); d.gear = []; d.wield = null; d.back = null; d.pos = null; d.pos2 = null; d.xp = 0; d.dead = false; d.recipes = {}; d.gold = 9999; }
+    d.name = 'DM'; d.isDM = true; d.realName = real.name;
+    var have = {}; (d.gear || []).forEach(function (g) { have[g.name] = 1; }); // full reign: one of everything, always (new items appear as they are added)
+    Object.keys(ITEMS).forEach(function (n) { if (have[n]) return; var it = item(n, { from: 'DM mode' }); if (!it) return; if (ITEMS[n].ammo) it.qty = 99; (d.gear = d.gear || []).push(it); });
+    return d;
+  }
   function loadChar(c) {
-    applyChar(c);
+    if (isDM() && !c.isDM) c = dmCharFrom(c);
+    applyChar(c); if (c.isDM) { CHAR.isDM = true; CHAR.realName = c.realName; setTimeout(function () { say('DM mode', 'You are the DM: a separate character on this device. Your real character is untouched. Monsters ignore you until you tap one and choose DM: aggro.', 6500); }, 1800); }
     if (c.look) { for (var k in c.look) if (look[k]) look[k] = c.look[k]; buildHero(); }
   }
   function signedIn(me) {

@@ -109,7 +109,12 @@
     try { var q = new URLSearchParams(location.search); if (q.get('floor')) d.floor = +q.get('floor'); if (q.get('peace')) d['peace' + (d.floor === 2 ? 2 : 1)] = q.get('peace') === '1'; } catch (e) {}
     if (d.floor !== 2) d.floor = 1; if (d.peace1 === undefined) d.peace1 = false; if (d.peace2 === undefined) d.peace2 = true; // monsters on Floor 2 start peaceful while it is being built
     d.peace = d['peace' + d.floor]; return d; })();
+  if (DM.as !== 'dm') DM.as = 'player'; if (DM.immortal === undefined) DM.immortal = true;
   function dmSave() { try { localStorage.setItem('crawl-dm', JSON.stringify(DM)); } catch (e) {} }
+  // DM mode: a separate DM character on this device. It never touches your real character, your server save or the shared world;
+  // monsters ignore it until you aggro one; it carries everything and (by default) cannot die
+  function isDM() { return DM.as === 'dm'; }
+  function dmAs(who) { DM.as = who; dmSave(); try { if (typeof posStash === 'function') posStash(); } catch (e) {} setTimeout(function () { location.href = location.pathname; }, 150); }
   function dmFloor(n) { DM.floor = n; dmSave(); try { if (typeof posStash === 'function') posStash(); } catch (e) {} setTimeout(function () { location.href = location.pathname; }, 150); }
   var FLOOR = DM.floor;
   var LEVEL = FLOOR === 2 ? genLevel(2026, 2) : genLevel(1970), MAP = LEVEL.map;

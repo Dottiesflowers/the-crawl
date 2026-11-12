@@ -244,7 +244,7 @@
   function worldSave() {
     if (!CB.ready || !WORLD.loaded) return; var st = worldState();
     try { localStorage.setItem(worldKey(), JSON.stringify(st)); } catch (x) {}
-    if (NET.mode === 'server' && NET.uid) { clearTimeout(worldSave.t); worldSave.t = setTimeout(function () { api('kv/world', { method: 'PUT', body: { value: st } }).catch(function () {}); }, 2000); }
+    if (NET.mode === 'server' && NET.uid && !(CHAR && CHAR.isDM)) { clearTimeout(worldSave.t); worldSave.t = setTimeout(function () { api('kv/world', { method: 'PUT', body: { value: st } }).catch(function () {}); }, 2000); }
   }
   var RAT_BACK = 8 * 60000; // cleared rats come back after this long, somewhere you aren't looking
   // the Underbazaar's rats come back in two waves: half after 30 minutes, the rest after an hour
@@ -477,7 +477,8 @@
   function cbStart(why, first) {
     if (CB.on || !CB.ready || (CHAR && CHAR.dead)) return;
     if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
-    var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || (!e.def.timid && cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8))); });
+    var solo = CB.dmPick === 'one' && first; CB.dmSolo = !!solo; CB.dmPick = null;
+    var foes = solo ? [first] : CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || (!e.def.timid && cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8))); });
     if (!foes.length) return;
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
     CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
@@ -503,6 +504,7 @@
   }
   function cbJoin(e, why) {
     if (!CB.on || CB.order.indexOf(e) >= 0 || e.dead || e.calm) return;
+    if (CB.dmSolo) return; // the DM pulled just one: nobody else joins
     e.init = d20() + e.def.init; e.react = true; e.prone = false; e.grappled = false; e.fought = true;
     var initOf = function (c) { return c === 'pc' ? PC.init : c.init; }, at = CB.order.length;
     for (var i = 0; i < CB.order.length; i++) if (e.init > initOf(CB.order[i])) { at = i; break; }
@@ -519,7 +521,7 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
-  function cbEnd(win) { PC.burning = 0;
+  function cbEnd(win) { PC.burning = 0; CB.dmSolo = false;
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -720,6 +722,7 @@
 
   // ---------- death saving throws ----------
   function cbFall() {
+    if (isDM() && DM.immortal) { PC.hp = PC.max; cbHUD(); say('DM mode', 'The DM does not die. Back to full HP. (Turn this off in the DM panel to test dying.)', 3500); return; }
     PC.hp = 0; PC.down = true; PC.saves = { s: 0, f: 0 }; PC.hidden = false; CB.path = null; CB.busy = false; kitOneShot('Death01', true);
     CB.enemies.forEach(function (e) { e.grappled = false; });
     say('Downed', 'You drop. On each of your turns you roll a death save: 10 or more is a success. Three successes and you stabilise; three failures and you die. A natural 20 puts you back on your feet.', 7000);
@@ -922,7 +925,7 @@
   }
   // a monster that can see you, close by, starts the fight
   function cbAggro() {
-    if (CB.on || !CB.ready || DM.peace || inSafeRoom(P.x, P.z) || (CHAR && CHAR.dead)) return;
+    if (CB.on || !CB.ready || DM.peace || isDM() || inSafeRoom(P.x, P.z) || (CHAR && CHAR.dead)) return;
     for (var i = 0; i < CB.enemies.length; i++) {
       var e = CB.enemies[i]; if (e.dead || e.calm || e.def.timid) continue;
       var r = e.guard ? 2 : 3;
@@ -945,6 +948,11 @@
   function enemyActs(e) {
     if (e.dead) return [{ label: 'Search the body', loot: true }].concat(harvestOf(e) && !e.harvested && !e.eaten ? [{ label: 'Harvest ' + harvestOf(e).toLowerCase(), harvest: true }] : []).concat([{ label: 'Stash the whole body', stash: true }, { label: 'Examine', text: 'Very dead. ' + (e.looted ? 'Already picked clean.' : 'Its pockets look promising.') }]);
     var talk = { label: NET.sample ? 'Talk (say anything)' : 'Talk', talk: true };
+    if (isDM() && !e.npc) { var dmA = [{ label: 'DM: aggro this one', fnx: function () { CB.dmPick = 'one'; cbStart('The DM points at ' + e.name + '.', e); } }, { label: 'DM: aggro it and its friends', fnx: function () { CB.dmPick = 'group'; cbStart('The DM points at ' + e.name + ' and everyone near it.', e); } }];
+      return dmA.concat(enemyActsBase(e, talk)); }
+    return enemyActsBase(e, talk);
+  }
+  function enemyActsBase(e, talk) {
     if (e.npc) return [talk,
       { label: 'Examine', text: (NPCS[e.npc] || NPCS.pip).exam + ' Not a threat in here.' },
       e.npc === 'pip' ? { label: 'Read their mood', stat: 'WIS', dc: 8, win: 'Overworked, underpaid, and quietly rooting for you.', lose: 'Hard to tell under all that sweating.' } : { label: 'Read their mood', stat: 'WIS', dc: 14, win: 'Behind the calm, it is worried about the ratings. You are the ratings.', lose: 'Those eyes give away nothing. Nothing at all.' }];
