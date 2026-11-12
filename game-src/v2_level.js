@@ -1239,7 +1239,7 @@
       var SS = Zn({ name: 'Soundstage 9', theme: 'stage', line: 'The biggest stage on the lot. The Director is up on the crane, and the sets change when he says so.' });
       var stg = stamp(TPL.stage, 88, 6, 0, SS);
       var stairs2 = stg.room.stairsDown ? { x: stg.room.stairsDown[0], z: stg.room.stairsDown[1] } : { x: 142, z: 12 };
-      spawnIn(stg.room, 'imp', { tier: 3, name: 'The Director', boss: true }); pack(stg.room, 'puglin', 4, 2, 'Stage crew');
+      spawnIn(stg.room, 'imp', { tier: 3, name: 'The Director', boss: true }); pack(stg.room, 'crew', 3); pack(stg.room, 'knight', 4); spawnIn(stg.room, 'knight', { sub: 'stuntknight' }); spawnIn(stg.room, 'knight', { sub: 'stuntknight' });
 
       // ---------- Starship Valiant (northeast) ----------
       var SV = Zn({ name: 'Starship Valiant', theme: 'lot', line: 'A starship set. Foam walls, blinking panels and costume goblins who think they are a real crew.' });
@@ -1258,9 +1258,12 @@
       for (xx = 182; xx <= 234; xx++) { var rz2 = Math.round(128 + Math.sin((xx - 182) / 9) * 6); for (zz = rz2; zz <= rz2 + 2; zz++) { if (xx >= 206 && xx <= 209) put(xx, zz, '.', brg.id); else put(xx, zz, '~', jung.id); } }
       var jclear = area({ name: 'The Groundskeeper\'s Clearing', type: 'boss', theme: 'garden', x0: 214, z0: 138, x1: 231, z1: 154, line: 'A clearing with a tool shed and a very large hedge trimmer. The Groundskeeper keeps this jungle tidy.' }, JS);
       stamp(TPL.shed, 219, 139, 0, JS); stamp(TPL.temple, 190, 80, 0, JS);
-      spawnIn(jclear, 'bog', { tier: 3, name: 'The Groundskeeper', boss: true });
+      spawnIn(jclear, 'truffle', { sub: 'groundskeeper', name: 'The Groundskeeper', boss: true });
       trees(jung, 220, ['CommonTree_1', 'CommonTree_3', 'Pine_2']); greens(jung, 260, ['Fern_1', 'Plant_1', 'Plant_7', 'Bush_Common', 'Mushroom_Laetiporus', 'Grass_Wispy_Tall']);
-      for (k = 0; k < 6; k++) pack(jung, 'bog', ri(1, 3), 0, 'Jungle beast');
+      for (k = 0; k < 7; k++) { // little patches of truffle men scattered through the trees, not one crowd
+        for (var tt = 0, tp = null; tt < 40 && !tp; tt++) { var qx = ri(jung.x0 + 3, jung.x1 - 3), qz = ri(jung.z0 + 3, jung.z1 - 3); if (reg[qz] && reg[qz][qx] === jung.id && (g[qz][qx] === '.' || g[qz][qx] === ',') && !taken[qx + ',' + qz]) tp = [qx, qz]; }
+        if (!tp) continue; for (var tn = ri(1, 3), dd = 0; tn > 0 && dd < 12; dd++) { var ax = tp[0] + ri(-2, 2), az = tp[1] + ri(-2, 2); if (reg[az] && reg[az][ax] === jung.id && (g[az][ax] === '.' || g[az][ax] === ',') && !taken[ax + ',' + az]) { taken[ax + ',' + az] = 1; spawns.push({ kind: 'truffle', tier: rnd() < 0.12 ? 3 : rnd() < 0.35 ? 2 : 1, x: ax, z: az, room: jung.id }); tn--; } }
+      }
 
       // ---------- Maple Lane (southwest): six sitcom houses, front yards, the Showrunner's house ----------
       var ML = Zn({ name: 'Maple Lane', theme: 'lawn', line: 'A sitcom street. Six identical houses, perfect lawns and a laugh track that never stops.' });
@@ -1278,7 +1281,7 @@
         if (freeT(hx + 2, 190, lane)) obj(hx + 2, 190, 'CommonTree_3', { fit: 2.0, rot: rnd() * 6 }, 'Tree');
         park(hx + 11, 188, ['hatchback', 'rustyCar', 'rustyCar2'][i % 3], 'z', ['Hatchback', 'Classic car', 'Classic car'][i % 3]);
       }
-      var srh = stamp(TPL.showrunner, 40, 203, 2, ML); spawnIn(srh.room, 'puglin', { tier: 3, name: 'The Showrunner', boss: true });
+      var srh = stamp(TPL.showrunner, 40, 203, 2, ML); spawnIn(srh.room, 'puglin', { sub: 'showrunner', name: 'The Showrunner', boss: true });
       for (xx = 44; xx <= 64; xx++) for (zz = 211; zz <= 212; zz++) put(xx, zz, '~', lane.id);
       [[42, 212], [66, 212], [42, 211]].forEach(function (p) { if (freeT(p[0], p[1], lane)) dec(p[0], p[1], 'loungeChairRelax', { fit: 0.7, rot: Math.PI / 2 }); });
       for (xx = 12; xx <= 108; xx += 9) if (freeT(xx, 202, lane)) obj(xx, 202, 'CommonTree_3', { fit: 2.2, rot: rnd() * 6 }, 'Tree');
@@ -1290,9 +1293,9 @@
       area({ name: 'Manor Grounds', type: 'corridor', x0: 122, z0: 196, x1: 126, z1: 200 }, BM); area({ name: 'Manor Grounds', type: 'corridor', x0: 180, z0: 167, x1: 184, z1: 170 }, BM);
       var bm = stamp(TPL.manor, 150, 174, 2, BM), bmu = stamp(TPL.manorUp, 160, 244, 0, BM); roofRing(bmu.box, 3);
       upstairs.push([bm.room, bmu.room, 'Climb the grand staircase', 'Go back downstairs']);
-      roomsOf(bm, /Kitchen|Library|Dining|Study|Gallery|Foyer/).forEach(function (r) { pack(r, 'imp', ri(1, 2), 0, 'Animatronic'); });
-      roomsOf(bmu, /Room|Nursery|Study|Attic/).forEach(function (r) { if (rnd() < 0.6) pack(r, 'imp', 1, 0, 'Animatronic'); });
-      var ball = roomsOf(bm, /Ballroom/)[0]; if (ball) spawnIn(ball, 'imp', { tier: 3, name: 'The Butler Unit', boss: true });
+      roomsOf(bm, /Kitchen|Library|Dining|Study|Gallery|Foyer/).forEach(function (r) { pack(r, 'robot', ri(1, 2)); });
+      roomsOf(bmu, /Room|Nursery|Study|Attic/).forEach(function (r) { if (rnd() < 0.6) pack(r, 'robot', 1); });
+      var ball = roomsOf(bm, /Ballroom/)[0]; if (ball) spawnIn(ball, 'robot', { sub: 'butler', name: 'The Butler Unit', boss: true });
       // the graveyard: iron fence, rows of headstones, dead trees
       var gy = room({ name: 'The Graveyard', type: 'room', theme: 'moss', x0: 211, z0: 178, x1: 231, z1: 208, line: 'A graveyard full of foam headstones. Some of the names are crawlers from earlier seasons.' }, BM);
       for (zz = 178; zz <= 208; zz++) for (xx = 211; xx <= 231; xx++) if (g[zz][xx] === '.' || g[zz][xx] === ',') reg[zz][xx] = gy.id;

@@ -13,6 +13,22 @@
   // the grey aliens who run the show (and took the SGC): non-combat NPCs with their own rig and animations (own: kit file)
   BEAST.producer = { name: 'Producer', own: 'alien', file: 'm_alien', ac: 20, hp: 999, speed: 5, atk: 0, dmg: [1, 1, 0], weapon: 'clipboard', init: 0, str: 0, dex: 0, pp: 15, xp: 0, scale: 1, h: 1.55, attackClip: 'Idle_Loop',
     lines: ['A grey alien in a lanyard. Big black eyes, a tablet, and the calm of something that has done this to a lot of species.'] };
+  // Floor 2 casts with their own models and animations. Each family shares a rig; tiers get bigger, tougher, tinted.
+  // Clips a model lacks (attack, hit, death, sometimes walk) are done in code: a lunge, a flinch, a fall, a bob.
+  function own(k, o) { var v = { own: k, file: 'm_' + k, scale: 1, init: 1, str: 1, dex: 1, pp: 11, attackClip: 'Sword_Attack' }; for (var q in o) v[q] = o[q]; return v; }
+  BEAST.extra = own('soldier', { name: 'Background extra', ac: 11, hp: 8, speed: 5, atk: 3, dmg: [1, 6, 0], weapon: 'prop sword (it is real)', xp: 35, h: 1.7, lines: ['A costumed extra from the fantasy epic on Stage 9. Nobody told it the swords are real now.'] });
+  BEAST.stuntdouble = own('swordman', { name: 'Stunt double', ac: 12, hp: 14, speed: 6, atk: 4, dmg: [1, 8, 1], weapon: 'longsword', dex: 2, xp: 80, h: 1.75, lines: ['Does the hero\'s fights for him. Has started doing them for real, and for itself.'] });
+  BEAST.stuntknight = own('knight', { name: 'Stunt knight', ac: 15, hp: 24, speed: 5, atk: 5, dmg: [1, 10, 2], weapon: 'arming sword and shield', str: 3, xp: 160, h: 1.85, lines: ['Full plate, a shield, and a choreographer it stopped listening to.'] });
+  BEAST.crew = own('crew', { name: 'Stagehand', ac: 10, hp: 7, speed: 6, atk: 2, dmg: [1, 4, 1], weapon: 'wrench', xp: 25, h: 1.7, lines: ['Wears all black so the camera can\'t see it. You can.'] });
+  BEAST.crew_lead = own('crew', { name: 'Key grip', ac: 12, hp: 15, speed: 6, atk: 4, dmg: [1, 6, 2], weapon: 'C-stand', str: 2, xp: 75, h: 1.85, tint: 0xc0b0a0, lines: ['Runs the grips. Swings a C-stand like it owes him money.'] });
+  BEAST.truffle = own('truffle', { name: 'Truffle man', ac: 10, hp: 9, speed: 4, atk: 3, dmg: [1, 6, 0], weapon: 'mossy fists', str: 2, dex: 0, xp: 35, h: 1.25, lines: ['A walking mushroom with a scarf. Smells incredible. Hits like a log.'] });
+  BEAST.truffle_big = own('truffle', { name: 'Old-growth truffle', ac: 12, hp: 18, speed: 4, atk: 4, dmg: [1, 8, 2], weapon: 'mossy fists', str: 3, dex: 0, xp: 90, h: 1.6, tint: 0xb8c8a0, lines: ['Older, wider, and covered in its own grandchildren.'] });
+  BEAST.truffle_king = own('truffle', { name: 'Morel monarch', ac: 13, hp: 28, speed: 4, atk: 5, dmg: [2, 6, 2], weapon: 'mossy fists', str: 4, dex: 0, xp: 170, h: 1.95, tint: 0xd0a080, lines: ['It has a crown of smaller mushrooms. They are all watching you.'] });
+  BEAST.groundskeeper = own('truffle', { name: 'The Groundskeeper', ac: 15, hp: 60, speed: 4, atk: 6, dmg: [2, 8, 3], weapon: 'hedge trimmer', str: 5, dex: 0, init: 0, pp: 13, xp: 650, h: 2.6, tint: 0x90a870, boss: true, lines: ['Keeps the Jungle Set tidy. Has been composting crawlers, and the jungle has never looked better.'] });
+  BEAST.automaton = own('robot', { name: 'Animatronic', ac: 13, hp: 12, speed: 5, atk: 3, dmg: [1, 6, 1], weapon: 'brass fists', str: 2, dex: 0, xp: 60, h: 1.75, lines: ['A clockwork servant from the haunted-manor set. It is still serving. You are the course.'] });
+  BEAST.automaton_big = own('robot', { name: 'Footman unit', ac: 15, hp: 22, speed: 5, atk: 4, dmg: [1, 8, 2], weapon: 'brass fists', str: 3, dex: 0, xp: 140, h: 2.0, tint: 0xd0d8e0, lines: ['Polished, upright, and programmed to remove guests who overstay.'] });
+  BEAST.butler = own('robot', { name: 'The Butler Unit', ac: 16, hp: 64, speed: 5, atk: 6, dmg: [2, 8, 3], weapon: 'silver tray', str: 4, dex: 1, init: 2, pp: 14, xp: 700, h: 2.5, tint: 0xffd890, boss: true, lines: ['Head of the manor staff. Its manners are flawless. So is its right hook.'] });
+  BEAST.showrunner = own('dracul', { name: 'The Showrunner', ac: 16, hp: 75, speed: 6, atk: 7, dmg: [2, 8, 4], weapon: 'claws and a rolled-up script', str: 4, dex: 2, init: 3, pp: 15, xp: 900, h: 2.1, boss: true, lines: ['A dragon in a blazer. Runs every sitcom on Maple Lane, and has notes on your performance.'] });
   var NPCS = { pip: { name: 'Pip', exam: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile.' },
     vrell: { name: 'Producer Vrell', exam: 'A tall grey alien in a lanyard that says EXECUTIVE PRODUCER. Huge black eyes, long fingers, a tablet. This is one of the ones who took you.' },
     quib: { name: 'Associate Producer Quib', exam: 'A grey alien in a lanyard that says FLOOR 2 PRODUCTION, holding three coffees and a headset. One of the ones who took you, now very busy.' } };
@@ -69,7 +85,8 @@
   BEAST.shrub2 = shrubDef({ lvl: 2, name: 'Hungry shrub', ac: 10, hp: 9, speed: 4, atk: 3, dmg: [1, 4, 1], xp: 20, scale: 0.34, h: 0.6, timid: true, prop: 'Bush_Common_Flowers', lines: ['It has eaten something recently. It has opinions now, and roots like fingers.'] });
   BEAST.shrub3 = shrubDef({ lvl: 3, name: 'Bramble glutton', ac: 12, hp: 18, speed: 5, atk: 4, dmg: [1, 6, 2], str: 1, xp: 60, scale: 0.52, h: 0.9, prop: 'Bush_Common_Flowers', weapon: 'thorn lash', lines: ['A shrub the size of a dog that has eaten several crawlers\' worth of leftovers. It hunts now.'] });
   BEAST.shrub4 = shrubDef({ lvl: 4, name: 'Thornmaw', ac: 14, hp: 34, speed: 5, atk: 6, dmg: [2, 6, 3], str: 3, xp: 180, scale: 0.78, h: 1.3, prop: 'Bush_Common_Flowers', weapon: 'crushing roots', lines: ['Somebody should have stepped on this when it was small. Nobody did.'] });
-  var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'], bog: [null, 'bog', 'bog_brute', 'bog_chief'], clerk: [null, 'clerk', 'clerk_mid', 'clerk_head'] };
+  var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'], bog: [null, 'bog', 'bog_brute', 'bog_chief'], clerk: [null, 'clerk', 'clerk_mid', 'clerk_head'],
+    knight: [null, 'extra', 'stuntdouble', 'stuntknight'], crew: [null, 'crew', 'crew', 'crew_lead'], truffle: [null, 'truffle', 'truffle_big', 'truffle_king'], robot: [null, 'automaton', 'automaton', 'automaton_big'] };
   var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? (sp.kind || 'imp') : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
   function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
 
@@ -132,14 +149,27 @@
   // ---------- monsters ----------
   function cbLoad() {
     if (CB.loading) return; CB.loading = true;
-    var L = new THREE.GLTFLoader(), MODELS = [['puglin', 'm_puglin'], ['imp', 'm_imp'], ['alien', 'm_alien']], left = MODELS.length; CB.anims = CB.anims || {}; CB.hgt = CB.hgt || {};
+    var L = new THREE.GLTFLoader(), MODELS = [['puglin', 'm_puglin'], ['imp', 'm_imp']], seen = {}; // models of their own are only fetched for the floor that uses them
+    SPAWNS.forEach(function (sp) { var B = BEAST[sp.kind]; if (B && B.own && !seen[B.own]) { seen[B.own] = 1; MODELS.push([B.own, B.file]); } });
+    var left = MODELS.length; CB.anims = CB.anims || {}; CB.hgt = CB.hgt || {};
     function one() { if (--left === 0) cbSpawn(); }
     MODELS.forEach(function (mk) { var k = mk[0];
       fetch(KDIR + mk[1] + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         var bin = atob(j.glb), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-        L.parse(u.buffer, KDIR, function (g) { CB.defs[k] = g.scene; CB.anims[k] = g.animations || []; g.scene.updateMatrixWorld(true); CB.hgt[k] = new THREE.Box3().setFromObject(g.scene).getSize(new THREE.Vector3()).y || 1; one(); }, function (e) { console.warn('monster failed', k, e); one(); });
+        L.parse(u.buffer, KDIR, function (g) { CB.defs[k] = g.scene; CB.anims[k] = (g.animations || []).map(inPlace); g.scene.updateMatrixWorld(true); CB.hgt[k] = new THREE.Box3().setFromObject(g.scene).getSize(new THREE.Vector3()).y || 1; one(); }, function (e) { console.warn('monster failed', k, e); one(); });
       }).catch(function (e) { console.warn('monster failed', k, e); one(); });
     });
+  }
+  // walks stay on the spot: position tracks keep their bob but lose their drift
+  function inPlace(c) { c.tracks.forEach(function (t) { if (!/\.position$/.test(t.name)) return; var v = t.values; for (var i = 3; i < v.length; i += 3) { v[i] = v[0]; v[i + 2] = v[2]; } }); return c; }
+  // what a model without the clip does instead
+  function ownFx(e, dt) {
+    var w = e.wrap; if (!w) return; e.pt = (e.pt || 0) + dt; var t = e.pt, n = e.pfx;
+    w.position.set(0, 0, 0); w.rotation.set(0, 0, 0);
+    if (e.pwalk && !e.dead) { var ph = performance.now() / 1000 * 9; w.position.y = Math.abs(Math.sin(ph)) * 0.07; w.rotation.z = Math.sin(ph) * 0.07; w.rotation.x = 0.08; }
+    if (n === 'Death01') { var k = Math.min(1, t / 0.55); w.rotation.x = -k * k * Math.PI / 2; w.position.y = 0.12 * k; }
+    else if (n === 'Hit_Chest' && t < 0.3) w.rotation.x = -Math.sin(t / 0.3 * Math.PI) * 0.28;
+    else if (n && n === e.def.attackClip && t < 0.5) { var q = Math.sin(t / 0.5 * Math.PI); w.position.z = q * 0.45; w.rotation.x = q * 0.32; }
   }
   function cbClipsFor(root) {
     var names = {}; root.traverse(function (o) { if (o.isBone) names[o.name] = 1; });
@@ -178,14 +208,16 @@
     if (B.own) { // a model that brings its own materials and animations
       if (!CB.defs[B.own]) return;
       var ro = THREE.SkeletonUtils.clone(CB.defs[B.own]);
-      ro.traverse(function (o) { if (!o.isMesh) return; var src = o.material; o.material = new THREE.MeshLambertMaterial({ map: src.map || null, color: (src.color ? src.color.clone() : new THREE.Color(1, 1, 1)).multiplyScalar(1.5), skinning: !!o.isSkinnedMesh }); o.castShadow = true; o.frustumCulled = false; });
+      ro.traverse(function (o) { if (!o.isMesh) return; var src = o.material; o.material = new THREE.MeshLambertMaterial({ map: src.map || null, color: (src.color ? src.color.clone() : new THREE.Color(1, 1, 1)).multiplyScalar(1.5), skinning: !!o.isSkinnedMesh }); if (B.tint) o.material.color.multiply(new THREE.Color(B.tint)); if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); o.castShadow = true; o.frustumCulled = false; });
       // size it by its skeleton (the mesh bounds of a skinned model are unreliable): feet to the top of the head = B.h
       if (!CB.hgtBones) CB.hgtBones = {};
       if (!CB.hgtBones[B.own]) { ro.updateMatrixWorld(true); var lo = 1e9, hi = -1e9, v = new THREE.Vector3(); ro.traverse(function (o) { if (o.isBone) { o.getWorldPosition(v); lo = Math.min(lo, v.y); hi = Math.max(hi, v.y); } }); CB.hgtBones[B.own] = hi > lo ? (hi - lo) * 1.12 : (CB.hgt[B.own] || 1); }
       var wrap = new THREE.Group(); wrap.add(ro); wrap.scale.setScalar(B.h / CB.hgtBones[B.own]); e.obj.add(wrap); // (not e.body: that is for rats and shrubs, which animate in code) the wrapper takes the scale: the model's own tracks may animate its root
-      e.mixer = new THREE.AnimationMixer(ro); e.clips = {};
+      var mx = new THREE.AnimationMixer(ro), up = mx.update.bind(mx); e.wrap = wrap; e.clips = {};
+      e.mixer = { update: function (dt) { up(dt); ownFx(e, dt); }, clipAction: function (c) { return mx.clipAction(c); }, stopAllAction: function () { mx.stopAllAction(); } };
       (CB.anims[B.own] || []).forEach(function (cl) { if (/idle/i.test(cl.name)) e.clips.Idle_Loop = cl; else if (/walk/i.test(cl.name)) e.clips.Walk_Loop = cl; });
-      e.cur = ''; cbPlay(e, e.want || 'Idle_Loop'); return;
+      if (!e.clips.Idle_Loop && e.clips.Walk_Loop) e.clips.Idle_Loop = THREE.AnimationUtils.subclip(e.clips.Walk_Loop, 'Idle', 0, 1, 30); // stand still in the walk's first pose
+      e.cur = ''; var w0 = e.want || (e.dead ? 'Death01' : 'Idle_Loop'); cbPlay(e, w0, e.dead); if (e.dead) e.pt = 9; return;
     }
     var root = THREE.SkeletonUtils.clone(CB.defs[B.base || sp.kind]);
     root.traverse(function (o) {
@@ -261,7 +293,13 @@
   }
   function cbPlay(e, name, once) {
     if (!e.mixer) { e.want = name; return; }
-    var c = e.clips[name]; if (!c) return; var a = e.mixer.clipAction(c);
+    var c = e.clips[name];
+    if (e.wrap) { // own-model: missing clips are done in code (ownFx)
+      if (name === 'Walk_Loop') e.pwalk = !c; else if (name === 'Idle_Loop') e.pwalk = false;
+      if (!c) { e.pfx = name; e.pt = 0; if (name === 'Death01' || name === 'Walk_Loop') { if (e.clips.Idle_Loop && e.cur !== 'Idle_Loop') cbPlay(e, 'Idle_Loop'); e.pfx = name; } return; }
+      if (name === 'Idle_Loop' || name === 'Walk_Loop') e.pfx = null;
+    }
+    if (!c) return; var a = e.mixer.clipAction(c);
     if (e.cur === name && !once) return;
     a.reset(); a.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat); a.clampWhenFinished = !!once; a.play();
     if (e.act && e.act !== a) a.crossFadeFrom(e.act, 0.18, false); e.act = a; e.cur = name;
