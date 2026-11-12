@@ -307,6 +307,7 @@
     green.line = 'Your holding cell, now with a couch. No violence of any kind; the System takes this very seriously, and so does its teleporter.';
     var start = { x: green.x0 + 10, z: green.z0 + 10 }; put(start.x, start.z, '@'); taken[start.x + ',' + start.z] = 1;
     spawns.push({ kind: 'imp', npc: 'pip', x: start.x + 2, z: start.z + 1, room: green.id }); taken[(start.x + 2) + ',' + (start.z + 1)] = 1;
+    var vp = openSpot(green); if (vp) spawns.push({ kind: 'producer', npc: 'vrell', x: vp[0], z: vp[1], room: green.id });
     var PCL = { 'Stage 3': 'A practice stage with training dummies. Hit them. They are paid to take it.', 'Holding Pen B': 'Something got out of its holding pen. It is small, angry and wearing a name tag.', 'Loading Dock': 'Crates for every set on the lot, and something rummaging through them.',
       'Orientation Theater': 'Rows of benches facing a screen that plays the same safety video forever.', 'Control Room': 'A wall of monitors showing the floor. One of them is showing you.', 'Medical (Closed)': 'Closed. The sign says so. The blood on the floor says it was busy before that.' };
     pcb.all.forEach(function (r) { if (PCL[r.name]) r.line = PCL[r.name]; if (r.name === 'Prop Storage') scatter(r, 'C', 1); });
@@ -1296,6 +1297,7 @@
       put(159, 82, 'X', vil.id); put(160, 82, 'X', vil.id); put(161, 82, 'X', vil.id);
       var start2 = { x: 119, z: 116 }; put(start2.x, start2.z, '@', vil.id);
       spawns.push({ kind: 'imp', npc: 'pip', x: 121, z: 116, room: vil.id }); taken['121,116'] = 1;
+      taken['116,117'] = 1; spawns.push({ kind: 'producer', npc: 'quib', x: 116, z: 117, room: vil.id });
       [[100, 104], [108, 104], [130, 104], [138, 104], [130, 117], [138, 117], [100, 117]].forEach(function (p) { if (freeT(p[0], p[1], vil)) diningSet(p[0], p[1], vil, true); });
       F(112, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine', { paint: 0xb8282a }); F(113, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine', { paint: 0x2a5ab8 });
       obj(124, 107, 'BookStand', { h: 1.2 }, 'Call sheet board');
@@ -7813,6 +7815,12 @@
     imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 11, hp: 13, speed: 6, atk: 3, dmg: [1, 6, 0], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
       lines: ['Hired muscle for the stairwell. Union rules: it does not leave its post until something walks past it.'] }
   };
+  // the grey aliens who run the show (and took the SGC): non-combat NPCs with their own rig and animations (own: kit file)
+  BEAST.producer = { name: 'Producer', own: 'alien', file: 'm_alien', ac: 20, hp: 999, speed: 5, atk: 0, dmg: [1, 1, 0], weapon: 'clipboard', init: 0, str: 0, dex: 0, pp: 15, xp: 0, scale: 1, h: 1.55, attackClip: 'Idle_Loop',
+    lines: ['A grey alien in a lanyard. Big black eyes, a tablet, and the calm of something that has done this to a lot of species.'] };
+  var NPCS = { pip: { name: 'Pip', exam: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile.' },
+    vrell: { name: 'Producer Vrell', exam: 'A tall grey alien in a lanyard that says EXECUTIVE PRODUCER. Huge black eyes, long fingers, a tablet. This is one of the ones who took you.' },
+    quib: { name: 'Associate Producer Quib', exam: 'A grey alien in a lanyard that says FLOOR 2 PRODUCTION, holding three coffees and a headset. One of the ones who took you, now very busy.' } };
   // monster families: tiers share a model and get bigger, tougher and nastier. base: which loaded model to use
   function variant(base, o) { var v = {}; for (var k in BEAST[base]) v[k] = BEAST[base][k]; for (k in o) v[k] = o[k]; v.base = base; return v; }
   BEAST.puglin.base = 'puglin'; BEAST.imp.base = 'imp'; BEAST.imp.name = 'Imp security guard';
@@ -7867,7 +7875,7 @@
   BEAST.shrub3 = shrubDef({ lvl: 3, name: 'Bramble glutton', ac: 12, hp: 18, speed: 5, atk: 4, dmg: [1, 6, 2], str: 1, xp: 60, scale: 0.52, h: 0.9, prop: 'Bush_Common_Flowers', weapon: 'thorn lash', lines: ['A shrub the size of a dog that has eaten several crawlers\' worth of leftovers. It hunts now.'] });
   BEAST.shrub4 = shrubDef({ lvl: 4, name: 'Thornmaw', ac: 14, hp: 34, speed: 5, atk: 6, dmg: [2, 6, 3], str: 3, xp: 180, scale: 0.78, h: 1.3, prop: 'Bush_Common_Flowers', weapon: 'crushing roots', lines: ['Somebody should have stepped on this when it was small. Nobody did.'] });
   var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'], bog: [null, 'bog', 'bog_brute', 'bog_chief'], clerk: [null, 'clerk', 'clerk_mid', 'clerk_head'] };
-  var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? 'imp' : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
+  var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? (sp.kind || 'imp') : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
   function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
 
   function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
@@ -7897,7 +7905,7 @@
     return r >= 0.99 ? ['Unhurt', '#3fd46a'] : r >= 0.6 ? ['Scratched', '#8ad43f'] : r >= 0.3 ? ['Wounded', '#e8c23a'] : ['Badly hurt', '#e8453a'];
   }
   function examineText(e) {
-    if (e.npc) return 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile.';
+    if (e.npc) return (NPCS[e.npc] || NPCS.pip).exam;
     return e.def.lines[0] + ' It looks ' + healthState(e)[0].toLowerCase() + (e.calm ? ' and has no interest in fighting you.' : '.') + (e.boss ? ' This is a neighborhood boss.' : '');
   }
   function cheb(ax, az, bx, bz) { return Math.max(Math.abs(ax - bx), Math.abs(az - bz)); }
@@ -7929,12 +7937,13 @@
   // ---------- monsters ----------
   function cbLoad() {
     if (CB.loading) return; CB.loading = true;
-    var L = new THREE.GLTFLoader(), left = 2;
-    ['puglin', 'imp'].forEach(function (k) {
-      fetch(KDIR + BEAST[k].file + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
+    var L = new THREE.GLTFLoader(), MODELS = [['puglin', 'm_puglin'], ['imp', 'm_imp'], ['alien', 'm_alien']], left = MODELS.length; CB.anims = CB.anims || {}; CB.hgt = CB.hgt || {};
+    function one() { if (--left === 0) cbSpawn(); }
+    MODELS.forEach(function (mk) { var k = mk[0];
+      fetch(KDIR + mk[1] + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         var bin = atob(j.glb), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-        L.parse(u.buffer, KDIR, function (g) { CB.defs[k] = g.scene; if (--left === 0) cbSpawn(); }, function (e) { console.warn('monster failed', k, e); });
-      }).catch(function (e) { console.warn('monster failed', k, e); });
+        L.parse(u.buffer, KDIR, function (g) { CB.defs[k] = g.scene; CB.anims[k] = g.animations || []; g.scene.updateMatrixWorld(true); CB.hgt[k] = new THREE.Box3().setFromObject(g.scene).getSize(new THREE.Vector3()).y || 1; one(); }, function (e) { console.warn('monster failed', k, e); one(); });
+      }).catch(function (e) { console.warn('monster failed', k, e); one(); });
     });
   }
   function cbClipsFor(root) {
@@ -7956,7 +7965,7 @@
         obj: holder, mixer: null, clips: {}, sp: sp, n: n, path: null, act: null, cur: '' };
       holder.position.set(sp.x, 0, sp.z); holder.rotation.y = Math.PI * 0.75;
       e.bar = document.createElement('div'); e.bar.className = 'ebar'; e.bar.innerHTML = '<i></i><span></span>'; document.body.appendChild(e.bar);
-      if (sp.npc) { e.name = 'Pip'; holder.rotation.y = -Math.PI * 0.6; }
+      if (sp.npc) { e.name = (NPCS[sp.npc] || NPCS.pip).name; holder.rotation.y = -Math.PI * 0.6; }
       e.room = sp.room; e.boss = !!B.boss;
       CB.enemies.push(e); cbPlay(e, 'Idle_Loop');
     });
@@ -7970,6 +7979,18 @@
       if (!propsOn()) return; var g2 = new THREE.Group(); propInto(g2, B.prop, { s: B.scale }); e.obj.add(g2); e.body = g2;
       g2.traverse(function (o) { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set(e.lvl >= 3 ? 0xb0c890 : 0xffffff); } });
       e.mixer = { update: function () {} }; e.clips = {}; return;
+    }
+    if (B.own) { // a model that brings its own materials and animations
+      if (!CB.defs[B.own]) return;
+      var ro = THREE.SkeletonUtils.clone(CB.defs[B.own]);
+      ro.traverse(function (o) { if (!o.isMesh) return; var src = o.material; o.material = new THREE.MeshLambertMaterial({ map: src.map || null, color: (src.color ? src.color.clone() : new THREE.Color(1, 1, 1)).multiplyScalar(1.5), skinning: !!o.isSkinnedMesh }); o.castShadow = true; o.frustumCulled = false; });
+      // size it by its skeleton (the mesh bounds of a skinned model are unreliable): feet to the top of the head = B.h
+      if (!CB.hgtBones) CB.hgtBones = {};
+      if (!CB.hgtBones[B.own]) { ro.updateMatrixWorld(true); var lo = 1e9, hi = -1e9, v = new THREE.Vector3(); ro.traverse(function (o) { if (o.isBone) { o.getWorldPosition(v); lo = Math.min(lo, v.y); hi = Math.max(hi, v.y); } }); CB.hgtBones[B.own] = hi > lo ? (hi - lo) * 1.12 : (CB.hgt[B.own] || 1); }
+      var wrap = new THREE.Group(); wrap.add(ro); wrap.scale.setScalar(B.h / CB.hgtBones[B.own]); e.obj.add(wrap); // (not e.body: that is for rats and shrubs, which animate in code) the wrapper takes the scale: the model's own tracks may animate its root
+      e.mixer = new THREE.AnimationMixer(ro); e.clips = {};
+      (CB.anims[B.own] || []).forEach(function (cl) { if (/idle/i.test(cl.name)) e.clips.Idle_Loop = cl; else if (/walk/i.test(cl.name)) e.clips.Walk_Loop = cl; });
+      e.cur = ''; cbPlay(e, e.want || 'Idle_Loop'); return;
     }
     var root = THREE.SkeletonUtils.clone(CB.defs[B.base || sp.kind]);
     root.traverse(function (o) {
@@ -8673,8 +8694,8 @@
     if (e.dead) return [{ label: 'Search the body', loot: true }].concat(harvestOf(e) && !e.harvested && !e.eaten ? [{ label: 'Harvest ' + harvestOf(e).toLowerCase(), harvest: true }] : []).concat([{ label: 'Stash the whole body', stash: true }, { label: 'Examine', text: 'Very dead. ' + (e.looted ? 'Already picked clean.' : 'Its pockets look promising.') }]);
     var talk = { label: NET.sample ? 'Talk (say anything)' : 'Talk', talk: true };
     if (e.npc) return [talk,
-      { label: 'Examine', text: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile. Not a threat to anyone, least of all you.' },
-      { label: 'Read their mood', stat: 'WIS', dc: 8, win: 'Overworked, underpaid, and quietly rooting for you.', lose: 'Hard to tell under all that sweating.' }];
+      { label: 'Examine', text: (NPCS[e.npc] || NPCS.pip).exam + ' Not a threat in here.' },
+      e.npc === 'pip' ? { label: 'Read their mood', stat: 'WIS', dc: 8, win: 'Overworked, underpaid, and quietly rooting for you.', lose: 'Hard to tell under all that sweating.' } : { label: 'Read their mood', stat: 'WIS', dc: 14, win: 'Behind the calm, it is worried about the ratings. You are the ratings.', lose: 'Those eyes give away nothing. Nothing at all.' }];
     var dc = mindDC(e), talks = speaks(e);
     return (talks ? [talk] : []).concat(weakOptions(e, false).map(function (o) { return { label: o.label, fnx: o.fn, okx: o.ok }; })).concat([{ label: tryLabel(), auto: 'try' },
       { label: 'Examine', text: mindExamine(e) + examineText(e) },
@@ -9498,6 +9519,18 @@
       knows: 'You are in the Safe Room: violence here is forbidden, and anyone who attacks anyone inside gets teleported out and put in a timeout. Rules you explain when asked: explore by walking, Interact to search and use things (skill checks are d20 plus stat plus skill), combat is turn based, loot bodies and rooms, achievements earn loot boxes in tiers (bronze, silver, gold and up), safe rooms are where you rest and plan, logging off counts as a long rest, the audience rewards creativity and absurdity. Floor one has hallways between monster neighborhoods. Two puglins (small, hungry, cowardly in a group of one) and an imp security guard (bored, paid by the hour, takes bribes, hates its job) wait in the room east past the mossy grotto. The stairs down are in the far east room behind the guard. Loot box in the crypt can be jury-rigged. Brazier light shows where the safe tiles are. Viewers love music, mercy and stupid bravery. The System hates being ignored.',
       limits: 'Cannot fight, cannot leave the Safe Room, cannot give items yet. Will not reveal the Showrunner\'s name. Never breaks character to talk about being an AI or a game.',
       start: 'friendly', calmed: true },
+    vrell: { name: 'Producer Vrell, executive producer', voice: 'smooth, corporate and faintly condescending, like a network executive at a pitch meeting; calls the players "the talent" or "the property", talks about ratings, demographics and the brand; never raises its voice',
+      who: 'A grey alien, one of the producers of the dungeon-crawl show. Vrell personally abducted the five humans of the Strong Guys Club (the SGC) and signed them. It picked them partly because "Strong Guys Club" sounded like a legitimate athletic organization, and it was quietly disappointed to find out they are not particularly strong, even for humans. It now oversees Floor 1 from the Green Room, the safe room where the crawlers wake up.',
+      wants: 'Good ratings and a dramatic season. The talent alive long enough to be interesting, and ideally dying in a way that trends. Its own promotion to Showrunner of the whole program.',
+      knows: 'Why the SGC was taken and how the show works: floors, safe rooms, bosses, loot boxes, sponsors and the audience across the galaxy. Floor 1 is basic training; the stairs are in the northeast behind the Gatekeeper. It will hint, never hand out answers. The Green Room is a safe room: no violence of any kind.',
+      limits: 'Cannot be fought, harmed or bargained into sending anyone home ("the contract is very clear"). Will not reveal where Earth is now or what happened to it. Never breaks character to talk about being an AI or a game.',
+      start: 'neutral', calmed: true },
+    quib: { name: 'Associate Producer Quib, Floor 2 production', voice: 'frazzled and fast, juggling a headset and three coffees, film-set jargon ("we\'re losing the light", "that\'s a wrap", "hold the roll"), friendlier than the other producers but always half listening to someone else',
+      who: 'A grey alien, a junior producer of the dungeon-crawl show and one of the abduction crew that took the Strong Guys Club. Now in charge of Floor 2, the Backlot: a studio lot of film sets around Catering Village. It is stretched thin: the writers are on strike, the Director is impossible, and the Showrunner on Maple Lane keeps rewriting everything.',
+      wants: 'To get through the shoot. Good footage of the talent on the sets. The Director\'s approval, which it has never once received.',
+      knows: 'The Backlot: Catering Village is the one safe hub; Maple Lane and Frontier Town are the easiest sets, then Blackwood Manor and the Jungle Set, then Starship Valiant and the Writers\' Building. Soundstage 9 is the way down, and the Director is on the crane in there. Dermot Stoker, the head writer, lives on the roof of the Writers\' Building and is very touchy about his putting green.',
+      limits: 'Cannot be fought or harmed in Catering Village. Will not send anyone home. Never breaks character to talk about being an AI or a game.',
+      start: 'friendly', calmed: true },
     puglin: { name: 'Puglin', voice: 'short grunting sentences, third person sometimes ("Grik hungry"), easily flattered, bad grammar',
       who: 'A small goblin-pug monster spawned two days ago for the show. Lives for snacks and approval from bigger monsters.',
       wants: 'Food. Shiny things. Not to be the one who dies first on camera.',
@@ -9626,6 +9659,8 @@
   function talkCanned(e, text, roll0) {
     if (!e.npc) return mindCanned(e, text, roll0 || talkRoll());
     var t = (text || '').toLowerCase(), roll = roll0 || talkRoll(), win = roll.total >= (e.kind === 'imp' && !e.npc ? 15 : 12);
+    if (e.npc === 'vrell') return { say: !text ? 'Ah. The talent is awake. Welcome to the Green Room. You signed everything, in case you were wondering.' : (/home|earth|why|took|taken|abduct/.test(t) ? 'You were chosen. "Strong Guys Club" tested very well with the focus group. The name, specifically.' : (/stairs|exit|down/.test(t) ? 'Northeast. Behind the Gatekeeper. I would not rush. The audience likes a slow build.' : 'Noted. I\'ll pass that along to someone who cares.')), mood: e.talk.mood, outcome: 'none' };
+    if (e.npc === 'quib') return { say: !text ? 'Oh good, the talent! Hi. Welcome to the Backlot. Grab a coffee, we\'re rolling in five. Ish.' : (/stairs|exit|down|soundstage/.test(t) ? 'Soundstage 9, up Director\'s Row. He\'s on the crane. Do NOT call him by his first name.' : (/dermot|writer|green|golf/.test(t) ? 'Dermot\'s on the roof of the Writers\' Building. Stay off his grass. I mean it.' : 'Totally, yes, love it. Sorry, what? Somebody\'s talking in my ear.')), mood: e.talk.mood, outcome: 'none' };
     if (e.npc) return { say: !text ? 'Oh! Talent! Hi! Welcome to the Safe Room. I\'m Pip, production. No hitting in here, please. Please don\'t die before the break.' : (/stairs|exit|down/.test(t) ? 'Stairs are far east, past the grotto, behind security. Don\'t tell him I said "behind."' : (/monster|puglin|imp|guard/.test(t) ? 'Two puglins and one very tired security imp. The imp takes bribes. You did not hear that from me.' : 'Uh huh, totally, love that. Great energy. Keep doing that on camera.')), mood: 'friendly', outcome: 'hint' };
     if (!text) return { say: e.kind === 'imp' ? 'Keep walking, pal. Or don\'t. I get paid either way.' : 'Grik see you. Grik hungry.', mood: e.talk.mood, outcome: 'none' };
     if (/stupid|ugly|idiot|die/.test(t)) return { say: '*bristles* Wrong thing to say.', mood: 'hostile', outcome: 'fight' };

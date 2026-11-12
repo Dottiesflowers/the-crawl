@@ -179,6 +179,7 @@
     green.line = 'Your holding cell, now with a couch. No violence of any kind; the System takes this very seriously, and so does its teleporter.';
     var start = { x: green.x0 + 10, z: green.z0 + 10 }; put(start.x, start.z, '@'); taken[start.x + ',' + start.z] = 1;
     spawns.push({ kind: 'imp', npc: 'pip', x: start.x + 2, z: start.z + 1, room: green.id }); taken[(start.x + 2) + ',' + (start.z + 1)] = 1;
+    var vp = openSpot(green); if (vp) spawns.push({ kind: 'producer', npc: 'vrell', x: vp[0], z: vp[1], room: green.id });
     var PCL = { 'Stage 3': 'A practice stage with training dummies. Hit them. They are paid to take it.', 'Holding Pen B': 'Something got out of its holding pen. It is small, angry and wearing a name tag.', 'Loading Dock': 'Crates for every set on the lot, and something rummaging through them.',
       'Orientation Theater': 'Rows of benches facing a screen that plays the same safety video forever.', 'Control Room': 'A wall of monitors showing the floor. One of them is showing you.', 'Medical (Closed)': 'Closed. The sign says so. The blood on the floor says it was busy before that.' };
     pcb.all.forEach(function (r) { if (PCL[r.name]) r.line = PCL[r.name]; if (r.name === 'Prop Storage') scatter(r, 'C', 1); });
@@ -1168,6 +1169,7 @@
       put(159, 82, 'X', vil.id); put(160, 82, 'X', vil.id); put(161, 82, 'X', vil.id);
       var start2 = { x: 119, z: 116 }; put(start2.x, start2.z, '@', vil.id);
       spawns.push({ kind: 'imp', npc: 'pip', x: 121, z: 116, room: vil.id }); taken['121,116'] = 1;
+      taken['116,117'] = 1; spawns.push({ kind: 'producer', npc: 'quib', x: 116, z: 117, room: vil.id });
       [[100, 104], [108, 104], [130, 104], [138, 104], [130, 117], [138, 117], [100, 117]].forEach(function (p) { if (freeT(p[0], p[1], vil)) diningSet(p[0], p[1], vil, true); });
       F(112, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine', { paint: 0xb8282a }); F(113, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine', { paint: 0x2a5ab8 });
       obj(124, 107, 'BookStand', { h: 1.2 }, 'Call sheet board');

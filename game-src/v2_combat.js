@@ -10,6 +10,12 @@
     imp: { name: 'Imp, stairwell guard', file: 'm_imp', tex: 'imp', ac: 11, hp: 13, speed: 6, atk: 3, dmg: [1, 6, 0], weapon: 'spiked mace', init: 2, str: 2, dex: 2, pp: 11, xp: 100, scale: 0.72, h: 1.15, attackClip: 'Sword_Attack',
       lines: ['Hired muscle for the stairwell. Union rules: it does not leave its post until something walks past it.'] }
   };
+  // the grey aliens who run the show (and took the SGC): non-combat NPCs with their own rig and animations (own: kit file)
+  BEAST.producer = { name: 'Producer', own: 'alien', file: 'm_alien', ac: 20, hp: 999, speed: 5, atk: 0, dmg: [1, 1, 0], weapon: 'clipboard', init: 0, str: 0, dex: 0, pp: 15, xp: 0, scale: 1, h: 1.55, attackClip: 'Idle_Loop',
+    lines: ['A grey alien in a lanyard. Big black eyes, a tablet, and the calm of something that has done this to a lot of species.'] };
+  var NPCS = { pip: { name: 'Pip', exam: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile.' },
+    vrell: { name: 'Producer Vrell', exam: 'A tall grey alien in a lanyard that says EXECUTIVE PRODUCER. Huge black eyes, long fingers, a tablet. This is one of the ones who took you.' },
+    quib: { name: 'Associate Producer Quib', exam: 'A grey alien in a lanyard that says FLOOR 2 PRODUCTION, holding three coffees and a headset. One of the ones who took you, now very busy.' } };
   // monster families: tiers share a model and get bigger, tougher and nastier. base: which loaded model to use
   function variant(base, o) { var v = {}; for (var k in BEAST[base]) v[k] = BEAST[base][k]; for (k in o) v[k] = o[k]; v.base = base; return v; }
   BEAST.puglin.base = 'puglin'; BEAST.imp.base = 'imp'; BEAST.imp.name = 'Imp security guard';
@@ -64,7 +70,7 @@
   BEAST.shrub3 = shrubDef({ lvl: 3, name: 'Bramble glutton', ac: 12, hp: 18, speed: 5, atk: 4, dmg: [1, 6, 2], str: 1, xp: 60, scale: 0.52, h: 0.9, prop: 'Bush_Common_Flowers', weapon: 'thorn lash', lines: ['A shrub the size of a dog that has eaten several crawlers\' worth of leftovers. It hunts now.'] });
   BEAST.shrub4 = shrubDef({ lvl: 4, name: 'Thornmaw', ac: 14, hp: 34, speed: 5, atk: 6, dmg: [2, 6, 3], str: 3, xp: 180, scale: 0.78, h: 1.3, prop: 'Bush_Common_Flowers', weapon: 'crushing roots', lines: ['Somebody should have stepped on this when it was small. Nobody did.'] });
   var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'], bog: [null, 'bog', 'bog_brute', 'bog_chief'], clerk: [null, 'clerk', 'clerk_mid', 'clerk_head'] };
-  var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? 'imp' : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
+  var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? (sp.kind || 'imp') : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
   function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
 
   function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
@@ -94,7 +100,7 @@
     return r >= 0.99 ? ['Unhurt', '#3fd46a'] : r >= 0.6 ? ['Scratched', '#8ad43f'] : r >= 0.3 ? ['Wounded', '#e8c23a'] : ['Badly hurt', '#e8453a'];
   }
   function examineText(e) {
-    if (e.npc) return 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile.';
+    if (e.npc) return (NPCS[e.npc] || NPCS.pip).exam;
     return e.def.lines[0] + ' It looks ' + healthState(e)[0].toLowerCase() + (e.calm ? ' and has no interest in fighting you.' : '.') + (e.boss ? ' This is a neighborhood boss.' : '');
   }
   function cheb(ax, az, bx, bz) { return Math.max(Math.abs(ax - bx), Math.abs(az - bz)); }
@@ -126,12 +132,13 @@
   // ---------- monsters ----------
   function cbLoad() {
     if (CB.loading) return; CB.loading = true;
-    var L = new THREE.GLTFLoader(), left = 2;
-    ['puglin', 'imp'].forEach(function (k) {
-      fetch(KDIR + BEAST[k].file + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
+    var L = new THREE.GLTFLoader(), MODELS = [['puglin', 'm_puglin'], ['imp', 'm_imp'], ['alien', 'm_alien']], left = MODELS.length; CB.anims = CB.anims || {}; CB.hgt = CB.hgt || {};
+    function one() { if (--left === 0) cbSpawn(); }
+    MODELS.forEach(function (mk) { var k = mk[0];
+      fetch(KDIR + mk[1] + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         var bin = atob(j.glb), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-        L.parse(u.buffer, KDIR, function (g) { CB.defs[k] = g.scene; if (--left === 0) cbSpawn(); }, function (e) { console.warn('monster failed', k, e); });
-      }).catch(function (e) { console.warn('monster failed', k, e); });
+        L.parse(u.buffer, KDIR, function (g) { CB.defs[k] = g.scene; CB.anims[k] = g.animations || []; g.scene.updateMatrixWorld(true); CB.hgt[k] = new THREE.Box3().setFromObject(g.scene).getSize(new THREE.Vector3()).y || 1; one(); }, function (e) { console.warn('monster failed', k, e); one(); });
+      }).catch(function (e) { console.warn('monster failed', k, e); one(); });
     });
   }
   function cbClipsFor(root) {
@@ -153,7 +160,7 @@
         obj: holder, mixer: null, clips: {}, sp: sp, n: n, path: null, act: null, cur: '' };
       holder.position.set(sp.x, 0, sp.z); holder.rotation.y = Math.PI * 0.75;
       e.bar = document.createElement('div'); e.bar.className = 'ebar'; e.bar.innerHTML = '<i></i><span></span>'; document.body.appendChild(e.bar);
-      if (sp.npc) { e.name = 'Pip'; holder.rotation.y = -Math.PI * 0.6; }
+      if (sp.npc) { e.name = (NPCS[sp.npc] || NPCS.pip).name; holder.rotation.y = -Math.PI * 0.6; }
       e.room = sp.room; e.boss = !!B.boss;
       CB.enemies.push(e); cbPlay(e, 'Idle_Loop');
     });
@@ -167,6 +174,18 @@
       if (!propsOn()) return; var g2 = new THREE.Group(); propInto(g2, B.prop, { s: B.scale }); e.obj.add(g2); e.body = g2;
       g2.traverse(function (o) { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set(e.lvl >= 3 ? 0xb0c890 : 0xffffff); } });
       e.mixer = { update: function () {} }; e.clips = {}; return;
+    }
+    if (B.own) { // a model that brings its own materials and animations
+      if (!CB.defs[B.own]) return;
+      var ro = THREE.SkeletonUtils.clone(CB.defs[B.own]);
+      ro.traverse(function (o) { if (!o.isMesh) return; var src = o.material; o.material = new THREE.MeshLambertMaterial({ map: src.map || null, color: (src.color ? src.color.clone() : new THREE.Color(1, 1, 1)).multiplyScalar(1.5), skinning: !!o.isSkinnedMesh }); o.castShadow = true; o.frustumCulled = false; });
+      // size it by its skeleton (the mesh bounds of a skinned model are unreliable): feet to the top of the head = B.h
+      if (!CB.hgtBones) CB.hgtBones = {};
+      if (!CB.hgtBones[B.own]) { ro.updateMatrixWorld(true); var lo = 1e9, hi = -1e9, v = new THREE.Vector3(); ro.traverse(function (o) { if (o.isBone) { o.getWorldPosition(v); lo = Math.min(lo, v.y); hi = Math.max(hi, v.y); } }); CB.hgtBones[B.own] = hi > lo ? (hi - lo) * 1.12 : (CB.hgt[B.own] || 1); }
+      var wrap = new THREE.Group(); wrap.add(ro); wrap.scale.setScalar(B.h / CB.hgtBones[B.own]); e.obj.add(wrap); // (not e.body: that is for rats and shrubs, which animate in code) the wrapper takes the scale: the model's own tracks may animate its root
+      e.mixer = new THREE.AnimationMixer(ro); e.clips = {};
+      (CB.anims[B.own] || []).forEach(function (cl) { if (/idle/i.test(cl.name)) e.clips.Idle_Loop = cl; else if (/walk/i.test(cl.name)) e.clips.Walk_Loop = cl; });
+      e.cur = ''; cbPlay(e, e.want || 'Idle_Loop'); return;
     }
     var root = THREE.SkeletonUtils.clone(CB.defs[B.base || sp.kind]);
     root.traverse(function (o) {
@@ -870,8 +889,8 @@
     if (e.dead) return [{ label: 'Search the body', loot: true }].concat(harvestOf(e) && !e.harvested && !e.eaten ? [{ label: 'Harvest ' + harvestOf(e).toLowerCase(), harvest: true }] : []).concat([{ label: 'Stash the whole body', stash: true }, { label: 'Examine', text: 'Very dead. ' + (e.looted ? 'Already picked clean.' : 'Its pockets look promising.') }]);
     var talk = { label: NET.sample ? 'Talk (say anything)' : 'Talk', talk: true };
     if (e.npc) return [talk,
-      { label: 'Examine', text: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile. Not a threat to anyone, least of all you.' },
-      { label: 'Read their mood', stat: 'WIS', dc: 8, win: 'Overworked, underpaid, and quietly rooting for you.', lose: 'Hard to tell under all that sweating.' }];
+      { label: 'Examine', text: (NPCS[e.npc] || NPCS.pip).exam + ' Not a threat in here.' },
+      e.npc === 'pip' ? { label: 'Read their mood', stat: 'WIS', dc: 8, win: 'Overworked, underpaid, and quietly rooting for you.', lose: 'Hard to tell under all that sweating.' } : { label: 'Read their mood', stat: 'WIS', dc: 14, win: 'Behind the calm, it is worried about the ratings. You are the ratings.', lose: 'Those eyes give away nothing. Nothing at all.' }];
     var dc = mindDC(e), talks = speaks(e);
     return (talks ? [talk] : []).concat(weakOptions(e, false).map(function (o) { return { label: o.label, fnx: o.fn, okx: o.ok }; })).concat([{ label: tryLabel(), auto: 'try' },
       { label: 'Examine', text: mindExamine(e) + examineText(e) },
