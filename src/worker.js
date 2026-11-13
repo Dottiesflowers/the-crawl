@@ -152,6 +152,14 @@ export class Campaign extends DurableObject {
         this.sql.exec('INSERT INTO kv (user_id, k, v, updated) VALUES (0, ?, ?, ?) ON CONFLICT(user_id, k) DO UPDATE SET v = excluded.v, updated = excluded.updated', 'recipes', JSON.stringify(list), Date.now());
         return json({ ok: true, value: list });
       }
+      // the DM's level edits, per floor: everyone reads them, only the DM writes (see v2_editor.js)
+      if (p === '/api/edits' && m === 'GET') { const f = parseInt(url.searchParams.get('floor') || '1', 10) || 1; const r = this.one('SELECT v FROM kv WHERE user_id = 0 AND k = ?', 'edits-' + f); return json({ value: r ? JSON.parse(r.v) : [] }); }
+      if (p === '/api/dm/edits' && m === 'PUT') {
+        if (u.role !== 'dm') return json({ error: 'dm_only', message: 'Only the DM can publish edits.' }, 403);
+        const f = parseInt(body.floor, 10) || 0; if (f < 1 || f > 20 || !Array.isArray(body.ops)) return json({ error: 'bad_edits' }, 400);
+        const s = JSON.stringify(body.ops); if (s.length > 200000) return json({ error: 'too_big', message: 'Too many edits on one floor.' }, 413);
+        this.sql.exec('INSERT INTO kv (user_id, k, v, updated) VALUES (0, ?, ?, ?) ON CONFLICT(user_id, k) DO UPDATE SET v = excluded.v, updated = excluded.updated', 'edits-' + f, s, Date.now()); return json({ ok: true });
+      }
       if (p === '/api/campaign' && m === 'GET') { const r = this.one('SELECT v FROM kv WHERE user_id = 0 AND k = ?', 'campaign'); return json({ value: r ? JSON.parse(r.v) : { live: false } }); }
       if (p === '/api/dm/campaign' && m === 'PUT') {
         if (u.role !== 'dm') return json({ error: 'dm_only' }, 403);
