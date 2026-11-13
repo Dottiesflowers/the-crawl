@@ -382,8 +382,8 @@
   function attackStyle(it) {
     if (!it) return 'slash'; var I = ITEMS[it.name] || {}; if (I.swing || it.swing) return I.swing || it.swing;
     var n = String(it.name).toLowerCase(), d = String(it.desc || I.desc || '').toLowerCase(), tg = it.tags || I.tags || [];
-    if (/spear|pike|trident|lance|javelin|rapier|fork|skewer|awl|ice pick|letter opener|screwdriver|dagger|stiletto|epee|foil|bayonet|harpoon|umbrella|pool cue|stake|syringe/.test(n) || /\bstab|\bthrust|\bjab\b|\bpoke/.test(d)) return 'stab';
-    if (/hammer|mace|club|\bbat\b|crowbar|wrench|pipe|cudgel|baton|maul|flail|morning ?star|skillet|\bpan\b|plunger|golf|stapler|keyboard|mic stand|chair|brick|rock|sledge|mallet|gavel|rolling pin|trophy|lamp|guitar|log\b|branch|shovel/.test(n) || weaponSkillKey(it) === 'wpn:blunt') return 'smash';
+    if (/spear|pike|trident|lance|javelin|rapier|fork|skewer|awl|ice pick|letter opener|screwdriver|drill|dagger|stiletto|epee|foil|bayonet|harpoon|umbrella|pool cue|stake|syringe/.test(n) || /\bstab|\bthrust|\bjab\b|\bpoke/.test(d)) return 'stab';
+    if (/hammer|mace|club|\bbat\b|crowbar|wrench|pipe|cudgel|baton|maul|flail|morning ?star|skillet|\bpan\b|plunger|golf|stapler|keyboard|mic stand|chair|brick|rock|sledge|mallet|gavel|tenderizer|rake|rolling pin|trophy|lamp|guitar|log\b|branch|shovel/.test(n) || weaponSkillKey(it) === 'wpn:blunt') return 'smash';
     if (tg.indexOf('heavy') >= 0 && tg.indexOf('sharp') < 0) return 'smash';
     return 'slash';
   }
