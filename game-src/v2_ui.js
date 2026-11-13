@@ -127,7 +127,7 @@
   setInterval(function () { if (typeof P === 'undefined') return; var m = document.getElementById('mini'); m.style.display = gearOpen || CC || AUTH.open ? 'none' : ''; if (m.style.display !== 'none') mapDraw(m, false); if (UI.map) mapDraw(document.getElementById('mapC'), true); }, 250);
 
   // ---------- inventory ----------
-  var CATS = [['all', 'All'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['valuable', 'Valuables'], ['material', 'Materials'], ['body', 'Bodies'], ['misc', 'Misc']];
+  var CATS = [['all', 'All'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['scroll', 'Scrolls'], ['valuable', 'Valuables'], ['material', 'Materials'], ['body', 'Bodies'], ['misc', 'Misc']];
   function bagItems() { return CHAR && CHAR.gear ? CHAR.gear : []; }
   function bagToggle() {
     UI.bag = !UI.bag; if (UI.bag && UI.map) mapToggle(); document.getElementById('bag').classList.toggle('on', UI.bag);
@@ -148,7 +148,16 @@
     if (f === 'heal') return !!(it.heal || I.heal); if (f === 'food') return tg.indexOf('food') >= 0 || tg.indexOf('drink') >= 0; if (f === 'throw') return !!I.throw; if (f === 'magic') return !!I.spell || tg.indexOf('magic') >= 0;
     return tg.indexOf(f) >= 0;
   }
+  function isScroll(it) { var tg = it.tags || (ITEMS[it.name] || {}).tags || []; return tg.indexOf('scroll') >= 0 || /\bscroll\b|rewritten script/i.test(it.name); }
+  function quickUse(it) { // the one-tap button on a bag row: what using it means, in a word
+    if (!it || it.worn) return ''; var tg = it.tags || (ITEMS[it.name] || {}).tags || [];
+    if (it.spell && isScroll(it)) return 'Read'; if (it.spell) return 'Cast';
+    if (!(it.cat === 'consumable' && (it.heal || it.buff)) || it.throw || it.escape) return '';
+    return tg.indexOf('drink') >= 0 || /potion|tonic|water|soda|coffee|juice|tea\b|drink/i.test(it.name) ? 'Drink' : tg.indexOf('food') >= 0 ? 'Eat' : 'Use';
+  }
+  function quickGo(it) { if (it.spell) { if (UI.bag) bagToggle(); useItem(it); return; } useItem(it); }
   function facetsFor(cat, items) {
+    if (cat === 'scroll') return [];
     if (FACETS[cat]) return FACETS[cat];
     var cnt = {}; items.forEach(function (it) { if (cat !== 'all' && it.cat !== cat) return; ((ITEMS[it.name] || {}).tags || it.tags || []).forEach(function (t) { if (TAGNAME[t]) cnt[t] = (cnt[t] || 0) + 1; }); });
     return Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).slice(0, 8).map(function (t) { return [t, TAGNAME[t]]; });
@@ -156,7 +165,7 @@
   function bagDraw() {
     var el = document.getElementById('bag'), items = bagItems(), q = UI.q.toLowerCase(); UI.sub = UI.sub || ''; UI.rar = UI.rar || 'any'; UI.sort = UI.sort || 'name';
     var facets = facetsFor(UI.cat, items); if (UI.sub && !facets.some(function (f) { return f[0] === UI.sub; })) UI.sub = '';
-    var list = items.map(function (it, i) { return { it: it, i: i }; }).filter(function (o) { return (UI.cat === 'all' || o.it.cat === UI.cat) && (!UI.sub || hasFacet(o.it, UI.sub)) && (UI.rar === 'any' || (UI.rar === 'rare' ? rarRank(o.it) >= 3 : rarRank(o.it) === (UI.rar === 'uncommon' ? 2 : 1))) && (!q || (o.it.name + ' ' + (o.it.desc || '') + ' ' + ((ITEMS[o.it.name] || {}).tags || []).join(' ')).toLowerCase().indexOf(q) >= 0); });
+    var list = items.map(function (it, i) { return { it: it, i: i }; }).filter(function (o) { return (UI.cat === 'all' || (UI.cat === 'scroll' ? isScroll(o.it) : o.it.cat === UI.cat)) && (!UI.sub || hasFacet(o.it, UI.sub)) && (UI.rar === 'any' || (UI.rar === 'rare' ? rarRank(o.it) >= 3 : rarRank(o.it) === (UI.rar === 'uncommon' ? 2 : 1))) && (!q || (o.it.name + ' ' + (o.it.desc || '') + ' ' + ((ITEMS[o.it.name] || {}).tags || []).join(' ')).toLowerCase().indexOf(q) >= 0); });
     if (UI.sort === 'rarity') list.sort(function (a, b) { return rarRank(b.it) - rarRank(a.it) || a.it.name.localeCompare(b.it.name); });
     else if (UI.sort === 'dmg') list.sort(function (a, b) { return dmgAvg(b.it) - dmgAvg(a.it) || a.it.name.localeCompare(b.it.name); });
     else if (UI.sort === 'name') list.sort(function (a, b) { return a.it.name.localeCompare(b.it.name); });
@@ -184,7 +193,7 @@
         '<select id="bagSort" aria-label="Sort"><option value="name">Sort: name</option><option value="rarity">Sort: rarity</option><option value="dmg">Sort: damage</option><option value="found">Sort: newest</option></select></div>' +
       '<div id="bagList">' + (list.length ? list.map(function (o) {
         var t = o.it.worn ? 'worn' : o.k === '#hand' ? 'in hand' : o.k === '#back' ? 'on back' : '';
-        return '<button type="button" data-i="' + o.i + '" class="' + (o.all.indexOf(UI.sel) >= 0 ? 'on' : '') + (o.it.rarity ? ' r-' + String(o.it.rarity).toLowerCase() : '') + (o.it.bonus ? ' magic' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + '</span>' + (o.n > 1 ? '<b class="qn">×' + o.n + '</b>' : '') + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
+        return '<button type="button" data-i="' + o.i + '" class="' + (o.all.indexOf(UI.sel) >= 0 ? 'on' : '') + (o.it.rarity ? ' r-' + String(o.it.rarity).toLowerCase() : '') + (o.it.bonus ? ' magic' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + '</span>' + (o.n > 1 ? '<b class="qn">×' + o.n + '</b>' : '') + (t ? '<span class="tag">' + t + '</span>' : '') + (quickUse(o.it) ? '<span class="qu" role="button" data-qu="' + o.i + '">' + quickUse(o.it) + '</span>' : '') + '</button>';
       }).join('') : '<p style="padding:10px">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
       '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div></div>';
     document.getElementById('bagSwap').onclick = swapWeapons;
@@ -197,6 +206,7 @@
     el.querySelectorAll('[data-cat]').forEach(function (b) { b.onclick = function () { UI.cat = b.dataset.cat; UI.sub = ''; bagDraw(); }; });
     el.querySelectorAll('[data-sub]').forEach(function (b) { b.onclick = function () { UI.sub = UI.sub === b.dataset.sub ? '' : b.dataset.sub; bagDraw(); }; });
     var br = document.getElementById('bagRar'), bs = document.getElementById('bagSort'); br.value = UI.rar; bs.value = UI.sort; br.onchange = function () { UI.rar = br.value; bagDraw(); }; bs.onchange = function () { UI.sort = bs.value; bagDraw(); };
+    el.querySelectorAll('[data-qu]').forEach(function (b) { b.onclick = function (ev) { ev.stopPropagation(); var it = items[+b.dataset.qu]; if (it) quickGo(it); }; });
     el.querySelectorAll('[data-i]').forEach(function (b) { b.onclick = function () { UI.sel = +b.dataset.i; bagDraw(); }; });
     el.querySelectorAll('[data-act]').forEach(function (b) { b.onclick = function () { bagAct(b.dataset.act, sel); }; });
   }
@@ -214,6 +224,7 @@
     if (hotEligible(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
     if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); }
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
+    if (it.spell) acts.push(['qcast', isScroll(it) ? 'Read the scroll (aim)' : 'Cast (aim)']);
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       loreLine(it) + (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
       '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (ITEMS[it.name] && ITEMS[it.name].twoHand ? ' · two-handed' : '') + (ITEMS[it.name] && ITEMS[it.name].ammo ? ' · ' + (ITEMS[it.name].ammo.kind || 'arrow') + ' ammo · 1d' + ITEMS[it.name].ammo.s : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
@@ -235,6 +246,7 @@
     if (/^lamp/.test(a)) lampAct(a, it);
     if (a === 'inspect') loreInspect(it);
     if (a === 'use') useItem(it);
+    if (a === 'qcast') { quickGo(it); return; }
     if (a === 'drop') dropBody(it);
     if (a === 'hot') { hotPut(it.name); }
     if (a === 'hotO') { hotPut(it.name, false, hotKind(it) === 'eat' ? 'hotbar2' : 'hotbar'); }
@@ -295,14 +307,16 @@
     hotClean(); var name = bar === 'hotbar' ? 'Consumables' : 'Gear', seen = {}, rows = [];
     (CHAR.gear || []).forEach(function (g) { if (!hotEligible(g) || seen[g.name]) return; seen[g.name] = 1; var n = (CHAR.gear || []).filter(function (x) { return x.name === g.name; }).reduce(function (a, x) { return a + (x.usesLeft !== undefined ? x.usesLeft : x.qty || 1); }, 0); rows.push({ it: g, n: n }); });
     rows.sort(function (a, b) { return (hotKind(a.it) === (bar === 'hotbar' ? 'eat' : 'act') ? 0 : 1) - (hotKind(b.it) === (bar === 'hotbar' ? 'eat' : 'act') ? 0 : 1) || a.it.name.localeCompare(b.it.name); });
-    var used = (CHAR[bar] || []).filter(Boolean).length;
-    el.innerHTML = '<div class="hph"><b>Fill the ' + name + ' bar</b><span>' + used + ' of ' + HOT_N + ' slots used</span><button type="button" class="hpx" aria-label="Close">✕</button></div>' +
+    var used = (CHAR[bar] || []).filter(Boolean).length, cur = slot !== undefined ? (CHAR[bar] || [])[slot] : null;
+    el.innerHTML = '<div class="hph"><b>' + (cur ? 'Swap slot ' + (bar === 'hotbar' ? slot + 1 : (slot + 6) % 10) + ': ' + esc(cur) : slot !== undefined ? 'Fill slot ' + (bar === 'hotbar' ? slot + 1 : (slot + 6) % 10) : 'Fill the ' + name + ' bar') + '</b><span>' + (cur ? 'Pick a replacement' : used + ' of ' + HOT_N + ' slots used' + (used >= HOT_N ? ' · long-press a slot to swap it' : '')) + '</span>' + (cur ? '<button type="button" class="hpo">Take it off</button>' : '') + '<button type="button" class="hpx" aria-label="Close">✕</button></div>' +
       (rows.length ? '<div class="hpl">' + rows.map(function (r) { var on = (CHAR.hotbar || []).indexOf(r.it.name) >= 0 ? 'hotbar' : (CHAR.hotbar2 || []).indexOf(r.it.name) >= 0 ? 'hotbar2' : '';
-        return '<button type="button" data-pn="' + esc(r.it.name) + '" class="' + (on === bar ? 'on' : '') + '">' + itemIcon(r.it) + '<span><b>' + esc(r.it.name) + ' ×' + r.n + '</b><em>' + (on === bar ? 'On this bar · tap to take off' : on ? 'On the ' + (on === 'hotbar' ? 'Consumables' : 'Gear') + ' bar · tap to move here' : r.it.heal ? 'Heals ' + esc(r.it.heal) : r.it.throw ? 'Throw' : r.it.buff ? 'Buff' : burnsKnown(r.it) ? 'Light and throw' : 'Use') + '</em></span></button>'; }).join('') + '</div>'
+        return '<button type="button" data-pn="' + esc(r.it.name) + '" class="' + (on === bar ? 'on' : '') + '">' + itemIcon(r.it) + '<span><b>' + esc(r.it.name) + ' ×' + r.n + '</b><em>' + (r.it.name === cur ? 'In this slot now' : on === bar ? (cur ? 'On this bar · tap to move it here' : 'On this bar · tap to take off') : on ? 'On the ' + (on === 'hotbar' ? 'Consumables' : 'Gear') + ' bar · tap to move here' : r.it.heal ? 'Heals ' + esc(r.it.heal) : r.it.throw ? 'Throw' : r.it.buff ? 'Buff' : burnsKnown(r.it) ? 'Light and throw' : 'Use') + '</em></span></button>'; }).join('') + '</div>'
       : '<p>Nothing in your bag can go on a hot bar yet. Food, potions, bombs and other throwables can.</p>');
     el.style.display = 'block';
     el.querySelector('.hpx').onclick = function () { el.style.display = 'none'; };
+    var ho = el.querySelector('.hpo'); if (ho) ho.onclick = function () { CHAR[bar][slot] = null; saveChar(CHAR); hotDraw(); el.style.display = 'none'; };
     el.querySelectorAll('[data-pn]').forEach(function (b) { b.onclick = function () { var n = b.getAttribute('data-pn');
+      if (cur) { if (n !== cur) { hotOff(n); CHAR[bar][slot] = null; hotPut(n, true, bar, slot); } el.style.display = 'none'; return; }
       if ((CHAR[bar] || []).indexOf(n) >= 0) hotOff(n); else { hotOff(n); if ((CHAR[bar] || []).filter(Boolean).length >= HOT_N) { say('Hot bar full', 'Take something off the ' + name + ' bar first.', 2200); return; } hotPut(n, true, bar, slot); slot = undefined; }
       hotPick(bar); }; });
   }
@@ -337,7 +351,14 @@
       html += '</div></div>';
     });
     if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html;
-      el.querySelectorAll('[data-h]').forEach(function (b) { b.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); if (!hotItem(+b.dataset.h, b.dataset.k)) { hotPick(b.dataset.k, +b.dataset.h); return; } hotUse(+b.dataset.h, b.dataset.k); }); });
+      if (!el.dataset.lp) { el.dataset.lp = 1; var LP = null; // tap = use; long-press or right-click = swap or take off. Delegated, so a redraw mid-press cannot lose it
+        var slotOf = function (ev) { var b = ev.target.closest && ev.target.closest('[data-h]'); return b ? { i: +b.dataset.h, k: b.dataset.k } : null; };
+        el.addEventListener('contextmenu', function (ev) { if (slotOf(ev)) ev.preventDefault(); });
+        el.addEventListener('pointerdown', function (ev) { var s0 = slotOf(ev); if (!s0) return; ev.preventDefault(); ev.stopPropagation();
+          if (!hotItem(s0.i, s0.k) || ev.button === 2) { LP = null; hotPick(s0.k, s0.i); return; }
+          if (LP) clearTimeout(LP.t); LP = s0; LP.t = setTimeout(function () { if (LP === s0) { LP.menu = true; hotPick(s0.k, s0.i); } }, 450); });
+        var up = function (ev) { if (!LP) return; var s1 = LP; LP = null; clearTimeout(s1.t); if (!s1.menu && ev.type === 'pointerup') hotUse(s1.i, s1.k); };
+        el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); }
       el.querySelectorAll('[data-pick]').forEach(function (s2) { s2.addEventListener('pointerdown', function (ev) { ev.preventDefault(); ev.stopPropagation(); hotPick(s2.dataset.pick); }); }); }
   }
   function hotUse(i, k) { var it = hotItem(i, k); if (!it) return; if (canAim(it) && (it.throw || k === 'hotbar2')) aimStart(it, !it.throw); else useItem(it); } // throwables aim from either bar
@@ -848,8 +869,8 @@
   // ---------- passive perception: walk past something hidden and you might notice it ----------
   // every searchable spot (and every hidden door) within 4 tiles you can see gets one roll: d20 + WIS + Perception skill.
   // Only spots hiding something worth noticing (uncommon or better, a scroll, a valuable) or a hidden door can be noticed.
-  var PASSIVE = { rolled: {}, seen: {}, glint: {} };
-  function notable(st) { return (st.items || []).some(function (it) { var r = String(it.rarity || '').toLowerCase(), tg = it.tags || []; return r === 'uncommon' || r === 'rare' || r === 'legendary' || tg.indexOf('scroll') >= 0 || (tg.indexOf('valuable') >= 0 && tg.indexOf('junk') < 0); }); }
+  var PASSIVE = { rolled: {}, seen: {}, glint: {}, last: 0 }; var PASSIVE_GAP = 120000; // at most one notice every two minutes
+  function notable(st) { return (st.items || []).some(function (it) { var r = String(it.rarity || '').toLowerCase(), tg = it.tags || []; return r === 'rare' || r === 'legendary' || tg.indexOf('scroll') >= 0 || (tg.indexOf('valuable') >= 0 && tg.indexOf('junk') < 0); }); }
   function passiveClear(k) { PASSIVE.seen[k] = 0; if (PASSIVE.glint[k]) { scene.remove(PASSIVE.glint[k]); delete PASSIVE.glint[k]; } }
   var GLINT_TEX = null;
   function glintAt(x, z, h) {
@@ -866,8 +887,9 @@
       if (!door && !spot) continue; if (!(k in visNow) && !los(P.x, P.z, x, z)) continue;
       PASSIVE.rolled[k] = 1;
       if (door && done[k + 'found']) continue; if (spot) { if (done[k + 'loot']) continue; if (!notable(lootPrep(x, z, 'small'))) continue; }
-      var r = 1 + Math.floor(Math.random() * 20), tot = r + wis, need = door ? 17 : 19;
-      if (r >= 19 || tot >= need) {
+      if (Date.now() - PASSIVE.last < PASSIVE_GAP) { delete PASSIVE.rolled[k]; continue; } // too soon after the last one: it gets its roll later
+      var r = 1 + Math.floor(Math.random() * 20), tot = r + wis;
+      if (r === 20 || (r === 19 && tot >= (door ? 21 : 22))) { PASSIVE.last = Date.now();
         PASSIVE.seen[k] = 1; PASSIVE.glint[k] = glintAt(x, z, door ? 1.2 : 0.9);
         say('Something catches your eye', (door ? 'A draft where there should not be one, and a seam in the wall. ' : 'A glint from the ' + ((LEVEL.dname[k] || { h: 'shelf', k: 'book stand', K: 'crate', R: 'barrel', b: 'sack', v: 'vase' }[c] || 'furniture').toLowerCase()) + '. ') + '(Passive Perception: d20 ' + r + ' + ' + wis + ' = ' + tot + '.) Search it and you will find it.', 5200); setTimeout(function () { achieve('glint'); }, 2200); 
         skillCount('perceive');

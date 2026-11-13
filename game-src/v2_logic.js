@@ -299,6 +299,7 @@
     var roll = 1 + Math.floor(Math.random() * 20), bonus = chkBonus(a), total = roll + bonus;
     var ok = roll === 20 || (roll !== 1 && total >= a.dc);
     if (!ok && (a.flag === 'found' || a.flag === 'loot') && typeof PASSIVE !== 'undefined' && PASSIVE.seen[t.key]) { ok = true; roll = Math.max(roll, 10); } // you already spotted it
+    if (typeof passiveClear === 'function' && t.key) passiveClear(t.key); // looked at: the glint has done its job
     var line = 'd20 ' + roll + ' + ' + bonus + ' = ' + total + ' vs DC ' + a.dc + (roll === 20 ? ' · natural 20' : (roll === 1 ? ' · natural 1' : ''));
     say((ok ? 'Success' : 'Failure') + ' · ' + a.label + ' · ' + line, ok ? a.win : a.lose, 6500);
     if (ok && a.skill) skillUse(a.skill[0]);
