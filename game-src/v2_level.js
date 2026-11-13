@@ -1193,11 +1193,11 @@
       built.push(stamp(TPL.hotel, 37, 82, 1, FT));
       built.push(stamp(TPL.telegraph, 37, 118, 1, FT));
       built.push(stamp(TPL.chapel, 37, 131, 1, FT));
-      built.forEach(function (b) { if (b.room.name !== 'The Chapel' && b.room.name !== 'Train Depot') pack(b.room, 'puglin', ri(1, 3), 0, 'Stunt kobold'); });
+      built.forEach(function (b) { if (b.room.name !== 'The Chapel' && b.room.name !== 'Train Depot') pack(b.room, 'kobold', ri(1, 3)); });
       // upper floors live in the spare strip along the bottom of the map; the stairs take you there and back
       var salUp = stamp(TPL.saloonUp, 4, 244, 0, FT), hotUp = stamp(TPL.hotelUp, 32, 244, 0, FT); roofRing(salUp.box, 3); roofRing(hotUp.box, 3);
       upstairs.push([built[1].room, salUp.room, 'Go upstairs', 'Go back downstairs'], [built[5].room, hotUp.room, 'Go upstairs', 'Go back downstairs']);
-      pack(salUp.room, 'puglin', 2, 0, 'Stunt kobold'); pack(hotUp.room, 'puglin', 2, 0, 'Stunt kobold');
+      pack(salUp.room, 'kobold', 2); pack(hotUp.room, 'kobold', 2, 3);
       // the railroad along the north edge, with a train waiting (a gap where the road crosses)
       for (xx = 8; xx <= 56; xx++) if (g[69][xx] === '.' || g[69][xx] === ',') dec(xx, 69, '#track', { dz: 0.5, ns: true });
       function rolling(x0, len, kind, name) { for (var x = x0; x < x0 + len; x++) for (var z = 69; z <= 70; z++) { g[z][x] = 'o'; dname[x + ',' + z] = name; } dec(x0, 69, kind, { len: len, dz: 0.5 }); }
@@ -1222,7 +1222,7 @@
       [[32, 92, 0.1], [31, 121, -0.15], [33, 146, 0.2]].forEach(function (q) { if (freeT(q[0], q[1]) && freeT(q[0], q[1] + 1)) { obj(q[0], q[1], 'Prop_Wagon', { fit: 2.4, rot: Math.PI / 2 + q[2], dz: 0.5 }, 'Wagon'); g[q[1] + 1][q[0]] = 'o'; dname[q[0] + ',' + (q[1] + 1)] = 'Wagon'; } });
       built.forEach(function (b) { var pr2 = b.porch; for (var k2 = 0; k2 < 2; k2++) { var px2 = ri(pr2.x0, pr2.x1), pz2 = ri(pr2.z0, pr2.z1); if (reg[pz2][px2] === pr2.id && freeT(px2, pz2) && !nearDoor(px2, pz2)) obj(px2, pz2, pick(['Barrel', 'Crate_Wooden', 'Bench']), { fit: 0.62, rot: rnd() * 0.4 }, 'Porch clutter'); } });
       greens(ftown, 40, ['Grass_Wispy_Short', 'Pebble_Round_1', 'Pebble_Round_3', 'Grass_Wispy_Tall']);
-      pack(ftown, 'puglin', 4, 0, 'Stunt kobold');
+      pack(ftown, 'kobold', 4);
 
       // ---------- The Writers' Building (northwest): offices on strike, the Penthouse Green on the roof ----------
       var WB = Zn({ name: 'The Writers\' Building', theme: 'lot', line: 'The writers are on strike. Picket signs, cold coffee and imps with opinions.' });
@@ -1231,16 +1231,16 @@
       var wb = stamp(TPL.writers, 9, 7, 0, WB);
       var roof = stamp(TPL.roof, 4, 258, 0, WB); roofRing(roof.box, 3);
       upstairs.push([wb.room, roof.room, 'Take the stairs to the roof', 'Go back down']);
-      roomsOf(wb, /Writers|Cubicle|Strike|Break|Mailroom|Library/).forEach(function (r) { pack(r, 'imp', ri(1, 3), 0, 'Striking writer'); });
+      roomsOf(wb, /Writers|Cubicle|Strike|Break|Mailroom|Library/).forEach(function (r) { pack(r, 'writer', ri(1, 3)); if (rnd() < 0.35) pack(r, 'writer', 1, 3); });
       spawnIn(roof.room, 'clerk', { tier: 3, name: 'Dermot Stoker', boss: true });
       for (xx = 10; xx <= 72; xx += 6) if (freeT(xx, 49, plaza)) obj(xx, 49, '#picket', { rot: rnd() - 0.5 }, 'Picket sign');
-      pack(plaza, 'imp', 3, 1, 'Picketing writer');
+      pack(plaza, 'writer', 3, 1, 'Picketing writer');
 
       // ---------- Soundstage 9 (north): the gate, up Director's Row ----------
       var SS = Zn({ name: 'Soundstage 9', theme: 'stage', line: 'The biggest stage on the lot. The Director is up on the crane, and the sets change when he says so.' });
       var stg = stamp(TPL.stage, 88, 6, 0, SS);
       var stairs2 = stg.room.stairsDown ? { x: stg.room.stairsDown[0], z: stg.room.stairsDown[1] } : { x: 142, z: 12 };
-      spawnIn(stg.room, 'imp', { tier: 3, name: 'The Director', boss: true }); pack(stg.room, 'crew', 3); pack(stg.room, 'knight', 4); spawnIn(stg.room, 'ronin'); spawnIn(stg.room, 'knight', { sub: 'stuntknight' }); spawnIn(stg.room, 'knight', { sub: 'stuntknight' });
+      spawnIn(stg.room, 'crew', { sub: 'director', name: 'The Director', boss: true }); pack(stg.room, 'crew', 3); pack(stg.room, 'knight', 4); spawnIn(stg.room, 'ronin'); spawnIn(stg.room, 'knight', { sub: 'stuntknight' }); spawnIn(stg.room, 'knight', { sub: 'stuntknight' });
 
       // ---------- Starship Valiant (northeast) ----------
       var SV = Zn({ name: 'Starship Valiant', theme: 'lot', line: 'A starship set. Foam walls, blinking panels and costume goblins who think they are a real crew.' });
@@ -1281,7 +1281,7 @@
         var hx = 10 + i * 17, hb = stamp(TPL.house, hx, 174, 0, ML, { name: 'No. ' + (i + 1) + ' Maple Lane', wallCol: HCOL[i], pal: { u: HSOFA[i], z: HKIT[i], c: HKIT[i], m: 0xc8a878 } });
         var hu = stamp(TPL.houseUp, 54 + i * 17, 244, 0, ML, { name: 'No. ' + (i + 1) + ', Upstairs', wallCol: HCOL[i], pal: { E: HSOFA[(i + 2) % 6], C: HKIT[(i + 3) % 6] } }); roofRing(hu.box, 2);
         upstairs.push([hb.room, hu.room, 'Go upstairs', 'Go back downstairs']);
-        pack(hb.room, 'puglin', ri(1, 2), 0, 'Laugh-track gremlin'); if (rnd() < 0.5) pack(hu.room, 'puglin', 1, 0, 'Laugh-track gremlin');
+        pack(hb.room, 'gremlin', ri(1, 2)); if (rnd() < 0.5) pack(hu.room, 'gremlin', 1);
         for (xx = hx; xx <= hx + 14; xx++) if (Math.abs(xx - hx - 7) > 0 && freeT(xx, 193, lane)) obj(xx, 193, '#rail', { ax: 'x', col: 0xf4f0e6, picket: true }, 'Picket fence');
         for (zz = 187; zz <= 195; zz++) if (g[zz][hx + 7] === '.' || g[zz][hx + 7] === ',') dec(hx + 7, zz, '#path', { ns: true });
         if (freeT(hx + 9, 194, lane)) obj(hx + 9, 194, '#mailbox', { rot: 0 }, 'Mailbox');
@@ -1292,7 +1292,7 @@
       for (xx = 44; xx <= 64; xx++) for (zz = 211; zz <= 212; zz++) put(xx, zz, '~', lane.id);
       [[42, 212], [66, 212], [42, 211]].forEach(function (p) { if (freeT(p[0], p[1], lane)) dec(p[0], p[1], 'loungeChairRelax', { fit: 0.7, rot: Math.PI / 2 }); });
       for (xx = 12; xx <= 108; xx += 9) if (freeT(xx, 202, lane)) obj(xx, 202, 'CommonTree_3', { fit: 2.2, rot: rnd() * 6 }, 'Tree');
-      greens(lane, 40, ['Bush_Common_Flowers', 'Flower_3_Group', 'Clover_1']); pack(mstreet, 'puglin', 3, 0, 'Laugh-track gremlin');
+      greens(lane, 40, ['Bush_Common_Flowers', 'Flower_3_Group', 'Clover_1']); pack(mstreet, 'gremlin', 3); pack(mstreet, 'gremlin', 2, 3);
 
       // ---------- Blackwood Manor (southeast): the mansion, its upper floor, a graveyard ----------
       var BM = Zn({ name: 'Blackwood Manor', theme: 'moss', line: 'A haunted house set. Animatronics on timers, secret doors and a butler who is mostly hydraulics.' });
