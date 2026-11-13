@@ -363,10 +363,15 @@
   }
   // the arrows on the string: the ones you picked stay loaded until you switch (tap the In hand card)
   function ammoTypes() { var L = launcherOf(CHAR.wield), kind = (L && L.ammo) || 'arrow'; return (CHAR.gear || []).filter(function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; }); }
-  function ammoLine() { var a = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'); if (!a) return 'No ' + ((launcherOf(CHAR.wield) || {}).ammo || 'arrow') + 's · tap for how'; var n = ammoTypes().length; return esc(a.name.replace(/ arrows$/, '')) + ' ×' + (a.qty || 1) + ' · 1d' + ITEMS[a.name].ammo.s + (n > 1 ? ' · tap to switch' : ''); }
-  function ammoCycle() { var st = ammoTypes(); if (st.length < 2) { say('Arrows', st.length ? 'That is the only kind you have.' : 'No arrows. Jury-rig some: Prop lumber + a tip.', 2400); return; }
-    var cur = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'), i = st.indexOf(cur), nx = st[(i + 1) % st.length]; CHAR.ammo = nx.name; saveChar(CHAR); wsetDraw(); if (CB.on) cbHUD();
-    say('Ammo · ' + nx.name, 'Loaded. 1d' + ITEMS[nx.name].ammo.s + (ITEMS[nx.name].ammo.acc ? ', +' + ITEMS[nx.name].ammo.acc + ' to hit' : '') + (ITEMS[nx.name].ammo.onHit ? ', sets them on fire' : '') + '. ' + (nx.qty || 1) + ' left.', 2400); }
+  // what a kind of ammo does, in a few words (the In hand card, the switch message)
+  function ammoWhat(n) { var A = ITEMS[n] && ITEMS[n].ammo; if (!A) return ''; if (A.plain) return 'no damage · a crit blinds';
+    if (A.splash) return A.splash.type === 'acid' ? 'coats in acid' : A.splash.type === 'poison' ? 'coats in poison' : A.splash.area === 'grease' ? 'greases them and the floor' : A.splash.douse ? 'soaks them in oil' : 'splashes';
+    return '1d' + A.s + (A.acc ? ' · +' + A.acc + ' hit' : '') + (A.onHit && A.onHit.type === 'burn' ? ' · fire' : '') + (A.edmg ? ' · +' + A.edmg.dice + ' ' + A.edmg.type : ''); }
+  function ammoNoun() { var k = (launcherOf(CHAR.wield) || {}).ammo || 'arrow'; return k === 'paintball' ? 'paintballs' : k === 'pebble' ? 'pebbles' : 'arrows'; }
+  function ammoLine() { var k = (launcherOf(CHAR.wield) || {}).ammo || 'arrow', a = ammoPick(k); if (!a) return 'No ' + ammoNoun() + ' · tap for how'; var n = ammoTypes().length; return 'Loaded: ' + esc(a.name) + ' ×' + (a.qty || 1) + ' · ' + ammoWhat(a.name) + (n > 1 ? ' · tap to switch' : ''); }
+  function ammoCycle() { var st = ammoTypes(), k = (launcherOf(CHAR.wield) || {}).ammo || 'arrow'; if (st.length < 2) { say('Ammo', st.length ? st[0].name + ' is the only kind you have.' : 'No ' + ammoNoun() + '. ' + (AMMO_HINT[k] || ''), 3000); return; }
+    var cur = ammoPick(k), i = st.indexOf(cur), nx = st[(i + 1) % st.length]; CHAR.ammo = nx.name; saveChar(CHAR); wsetDraw(); if (CB.on) cbHUD();
+    say('Loaded · ' + nx.name, ammoWhat(nx.name).replace(/^./, function (c) { return c.toUpperCase(); }) + '. ' + (nx.qty || 1) + ' left. It stays loaded until you switch.', 2800); }
 
   // ---------- wardrobe: you only wear what you own ----------
   var CLOTH_SLOTS = ['kHead', 'kNeck', 'kTop', 'kShoulder', 'kPants', 'kBoots'];
