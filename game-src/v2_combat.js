@@ -531,7 +531,7 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
-  function cbEnd(win) { PC.burning = 0; CB.dmSolo = false; PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
+  function cbEnd(win) { PC.burning = 0; CB.dmSolo = false; CB.allyFell = false; CB.enemies.forEach(function (e) { e.rallied = false; e.rally = 0; e.furious = false; e.fleeing = false; e.tauntedThisFight = 0; }); PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -740,6 +740,7 @@
   }
   function cbKill(e) {
     if (e.def.base === 'rat') e.diedAt = Date.now();
+    if (CB.on) try { personaAllyFell(e); } catch (x) {}
     if (/shrub/.test(e.def.base || e.kind || '')) skillCount('shrub');
     if (e.boss) logEvent('Killed ' + e.name + ', boss of ' + ((LEVEL.hoods[(roomInfo(e.x, e.z) || {}).hood] || {}).name || 'the floor'), 'boss'); else if (/chief|foreman|head|warden/.test(e.kind)) logEvent('Killed a ' + e.name, 'kill');
     e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
@@ -830,6 +831,7 @@
     if (PC.down) { // the show likes a dramatic pause: monsters gloat instead of finishing you
       setTimeout(function () { say(e.name, ['It pokes you with its ' + e.def.weapon + ' and waves at the camera.', 'It goes through your pockets.', 'It does a little dance.'][Math.floor(Math.random() * 3)], 2400); setTimeout(cbNext, 900); }, 300); return;
     }
+    if (persona(e, speed)) return; // cowards run, braggarts taunt, leaders rally
     if (cheb(e.x, e.z, P.x, P.z) <= 1) { cbEnemyAttack(e, false, cbNextAfterHit); return; }
     if (!speed) { say(e.name, e.webbed ? 'It thrashes in the web and cannot move.' : 'It strains against your grip and cannot reach you.', 2200); setTimeout(cbNext, 600); return; }
     var r = bfs(e.x, e.z, e, 40), best = null;
@@ -839,6 +841,40 @@
     if (!path.length) { setTimeout(cbNext, 300); return; }
     e.path = path; cbPlay(e, 'Walk_Loop');
     e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); if (cheb(e.x, e.z, P.x, P.z) <= 1) cbEnemyAttack(e, false, cbNextAfterHit); else setTimeout(cbNext, 350); };
+  }
+  // ---------- personality in a fight (from the five traits every monster rolls) ----------
+  // brave 1-2 and badly hurt: it runs for it (a brave-3 one sometimes); out of sight it gives up the fight
+  // temper 4+ and wits 1-2: it taunts you now and then (flavour, and it is not paying attention: your next attack has advantage)
+  // leaders (chiefs, foremen, bosses) rally once a fight at half health or when a friend falls: allies get +2 on their next attack and cowards stop running
+  // loyalty 5: a friend dying next to it makes it furious (+1 to hit for the fight); loyalty 1-2 and timid: it may bolt instead
+  var TAUNTS = { dim: ['Hah! You hit like a sandwich!', 'Me gonna wear your shoes!', 'Is that your FACE?', 'Camera! Get my good side!', 'You smell like the outside!'], smart: ['I have filed a complaint about your technique.', 'Statistically, you are already dead.', 'The audience is bored. Try harder.', 'I have seen better footwork from a filing cabinet.'] };
+  function persona(e, speed) {
+    var m = typeof mindOf === 'function' ? mindOf(e) : null; if (!m || !m.t || e.npc) return false; var t = m.t, intl = typeof intOf === 'function' ? intOf(e) : 'dim';
+    if (intl === 'none' && e.def.base !== 'rat') return false;
+    var leader = e.boss || /chief|foreman|head|monarch|captain|lead|king|warden/i.test(e.kind);
+    if (leader && !e.rallied && (e.hp <= e.max * 0.5 || CB.allyFell)) { // rally
+      e.rallied = true; var n = 0; CB.order.forEach(function (q) { if (q !== 'pc' && q !== e && !q.dead && !q.calm && cheb(q.x, q.z, e.x, e.z) <= 6) { q.rally = 2; q.fleeing = false; n++; fxTag(q, 'RALLIED'); } });
+      if (n) { fxTag(e, 'RALLY!'); say(m.name || e.name, '"' + ['Hold the line!', 'Nobody runs! NOBODY!', 'Get them, you idiots!', 'For the show!'][Math.floor(Math.random() * 4)] + '" ' + n + ' all' + (n > 1 ? 'ies get' : 'y gets') + ' +2 on their next attack.', 3400); }
+    }
+    if (!e.boss && !e.fleeing && e.hp <= e.max * 0.3 && (t.brave <= 2 || (t.brave === 3 && Math.random() < 0.35)) && !e.rally) { e.fleeing = true; fxTag(e, 'PANICKING'); say((m.known ? m.name : e.name) + ' panics', 'It turns and runs for it.', 2800); }
+    if (e.fleeing && speed > 0) { // run: the reachable tile furthest from you
+      var r = bfs(e.x, e.z, e, speed), best = null, bd = cheb(e.x, e.z, P.x, P.z);
+      Object.keys(r.dist).forEach(function (k) { var p = k.split(','), d2 = cheb(+p[0], +p[1], P.x, P.z); if (d2 > bd) { bd = d2; best = k; } });
+      if (!best) { e.fleeing = false; say(e.name, 'Cornered, it turns to fight.', 2200); return false; }
+      var pp = best.split(','); e.path = pathTo(r, +pp[0], +pp[1]); cbPlay(e, 'Walk_Loop');
+      e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); if (cheb(e.x, e.z, P.x, P.z) >= 9 || !los(P.x, P.z, e.x, e.z)) { e.calm = true; e.fled = true; CB.order = CB.order.filter(function (q) { return q !== e; }); say(e.name + ' got away', 'It has had enough and is out of the fight. It will not come back for more today.', 3200); if (!CB.order.some(function (q) { return q !== 'pc' && !q.dead && !q.calm; })) { setTimeout(function () { cbEnd(true); }, 600); return; } } setTimeout(cbNext, 350); };
+      return true;
+    }
+    if (t.temper >= 4 && t.wits <= 2 && Math.random() < 0.25 && !e.tauntedThisFight) { // a braggart, mid-swing
+      e.tauntedThisFight = (e.tauntedThisFight || 0) + 1; var line = (TAUNTS[intl] || TAUNTS.dim)[Math.floor(Math.random() * (TAUNTS[intl] || TAUNTS.dim).length)];
+      fxTag(e, 'TAUNTS'); floater(e.px, e.def.h + 0.7, e.pz, '"' + line + '"', 'crit'); CB.advNext = true; say((m.known ? m.name : e.name) + ' taunts you', '"' + line + '" It is showing off, not watching you: your next attack has advantage.', 3600);
+    }
+    return false;
+  }
+  function personaAllyFell(dead) { // loyal friends get angry, disloyal cowards get ideas
+    CB.allyFell = true; CB.order.forEach(function (q) { if (q === 'pc' || q.dead || q.calm || q === dead || cheb(q.x, q.z, dead.x, dead.z) > 4) return; var m = typeof mindOf === 'function' ? mindOf(q) : null; if (!m || !m.t) return;
+      if (m.t.loyalty >= 5 && !q.furious) { q.furious = true; fxTag(q, 'FURIOUS'); say((m.known ? m.name : q.name) + ' is furious', 'It saw that. +1 to hit for the rest of the fight.', 2800); }
+      else if (m.t.loyalty <= 2 && m.t.brave <= 2 && !q.boss && Math.random() < 0.5) { q.fleeing = true; fxTag(q, 'BOLTS'); } });
   }
   // ---------- spell areas in a fight: what each one does to whoever is in it ----------
   // fire 1d6, acid 1d4 and -1 AC, storm 1d8 half the time (at the start of a turn, or stepping in; once per turn each)
@@ -905,7 +941,8 @@
     var adv2 = false, oP = obscured(P.x, P.z), oE = obscured(e.x, e.z), nearP = cheb(e.x, e.z, P.x, P.z) <= 1;
     if (oP && !oE) { dis = true; why.push('cannot see you in the ' + (areaHas(P.x, P.z, ['darkness']) ? 'darkness' : 'smoke')); } else if (oE && !oP) { adv2 = true; why.push('you cannot see it'); }
     if (PC.webbed) { adv2 = true; why.push('you are stuck'); } if (PC.prone) { if (nearP) { adv2 = true; why.push('you are on the floor'); } else { dis = true; why.push('you are prone, at range'); } } if (e.webbed) { dis = true; why.push('it is stuck'); }
-    var R = roll20(adv2 && !dis, dis && !adv2), tot = R.r + e.def.atk, ac = pcAC().ac, crit = R.r === 20, hit = crit || (R.r !== 1 && tot >= ac);
+    var pb = (e.rally || 0) + (e.furious ? 1 : 0); e.rally = 0;
+    var R = roll20(adv2 && !dis, dis && !adv2), tot = R.r + e.def.atk + pb, ac = pcAC().ac, crit = R.r === 20, hit = crit || (R.r !== 1 && tot >= ac);
     setTimeout(function () {
       var line = R.txt + ' + ' + e.def.atk + ' = ' + tot + ' vs your AC ' + ac + (why.length ? ' · ' + why.join(', ') : '');
       var tag = opportunity ? 'Opportunity attack · ' : '';
