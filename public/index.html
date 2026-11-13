@@ -7865,6 +7865,7 @@
     ['Box Cracker', 'DEX', 'Loot boxes give up more: a chance of an extra item per level.', 'box'],
     ['Corpse Wrangler', 'STR', 'Carrying the dead around without throwing up. Shrubs hate you.', ''],
     ['Pocket Diving', 'DEX', 'Going through a body\'s pockets fast and thoroughly.', ''],
+    ['Improviser', 'INT', 'More tries: +1 at skill level 1, 4 and 7. Grows each time a try works.', ''],
     ['Trap Sense', 'WIS', 'A tingle in the back of the neck right before the floor clicks.', ''],
     ['Pathfinding', 'WIS', 'Directions, maps, never getting lost.', ''],
     ['Cartography', 'INT', 'Drawing maps that are actually right.', ''],
@@ -7944,6 +7945,7 @@
     'wpn:blade': [6, 'Blades', 'you are getting handy with an edge'],
     'wpn:blunt': [6, 'Bludgeons', 'you are getting handy with blunt objects'],
     heal: [4, 'First Aid', 'you keep patching yourself up'],
+    improv: [3, 'Improviser', 'your weird ideas keep working'],
     secret: [2, 'Trap Sense', 'you keep finding hidden things'],
     harvest: [3, 'Butchery', 'you keep cutting useful bits off corpses'],
     throw: [4, 'Thrown Objects', 'you keep throwing things at problems'],
@@ -9273,7 +9275,7 @@
     var c = CHAR || MICHAEL, was = PC.max; PC.level = (PC.level || 1) + 1; c.level = PC.level; logEvent('Reached level ' + PC.level, 'level');
     PC.max = maxHPFor(c, PC.level); PC.hp = Math.min(PC.max, PC.hp + (PC.max - was));
     c.skillPts = (c.skillPts || 0) + 1; c.swUsed = false; var stat = PC.level % 2 === 0; if (stat) c.statPts = (c.statPts || 0) + 1; c.gold = (c.gold || 0) + 10 * PC.level;
-    var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon).' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : '';
+    var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon). You can hold one more Try.' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : PC.level === 6 ? ' You can hold one more Try.' : '';
     setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'Level up. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
   }
   // DCC-style achievements. The registry wins over whatever the caller passed, so wording lives in one place.
@@ -11389,9 +11391,11 @@
   }
 
   // ---------- "Try something": the player describes a plan, the System rules on it ----------
+  // the cap grows: +1 at character levels 3 and 6, +1 at Improviser 1, 4 and 7
+  function tryMax() { var lv = (CHAR && CHAR.level) || 1, im = skillLv('Improviser'); return TRY_MAX + (lv >= 3 ? 1 : 0) + (lv >= 6 ? 1 : 0) + (im ? Math.floor((im + 2) / 3) : 0); }
   function triesLeft() {
     var c = CHAR; if (!c) return 0; c.tries = c.tries || []; var now = Date.now();
-    c.tries = c.tries.filter(function (t) { return now - t < TRY_MS; }); return Math.max(0, TRY_MAX - c.tries.length);
+    c.tries = c.tries.filter(function (t) { return now - t < TRY_MS; }); return Math.max(0, tryMax() - c.tries.length);
   }
   function nextTryIn() { var c = CHAR; if (!c || !c.tries || !c.tries.length) return 0; return Math.max(0, TRY_MS - (Date.now() - Math.min.apply(null, c.tries))); }
   function tryLabel() { var n = triesLeft(); return 'Try something (' + n + ' left)'; }
@@ -11411,7 +11415,7 @@
   function trySomething(target) {
     if (!CHAR) { say('No character', 'Create a character first.', 2500); return; }
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', 'Trying something takes your action, on your turn.', 2600); return; }
-    if (!triesLeft()) { say('Out of ideas', 'You have used both your tries. The next one comes back in ' + Math.ceil(nextTryIn() / 60000) + ' minutes.', 4000); return; }
+    if (!triesLeft()) { say('Out of ideas', 'You have used all ' + tryMax() + ' of your tries. The next one comes back in ' + Math.ceil(nextTryIn() / 60000) + ' minutes.', 4000); return; }
     cbMenuClose(); if (typeof closeMenu === 'function') closeMenu();
     TRY.target = target || null; var el = tryUI(); TRY.open = true;
     document.getElementById('tryInfo').textContent = 'Uses ' + (CB.on ? 'your action and ' : '') + 'one of your tries (' + triesLeft() + ' left; each comes back 10 minutes after use). The System decides what roll it takes and what happens.';
@@ -11495,6 +11499,7 @@
     say((ok ? 'It works' : 'It fails') + ' · ' + stat + (skill ? ' + ' + skill : '') + ' · d20 ' + r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc, msg, 9000);
     if (ok && weak && e) setTimeout(function () { achieve('weak_' + e.kind, 'Paying Attention', 'You found ' + e.name + '\'s weakness and used it. The System approves of homework.', 50); }, 3500);
     if (ok && j.new_skill && j.new_skill.name && String(j.new_skill.name).length >= 3) skillGrant(String(j.new_skill.name).replace(/[^\w '\-]/g, '').slice(0, 32), 'the System liked that stunt', j.new_skill);
+    if (ok) skillCount('improv');
     if (ok) setTimeout(function () { achieve('tried', 'Thinking Outside the Box', 'You tried something nobody wrote down, and it worked.', 25); }, 6000);
     if (e) afterTrick(e); else if (CB.on) cbAfterMyMove();
   }

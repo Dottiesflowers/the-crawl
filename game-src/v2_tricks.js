@@ -92,9 +92,11 @@
   }
 
   // ---------- "Try something": the player describes a plan, the System rules on it ----------
+  // the cap grows: +1 at character levels 3 and 6, +1 at Improviser 1, 4 and 7
+  function tryMax() { var lv = (CHAR && CHAR.level) || 1, im = skillLv('Improviser'); return TRY_MAX + (lv >= 3 ? 1 : 0) + (lv >= 6 ? 1 : 0) + (im ? Math.floor((im + 2) / 3) : 0); }
   function triesLeft() {
     var c = CHAR; if (!c) return 0; c.tries = c.tries || []; var now = Date.now();
-    c.tries = c.tries.filter(function (t) { return now - t < TRY_MS; }); return Math.max(0, TRY_MAX - c.tries.length);
+    c.tries = c.tries.filter(function (t) { return now - t < TRY_MS; }); return Math.max(0, tryMax() - c.tries.length);
   }
   function nextTryIn() { var c = CHAR; if (!c || !c.tries || !c.tries.length) return 0; return Math.max(0, TRY_MS - (Date.now() - Math.min.apply(null, c.tries))); }
   function tryLabel() { var n = triesLeft(); return 'Try something (' + n + ' left)'; }
@@ -114,7 +116,7 @@
   function trySomething(target) {
     if (!CHAR) { say('No character', 'Create a character first.', 2500); return; }
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', 'Trying something takes your action, on your turn.', 2600); return; }
-    if (!triesLeft()) { say('Out of ideas', 'You have used both your tries. The next one comes back in ' + Math.ceil(nextTryIn() / 60000) + ' minutes.', 4000); return; }
+    if (!triesLeft()) { say('Out of ideas', 'You have used all ' + tryMax() + ' of your tries. The next one comes back in ' + Math.ceil(nextTryIn() / 60000) + ' minutes.', 4000); return; }
     cbMenuClose(); if (typeof closeMenu === 'function') closeMenu();
     TRY.target = target || null; var el = tryUI(); TRY.open = true;
     document.getElementById('tryInfo').textContent = 'Uses ' + (CB.on ? 'your action and ' : '') + 'one of your tries (' + triesLeft() + ' left; each comes back 10 minutes after use). The System decides what roll it takes and what happens.';
@@ -198,6 +200,7 @@
     say((ok ? 'It works' : 'It fails') + ' · ' + stat + (skill ? ' + ' + skill : '') + ' · d20 ' + r + ' + ' + b + ' = ' + tot + ' vs DC ' + dc, msg, 9000);
     if (ok && weak && e) setTimeout(function () { achieve('weak_' + e.kind, 'Paying Attention', 'You found ' + e.name + '\'s weakness and used it. The System approves of homework.', 50); }, 3500);
     if (ok && j.new_skill && j.new_skill.name && String(j.new_skill.name).length >= 3) skillGrant(String(j.new_skill.name).replace(/[^\w '\-]/g, '').slice(0, 32), 'the System liked that stunt', j.new_skill);
+    if (ok) skillCount('improv');
     if (ok) setTimeout(function () { achieve('tried', 'Thinking Outside the Box', 'You tried something nobody wrote down, and it worked.', 25); }, 6000);
     if (e) afterTrick(e); else if (CB.on) cbAfterMyMove();
   }

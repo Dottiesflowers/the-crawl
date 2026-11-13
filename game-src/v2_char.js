@@ -73,7 +73,7 @@
     var c = CHAR || MICHAEL, was = PC.max; PC.level = (PC.level || 1) + 1; c.level = PC.level; logEvent('Reached level ' + PC.level, 'level');
     PC.max = maxHPFor(c, PC.level); PC.hp = Math.min(PC.max, PC.hp + (PC.max - was));
     c.skillPts = (c.skillPts || 0) + 1; c.swUsed = false; var stat = PC.level % 2 === 0; if (stat) c.statPts = (c.statPts || 0) + 1; c.gold = (c.gold || 0) + 10 * PC.level;
-    var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon).' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : '';
+    var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon). You can hold one more Try.' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : PC.level === 6 ? ' You can hold one more Try.' : '';
     setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'Level up. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
   }
   // DCC-style achievements. The registry wins over whatever the caller passed, so wording lives in one place.
