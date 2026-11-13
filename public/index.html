@@ -7648,6 +7648,7 @@
     'Rat tail': { cat: 'material', tags: ['stringy'], level: 1, desc: 'Long, pink, still twitching a little. Tough as cord.' },
     'Puglin grease': { cat: 'material', tags: ['flammable', 'slippery'], level: 1, desc: 'Scraped off a puglin. It is mostly puglin.' },
     'Shrub sap': { cat: 'material', tags: ['sticky'], level: 1, desc: 'Amber and tacky. The shrubs use it to hold dinner still.' },
+    'Raptor claw': { cat: 'material', tags: ['sharp', 'hard'], level: 2, desc: 'A sickle claw off a practical-effect raptor. Latex outside, something much harder inside. Makes a mean arrowhead.' },
     'Imp horn': { cat: 'material', tags: ['sharp', 'hard'], level: 1, desc: 'A small curved horn. Union-issue.' },
     'Clerk ink': { cat: 'material', tags: ['toxic', 'staining'], level: 1, desc: 'Black, permanent and faintly ticking.' },
     'Archive pages': { cat: 'material', tags: ['flammable', 'paper'], level: 1, desc: 'Forms in triplicate. Two copies too many.' },
@@ -7727,6 +7728,13 @@
       truffle_king: { gold: '3d6', always: ['Healing potion'], chance: [['Rusty hatchet', 0.3], ['Emberbrand Battleaxe +1', 0.1]] },
       automaton: { gold: '1d6', chance: [['Ball bearings', 0.3], ['Scrap metal', 0.6], ['AA batteries', 0.5], ['WD-40', 0.2]] },
       automaton_big: { gold: '2d6', always: ['AA batteries'], chance: [['Healing potion', 0.3], ['Rusty flanged mace', 0.2], ['Frostbite Arming Sword +1', 0.1]] },
+      raptor: { gold: '1d4', chance: [['Raptor claw', 0.6], ['Scrap metal', 0.25]] },
+      raptor_alpha: { gold: '2d6', always: ['Raptor claw'], chance: [['Raptor claw', 0.5], ['Healing potion', 0.3]] },
+      trex: { gold: '5d6', always: ['Silver loot box', 'Healing potion', 'Scrap metal'], chance: [['Raptor claw', 0.5], ['Emberbrand Battleaxe +1', 0.15]] },
+      costume_goblin: { gold: '1d6', chance: [['AA batteries', 0.4], ['Roll of duct tape', 0.25], ['Craft services sandwich', 0.3], ['Scrap metal', 0.25]] },
+      costume_officer: { gold: '2d6', chance: [['Healing potion', 0.35], ['Acid paintballs', 0.2], ['AA batteries', 0.5], ['Ball bearings', 0.25]] },
+      zorr: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Stormcaller Longsword +1', 'Acid Splat Marker'] },
+      ronin: { gold: '3d6', always: ['Healing potion'], chance: [['Stunt Coordinator\'s Greatsword +1', 0.12]], oneOf: ['Steel longsword', 'Steel arming sword', 'Rusty longsword'] },
       groundskeeper: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Nightshade Spear +1', 'Emberbrand Battleaxe +1'] },
       butler: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Stormcaller Longsword +1', 'Frostbite Arming Sword +1'] },
       showrunner: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Golden Prop Mace +1', 'Stormcaller Longsword +1'] },
@@ -11440,7 +11448,7 @@
 
   // ---------- inventing ----------
   // arrows are fixed recipes (no AI): something wooden for the shafts + something for the tips, exactly two parts
-  var ARROWS = [[function (g) { return /imp horn/i.test(g.name); }, 'Horn-tipped arrows', 6], [function (g) { return tg(g, 'metal'); }, 'Scrap-metal arrows', 10], [function (g) { return tg(g, 'stone'); }, 'Stone-tipped arrows', 10],
+  var ARROWS = [[function (g) { return /imp horn|raptor claw/i.test(g.name); }, 'Horn-tipped arrows', 6], [function (g) { return tg(g, 'metal'); }, 'Scrap-metal arrows', 10], [function (g) { return tg(g, 'stone'); }, 'Stone-tipped arrows', 10],
     [function (g) { return !tg(g, 'wood') && tg(g, 'flammable'); }, 'Pitch arrows', 6], [function (g) { return tg(g, 'wood'); }, 'Wooden arrows', 10]];
   function tg(g, t) { return (g.tags || []).indexOf(t) >= 0 || (ITEMS[g.name] && (ITEMS[g.name].tags || []).indexOf(t) >= 0); } // the catalog's tags count too (items picked up before a tag was added)
   function arrowCraft(sel, idea) {

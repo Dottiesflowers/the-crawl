@@ -74,7 +74,7 @@
 
   // ---------- inventing ----------
   // arrows are fixed recipes (no AI): something wooden for the shafts + something for the tips, exactly two parts
-  var ARROWS = [[function (g) { return /imp horn/i.test(g.name); }, 'Horn-tipped arrows', 6], [function (g) { return tg(g, 'metal'); }, 'Scrap-metal arrows', 10], [function (g) { return tg(g, 'stone'); }, 'Stone-tipped arrows', 10],
+  var ARROWS = [[function (g) { return /imp horn|raptor claw/i.test(g.name); }, 'Horn-tipped arrows', 6], [function (g) { return tg(g, 'metal'); }, 'Scrap-metal arrows', 10], [function (g) { return tg(g, 'stone'); }, 'Stone-tipped arrows', 10],
     [function (g) { return !tg(g, 'wood') && tg(g, 'flammable'); }, 'Pitch arrows', 6], [function (g) { return tg(g, 'wood'); }, 'Wooden arrows', 10]];
   function tg(g, t) { return (g.tags || []).indexOf(t) >= 0 || (ITEMS[g.name] && (ITEMS[g.name].tags || []).indexOf(t) >= 0); } // the catalog's tags count too (items picked up before a tag was added)
   function arrowCraft(sel, idea) {
