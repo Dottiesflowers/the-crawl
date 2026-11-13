@@ -11345,25 +11345,27 @@
   var ARROWS = [[function (g) { return /imp horn/i.test(g.name); }, 'Horn-tipped arrows', 6], [function (g) { return tg(g, 'metal'); }, 'Scrap-metal arrows', 10], [function (g) { return tg(g, 'stone'); }, 'Stone-tipped arrows', 10],
     [function (g) { return !tg(g, 'wood') && tg(g, 'flammable'); }, 'Pitch arrows', 6], [function (g) { return tg(g, 'wood'); }, 'Wooden arrows', 10]];
   function tg(g, t) { return (g.tags || []).indexOf(t) >= 0 || (ITEMS[g.name] && (ITEMS[g.name].tags || []).indexOf(t) >= 0); } // the catalog's tags count too (items picked up before a tag was added)
-  function arrowCraft(sel) {
-    if (sel.length < 2 || sel.length > 3) return false;
+  function arrowCraft(sel, idea) {
+    var wantsArrows = /arrow/i.test(idea || ''); if (sel.length < 2 || (sel.length > 3 && !wantsArrows)) return false; // asking for arrows by name lets you throw in extras: it uses what it needs
     var isArrow = function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === 'arrow'; };
     var pb = sel.filter(function (g) { return g.name === 'Paintballs'; })[0], tox = sel.filter(function (g) { return g !== pb && tg(g, 'toxic'); })[0];
     if (pb && tox) { var n = Math.min(10, pb.qty || 1); pb.qty = (pb.qty || 1) - n; if (pb.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(pb), 1); itemSpend(tox); invAdd(item('Acid paintballs', { qty: n, from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
       craftSay('ok', 'Made ' + n + ' acid paintballs', 'You dosed the paintballs with ' + tox.name.toLowerCase() + '. They are warm now. Do not keep them in a pocket.'); return true; }
     var w = sel.filter(function (g) { return tg(g, 'wood') && !isArrow(g); }); if (!w.length || sel.some(isArrow)) return false;
     var tie = sel.length === 3 ? sel.filter(function (g) { return g !== w[0] && (tg(g, 'binding') || tg(g, 'sticky') || tg(g, 'stringy')); })[0] : null; // tape or twine: an optional third part, half again as many arrows
-    if (sel.length === 3 && !tie) return false;
-    var rest = sel.filter(function (g) { return g !== w[0] && g !== tie; }), shaft = w[0], tip = rest[0], r = tip && ARROWS.filter(function (a) { return a[0](tip); })[0]; if (!r) return false;
+    if (sel.length === 3 && !tie && !wantsArrows) return false;
+    var rest = sel.filter(function (g) { return g !== w[0] && g !== tie; }), shaft = w[0], tip = null, r = null;
+    for (var ri = 0; ri < ARROWS.length && !r; ri++) { var hit = rest.filter(function (g) { return ARROWS[ri][0](g); })[0]; if (hit && (rest.length === 1 || wantsArrows)) { tip = hit; r = ARROWS[ri]; } } if (!r) return false;
+    var spare = sel.filter(function (g) { return g !== shaft && g !== tip && g !== tie; });
     var qty = tie ? Math.round(r[2] * 1.5) : r[2];
     itemSpend(shaft); itemSpend(tip); if (tie) itemSpend(tie); var made = item(r[1], { qty: qty, from: 'your own two hands' }); invAdd(made, true); saveChar(CHAR);
     skillUse(trackSkill('physical')); CRAFT.sel = [];
-    craftSay('ok', 'Made ' + qty + ' ' + r[1].toLowerCase(), 'Shafts from ' + shaft.name.toLowerCase() + ', tips from ' + tip.name.toLowerCase() + (tie ? ', bound with ' + tie.name.toLowerCase() : '') + '. ' + (ITEMS[r[1]].desc || '').split('. ')[0] + '.');
+    craftSay('ok', 'Made ' + qty + ' ' + r[1].toLowerCase(), 'Shafts from ' + shaft.name.toLowerCase() + ', tips from ' + tip.name.toLowerCase() + (tie ? ', bound with ' + tie.name.toLowerCase() : '') + '. ' + (spare.length ? 'The System only needed those; your ' + spare.map(function (g) { return g.name.toLowerCase(); }).join(' and ') + (spare.length > 1 ? ' go' : ' goes') + ' back in your bag. ' : '') + (ITEMS[r[1]].desc || '').split('. ')[0] + '.');
     return true;
   }
   function craftInvent(idea) {
     if (CRAFT.busy) return; if (CRAFT.sel.length < 2) { craftSay('no', 'Need more parts', 'Pick at least two things to put together.'); return; } var sel = CRAFT.sel.slice(); CRAFT.result = null;
-    if (arrowCraft(sel)) return;
+    if (arrowCraft(sel, idea)) return;
     var desc = sel.map(function (g) { return g.name + ' [' + (g.cat || 'misc') + (g.tags && g.tags.length ? '; ' + g.tags.join(', ') : '') + (g.dmg ? '; ' + g.dmg : '') + (g.heal ? '; heals ' + g.heal : '') + ']: ' + (g.desc || ''); }).join('\n');
     if (!NET.sample) { craftApply(craftOffline(sel, idea), sel, idea); return; }
     CRAFT.busy = true; CRAFT.result = null; craftDraw();
@@ -11372,7 +11374,7 @@
       'Crawler skills: Jury-Rig ' + skillLv('Jury-Rig') + ', Alchemy ' + skillLv('Alchemy') + ', INT mod ' + MOD.INT + ', WIS mod ' + MOD.WIS + '.\n\nItems:\n' + desc + '\n\nWhat they want to make: ' + (idea || '(they did not say; make the most sensible thing)') +
       '\n\nRules: if the combination cannot plausibly make anything, ok=false and say why in comment. Otherwise design ONE item using only these fields. level = how hard it is to BUILD, 1-5: 1 = crude (taping, tying, stuffing, smearing, wrapping, jamming things together: anyone can do it), 2 = takes some know-how (a simple mechanism, careful measuring or mixing), 3 = a real build (springs, triggers, distilling, wiring), 4-5 = proper engineering or advanced alchemy. Be generous with crude builds: if it could physically be done with these parts, ok=true. Set ok=false only if it truly cannot work no matter who builds it. Do not lower the level because the crawler is unskilled; the game checks their skill against the level. Power limits: level 1 = up to 2d6 damage or 1d8 weapon or 2d4 healing; level 2 = up to 3d6, 1d10 weapon, 3d4+2 healing; level 3 = up to 4d6 area 2. ' +
       'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. They may hand you any number of items, duplicates included (two of the same item means they want to use both). Use the parts that make sense, put only those in consumes, and judge the whole idea: more parts can make a sturdier or stronger build, but junk that does not belong adds nothing.' +
-      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: stickbomb (a bomb on a stick) spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
+      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"unused":["exact names of parts that played no part at all (not tools that helped)"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: stickbomb (a bomb on a stick) spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
     serverSample([{ role: 'user', content: prompt }], { modelTier: 'complex', maxTokens: 600 }).then(function (r) {
       if (done) return; done = true; clearTimeout(to);
       var j = null; try { j = JSON.parse(r.text.replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {}
@@ -11423,7 +11425,8 @@
     consumes.forEach(function (n) { var g = CHAR.gear.filter(function (x) { return x.name === n; })[0]; if (g) itemSpend(g); });
     var made = Object.assign({ name: name, from: 'your own two hands', level: 1, parts: sel.map(function (g) { return g.name; }) }, cs.spec); invAdd(made, true);
     CHAR.recipes = CHAR.recipes || {}; var isNew = !CHAR.recipes[name] && !CRAFT.shared.some(function (r) { return r.name.toLowerCase() === name.toLowerCase(); });
-    var rec = { name: name, track: track, level: need, dc: dc, inputs: sel.map(function (g) { return g.name; }), keep: sel.map(function (g) { return g.name; }).filter(function (n) { return consumes.indexOf(n) < 0; }), spec: cs.spec, by: CHAR.name, byUid: NET.uid, inventor: true, idea: idea || '' };
+    var junk = (j.unused || []).filter(function (n) { return consumes.indexOf(n) < 0 && sel.some(function (g) { return g.name === n; }); }), kept = sel.map(function (g) { return g.name; }).filter(function (n) { return consumes.indexOf(n) < 0 && junk.indexOf(n) < 0; });
+    var rec = { name: name, track: track, level: need, dc: dc, inputs: sel.map(function (g) { return g.name; }).filter(function (n) { return junk.indexOf(n) < 0; }), keep: sel.map(function (g) { return g.name; }).filter(function (n) { return consumes.indexOf(n) < 0; }), spec: cs.spec, by: CHAR.name, byUid: NET.uid, inventor: true, idea: idea || '' };
     if (isNew) {
       CHAR.recipes[name] = rec; if (!skillHas(sk)) skillGrant(sk, 'you built something that works'); else for (var i = 0; i < need * 2; i++) skillUse(sk);
       logEvent('Invented ' + name + ' (' + sk + ' ' + need + ')', 'skill');
@@ -11432,8 +11435,16 @@
     } else skillUse(sk);
     // experience: inventing is worth a lot, making a known recipe a little; both are practice for the track skill
     var xp = isNew ? 30 * need + 10 : 6 * need; grantXP(xp);
-    craftSay('ok', (isNew ? 'Invented · ' : 'Made · ') + name, (cs.spec.desc || '') + ' +' + xp + ' XP, and ' + sk + ' practice.' + (isNew ? ' New ' + sk + ' ' + need + ' recipe, shared with the SGC.' : '') + (j.comment ? ' ' + j.comment : ''), 7000);
+    craftSay('ok', (isNew ? 'Invented · ' : 'Made · ') + name, (cs.spec.desc || '') + ' +' + xp + ' XP, and ' + sk + ' practice.' + (isNew ? ' New ' + sk + ' ' + need + ' recipe, shared with the SGC.' : '') + (j.comment ? ' ' + j.comment : '') + craftLeftover(consumes, kept, junk), 8000);
     CRAFT.sel = []; saveChar(CHAR); craftDraw(); if (UI.bag) bagDraw();
+  }
+  // what happened to each part: used up, kept because it was a tool, or not needed at all
+  function craftLeftover(used, kept, junk) {
+    var L = function (a) { a = a.map(function (n) { return n.toLowerCase(); }); return a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0]; }, out = '';
+    if (used.length) out += ' Used up: ' + L(used) + '.';
+    if (kept.length) out += ' You keep the ' + L(kept) + ' (' + (kept.length > 1 ? 'tools' : 'a tool') + ').';
+    if (junk.length) out += ' The System only needed the rest; the ' + L(junk) + (junk.length > 1 ? ' go' : ' goes') + ' back in your bag.';
+    return out;
   }
   function craftMake(name) {
     var r = allRecipes().filter(function (x) { return x.name === name; })[0]; if (!r) return; var s = recipeState(r); if (!s.skillOk || !s.have) return;
