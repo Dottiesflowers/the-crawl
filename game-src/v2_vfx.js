@@ -133,12 +133,12 @@
     else if (kind === 'fireball') { g = vfxOrb(0xffb040, 0.3); speed = 10; peak = 0.8 + d * 0.06; trail = 'fire'; }
     else if (kind === 'acid') { g = vfxOrb(0x9ae040, 0.3); speed = 12; peak = 0.6 + d * 0.07; trail = 0x7ac030; }
     else if (kind === 'pebble') { g = new THREE.Mesh(new THREE.DodecahedronGeometry(0.045), new THREE.MeshLambertMaterial({ color: 0x8a8278 })); speed = 20; peak = d * 0.02; o.spin = true; }
-    else if (kind === 'paint') { g = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0x9aff3a })); speed = 18; peak = d * 0.015; trail = 0x6ad020; }
+    else if (kind === 'paint') { var pc0 = o.col || 0x9aff3a; g = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: pc0 })); speed = 18; peak = d * 0.015; trail = pc0; }
     else { g = vfxOrb(0xffffff, 0.25); }
     g.position.set(x0, y0, z0); scene.add(g);
     VFX.bolts.push({ g: g, x0: x0, z0: z0, y0: y0, tx: tx, tz: tz, ty: ty, t: 0, dur: Math.max(0.12, d / speed), peak: peak, trail: trail, spin: o.spin, aim: kind === 'arrow' || kind === 'firearrow', done: function () {
       scene.remove(g);
-      if (kind === 'paint') { vfxBurst(tx, tz, 0x9aff3a, 14, 2); vfxPool(tx + (Math.random() - 0.5) * 0.3, tz + (Math.random() - 0.5) * 0.3, 0.32, 0x7adf2a, 10); vfxSmoke(tx, 0.4, tz, 0.3, 3, 0x9ac060); } else
+      if (kind === 'paint') { var pc1 = o.col || 0x9aff3a; vfxBurst(tx, tz, pc1, 14, 2); vfxPool(tx + (Math.random() - 0.5) * 0.3, tz + (Math.random() - 0.5) * 0.3, 0.22, pc1, 6); } else
       if (kind === 'fireball') vfxFireball(tx, tz, o.r || 2); else if (kind === 'firebolt' || kind === 'firearrow') vfxHit('fire', tx, tz, 1.4); else if (kind === 'acid') { vfxHit('acid', tx, tz, 1.4); vfxArea('acid', tx, tz, o.r || 0.8, 12); } else vfxHit('steel', tx, tz, 1.4);
       if (done) done();
     } });

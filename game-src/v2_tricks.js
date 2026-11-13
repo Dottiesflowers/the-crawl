@@ -71,7 +71,7 @@
       if ((f.type === 'stun' || f.type === 'distract') && e && !e.dead) { fxTag(e, f.type === 'stun' ? 'STUNNED' : 'DISTRACTED'); e.stunned = Math.max(e.stunned || 0, Math.min(3, f.turns || 1)); notes.push(e.name + (f.type === 'stun' ? ' is stunned' : ' is distracted') + ' for ' + e.stunned + ' turn' + (e.stunned > 1 ? 's' : '') + '.'); }
       if (f.type === 'adv') { CB.advNext = true; notes.push('Your next attack has advantage.'); }
       if (f.type === 'push' && e && !e.dead) { var sx = Math.sign(e.x - P.x), sz = Math.sign(e.z - P.z), n = 0; for (var k = 0; k < Math.min(3, f.tiles || 2); k++) { if (!walkable(e.x + sx, e.z + sz, e)) break; e.x += sx; e.z += sz; n++; } e.px = e.x; e.pz = e.z; e.obj.position.set(e.x, 0, e.z); if (n) notes.push(e.name + ' is pushed back ' + n + ' tile' + (n > 1 ? 's' : '') + '.'); }
-      if (f.type === 'burn' && e && !e.dead) { fxTag(e, 'ON FIRE'); e.burning = { dice: f.dice || '1d6', turns: Math.min(6, f.turns || 2) }; notes.push(e.name + ' is on fire, and keeps burning until it puts itself out.'); }
+      if (f.type === 'burn' && e && !e.dead) { var dz = e.doused > 0; e.doused = 0; fxTag(e, dz ? 'IGNITED' : 'ON FIRE'); e.burning = { dice: dz ? '1d6' : (f.dice || '1d6'), turns: Math.min(dz ? 9 : 6, (f.turns || 2) + (dz ? 3 : 0) + (e.burning && e.burning.turns > 0 ? e.burning.turns : 0)) }; notes.push(e.name + ' is on fire, and keeps burning until it puts itself out.'); }
       if (f.type === 'weaken' && e && !e.dead) { fxTag(e, 'STUCK · -' + Math.min(4, f.ac || 2) + ' AC'); e.weak = { v: Math.min(4, f.ac || 2), turns: Math.min(5, f.turns || 2) }; notes.push('Its guard is down: ' + e.weak.v + ' less armor for ' + e.weak.turns + ' turns.'); }
       if (f.type === 'calm' && e && !e.dead) { if (e.boss && !f.weak) return; e.calm = true; notes.push(e.name + ' will not fight you.'); }
       if (f.type === 'reveal' && e) { var W = weakOf(e); notes.push(W ? 'You learn something: ' + W.hint : 'You learn how it fights: AC ' + acOf(e) + ', ' + e.def.weapon + '.'); }
@@ -86,7 +86,7 @@
   // status words float up over the target, staggered so they don't stack on the damage number
   function fxTag(e, txt) { e.tagN = (e.tagN || 0) + 1; var n = e.tagN; setTimeout(function () { floater(e.px, (e.def.h || 0.8) + 0.55 + 0.25 * ((n - 1) % 3), e.pz, txt, 'status'); }, 180 * ((n - 1) % 3)); setTimeout(function () { e.tagN = 0; }, 900); }
   function afterTrick(e) {
-    if (!CB.on && e && !e.dead && !e.calm) cbStart('That got its attention.', e);
+    if (!CB.on && e && !e.dead && !e.calm) cbStart('That got its attention.', e, { surprise: true });
     else if (CB.on) cbAfterMyMove();
     worldSave();
   }

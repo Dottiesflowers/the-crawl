@@ -167,7 +167,16 @@
     Object.keys(ITEMS).forEach(function (n) { if (have[n]) return; var it = item(n, { from: 'DM mode' }); if (!it) return; if (ITEMS[n].ammo) it.qty = 99; (d.gear = d.gear || []).push(it); });
     return d;
   }
+  // items that were renamed: old saves keep working
+  var RENAMED = { 'Acid Splat Marker': 'Paintball gun' };
+  function renameOld(c) {
+    var f = function (n) { return RENAMED[n] || n; };
+    (c.gear || []).forEach(function (g) { if (RENAMED[g.name]) { g.name = RENAMED[g.name]; var I = ITEMS[g.name]; if (I) g.desc = I.desc; } });
+    ['wield', 'back', 'ammo'].forEach(function (k) { if (c[k]) c[k] = f(c[k]); }); ['hotbar', 'hotbar2'].forEach(function (k) { if (c[k]) c[k] = c[k].map(function (n) { return n && f(n); }); });
+    return c;
+  }
   function loadChar(c) {
+    renameOld(c);
     if (isDM() && !c.isDM) c = dmCharFrom(c);
     applyChar(c); if (c.isDM) { CHAR.isDM = true; CHAR.realName = c.realName; setTimeout(function () { say('DM mode', 'You are the DM: a separate character on this device. Your real character is untouched. Monsters ignore you until you tap one and choose DM: aggro.', 6500); }, 1800); }
     if (c.look) { for (var k in c.look) if (look[k]) look[k] = c.look[k]; buildHero(); }

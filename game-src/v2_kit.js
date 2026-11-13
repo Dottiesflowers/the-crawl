@@ -281,16 +281,16 @@
     bonePoint(B.upperarm_l, B.lowerarm_l, bowPt, w); bonePoint(B.lowerarm_l, B.hand_l, bowPt.clone().addScaledVector(fwd, arm), w);
     bonePoint(B.upperarm_r, B.lowerarm_r, elbow, w); bonePoint(B.lowerarm_r, B.hand_r, handT, w); }
     if (BOW_G && BOW_G.parent) { // stand the bow upright, its face toward the target, while it is up
-      var m4 = gun ? new THREE.Matrix4().makeBasis(side, fwd, new THREE.Vector3().crossVectors(side, fwd)) : new THREE.Matrix4().makeBasis(side, up, fwd), qw = new THREE.Quaternion().setFromRotationMatrix(m4), qp = new THREE.Quaternion(); BOW_G.parent.getWorldQuaternion(qp); qw.premultiply(qp.invert());
-      if (!BOW_G.userData.q0) BOW_G.userData.q0 = BOW_G.quaternion.clone(); BOW_G.quaternion.copy(BOW_G.userData.q0).slerp(qw, w);
-      if (t > endAt + 0.25) BOW_G.quaternion.copy(BOW_G.userData.q0);
+      var m4 = gun ? new THREE.Matrix4().makeBasis(side.clone().negate(), fwd, up) /* barrel at the target, top of the gun up */ : new THREE.Matrix4().makeBasis(side, up, fwd), qw = new THREE.Quaternion().setFromRotationMatrix(m4), qp = new THREE.Quaternion(); BOW_G.parent.getWorldQuaternion(qp); qw.premultiply(qp.invert());
+      if (gun) BOW_G.quaternion.slerp(qw, Math.max(0.3, w)); else { if (!BOW_G.userData.q0) BOW_G.userData.q0 = BOW_G.quaternion.clone(); BOW_G.quaternion.copy(BOW_G.userData.q0).slerp(qw, w); }
+      if (t > endAt + 0.25 && !gun) BOW_G.quaternion.copy(BOW_G.userData.q0);
     }
     // the nocked arrow, string hand to bow hand, until it is loosed
     if (!KIT.bowArrow && typeof vfxMeshArrow === 'function') { KIT.bowArrow = vfxMeshArrow(false); scene.add(KIT.bowArrow); KIT.bowPebble = new THREE.Mesh(new THREE.DodecahedronGeometry(0.035), new THREE.MeshLambertMaterial({ color: 0x8a8278 })); scene.add(KIT.bowPebble); KIT.bowPebble.visible = false; }
     var hL = B.hand_l.getWorldPosition(new THREE.Vector3()), hR = B.hand_r.getWorldPosition(new THREE.Vector3());
     if (KIT.bowPebble) { KIT.bowPebble.visible = KIT.bowPose === 'sling' && t > 0.15 && !KIT.bowFired; KIT.bowPebble.position.copy(hR); }
     if (KIT.bowArrow) { KIT.bowArrow.visible = KIT.bowPose === 'bow' && t > 0.15 && !KIT.bowFired; KIT.bowArrow.position.copy(hR).lerp(hL, 0.5).addScaledVector(fwd, 0.12); KIT.bowArrow.lookAt(hL.clone().addScaledVector(fwd, 0.5)); KIT.bowArrow.scale.setScalar(Math.max(0.6, hR.distanceTo(hL) / 0.45)); }
-    if (t >= relAt && !KIT.bowFired) { KIT.bowFired = true; var cb = KIT.bowRel; KIT.bowRel = null; if (cb) cb(hL.x, hL.y, hL.z); }
+    if (t >= relAt && !KIT.bowFired) { KIT.bowFired = true; var cb = KIT.bowRel; KIT.bowRel = null; var mz = gun && BOW_G && BOW_G.userData.muzzle ? BOW_G.localToWorld(BOW_G.userData.muzzle.clone()) : hL; if (cb) cb(mz.x, mz.y, mz.z); } // guns fire from the muzzle
     if (t > endAt + 0.25) { KIT.bowT = null; if (KIT.bowArrow) KIT.bowArrow.visible = false; if (KIT.bowPebble) KIT.bowPebble.visible = false; }
   }
   kitLoad();

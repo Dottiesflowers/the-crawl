@@ -178,7 +178,7 @@
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
     if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Load these first']);
-    if (it.name === 'Acid Splat Marker') acts.push(it.noTank ? ((CHAR.gear || []).some(function (g) { return g.name === 'CO2 tank'; }) ? ['tankon', 'Screw a CO2 tank on'] : null) : ['tankoff', 'Unscrew the CO2 tank']);
+    if (it.name === 'Paintball gun') acts.push(it.noTank ? ((CHAR.gear || []).some(function (g) { return g.name === 'CO2 tank'; }) ? ['tankon', 'Screw a CO2 tank on'] : null) : ['tankoff', 'Unscrew the CO2 tank']);
     acts = acts.concat(lampActs(it));
     if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
     if (hotEligible(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
@@ -592,6 +592,7 @@
       var pc = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.03), lt); pc.position.set(0, 0.22, -0.1); g.add(pc); return; }
     if (IB.proc === 'crossbow') { // after Michael's photos: a walnut rifle stock with a cheek notch, a black latch plate and lever, a steel prod with end caps, a wire string
       // same frame as the marker: +y toward the target, +z up, the hand on the wrist of the stock at the origin
+      g.position.y = -0.16 * 1.35; g0.userData.muzzle = new THREE.Vector3(0, (0.3 - 0.16) * 1.35, 0.075 * 1.35); // held by the fore-end (the front hand); the bolt leaves the front of the tiller
       var XB = gearModel.xb || (gearModel.xb = (function () {
         var cv = document.createElement('canvas'); cv.width = 32; cv.height = 128; var c2 = cv.getContext('2d'); c2.fillStyle = '#a07c4c'; c2.fillRect(0, 0, 32, 128);
         for (var i = 0; i < 26; i++) { c2.strokeStyle = ['#7e5e34', '#b8925e', '#6c4e2a'][i % 3]; c2.lineWidth = 1 + (i % 2); c2.beginPath(); var x0 = Math.random() * 32; c2.moveTo(x0, 0); c2.bezierCurveTo(x0 + 6, 40, x0 - 6, 88, x0 + 3, 128); c2.stroke(); }
@@ -614,8 +615,9 @@
       [tipL, tipR].forEach(function (t) { var cp = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 8), XB.iron); cp.position.copy(t); cp.rotation.z = Math.PI / 2 + (t.x < 0 ? 0.5 : -0.5); g.add(cp); });
       var nut = new THREE.Vector3(0, 0.075, 0.07), sg = new THREE.BufferGeometry().setFromPoints([tipL, nut, tipR]); g.add(new THREE.Line(sg, XB.wire)); // the string, drawn back to the latch
       return; }
-    if (IB.proc === 'marker') { // the Acid Splat Marker, after Michael's photo: gold carbon-fibre body, big black loader, long ported barrel, foregrip, air tank off the back
+    if (IB.proc === 'marker') { // the Paintball gun, after Michael's photo: gold carbon-fibre body, big black loader, long ported barrel, foregrip, air tank off the back
       // frame: +y down the barrel, +z the top of the gun, the hand round the grip at the origin
+      g.position.y = -0.13 * 1.35; g0.userData.muzzle = new THREE.Vector3(0, (0.5 - 0.13) * 1.35, 0.085 * 1.35); // held by the foregrip (the front hand); the shot leaves the muzzle
       var MK = gearModel.mk || (gearModel.mk = (function () {
         var cv = document.createElement('canvas'); cv.width = cv.height = 64; var c2 = cv.getContext('2d'); // carbon weave in gold
         for (var yy = 0; yy < 8; yy++) for (var xx = 0; xx < 8; xx++) { var on = (xx + yy) % 2; var gr = c2.createLinearGradient(xx * 8, yy * 8, xx * 8 + 8, yy * 8 + 8); gr.addColorStop(0, on ? '#f0b440' : '#8a5a14'); gr.addColorStop(1, on ? '#b07818' : '#5a3a0a'); c2.fillStyle = gr; c2.fillRect(xx * 8, yy * 8, 8, 8); }

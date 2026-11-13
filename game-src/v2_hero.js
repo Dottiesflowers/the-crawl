@@ -824,7 +824,7 @@
     // ----- hands: main and off -----
     var main = sty('main'), mc = col('main'), gw = (typeof CHAR !== 'undefined' && CHAR && CHAR.wield) ? (CHAR.gear || []).filter(function (x) { return x.name === CHAR.wield; })[0] : null;
     var isBow = gw && typeof launcherOf === 'function' && !!launcherOf(gw.name); // a bow goes in the left hand; the right draws the string
-    if (gw) { var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); (isBow ? AL : AR).el.add(wg); BOW_G = isBow ? wg : null; held.push({ g: wg, el: (isBow ? AL : AR).el, side: isBow ? -1 : 1, t: lean(isBow ? 0.05 : 0.35, 0.1) }); gearModel(wg, gw); main = 0; }
+    if (gw) { var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); (isBow ? AL : AR).el.add(wg); BOW_G = isBow ? wg : null; var isGun = isBow && (launcherOf(gw.name).pose === 'gun'); held.push({ g: wg, el: (isBow ? AL : AR).el, side: isBow ? -1 : 1, t: isGun ? lean(1.25, 0).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)) : lean(isBow ? 0.05 : 0.35, 0.1) }); /* guns ride at a low ready, barrel forward */ gearModel(wg, gw); main = 0; }
     else if (main) {
       var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); AR.el.add(wg);
       if (main === 5) { wg.rotation.x = 1.0; kitHold.bass = wg; } else held.push({ g: wg, el: AR.el, side: 1, t: lean(main === 3 ? 0.06 : 0.5, 0.12) });

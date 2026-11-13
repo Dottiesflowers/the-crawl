@@ -17,6 +17,7 @@
     ['Improvised Weapons', 'STR', 'Hitting things with things that are not weapons. +1 to hit per 2 levels.', 'wpn:improv'],
     ['Pugilism', 'STR', 'Fists, elbows, the occasional headbutt. +1 to hit per 2 levels.', 'wpn:fist'],
     ['Thrown Objects', 'DEX', 'Rocks, daggers, staplers, whatever is closest.', ''],
+    ['Crossbow', 'DEX', 'Cranking, loading and putting a bolt where you meant it: +1 to hit per level. At level 3 you crank on the move with no free swings, and a critical hit pins the target for a turn.', ''],
     ['Brawling', 'STR', 'Bar fights, grapples and dirty tricks.', ''],
     ['Athletics', 'STR', 'Shove, grapple, climb, swim.', ''],
     ['Acrobatics', 'DEX', 'Balance, tumbling, slipping free.', ''],
@@ -118,7 +119,8 @@
     heal: [4, 'First Aid', 'you keep patching yourself up'],
     secret: [2, 'Trap Sense', 'you keep finding hidden things'],
     harvest: [3, 'Butchery', 'you keep cutting useful bits off corpses'],
-    throw: [4, 'Thrown Objects', 'you keep throwing things at problems']
+    throw: [4, 'Thrown Objects', 'you keep throwing things at problems'],
+    crossbow: [4, 'Crossbow', 'you keep cranking that crossbow']
   };
   function skillCount(key) {
     var c = CHAR, t = SKILL_TRIGGERS[key]; if (!c || !t) return; c.counts = c.counts || {}; c.counts[key] = (c.counts[key] || 0) + 1;

@@ -428,7 +428,7 @@
       { label: 'Second Wind', tag: CHAR && CHAR.swUsed ? 'used · nap to recharge' : '1d10 + level HP', ok: r.bonus && CHAR && !CHAR.swUsed && PC.hp < PC.max, fn: secondWind },
     ].concat([0, 1, 2, 3].map(function (i) { var it = hotItem(i); return it ? { label: 'Use ' + it.name, tag: it.heal + ' HP · ×' + (it.qty || 1), ok: r.bonus, fn: function () { useItem(it); } } : null; }).filter(Boolean)).concat([
       { label: 'Off-hand dagger attack', tag: '1d4, no modifier', ok: r.bonus && sty('off') === 3 && sty('main') > 0 && adj.length > 0, fn: function () { cbAttackButton(true); } }
-    ]);
+    ].concat(xbState() ? [{ label: 'Crank the crossbow', tag: xbState() === 'loaded' ? 'already loaded' : xbState() === 'free' ? 'free (Crossbow 3)' : 'ends your movement' + (adj.length ? ' · free swing at you' : ''), ok: (r.bonus || xbState() === 'free') && (xbState() === 'crank' || xbState() === 'free'), fn: function () { cbMenuClose(); cbCrank(null); } }] : []));
     var near = CB.enemies.filter(function (e) { return !e.dead && !e.calm && !e.npc && speaks(e) && cheb(P.x, P.z, e.x, e.z) <= 6; }).sort(function (a, b) { return cheb(P.x, P.z, a.x, a.z) - cheb(P.x, P.z, b.x, b.z); })[0];
     return [
       { label: tryLabel(), tag: 'describe anything · action', ok: r.action && triesLeft() > 0, fn: function () { trySomething(near); } },
@@ -441,7 +441,7 @@
       { label: 'Shove: push away', tag: 'Athletics contest', ok: r.action && adj.length > 0, fn: function () { cbShove(true); } },
       { label: 'Grapple', tag: 'Athletics contest · speed 0', ok: r.action && adj.length > 0, fn: cbGrapple },
       { label: 'Hide', tag: 'Stealth vs their Perception', ok: r.action && adj.length === 0, fn: cbHide },
-      { label: (Wt.bow ? 'Shoot ' : 'Throw ') + Wt.name, tag: Wt.noAir ? 'screw a tank on' : Wt.empty ? 'craft or find some' : Wt.n + 'd' + Wt.s + (Wt.acc ? ' · +' + Wt.acc + ' hit' : '') + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action && !Wt.empty, fn: function () { CB.aim = 'throw'; say(Wt.bow ? 'Shoot' : 'Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal ' + (Wt.bow ? 'shot' : 'throw') + '; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
+      { label: (Wt.bow ? 'Shoot ' : 'Throw ') + Wt.name, tag: Wt.noAir ? 'screw a tank on' : Wt.empty ? 'craft or find some' : xbState() === 'crank' ? 'cranks first: bonus action, ends your move' : xbState() === 'blocked' ? 'needs cranking: no bonus action left' : Wt.n + 'd' + Wt.s + (Wt.acc ? ' · +' + Wt.acc + ' hit' : '') + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action && !Wt.empty && xbState() !== 'blocked', fn: function () { CB.aim = 'throw'; say(Wt.bow ? 'Shoot' : 'Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal ' + (Wt.bow ? 'shot' : 'throw') + '; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
     ]);
   }
   function cbMenuToggle(which) {
@@ -506,20 +506,25 @@
   }
 
   // ---------- starting and ending a fight ----------
-  function cbStart(why, first) {
+  function cbStart(why, first, opt) {
+    opt = opt || {};
     if (CB.on || !CB.ready || (CHAR && CHAR.dead)) return;
     if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
     var solo = CB.dmPick === 'one' && first; CB.dmSolo = !!solo; CB.dmPick = null;
     var foes = solo ? [first] : CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || (!e.def.timid && cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8))); });
     if (!foes.length) return;
+    var sneaky = !!(crouch || PC.hidden);
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
     CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
     foes.forEach(function (e) { e.react = true; e.prone = false; e.grappled = false; e.fought = true; });
-    var pcInit = d20() + MOD.DEX - (hasTrait('Distractible') ? 2 : 0) + buffInit(); CB.order = [{ init: pcInit, who: 'pc' }].concat(foes.map(function (e) { e.init = d20() + e.def.init; return { init: e.init, who: e }; }))
+    // surprise (5e, 2014): you started it and they had not spotted you. They lose their first turn and cannot react until it passes; from a sneak, your first attack has advantage
+    var surp = opt.surprise ? foes.filter(function (e) { return !e.boss || sneaky; }) : []; surp.forEach(function (e) { e.surprised = true; e.react = false; fxTag(e, 'SURPRISED'); });
+    if (surp.length && sneaky) CB.advNext = true;
+    var ia = d20(), ib = opt.advInit ? d20() : 0, pcInit = Math.max(ia, ib) + MOD.DEX - (hasTrait('Distractible') ? 2 : 0) + buffInit(); /* you started it on something that had not noticed you: advantage on initiative */ CB.order = [{ init: pcInit, who: 'pc' }].concat(foes.map(function (e) { e.init = d20() + e.def.init; return { init: e.init, who: e }; }))
       .sort(function (a, b) { return b.init - a.init; }).map(function (o) { return o.who; });
     PC.init = pcInit;
     var names = CB.order.map(function (c) { return (c === 'pc' ? 'You ' + pcInit : c.name + ' ' + c.init); }).join(', ');
-    say('Combat · Roll for initiative', why + ' Turn order: ' + names + '.', 6000);
+    say('Combat · Roll for initiative', why + (surp.length ? ' ' + (surp.length === foes.length ? (foes.length === 1 ? 'It is' : 'They are all') : surp.length + ' of them are') + ' surprised: no turn for ' + (surp.length === 1 ? 'it' : 'them') + ' this round.' + (sneaky ? ' You were sneaking: your first attack has advantage.' : '') : '') + (opt.advInit ? ' You struck first: advantage on initiative (' + ia + '/' + ib + ').' : '') + ' Turn order: ' + names + '.', 6000);
     CB.idx = -1; CB.round = 0; foes.forEach(function (e) { cbFace(e, P.x, P.z); });
     setTimeout(cbNext, 700); cbHUD();
   }
@@ -553,7 +558,7 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
-  function cbEnd(win) { PC.burning = 0; CB.dmSolo = false; CB.allyFell = false; CB.enemies.forEach(function (e) { e.rallied = false; e.rally = 0; e.furious = false; e.fleeing = false; e.tauntedThisFight = 0; }); PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
+  function cbEnd(win) { (CHAR && CHAR.gear || []).forEach(function (g) { g.unloaded = false; }); CB.enemies.forEach(function (q) { q.pinned = 0; q.surprised = false; q.blind = 0; q.poisoned = null; q.doused = 0; }); PC.burning = 0; CB.dmSolo = false; CB.allyFell = false; CB.enemies.forEach(function (e) { e.rallied = false; e.rally = 0; e.furious = false; e.fleeing = false; e.tauntedThisFight = 0; }); PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -585,7 +590,7 @@
     if (c !== 'pc' && (c.dead || c.calm)) { cbNext(); return; }
     if (c === 'pc' && cbEscaped()) return;
     if (c === 'pc') {
-      CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
+      CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.walked = false; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
       if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
       if (PC.down) { cbRingsUpdate(); cbHUD(); setTimeout(cbDeathSave, 700); return; }
       burnPools(null); areaTurnStart('pc');
@@ -617,7 +622,7 @@
   }
   function cbWalk(path, then) {
     if (!path || !path.length) { if (then) then(); return; }
-    CB.res.move -= path.reduce(function (a, s) { return a + tileCost(s[0], s[1]); }, 0); if (CB.res.move < 0) CB.res.move = 0; CB.path = path; CB.afterWalk = then || null; CB.busy = true; cbShowMoves(); cbHUD();
+    CB.walked = true; CB.res.move -= path.reduce(function (a, s) { return a + tileCost(s[0], s[1]); }, 0); if (CB.res.move < 0) CB.res.move = 0; CB.path = path; CB.afterWalk = then || null; CB.busy = true; cbShowMoves(); cbHUD();
   }
   function cbMove(dt) { // called instead of joystick movement while a fight is on
     P.speed = 0; if (!CB.path || CB.pause) return;
@@ -661,21 +666,28 @@
     if (PC.hidden) { adv = true; why.push('unseen'); }
     if (e.prone) { if (dist <= 1) { adv = true; why.push('target prone'); } else { dis = true; why.push('prone target at range'); } }
     if (e.grappled && dist <= 1) { adv = true; why.push('grappled'); }
-    if (opt.ranged && cbAdjacent().length) { dis = true; why.push('enemy next to you'); }
+    if (opt.ranged && !Wp.pointBlank && cbAdjacent().length) { dis = true; why.push('enemy next to you'); }
     else if (opt.close) { dis = true; why.push('too close for a bow'); }
     if (opt.ranged && dist > Wp.range) { dis = true; why.push('long range'); }
     var oT = obscured(e.x, e.z), oA = obscured(P.x, P.z); if (oT && !oA) { dis = true; why.push('cannot see into the ' + (areaHas(e.x, e.z, ['darkness']) ? 'darkness' : 'smoke')); } else if (oA && !oT) { adv = true; why.push('they cannot see you'); }
-    if (e.webbed) { adv = true; why.push('stuck in a web'); } if (PC.webbed) { dis = true; why.push('you are stuck'); } if (PC.prone) { dis = true; why.push('attacking from the floor'); }
+    if (e.blind > 0) { adv = true; why.push('it is blinded'); } if (e.webbed) { adv = true; why.push('stuck in a web'); } if (PC.webbed) { dis = true; why.push('you are stuck'); } if (PC.prone) { dis = true; why.push('attacking from the floor'); }
     if (CB.advNext) { adv = true; why.push('opening'); CB.advNext = false; }
     var cover = opt.ranged && hasCover(P.x, P.z, e.x, e.z) ? 2 : 0, ac = acOf(e) + cover;
     var R = roll20(adv, dis), tot = R.r + Wp.hit, crit = R.r >= (Wp.crit || 20), hit = crit || (R.r !== 1 && tot >= ac);
     var line = R.txt + ' + ' + Wp.hit + ' = ' + tot + ' vs AC ' + ac + (cover ? ' (half cover)' : '') + (why.length ? ' · ' + why.join(', ') : '');
     if (PC.hidden) { PC.hidden = false; }
     if (hit) {
-      var raw = d(crit ? Wp.n * 2 : Wp.n, Wp.s), dm = Math.max(1, raw + Wp.dmgB); e.hp -= dm;
+      if (Wp.plain) { // a plain paintball: a splat and a sting, unless it finds an eye
+        vfxHit('acid', e.px, e.pz, e.def.h); diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, why: why });
+        if (crit) { e.hp -= 2; e.blind = 2; floater(e.px, e.def.h + 0.25, e.pz, 'CRIT -2', 'crit'); fxTag(e, 'BLINDED'); say('Right in the eye · ' + Wp.name + ' · ' + line, e.name + ' takes 2 damage and is blinded for 2 turns: it attacks at disadvantage and you attack it with advantage.', 5200); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true); }
+        else { floater(e.px, e.def.h + 0.25, e.pz, 'SPLAT', 'miss'); say('Splat · ' + Wp.name + ' · ' + line, e.name + ' is now very colorful. Plain paintballs only sting: fill them with something nasty.', 4200); }
+        return hit;
+      }
+      var raw = d(crit ? Wp.n * 2 : Wp.n, Wp.s), dm = Math.max(1, raw + Wp.dmgB); e.hp -= dm; if (crit && Wp.pin) { e.pinned = 1; setTimeout(function () { if (!e.dead) floater(e.px, (e.def.h || 1) + 0.6, e.pz, 'PINNED', 'status'); }, 400); }
       var exTxt = ''; if (Wp.edmg) { // enchanted: extra typed damage (doubled dice on a crit, double again if it is weak to that)
         var xm = /(\d+)d(\d+)/.exec(Wp.edmg.dice), xr = xm ? d((crit ? 2 : 1) * +xm[1], +xm[2]) : 0, weak = (e.def.vuln || []).indexOf(Wp.edmg.type) >= 0; if (weak) xr *= 2;
         if (xr && Wp.edmg.type === 'acid' && !e.dead) { var wv = (e.weak && e.weak.turns > 0 ? e.weak.v : 0) + 1; e.weak = { v: Math.min(3, wv), turns: 2 }; fxTag(e, 'ACID · -' + Math.min(3, wv) + ' AC'); } // acid eats armor (stacks to -3)
+        if (xr && Wp.edmg.type === 'fire') fireTouch(e);
         if (xr) { vfxHit(Wp.edmg.type, e.px, e.pz, e.def.h); e.hp -= xr; dm += xr; exTxt = ' (' + xr + ' of it ' + Wp.edmg.type + (weak ? ', and it is weak to that' : '') + ')'; setTimeout(function () { floater(e.px + 0.3, e.def.h + 0.55, e.pz, '+' + xr + ' ' + Wp.edmg.type, 'crit'); }, 260); }
       }
       diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, dd: (crit ? Wp.n * 2 : Wp.n) + 'd' + Wp.s, ds: Wp.s, raw: raw, db: Wp.dmgB, dm: dm, why: why });
@@ -696,11 +708,42 @@
     CB.busy = true; cbFaceHero(e.x, e.z); cbFace(e, P.x, P.z); kitOneShot(Wp.clip); cbHUD();
     setTimeout(function () { cbResolve(e, Wp); cbAfterMyMove(); }, 420);
   }
-  function cbAfterMyMove() { setTimeout(function () { CB.busy = false; cbShowMoves(); cbHUD(); if (!CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }, 500); }
+  // the opening shot: you see it before it sees you, take one ranged shot, then initiative is rolled (with advantage)
+  var FIGHT_OPEN = false; // opening shot + advantage on initiative: built, switched off until Michael picks a rule
+  function cbOpenShot(e) {
+    if (CB.on || !CB.ready || !e || e.dead) return; if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
+    var Wt = cbThrowable(), dist = cheb(P.x, P.z, e.x, e.z);
+    if (Wt.noAir || Wt.empty) { say(Wt.noAir ? 'No air' : 'No ammo', Wt.noAir ? 'Screw a CO2 tank on first.' : (AMMO_HINT[Wt.ammoKind] || 'Craft or find some.'), 3000); return; }
+    if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can reach ' + Wt.long + '.', 2600); return; }
+    if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is in the way.', 2400); return; }
+    if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0; P.px = P.x; P.pz = P.z; P.speed = 0;
+    var w = wieldItem(); if (w && w.unloaded) w.unloaded = false; // you had all the time in the world to crank it
+    CB.on = true; CB.order = ['pc']; CB.idx = 0; CB.round = 0; CB.res = { move: 0, action: 1, bonus: 0, swap: 0 }; CB.walked = false; CB.opener = { e: e }; PC.react = true;
+    say('Opening shot', 'It has not seen you yet. Take your shot, then roll for initiative.', 2600); cbThrow(e);
+  }
+  function cbAfterMyMove() { if (CB.opener) { var op = CB.opener; CB.opener = null; setTimeout(function () { CB.on = false; CB.busy = false; CB.order = []; CB.res = { move: 0, action: 0, bonus: 0, swap: 0 }; var tgt = op.e.dead ? CB.enemies.filter(function (q) { return !q.dead && !q.calm && !q.npc && cheb(q.x, q.z, P.x, P.z) <= 10; })[0] : op.e; if (tgt) cbStart(op.e.dead ? 'Your opening shot dropped it, and its friends heard.' : 'Your opening shot started it.', tgt, { advInit: true }); else { cbHUD(); say('Clean kill', 'One shot, and nothing else noticed.', 3000); } }, 900); return; }
+    setTimeout(function () { CB.busy = false; cbShowMoves(); cbHUD(); if (!CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }, 500); }
+  function xbState() { var w = wieldItem(), B = w && ITEMS[w.name] && ITEMS[w.name].bow; if (!B || !B.crank) return null; if (!w.unloaded) return 'loaded'; if (skillLv('Crossbow') >= 3) return 'free'; return CB.on && CB.res && !CB.res.bonus ? 'blocked' : 'crank'; }
+  // cranking the crossbow: your bonus action, and it ends your movement this turn; a monster next to you gets a free swing (Crossbow 3: all free)
+  function cbCrank(after) {
+    var w = wieldItem(), st = xbState(); if (!w || !st || st === 'loaded') { if (after) after(); return; }
+    if (st === 'free') { w.unloaded = false; say('Crossbow', 'You crank it on the move. (Crossbow ' + skillLv('Crossbow') + ')', 1800); cbHUD(); if (after) after(); return; }
+    if (!CB.on) { w.unloaded = false; say('Crossbow', 'Cranked and loaded.', 1600); if (after) after(); return; }
+    if (st === 'blocked') { say('Not loaded', 'Cranking takes your bonus action, and you have used it this turn.', 3200); return; }
+    CB.res.bonus = 0; CB.res.move = 0; w.unloaded = false; cbShowMoves(); cbHUD();
+    var near = CB.enemies.filter(function (q) { return !q.dead && !q.calm && !q.npc && !q.fleeing && CB.order.indexOf(q) >= 0 && cheb(q.x, q.z, P.x, P.z) <= 1; });
+    if (!near.length) { say('Crossbow', 'You crank it back. Bonus action, and you stop moving for this turn.', 2200); if (after) setTimeout(after, 250); return; }
+    say('Cranking under pressure', 'You crank the crossbow with ' + (near.length === 1 ? near[0].name : near.length + ' monsters') + ' right next to you. ' + (near.length === 1 ? 'It gets' : 'They get') + ' a free swing.', 3200);
+    CB.busy = true; cbHUD(); var i = 0;
+    (function next() { if (PC.down || PC.hp <= 0 || !CB.on) { CB.busy = false; cbHUD(); return; } var q = near[i++]; if (!q) { CB.busy = false; cbHUD(); if (after) setTimeout(after, 300); return; } if (q.dead) return next(); cbEnemyAttack(q, true, function () { setTimeout(next, 350); }); })();
+  }
   function cbThrow(e) {
     var Wt = cbThrowable(), dist = cheb(P.x, P.z, e.x, e.z);
     if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can ' + (Wt.bow ? 'shoot' : 'throw') + ' up to ' + Wt.long + '.', 2600); return; }
     if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is between you and ' + e.name + '.', 2600); return; }
+    // a crossbow fires once, then has to be cranked (see cbCrank): Shoot cranks first if it can
+    var xwi = Wt.bow && wieldItem(), xbow = !!(xwi && ITEMS[xwi.name] && ITEMS[xwi.name].bow && ITEMS[xwi.name].bow.crank), xlv = xbow ? skillLv('Crossbow') : 0;
+    if (xbow && xwi.unloaded && !Wt.empty && !Wt.noAir) { if (xbState() === 'blocked') { say('Not loaded', 'Cranking takes your bonus action, and you have used it this turn. Next turn: crank, then shoot.', 3600); return; } cbCrank(function () { if (!PC.down && CB.res.action) cbThrow(e); }); return; }
     CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); if (!Wt.bow) kitOneShot('Spell_Simple_Shoot'); cbHUD();
     if (Wt.noAir) { say('No air', 'The tank is off. Inventory → the marker → Screw a CO2 tank on.', 3000); CB.busy = false; CB.res.action = 1; cbHUD(); return; }
     if (Wt.empty) { say('Out of ' + (Wt.ammoKind || 'arrow') + 's', AMMO_HINT[Wt.ammoKind] || 'Craft or find some.', 2600); CB.busy = false; CB.res.action = 1; cbHUD(); return; }
@@ -711,14 +754,42 @@
       A.qty = (A.qty || 1) - 1; if (A.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(A), 1); saveChar(CHAR); if (typeof wsetDraw === 'function') wsetDraw(); return true; };
     var close = Wt.bow && Wt.pose !== 'gun' && cheb(P.x, P.z, e.x, e.z) <= 2;
     var flyK = Wt.bow ? (Wt.fly === 'pebble' ? 'pebble' : Wt.fly === 'paint' ? 'paint' : (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow')) : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
+    var AM = Wt.bow && Wt.ammo && ITEMS[Wt.ammo.name] ? ITEMS[Wt.ammo.name].ammo : null; if (AM && AM.plain) Wp.plain = true;
+    var PCOL = AM && AM.splash ? (AM.splash.type === 'acid' ? 0x9aff3a : AM.splash.type === 'poison' ? 0xb050ff : AM.splash.area === 'grease' ? 0xd8a030 : AM.splash.douse ? 0x8a5a20 : 0xffffff) : 0;
     var shots = Math.max(1, Wt.shots || 1); spend();
-    var fly = function (x0, y0, z0, left) { vfxBolt(flyK, x0, z0, e.px, e.pz, function () {
-      cbResolve(e, Wp, { ranged: true, close: close });
+    if (xbow) { xwi.unloaded = true; skillCount('crossbow'); Wp.hit += xlv; Wp.pointBlank = true; if (xlv >= 3) Wp.pin = true; }
+    var fly = function (x0, y0, z0, left) {
+      var lx = e.px, lz = e.pz, PR = null; // a filled paintball: roll to hit. A hit coats them, a miss coats the floor at their feet, a natural 1 goes wild
+      if (AM && AM.splash) { var ac0 = acOf(e), R0 = roll20(!!(e.blind > 0), false), tot0 = R0.r + Wp.hit; PR = { R: R0, tot: tot0, ac: ac0, crit: R0.r === 20, hit: R0.r === 20 || (R0.r !== 1 && tot0 >= ac0), wild: R0.r === 1 };
+        if (PR.wild) { var ang = Math.random() * Math.PI * 2, dd = 2 + Math.floor(Math.random() * 2); lx = Math.round(e.x + Math.cos(ang) * dd); lz = Math.round(e.z + Math.sin(ang) * dd); } }
+      vfxBolt(flyK, x0, z0, lx, lz, function () {
+      if (AM && AM.splash) paintSplash(e, AM.splash, Wp, PR, Math.round(lx), Math.round(lz)); else cbResolve(e, Wp, { ranged: true, close: close });
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }
       if (left > 1 && !e.dead && CB.on && spend()) { setTimeout(function () { kitGunKick(); fly(x0, y0, z0, left - 1); }, 260); return; } // a second shot in the same action
       cbAfterMyMove();
-    }, { ty: (e.def.h || 1) * 0.6, y0: y0 }); };
+    }, { ty: (e.def.h || 1) * 0.6, y0: y0, col: flyK === 'paint' ? (PCOL || [0xff3a8a, 0x3ac8ff, 0xffd83a, 0xff8a2a, 0x8aff3a][Math.floor(Math.random() * 5)]) : undefined }); };
     if (Wt.bow) kitBowShot(function (x0, y0, z0) { fly(x0, y0, z0, shots); }, Wt.pose); else setTimeout(function () { fly(P.px, 1.15, P.pz, 1); }, 260);
+  }
+  // a filled paintball: a hit coats the target (the ball itself does nothing, unless it finds an eye), a miss coats the floor at its feet, a natural 1 goes wild
+  function paintSplash(e, S, Wp, PR, x, z) {
+    var notes = [], line = PR.R.txt + ' + ' + Wp.hit + ' = ' + PR.tot + ' vs AC ' + PR.ac, onT = PR.hit && !e.dead ? e : null;
+    diceShow({ who: 'You', vs: e.name, R: PR.R, bonus: Wp.hit, tot: PR.tot, ac: PR.ac, hit: PR.hit, crit: PR.crit, why: [] });
+    var floorCoat = function (fx, fz) { var k = S.area || (S.douse ? 'grease' : null); if (k && typeof vfxArea === 'function') vfxArea(k, fx, fz, S.area ? (S.r || 1) : 0.8, S.secs || 20);
+      notes.push(S.area === 'acid' ? 'A pool of acid spreads on the floor (1d4 and -1 AC to anything standing in it).' : S.area === 'grease' ? 'Grease coats the floor: anything moving there may fall.' : S.douse ? 'Oil slicks the floor. It is slippery, and it will burn.' : 'It soaks into the floor and does nothing.'); };
+    if (PR.wild) { notes.push('A natural 1: the shot goes wild.'); floorCoat(x, z); var wt = CB.enemies.filter(function (q) { return !q.dead && !q.npc && q.x === x && q.z === z; })[0]; if (wt) notes.push('It splats near ' + wt.name + '.'); }
+    else if (!onT) { notes.push('Missed ' + e.name + '. It splats at its feet.'); floorCoat(e.x, e.z); }
+    else {
+      var t = onT;
+      if (PR.crit) { t.hp -= 2; t.blind = 2; floater(t.px, t.def.h + 0.25, t.pz, 'CRIT -2', 'crit'); fxTag(t, 'BLINDED'); notes.push('Right in the eye: 2 damage, and it is blinded for 2 turns.'); }
+      else { floater(t.px, t.def.h + 0.25, t.pz, 'COATED', 'status'); notes.push('Hit. The ball does nothing on its own, but ' + t.name + ' is coated.'); }
+      if (S.dice) { var dm = Math.max(1, rollDice(S.dice)), weak = (t.def.vuln || []).indexOf(S.type) >= 0; if (weak) dm *= 2; t.hp -= dm; setTimeout(function () { floater(t.px, t.def.h + 0.5, t.pz, '-' + dm + ' ' + S.type, 'dmg'); }, 250); vfxHit(S.type, t.px, t.pz, t.def.h); notes.push('The ' + S.type + ' eats at it: ' + dm + ' ' + S.type + ' damage' + (weak ? ' (weak to it: double)' : '') + '.'); }
+      if (S.type === 'acid' && t.hp > 0) { var wv = (t.weak && t.weak.turns > 0 ? t.weak.v : 0) + 1; t.weak = { v: Math.min(3, wv), turns: 2 }; fxTag(t, 'ACID · -' + Math.min(3, wv) + ' AC'); notes.push('Its armor softens: -' + Math.min(3, wv) + ' AC.'); }
+      if (S.poison && t.hp > 0) { t.poisoned = { dice: S.poison.dice, turns: S.poison.turns }; fxTag(t, 'POISONED'); notes.push('It is poisoned: ' + S.poison.dice + ' a turn for ' + S.poison.turns + ' turns.'); }
+      if (S.area === 'grease' && t.hp > 0) { t.greased = true; if (typeof vfxArea === 'function') vfxArea('grease', t.x, t.z, 0.6, 20); notes.push('Greased head to toe, and dripping on the floor it stands on.'); }
+      if (S.douse && t.hp > 0) { if (t.burning && t.burning.turns > 0) { t.burning.turns += 2; t.burning.dice = '1d6'; fxTag(t, 'FUEL ON THE FIRE'); notes.push('It was already burning. Now it burns harder, and for longer.'); } else { t.doused = 4; fxTag(t, 'DOUSED'); notes.push('Soaked in oil: the next fire that touches it sets it ablaze.'); } }
+      if (t.hp <= 0) cbKill(t); else if (PR.crit || S.dice) cbPlay(t, 'Hit_Chest', true);
+    }
+    say((PR.wild ? 'Natural 1 · ' : PR.crit ? 'Critical · ' : PR.hit ? 'Hit · ' : 'Miss · ') + Wp.name + ' · ' + line, notes.join(' '), 5600);
   }
   function cbContest(e) { // your Athletics against their Athletics or Acrobatics, whichever is better for them
     var me = d20() + MOD.STR + skillLv('Athletics') - (hasTrait('Bad Back') ? 2 : 0), them = d20() + Math.max(e.def.str, e.def.dex) + (e.kind === 'imp' ? 2 : 0);
@@ -835,10 +906,14 @@
 
   // ---------- monster turns ----------
   function cbEnemyTurn(e) {
+    if (e.surprised && !e.dead) { e.surprised = false; say(e.name + ' is surprised', 'It is still working out what just happened. It loses this turn.', 2400); setTimeout(cbNext, 1000); return; }
     if (!CB.on) return;
     if (e.dead || e.calm) { setTimeout(cbNext, 200); return; } // it made a deal mid-fight: it keeps its word
     if (e.weak && e.weak.turns > 0) e.weak.turns--;
     burnPools(e); areaTurnStart(e); if (e.dead) { setTimeout(cbNext, 900); return; }
+    if (e.blind > 0) { e.blind--; if (!e.blind) fxTag(e, 'CAN SEE AGAIN'); }
+    if (e.doused > 0) e.doused--;
+    if (e.poisoned && e.poisoned.turns > 0) { var pd = Math.max(1, rollDice(e.poisoned.dice)); e.hp -= pd; e.poisoned.turns--; floater(e.px, e.def.h + 0.3, e.pz, '-' + pd + ' poison', 'dmg'); vfxHit('poison', e.px, e.pz, e.def.h); say(e.name + ' is poisoned', pd + ' poison damage.' + (e.poisoned.turns ? '' : ' It has sweated it out.'), 2400); if (e.hp <= 0) { cbKill(e); setTimeout(cbNext, 900); return; } }
     if (e.burning && e.burning.turns > 0) { // on fire: damage every turn until it goes out (a DEX save, or it spends its turn patting it out)
       var bd = Math.max(1, rollDice(e.burning.dice)); e.hp -= bd; e.burning.turns--; floater(e.px, e.def.h + 0.3, e.pz, '-' + bd, 'dmg'); fxTag(e, 'BURNING');
       var smart = typeof intOf === 'function' && intOf(e) === 'smart', sv = d20() + (e.def.dex || 0), out = e.burning.turns <= 0 || sv >= 10, pat = false;
@@ -850,13 +925,13 @@
     if (e.stunned > 0) { e.stunned--; say(e.name + ' loses its turn', e.stunned ? 'Still reeling.' : 'It shakes it off. Next turn it is back.', 2600); setTimeout(cbNext, 1000); return; }
     var speed = e.def.speed;
     if (e.prone) { e.prone = false; speed = Math.floor(speed / 2); cbPlay(e, 'Idle_Loop'); say(e.name, 'It scrambles back to its feet (half its movement).', 2200); }
-    if (e.grappled || e.webbed) speed = 0;
+    if (e.grappled || e.webbed) speed = 0; if (e.pinned > 0) { e.pinned--; speed = 0; }
     if (PC.down) { // the show likes a dramatic pause: monsters gloat instead of finishing you
       setTimeout(function () { say(e.name, ['It pokes you with its ' + e.def.weapon + ' and waves at the camera.', 'It goes through your pockets.', 'It does a little dance.'][Math.floor(Math.random() * 3)], 2400); setTimeout(cbNext, 900); }, 300); return;
     }
     if (persona(e, speed)) return; // cowards run, braggarts taunt, leaders rally
     if (cheb(e.x, e.z, P.x, P.z) <= 1) { cbEnemyAttack(e, false, cbNextAfterHit); return; }
-    if (!speed) { say(e.name, e.webbed ? 'It thrashes in the web and cannot move.' : 'It strains against your grip and cannot reach you.', 2200); setTimeout(cbNext, 600); return; }
+    if (!speed) { say(e.name, e.webbed ? 'It thrashes in the web and cannot move.' : e.pinned !== undefined && speed === 0 && !e.grappled ? 'It is pinned in place by your bolt.' : 'It strains against your grip and cannot reach you.', 2200); setTimeout(cbNext, 600); return; }
     var r = bfs(e.x, e.z, e, 40), best = null;
     for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { if (!dx && !dz) continue; var k = (P.x + dx) + ',' + (P.z + dz); if (r.dist[k] !== undefined && (best === null || r.dist[k] < r.dist[best])) best = k; }
     if (best === null) { say(e.name, 'It cannot find a way to you and snarls instead.', 2500); setTimeout(cbNext, 700); return; }
@@ -908,7 +983,10 @@
   function obscured(x, z) { return areaHas(x, z, ['smoke', 'darkness']); }
   function tileCost(x, z) { return areaHas(x, z, ['ice', 'web', 'spikes']) ? 2 : 1; }
   function areaSave(who, stat) { return d20() + (who === 'pc' ? MOD[stat] : ((who.def[stat.toLowerCase()] | 0) || 0)); }
+  // a monster coated in oil goes up the moment fire touches it; one already burning keeps burning
+  function fireTouch(e) { if (!e || e === 'pc' || e.dead || !(e.doused > 0)) return false; e.doused = 0; var was = e.burning && e.burning.turns > 0; e.burning = { dice: '1d6', turns: (was ? e.burning.turns : 0) + 3 }; fxTag(e, 'IGNITED'); vfxHit('fire', e.px, e.pz, e.def.h); say(e.name + ' goes up in flames', 'The oil on it catches. It will burn for a while.', 3000); return true; }
   function areaHurt(who, n, kind, why) {
+    if (kind === 'fire' && who !== 'pc') fireTouch(who);
     if (who === 'pc') { PC.hp = Math.max(0, PC.hp - n); floater(P.px, 1.5, P.pz, '-' + n + ' ' + kind, 'pdmg'); vfxHit(kind === 'piercing' ? 'steel' : kind, P.px, P.pz, 1.6); cbHUD(); say(why, n + ' ' + kind + ' damage.', 2600); if (PC.hp <= 0) { if (CB.on) cbFall(); else PC.hp = 1; } return; }
     who.hp -= n; floater(who.px, who.def.h + 0.3, who.pz, '-' + n + ' ' + kind, 'dmg'); vfxHit(kind === 'piercing' ? 'steel' : kind, who.px, who.pz, who.def.h); say(who.name + ': ' + why, n + ' ' + kind + ' damage.', 2400);
     if (who.hp <= 0 && !who.dead) cbKill(who);
@@ -960,7 +1038,7 @@
   function cbEnemyAttack(e, opportunity, then) {
     cbFace(e, P.x, P.z); cbPlay(e, e.def.attackClip, true);
     var dis = CB.dodge || PC.hidden || e.prone, why = [];
-    if (CB.dodge) why.push('you dodge'); if (PC.hidden) why.push('cannot see you'); if (e.prone) why.push('attacking from the floor');
+    if (CB.dodge) why.push('you dodge'); if (PC.hidden) why.push('cannot see you'); if (e.prone) why.push('attacking from the floor'); if (e.blind > 0) { dis = true; why.push('it is blinded'); }
     var adv2 = false, oP = obscured(P.x, P.z), oE = obscured(e.x, e.z), nearP = cheb(e.x, e.z, P.x, P.z) <= 1;
     if (oP && !oE) { dis = true; why.push('cannot see you in the ' + (areaHas(P.x, P.z, ['darkness']) ? 'darkness' : 'smoke')); } else if (oE && !oP) { adv2 = true; why.push('you cannot see it'); }
     if (PC.webbed) { adv2 = true; why.push('you are stuck'); } if (PC.prone) { if (nearP) { adv2 = true; why.push('you are on the floor'); } else { dis = true; why.push('you are prone, at range'); } } if (e.webbed) { dis = true; why.push('it is stuck'); }

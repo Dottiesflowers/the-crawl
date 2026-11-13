@@ -46,7 +46,7 @@
   function spellHurt(e, dice, type, crit) {
     if (!e || e.dead) return ''; var m = /(\d+)d(\d+)([+-]\d+)?/.exec(dice || '1d4'), dm = 0; if (!m) return '';
     for (var i = 0; i < (+m[1]) * (crit ? 2 : 1); i++) dm += 1 + Math.floor(Math.random() * +m[2]); dm = Math.max(1, dm + (+(m[3] || 0)));
-    var weak = (e.def.vuln || []).indexOf(type) >= 0; if (weak) dm *= 2;
+    var weak = (e.def.vuln || []).indexOf(type) >= 0; if (weak) dm *= 2; if (type === 'fire') fireTouch(e);
     e.hp -= dm; floater(e.px, (e.def.h || 1) + 0.3, e.pz, '-' + dm + (weak ? '!' : ''), 'dmg'); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true);
     return dm + ' ' + type + (weak ? ' (weak to it: double)' : '');
   }

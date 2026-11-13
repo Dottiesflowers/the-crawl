@@ -2932,7 +2932,7 @@
     // ----- hands: main and off -----
     var main = sty('main'), mc = col('main'), gw = (typeof CHAR !== 'undefined' && CHAR && CHAR.wield) ? (CHAR.gear || []).filter(function (x) { return x.name === CHAR.wield; })[0] : null;
     var isBow = gw && typeof launcherOf === 'function' && !!launcherOf(gw.name); // a bow goes in the left hand; the right draws the string
-    if (gw) { var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); (isBow ? AL : AR).el.add(wg); BOW_G = isBow ? wg : null; held.push({ g: wg, el: (isBow ? AL : AR).el, side: isBow ? -1 : 1, t: lean(isBow ? 0.05 : 0.35, 0.1) }); gearModel(wg, gw); main = 0; }
+    if (gw) { var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); (isBow ? AL : AR).el.add(wg); BOW_G = isBow ? wg : null; var isGun = isBow && (launcherOf(gw.name).pose === 'gun'); held.push({ g: wg, el: (isBow ? AL : AR).el, side: isBow ? -1 : 1, t: isGun ? lean(1.25, 0).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)) : lean(isBow ? 0.05 : 0.35, 0.1) }); /* guns ride at a low ready, barrel forward */ gearModel(wg, gw); main = 0; }
     else if (main) {
       var wg = new THREE.Group(); wg.position.set(0, -0.228, 0.008); AR.el.add(wg);
       if (main === 5) { wg.rotation.x = 1.0; kitHold.bass = wg; } else held.push({ g: wg, el: AR.el, side: 1, t: lean(main === 3 ? 0.06 : 0.5, 0.12) });
@@ -7374,16 +7374,16 @@
     bonePoint(B.upperarm_l, B.lowerarm_l, bowPt, w); bonePoint(B.lowerarm_l, B.hand_l, bowPt.clone().addScaledVector(fwd, arm), w);
     bonePoint(B.upperarm_r, B.lowerarm_r, elbow, w); bonePoint(B.lowerarm_r, B.hand_r, handT, w); }
     if (BOW_G && BOW_G.parent) { // stand the bow upright, its face toward the target, while it is up
-      var m4 = gun ? new THREE.Matrix4().makeBasis(side, fwd, new THREE.Vector3().crossVectors(side, fwd)) : new THREE.Matrix4().makeBasis(side, up, fwd), qw = new THREE.Quaternion().setFromRotationMatrix(m4), qp = new THREE.Quaternion(); BOW_G.parent.getWorldQuaternion(qp); qw.premultiply(qp.invert());
-      if (!BOW_G.userData.q0) BOW_G.userData.q0 = BOW_G.quaternion.clone(); BOW_G.quaternion.copy(BOW_G.userData.q0).slerp(qw, w);
-      if (t > endAt + 0.25) BOW_G.quaternion.copy(BOW_G.userData.q0);
+      var m4 = gun ? new THREE.Matrix4().makeBasis(side.clone().negate(), fwd, up) /* barrel at the target, top of the gun up */ : new THREE.Matrix4().makeBasis(side, up, fwd), qw = new THREE.Quaternion().setFromRotationMatrix(m4), qp = new THREE.Quaternion(); BOW_G.parent.getWorldQuaternion(qp); qw.premultiply(qp.invert());
+      if (gun) BOW_G.quaternion.slerp(qw, Math.max(0.3, w)); else { if (!BOW_G.userData.q0) BOW_G.userData.q0 = BOW_G.quaternion.clone(); BOW_G.quaternion.copy(BOW_G.userData.q0).slerp(qw, w); }
+      if (t > endAt + 0.25 && !gun) BOW_G.quaternion.copy(BOW_G.userData.q0);
     }
     // the nocked arrow, string hand to bow hand, until it is loosed
     if (!KIT.bowArrow && typeof vfxMeshArrow === 'function') { KIT.bowArrow = vfxMeshArrow(false); scene.add(KIT.bowArrow); KIT.bowPebble = new THREE.Mesh(new THREE.DodecahedronGeometry(0.035), new THREE.MeshLambertMaterial({ color: 0x8a8278 })); scene.add(KIT.bowPebble); KIT.bowPebble.visible = false; }
     var hL = B.hand_l.getWorldPosition(new THREE.Vector3()), hR = B.hand_r.getWorldPosition(new THREE.Vector3());
     if (KIT.bowPebble) { KIT.bowPebble.visible = KIT.bowPose === 'sling' && t > 0.15 && !KIT.bowFired; KIT.bowPebble.position.copy(hR); }
     if (KIT.bowArrow) { KIT.bowArrow.visible = KIT.bowPose === 'bow' && t > 0.15 && !KIT.bowFired; KIT.bowArrow.position.copy(hR).lerp(hL, 0.5).addScaledVector(fwd, 0.12); KIT.bowArrow.lookAt(hL.clone().addScaledVector(fwd, 0.5)); KIT.bowArrow.scale.setScalar(Math.max(0.6, hR.distanceTo(hL) / 0.45)); }
-    if (t >= relAt && !KIT.bowFired) { KIT.bowFired = true; var cb = KIT.bowRel; KIT.bowRel = null; if (cb) cb(hL.x, hL.y, hL.z); }
+    if (t >= relAt && !KIT.bowFired) { KIT.bowFired = true; var cb = KIT.bowRel; KIT.bowRel = null; var mz = gun && BOW_G && BOW_G.userData.muzzle ? BOW_G.localToWorld(BOW_G.userData.muzzle.clone()) : hL; if (cb) cb(mz.x, mz.y, mz.z); } // guns fire from the muzzle
     if (t > endAt + 0.25) { KIT.bowT = null; if (KIT.bowArrow) KIT.bowArrow.visible = false; if (KIT.bowPebble) KIT.bowPebble.visible = false; }
   }
   kitLoad();
@@ -7600,11 +7600,16 @@
     // ammo: cat misc so it stacks (qty). ammo: { kind (matches the launcher's bow.ammo), s: damage die, acc: +N to hit, onHit: rider }. twoHand: true = no torch, shield or dagger in the off hand. Jury-rig 2 parts: wood + a tip (see ARROWS in v2_craft.js)
     // launchers: bow: { ammo kind, range, long, shots per action, pose (bow, sling, gun), fly (arrow, pebble, paint) }; proc: a held model built in code
     'Wrist-rocket slingshot': { cat: 'weapon', dmg: '1d2', bow: { ammo: 'pebble', range: 8, long: 32, pose: 'sling', fly: 'pebble' }, proc: 'sling', tags: ['light', 'elastic'], level: 1, desc: 'Surgical tubing and a wrist brace. Shoots pebbles: Chunk of rubble, River stone or ball bearings. Half come back after a fight. Dennis the Menace energy, D&D damage.' },
-    'Frontier crossbow': { cat: 'weapon', dmg: '1d4', twoHand: true, bow: { ammo: 'arrow', s: 8, range: 16, long: 64, acc: 1, pose: 'gun', fly: 'arrow' }, proc: 'crossbow', tags: ['wood', 'metal'], rarity: 'Uncommon', level: 2, desc: 'A walnut rifle stock with a steel bow across the front, from the western picture\'s prop cage. Shouldered like a rifle: shoots any arrow (the System calls them bolts) for at least 1d8, +1 to hit, out to 16 tiles (64 at disadvantage). Two-handed.' },
-    'Acid Splat Marker': { cat: 'weapon', dmg: '1d4', twoHand: true, bow: { ammo: 'paintball', range: 10, long: 30, shots: 2, pose: 'gun', fly: 'paint' }, proc: 'marker', tags: ['loud'], rarity: 'Uncommon', level: 2, desc: 'A paintball gun from the laser-tag episode. Two shots per action. Load acid paintballs and every hit eats their armor. Two-handed; paintballs do not come back.' },
+    'Frontier crossbow': { cat: 'weapon', dmg: '1d4', twoHand: true, bow: { ammo: 'arrow', s: 8, range: 16, long: 64, acc: 1, pose: 'gun', fly: 'arrow', crank: true }, proc: 'crossbow', tags: ['wood', 'metal'], rarity: 'Uncommon', level: 2, desc: 'A walnut rifle stock with a steel bow across the front, from the western picture\'s prop cage. Shouldered like a rifle: shoots any arrow (the System calls them bolts) for at least 1d8, +1 to hit, out to 16 tiles (64 at disadvantage). Two-handed. After each shot it has to be cranked: that takes your whole move, and a monster next to you gets a free swing while you do it. The Crossbow skill (earned by shooting) adds to hit, and at level 3 the cranking is free.' },
+    'Paintball gun': { cat: 'weapon', dmg: '1d4', twoHand: true, bow: { ammo: 'paintball', range: 10, long: 30, shots: 2, pose: 'gun', fly: 'paint' }, proc: 'marker', tags: ['loud'], rarity: 'Uncommon', level: 2, desc: 'A paintball gun from the laser-tag episode: gold body, big loader, and an air tank you can unscrew. Two shots per action. Plain paintballs only sting; fill them (acid, poison, grease, oil) by jury-rigging and they splash. Two-handed; paintballs do not come back.' },
     'Ball bearings': { cat: 'misc', icon: 'coin', ammo: { kind: 'pebble', s: 6 }, tags: ['metal', 'slippery'], level: 1, desc: 'A jar of steel balls. Slingshot ammo: 1d6. Fast, heavy, and a nightmare on hardwood.' },
-    'Paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, noRecover: true }, tags: ['glass'], level: 2, desc: 'Marker ammo: 1d4 and a bright splat. Jury-rig with something toxic (bleach, clerk ink, weed killer) to make acid paintballs.' },
-    'Acid paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, edmg: { dice: '1d4', type: 'acid' }, noRecover: true }, tags: ['toxic', 'glass'], rarity: 'Uncommon', level: 2, desc: 'Neon green, warm, and the casing is already sweating. 1d4 + 1d4 acid, and each hit takes 1 off their armor for 2 turns (stacks to -3).' },
+    // paintballs: plain ones only sting (a crit in the eye: 2 damage and blinded). Filled ones (jury-rig paintballs with a filling): roll to hit. A hit coats the target (the ball itself does nothing; a crit also blinds), a miss coats the floor at its feet, a natural 1 goes wild
+    'Paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, noRecover: true, plain: true }, tags: ['glass', 'container'], level: 2, desc: 'Plain paintballs. They sting and leave a bright splat, nothing more, unless you get one in the eye (a critical hit): 2 damage and blinded. The real use: jury-rig them with a filling. Acid, poison, grease or anything flammable.' },
+    'Acid paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, noRecover: true, splash: { area: 'acid', r: 1, secs: 12, dice: '1d4', type: 'acid' } }, tags: ['acid', 'toxic', 'glass'], rarity: 'Uncommon', level: 2, desc: 'Paintballs you filled with acid. A hit coats the target: 1d4 acid and -1 AC. A miss leaves a pool of acid at its feet that eats anything standing in it. A crit also blinds.' },
+    'Poison paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, noRecover: true, splash: { dice: '1d4', type: 'poison', poison: { dice: '1d4', turns: 3 } } }, tags: ['toxic', 'glass'], level: 2, desc: 'Paintballs you filled with something toxic. A hit coats the target: 1d4 poison, and it stays poisoned (1d4 a turn for 3 turns). A miss soaks into the floor. A crit also blinds.' },
+    'Grease paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, noRecover: true, splash: { area: 'grease', r: 1, secs: 30 } }, tags: ['slippery', 'flammable', 'glass'], level: 2, desc: 'Paintballs you filled with grease. A hit greases the target and the floor it stands on; a miss peppers the floor at its feet. Anything moving through grease may fall, and grease burns. A crit also blinds.' },
+    'Oil paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, noRecover: true, splash: { douse: true } }, tags: ['flammable', 'glass'], level: 2, desc: 'Paintballs you filled with something flammable. A hit soaks the target: the next fire that touches it sets it ablaze, and something already burning burns harder and longer. A miss slicks the floor with oil (slippery, and it burns). A crit also blinds.' },
+    'Vial of acid': { cat: 'consumable', icon: 'potion', throw: { fx: [{ type: 'damage', dice: '2d6' }], area: 1 }, tags: ['acid', 'toxic', 'glass', 'container'], rarity: 'Uncommon', level: 2, desc: 'A stoppered vial that smokes when you tilt it. Throw it (2d6 to everything around the target), or jury-rig it into paintballs. Brew your own: something toxic plus batteries.' },
     'Splintered wood': { cat: 'material', tags: ['wood', 'flammable', 'long'], level: 1, desc: 'Busted shelving, a chair leg, part of a pallet. Two of these make arrows.' },
     'Chunk of rubble': { cat: 'material', ammo: { kind: 'pebble', s: 4 }, tags: ['stone', 'heavy', 'hard'], level: 1, desc: 'A fist-sized piece of the dungeon. It came off the wall. The wall did not notice.' },
     'Prop lumber': { cat: 'material', tags: ['wood', 'flammable', 'long'], level: 2, desc: 'Pine offcuts from set construction. Straight, light, splits clean. Two of these make arrows.' },
@@ -7727,7 +7732,7 @@
       stuntdouble: { gold: '2d6', chance: [['Frontier crossbow', 0.06], ['Rusty longsword', 0.4], ['Rusty broadsword', 0.25], ['Steel arming sword', 0.12], ['Healing potion', 0.3]] },
       stuntknight: { gold: '3d6', always: ['Healing potion'], chance: [['Stunt Coordinator\'s Greatsword +1', 0.1]], oneOf: ['Steel longsword', 'Steel broadsword', 'Steel battleaxe', 'Rusty longsword', 'Rusty battleaxe', 'Rusty flanged mace'] },
       crew: { gold: '1d6', chance: [['Paintballs', 0.35], ['Prop lumber', 0.6], ['Scrap metal', 0.35], ['Roll of duct tape', 0.4], ['AA batteries', 0.3], ['Rusty hatchet', 0.1]] },
-      crew_lead: { gold: '2d6', always: ['Roll of duct tape', 'Prop lumber'], chance: [['Acid Splat Marker', 0.25], ['Acid paintballs', 0.3], ['Healing potion', 0.4], ['Bandit\'s shortbow', 0.2], ['Scrap-metal arrows', 0.3]] },
+      crew_lead: { gold: '2d6', always: ['Roll of duct tape', 'Prop lumber'], chance: [['Paintball gun', 0.25], ['Paintballs', 0.4], ['Vial of acid', 0.15], ['Healing potion', 0.4], ['Bandit\'s shortbow', 0.2], ['Scrap-metal arrows', 0.3]] },
       truffle: { gold: '1d4', chance: [['River stone', 0.45], ['Shrub sap', 0.4], ['Band-aids', 0.15]] },
       truffle_big: { gold: '2d4', chance: [['Shrub sap', 0.6], ['Healing potion', 0.25]] },
       truffle_king: { gold: '3d6', always: ['Healing potion'], chance: [['Rusty hatchet', 0.3], ['Emberbrand Battleaxe +1', 0.1]] },
@@ -7737,8 +7742,8 @@
       raptor_alpha: { gold: '2d6', always: ['Raptor claw'], chance: [['Raptor claw', 0.5], ['Healing potion', 0.3]] },
       trex: { gold: '5d6', always: ['Silver loot box', 'Healing potion', 'Scrap metal'], chance: [['Raptor claw', 0.5], ['Emberbrand Battleaxe +1', 0.15]] },
       costume_goblin: { gold: '1d6', chance: [['AA batteries', 0.4], ['Roll of duct tape', 0.25], ['Craft services sandwich', 0.3], ['Scrap metal', 0.25]] },
-      costume_officer: { gold: '2d6', chance: [['Healing potion', 0.35], ['Acid paintballs', 0.2], ['AA batteries', 0.5], ['Ball bearings', 0.25]] },
-      zorr: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Stormcaller Longsword +1', 'Acid Splat Marker'] },
+      costume_officer: { gold: '2d6', chance: [['Healing potion', 0.35], ['Vial of acid', 0.2], ['AA batteries', 0.5], ['Ball bearings', 0.25]] },
+      zorr: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Stormcaller Longsword +1', 'Paintball gun'] },
       ronin: { gold: '3d6', always: ['Healing potion'], chance: [['Stunt Coordinator\'s Greatsword +1', 0.12]], oneOf: ['Steel longsword', 'Steel arming sword', 'Rusty longsword'] },
       kobold: { gold: '1d6', chance: [['Puglin stick', 0.4], ['Prop lumber', 0.35], ['Roll of duct tape', 0.2], ['Wooden arrows', 0.2]] },
       kobold_boss: { gold: '2d6', always: ['Healing potion'], chance: [['Frontier crossbow', 0.15], ['Bandit\'s shortbow', 0.15], ['Rusty hatchet', 0.25], ['Stone-tipped arrows', 0.3]] },
@@ -7808,6 +7813,7 @@
     ['Improvised Weapons', 'STR', 'Hitting things with things that are not weapons. +1 to hit per 2 levels.', 'wpn:improv'],
     ['Pugilism', 'STR', 'Fists, elbows, the occasional headbutt. +1 to hit per 2 levels.', 'wpn:fist'],
     ['Thrown Objects', 'DEX', 'Rocks, daggers, staplers, whatever is closest.', ''],
+    ['Crossbow', 'DEX', 'Cranking, loading and putting a bolt where you meant it: +1 to hit per level. At level 3 you crank on the move with no free swings, and a critical hit pins the target for a turn.', ''],
     ['Brawling', 'STR', 'Bar fights, grapples and dirty tricks.', ''],
     ['Athletics', 'STR', 'Shove, grapple, climb, swim.', ''],
     ['Acrobatics', 'DEX', 'Balance, tumbling, slipping free.', ''],
@@ -7909,7 +7915,8 @@
     heal: [4, 'First Aid', 'you keep patching yourself up'],
     secret: [2, 'Trap Sense', 'you keep finding hidden things'],
     harvest: [3, 'Butchery', 'you keep cutting useful bits off corpses'],
-    throw: [4, 'Thrown Objects', 'you keep throwing things at problems']
+    throw: [4, 'Thrown Objects', 'you keep throwing things at problems'],
+    crossbow: [4, 'Crossbow', 'you keep cranking that crossbow']
   };
   function skillCount(key) {
     var c = CHAR, t = SKILL_TRIGGERS[key]; if (!c || !t) return; c.counts = c.counts || {}; c.counts[key] = (c.counts[key] || 0) + 1;
@@ -8371,7 +8378,7 @@
       { label: 'Second Wind', tag: CHAR && CHAR.swUsed ? 'used · nap to recharge' : '1d10 + level HP', ok: r.bonus && CHAR && !CHAR.swUsed && PC.hp < PC.max, fn: secondWind },
     ].concat([0, 1, 2, 3].map(function (i) { var it = hotItem(i); return it ? { label: 'Use ' + it.name, tag: it.heal + ' HP · ×' + (it.qty || 1), ok: r.bonus, fn: function () { useItem(it); } } : null; }).filter(Boolean)).concat([
       { label: 'Off-hand dagger attack', tag: '1d4, no modifier', ok: r.bonus && sty('off') === 3 && sty('main') > 0 && adj.length > 0, fn: function () { cbAttackButton(true); } }
-    ]);
+    ].concat(xbState() ? [{ label: 'Crank the crossbow', tag: xbState() === 'loaded' ? 'already loaded' : xbState() === 'free' ? 'free (Crossbow 3)' : 'ends your movement' + (adj.length ? ' · free swing at you' : ''), ok: (r.bonus || xbState() === 'free') && (xbState() === 'crank' || xbState() === 'free'), fn: function () { cbMenuClose(); cbCrank(null); } }] : []));
     var near = CB.enemies.filter(function (e) { return !e.dead && !e.calm && !e.npc && speaks(e) && cheb(P.x, P.z, e.x, e.z) <= 6; }).sort(function (a, b) { return cheb(P.x, P.z, a.x, a.z) - cheb(P.x, P.z, b.x, b.z); })[0];
     return [
       { label: tryLabel(), tag: 'describe anything · action', ok: r.action && triesLeft() > 0, fn: function () { trySomething(near); } },
@@ -8384,7 +8391,7 @@
       { label: 'Shove: push away', tag: 'Athletics contest', ok: r.action && adj.length > 0, fn: function () { cbShove(true); } },
       { label: 'Grapple', tag: 'Athletics contest · speed 0', ok: r.action && adj.length > 0, fn: cbGrapple },
       { label: 'Hide', tag: 'Stealth vs their Perception', ok: r.action && adj.length === 0, fn: cbHide },
-      { label: (Wt.bow ? 'Shoot ' : 'Throw ') + Wt.name, tag: Wt.noAir ? 'screw a tank on' : Wt.empty ? 'craft or find some' : Wt.n + 'd' + Wt.s + (Wt.acc ? ' · +' + Wt.acc + ' hit' : '') + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action && !Wt.empty, fn: function () { CB.aim = 'throw'; say(Wt.bow ? 'Shoot' : 'Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal ' + (Wt.bow ? 'shot' : 'throw') + '; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
+      { label: (Wt.bow ? 'Shoot ' : 'Throw ') + Wt.name, tag: Wt.noAir ? 'screw a tank on' : Wt.empty ? 'craft or find some' : xbState() === 'crank' ? 'cranks first: bonus action, ends your move' : xbState() === 'blocked' ? 'needs cranking: no bonus action left' : Wt.n + 'd' + Wt.s + (Wt.acc ? ' · +' + Wt.acc + ' hit' : '') + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action && !Wt.empty && xbState() !== 'blocked', fn: function () { CB.aim = 'throw'; say(Wt.bow ? 'Shoot' : 'Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal ' + (Wt.bow ? 'shot' : 'throw') + '; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
     ]);
   }
   function cbMenuToggle(which) {
@@ -8449,20 +8456,25 @@
   }
 
   // ---------- starting and ending a fight ----------
-  function cbStart(why, first) {
+  function cbStart(why, first, opt) {
+    opt = opt || {};
     if (CB.on || !CB.ready || (CHAR && CHAR.dead)) return;
     if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
     var solo = CB.dmPick === 'one' && first; CB.dmSolo = !!solo; CB.dmPick = null;
     var foes = solo ? [first] : CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || (!e.def.timid && cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8))); });
     if (!foes.length) return;
+    var sneaky = !!(crouch || PC.hidden);
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
     CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
     foes.forEach(function (e) { e.react = true; e.prone = false; e.grappled = false; e.fought = true; });
-    var pcInit = d20() + MOD.DEX - (hasTrait('Distractible') ? 2 : 0) + buffInit(); CB.order = [{ init: pcInit, who: 'pc' }].concat(foes.map(function (e) { e.init = d20() + e.def.init; return { init: e.init, who: e }; }))
+    // surprise (5e, 2014): you started it and they had not spotted you. They lose their first turn and cannot react until it passes; from a sneak, your first attack has advantage
+    var surp = opt.surprise ? foes.filter(function (e) { return !e.boss || sneaky; }) : []; surp.forEach(function (e) { e.surprised = true; e.react = false; fxTag(e, 'SURPRISED'); });
+    if (surp.length && sneaky) CB.advNext = true;
+    var ia = d20(), ib = opt.advInit ? d20() : 0, pcInit = Math.max(ia, ib) + MOD.DEX - (hasTrait('Distractible') ? 2 : 0) + buffInit(); /* you started it on something that had not noticed you: advantage on initiative */ CB.order = [{ init: pcInit, who: 'pc' }].concat(foes.map(function (e) { e.init = d20() + e.def.init; return { init: e.init, who: e }; }))
       .sort(function (a, b) { return b.init - a.init; }).map(function (o) { return o.who; });
     PC.init = pcInit;
     var names = CB.order.map(function (c) { return (c === 'pc' ? 'You ' + pcInit : c.name + ' ' + c.init); }).join(', ');
-    say('Combat · Roll for initiative', why + ' Turn order: ' + names + '.', 6000);
+    say('Combat · Roll for initiative', why + (surp.length ? ' ' + (surp.length === foes.length ? (foes.length === 1 ? 'It is' : 'They are all') : surp.length + ' of them are') + ' surprised: no turn for ' + (surp.length === 1 ? 'it' : 'them') + ' this round.' + (sneaky ? ' You were sneaking: your first attack has advantage.' : '') : '') + (opt.advInit ? ' You struck first: advantage on initiative (' + ia + '/' + ib + ').' : '') + ' Turn order: ' + names + '.', 6000);
     CB.idx = -1; CB.round = 0; foes.forEach(function (e) { cbFace(e, P.x, P.z); });
     setTimeout(cbNext, 700); cbHUD();
   }
@@ -8496,7 +8508,7 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
-  function cbEnd(win) { PC.burning = 0; CB.dmSolo = false; CB.allyFell = false; CB.enemies.forEach(function (e) { e.rallied = false; e.rally = 0; e.furious = false; e.fleeing = false; e.tauntedThisFight = 0; }); PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
+  function cbEnd(win) { (CHAR && CHAR.gear || []).forEach(function (g) { g.unloaded = false; }); CB.enemies.forEach(function (q) { q.pinned = 0; q.surprised = false; q.blind = 0; q.poisoned = null; q.doused = 0; }); PC.burning = 0; CB.dmSolo = false; CB.allyFell = false; CB.enemies.forEach(function (e) { e.rallied = false; e.rally = 0; e.furious = false; e.fleeing = false; e.tauntedThisFight = 0; }); PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -8528,7 +8540,7 @@
     if (c !== 'pc' && (c.dead || c.calm)) { cbNext(); return; }
     if (c === 'pc' && cbEscaped()) return;
     if (c === 'pc') {
-      CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
+      CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.walked = false; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
       if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
       if (PC.down) { cbRingsUpdate(); cbHUD(); setTimeout(cbDeathSave, 700); return; }
       burnPools(null); areaTurnStart('pc');
@@ -8560,7 +8572,7 @@
   }
   function cbWalk(path, then) {
     if (!path || !path.length) { if (then) then(); return; }
-    CB.res.move -= path.reduce(function (a, s) { return a + tileCost(s[0], s[1]); }, 0); if (CB.res.move < 0) CB.res.move = 0; CB.path = path; CB.afterWalk = then || null; CB.busy = true; cbShowMoves(); cbHUD();
+    CB.walked = true; CB.res.move -= path.reduce(function (a, s) { return a + tileCost(s[0], s[1]); }, 0); if (CB.res.move < 0) CB.res.move = 0; CB.path = path; CB.afterWalk = then || null; CB.busy = true; cbShowMoves(); cbHUD();
   }
   function cbMove(dt) { // called instead of joystick movement while a fight is on
     P.speed = 0; if (!CB.path || CB.pause) return;
@@ -8604,21 +8616,28 @@
     if (PC.hidden) { adv = true; why.push('unseen'); }
     if (e.prone) { if (dist <= 1) { adv = true; why.push('target prone'); } else { dis = true; why.push('prone target at range'); } }
     if (e.grappled && dist <= 1) { adv = true; why.push('grappled'); }
-    if (opt.ranged && cbAdjacent().length) { dis = true; why.push('enemy next to you'); }
+    if (opt.ranged && !Wp.pointBlank && cbAdjacent().length) { dis = true; why.push('enemy next to you'); }
     else if (opt.close) { dis = true; why.push('too close for a bow'); }
     if (opt.ranged && dist > Wp.range) { dis = true; why.push('long range'); }
     var oT = obscured(e.x, e.z), oA = obscured(P.x, P.z); if (oT && !oA) { dis = true; why.push('cannot see into the ' + (areaHas(e.x, e.z, ['darkness']) ? 'darkness' : 'smoke')); } else if (oA && !oT) { adv = true; why.push('they cannot see you'); }
-    if (e.webbed) { adv = true; why.push('stuck in a web'); } if (PC.webbed) { dis = true; why.push('you are stuck'); } if (PC.prone) { dis = true; why.push('attacking from the floor'); }
+    if (e.blind > 0) { adv = true; why.push('it is blinded'); } if (e.webbed) { adv = true; why.push('stuck in a web'); } if (PC.webbed) { dis = true; why.push('you are stuck'); } if (PC.prone) { dis = true; why.push('attacking from the floor'); }
     if (CB.advNext) { adv = true; why.push('opening'); CB.advNext = false; }
     var cover = opt.ranged && hasCover(P.x, P.z, e.x, e.z) ? 2 : 0, ac = acOf(e) + cover;
     var R = roll20(adv, dis), tot = R.r + Wp.hit, crit = R.r >= (Wp.crit || 20), hit = crit || (R.r !== 1 && tot >= ac);
     var line = R.txt + ' + ' + Wp.hit + ' = ' + tot + ' vs AC ' + ac + (cover ? ' (half cover)' : '') + (why.length ? ' · ' + why.join(', ') : '');
     if (PC.hidden) { PC.hidden = false; }
     if (hit) {
-      var raw = d(crit ? Wp.n * 2 : Wp.n, Wp.s), dm = Math.max(1, raw + Wp.dmgB); e.hp -= dm;
+      if (Wp.plain) { // a plain paintball: a splat and a sting, unless it finds an eye
+        vfxHit('acid', e.px, e.pz, e.def.h); diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, why: why });
+        if (crit) { e.hp -= 2; e.blind = 2; floater(e.px, e.def.h + 0.25, e.pz, 'CRIT -2', 'crit'); fxTag(e, 'BLINDED'); say('Right in the eye · ' + Wp.name + ' · ' + line, e.name + ' takes 2 damage and is blinded for 2 turns: it attacks at disadvantage and you attack it with advantage.', 5200); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true); }
+        else { floater(e.px, e.def.h + 0.25, e.pz, 'SPLAT', 'miss'); say('Splat · ' + Wp.name + ' · ' + line, e.name + ' is now very colorful. Plain paintballs only sting: fill them with something nasty.', 4200); }
+        return hit;
+      }
+      var raw = d(crit ? Wp.n * 2 : Wp.n, Wp.s), dm = Math.max(1, raw + Wp.dmgB); e.hp -= dm; if (crit && Wp.pin) { e.pinned = 1; setTimeout(function () { if (!e.dead) floater(e.px, (e.def.h || 1) + 0.6, e.pz, 'PINNED', 'status'); }, 400); }
       var exTxt = ''; if (Wp.edmg) { // enchanted: extra typed damage (doubled dice on a crit, double again if it is weak to that)
         var xm = /(\d+)d(\d+)/.exec(Wp.edmg.dice), xr = xm ? d((crit ? 2 : 1) * +xm[1], +xm[2]) : 0, weak = (e.def.vuln || []).indexOf(Wp.edmg.type) >= 0; if (weak) xr *= 2;
         if (xr && Wp.edmg.type === 'acid' && !e.dead) { var wv = (e.weak && e.weak.turns > 0 ? e.weak.v : 0) + 1; e.weak = { v: Math.min(3, wv), turns: 2 }; fxTag(e, 'ACID · -' + Math.min(3, wv) + ' AC'); } // acid eats armor (stacks to -3)
+        if (xr && Wp.edmg.type === 'fire') fireTouch(e);
         if (xr) { vfxHit(Wp.edmg.type, e.px, e.pz, e.def.h); e.hp -= xr; dm += xr; exTxt = ' (' + xr + ' of it ' + Wp.edmg.type + (weak ? ', and it is weak to that' : '') + ')'; setTimeout(function () { floater(e.px + 0.3, e.def.h + 0.55, e.pz, '+' + xr + ' ' + Wp.edmg.type, 'crit'); }, 260); }
       }
       diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, dd: (crit ? Wp.n * 2 : Wp.n) + 'd' + Wp.s, ds: Wp.s, raw: raw, db: Wp.dmgB, dm: dm, why: why });
@@ -8639,11 +8658,42 @@
     CB.busy = true; cbFaceHero(e.x, e.z); cbFace(e, P.x, P.z); kitOneShot(Wp.clip); cbHUD();
     setTimeout(function () { cbResolve(e, Wp); cbAfterMyMove(); }, 420);
   }
-  function cbAfterMyMove() { setTimeout(function () { CB.busy = false; cbShowMoves(); cbHUD(); if (!CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }, 500); }
+  // the opening shot: you see it before it sees you, take one ranged shot, then initiative is rolled (with advantage)
+  var FIGHT_OPEN = false; // opening shot + advantage on initiative: built, switched off until Michael picks a rule
+  function cbOpenShot(e) {
+    if (CB.on || !CB.ready || !e || e.dead) return; if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
+    var Wt = cbThrowable(), dist = cheb(P.x, P.z, e.x, e.z);
+    if (Wt.noAir || Wt.empty) { say(Wt.noAir ? 'No air' : 'No ammo', Wt.noAir ? 'Screw a CO2 tank on first.' : (AMMO_HINT[Wt.ammoKind] || 'Craft or find some.'), 3000); return; }
+    if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can reach ' + Wt.long + '.', 2600); return; }
+    if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is in the way.', 2400); return; }
+    if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0; P.px = P.x; P.pz = P.z; P.speed = 0;
+    var w = wieldItem(); if (w && w.unloaded) w.unloaded = false; // you had all the time in the world to crank it
+    CB.on = true; CB.order = ['pc']; CB.idx = 0; CB.round = 0; CB.res = { move: 0, action: 1, bonus: 0, swap: 0 }; CB.walked = false; CB.opener = { e: e }; PC.react = true;
+    say('Opening shot', 'It has not seen you yet. Take your shot, then roll for initiative.', 2600); cbThrow(e);
+  }
+  function cbAfterMyMove() { if (CB.opener) { var op = CB.opener; CB.opener = null; setTimeout(function () { CB.on = false; CB.busy = false; CB.order = []; CB.res = { move: 0, action: 0, bonus: 0, swap: 0 }; var tgt = op.e.dead ? CB.enemies.filter(function (q) { return !q.dead && !q.calm && !q.npc && cheb(q.x, q.z, P.x, P.z) <= 10; })[0] : op.e; if (tgt) cbStart(op.e.dead ? 'Your opening shot dropped it, and its friends heard.' : 'Your opening shot started it.', tgt, { advInit: true }); else { cbHUD(); say('Clean kill', 'One shot, and nothing else noticed.', 3000); } }, 900); return; }
+    setTimeout(function () { CB.busy = false; cbShowMoves(); cbHUD(); if (!CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }, 500); }
+  function xbState() { var w = wieldItem(), B = w && ITEMS[w.name] && ITEMS[w.name].bow; if (!B || !B.crank) return null; if (!w.unloaded) return 'loaded'; if (skillLv('Crossbow') >= 3) return 'free'; return CB.on && CB.res && !CB.res.bonus ? 'blocked' : 'crank'; }
+  // cranking the crossbow: your bonus action, and it ends your movement this turn; a monster next to you gets a free swing (Crossbow 3: all free)
+  function cbCrank(after) {
+    var w = wieldItem(), st = xbState(); if (!w || !st || st === 'loaded') { if (after) after(); return; }
+    if (st === 'free') { w.unloaded = false; say('Crossbow', 'You crank it on the move. (Crossbow ' + skillLv('Crossbow') + ')', 1800); cbHUD(); if (after) after(); return; }
+    if (!CB.on) { w.unloaded = false; say('Crossbow', 'Cranked and loaded.', 1600); if (after) after(); return; }
+    if (st === 'blocked') { say('Not loaded', 'Cranking takes your bonus action, and you have used it this turn.', 3200); return; }
+    CB.res.bonus = 0; CB.res.move = 0; w.unloaded = false; cbShowMoves(); cbHUD();
+    var near = CB.enemies.filter(function (q) { return !q.dead && !q.calm && !q.npc && !q.fleeing && CB.order.indexOf(q) >= 0 && cheb(q.x, q.z, P.x, P.z) <= 1; });
+    if (!near.length) { say('Crossbow', 'You crank it back. Bonus action, and you stop moving for this turn.', 2200); if (after) setTimeout(after, 250); return; }
+    say('Cranking under pressure', 'You crank the crossbow with ' + (near.length === 1 ? near[0].name : near.length + ' monsters') + ' right next to you. ' + (near.length === 1 ? 'It gets' : 'They get') + ' a free swing.', 3200);
+    CB.busy = true; cbHUD(); var i = 0;
+    (function next() { if (PC.down || PC.hp <= 0 || !CB.on) { CB.busy = false; cbHUD(); return; } var q = near[i++]; if (!q) { CB.busy = false; cbHUD(); if (after) setTimeout(after, 300); return; } if (q.dead) return next(); cbEnemyAttack(q, true, function () { setTimeout(next, 350); }); })();
+  }
   function cbThrow(e) {
     var Wt = cbThrowable(), dist = cheb(P.x, P.z, e.x, e.z);
     if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can ' + (Wt.bow ? 'shoot' : 'throw') + ' up to ' + Wt.long + '.', 2600); return; }
     if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is between you and ' + e.name + '.', 2600); return; }
+    // a crossbow fires once, then has to be cranked (see cbCrank): Shoot cranks first if it can
+    var xwi = Wt.bow && wieldItem(), xbow = !!(xwi && ITEMS[xwi.name] && ITEMS[xwi.name].bow && ITEMS[xwi.name].bow.crank), xlv = xbow ? skillLv('Crossbow') : 0;
+    if (xbow && xwi.unloaded && !Wt.empty && !Wt.noAir) { if (xbState() === 'blocked') { say('Not loaded', 'Cranking takes your bonus action, and you have used it this turn. Next turn: crank, then shoot.', 3600); return; } cbCrank(function () { if (!PC.down && CB.res.action) cbThrow(e); }); return; }
     CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); if (!Wt.bow) kitOneShot('Spell_Simple_Shoot'); cbHUD();
     if (Wt.noAir) { say('No air', 'The tank is off. Inventory → the marker → Screw a CO2 tank on.', 3000); CB.busy = false; CB.res.action = 1; cbHUD(); return; }
     if (Wt.empty) { say('Out of ' + (Wt.ammoKind || 'arrow') + 's', AMMO_HINT[Wt.ammoKind] || 'Craft or find some.', 2600); CB.busy = false; CB.res.action = 1; cbHUD(); return; }
@@ -8654,14 +8704,42 @@
       A.qty = (A.qty || 1) - 1; if (A.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(A), 1); saveChar(CHAR); if (typeof wsetDraw === 'function') wsetDraw(); return true; };
     var close = Wt.bow && Wt.pose !== 'gun' && cheb(P.x, P.z, e.x, e.z) <= 2;
     var flyK = Wt.bow ? (Wt.fly === 'pebble' ? 'pebble' : Wt.fly === 'paint' ? 'paint' : (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow')) : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
+    var AM = Wt.bow && Wt.ammo && ITEMS[Wt.ammo.name] ? ITEMS[Wt.ammo.name].ammo : null; if (AM && AM.plain) Wp.plain = true;
+    var PCOL = AM && AM.splash ? (AM.splash.type === 'acid' ? 0x9aff3a : AM.splash.type === 'poison' ? 0xb050ff : AM.splash.area === 'grease' ? 0xd8a030 : AM.splash.douse ? 0x8a5a20 : 0xffffff) : 0;
     var shots = Math.max(1, Wt.shots || 1); spend();
-    var fly = function (x0, y0, z0, left) { vfxBolt(flyK, x0, z0, e.px, e.pz, function () {
-      cbResolve(e, Wp, { ranged: true, close: close });
+    if (xbow) { xwi.unloaded = true; skillCount('crossbow'); Wp.hit += xlv; Wp.pointBlank = true; if (xlv >= 3) Wp.pin = true; }
+    var fly = function (x0, y0, z0, left) {
+      var lx = e.px, lz = e.pz, PR = null; // a filled paintball: roll to hit. A hit coats them, a miss coats the floor at their feet, a natural 1 goes wild
+      if (AM && AM.splash) { var ac0 = acOf(e), R0 = roll20(!!(e.blind > 0), false), tot0 = R0.r + Wp.hit; PR = { R: R0, tot: tot0, ac: ac0, crit: R0.r === 20, hit: R0.r === 20 || (R0.r !== 1 && tot0 >= ac0), wild: R0.r === 1 };
+        if (PR.wild) { var ang = Math.random() * Math.PI * 2, dd = 2 + Math.floor(Math.random() * 2); lx = Math.round(e.x + Math.cos(ang) * dd); lz = Math.round(e.z + Math.sin(ang) * dd); } }
+      vfxBolt(flyK, x0, z0, lx, lz, function () {
+      if (AM && AM.splash) paintSplash(e, AM.splash, Wp, PR, Math.round(lx), Math.round(lz)); else cbResolve(e, Wp, { ranged: true, close: close });
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }
       if (left > 1 && !e.dead && CB.on && spend()) { setTimeout(function () { kitGunKick(); fly(x0, y0, z0, left - 1); }, 260); return; } // a second shot in the same action
       cbAfterMyMove();
-    }, { ty: (e.def.h || 1) * 0.6, y0: y0 }); };
+    }, { ty: (e.def.h || 1) * 0.6, y0: y0, col: flyK === 'paint' ? (PCOL || [0xff3a8a, 0x3ac8ff, 0xffd83a, 0xff8a2a, 0x8aff3a][Math.floor(Math.random() * 5)]) : undefined }); };
     if (Wt.bow) kitBowShot(function (x0, y0, z0) { fly(x0, y0, z0, shots); }, Wt.pose); else setTimeout(function () { fly(P.px, 1.15, P.pz, 1); }, 260);
+  }
+  // a filled paintball: a hit coats the target (the ball itself does nothing, unless it finds an eye), a miss coats the floor at its feet, a natural 1 goes wild
+  function paintSplash(e, S, Wp, PR, x, z) {
+    var notes = [], line = PR.R.txt + ' + ' + Wp.hit + ' = ' + PR.tot + ' vs AC ' + PR.ac, onT = PR.hit && !e.dead ? e : null;
+    diceShow({ who: 'You', vs: e.name, R: PR.R, bonus: Wp.hit, tot: PR.tot, ac: PR.ac, hit: PR.hit, crit: PR.crit, why: [] });
+    var floorCoat = function (fx, fz) { var k = S.area || (S.douse ? 'grease' : null); if (k && typeof vfxArea === 'function') vfxArea(k, fx, fz, S.area ? (S.r || 1) : 0.8, S.secs || 20);
+      notes.push(S.area === 'acid' ? 'A pool of acid spreads on the floor (1d4 and -1 AC to anything standing in it).' : S.area === 'grease' ? 'Grease coats the floor: anything moving there may fall.' : S.douse ? 'Oil slicks the floor. It is slippery, and it will burn.' : 'It soaks into the floor and does nothing.'); };
+    if (PR.wild) { notes.push('A natural 1: the shot goes wild.'); floorCoat(x, z); var wt = CB.enemies.filter(function (q) { return !q.dead && !q.npc && q.x === x && q.z === z; })[0]; if (wt) notes.push('It splats near ' + wt.name + '.'); }
+    else if (!onT) { notes.push('Missed ' + e.name + '. It splats at its feet.'); floorCoat(e.x, e.z); }
+    else {
+      var t = onT;
+      if (PR.crit) { t.hp -= 2; t.blind = 2; floater(t.px, t.def.h + 0.25, t.pz, 'CRIT -2', 'crit'); fxTag(t, 'BLINDED'); notes.push('Right in the eye: 2 damage, and it is blinded for 2 turns.'); }
+      else { floater(t.px, t.def.h + 0.25, t.pz, 'COATED', 'status'); notes.push('Hit. The ball does nothing on its own, but ' + t.name + ' is coated.'); }
+      if (S.dice) { var dm = Math.max(1, rollDice(S.dice)), weak = (t.def.vuln || []).indexOf(S.type) >= 0; if (weak) dm *= 2; t.hp -= dm; setTimeout(function () { floater(t.px, t.def.h + 0.5, t.pz, '-' + dm + ' ' + S.type, 'dmg'); }, 250); vfxHit(S.type, t.px, t.pz, t.def.h); notes.push('The ' + S.type + ' eats at it: ' + dm + ' ' + S.type + ' damage' + (weak ? ' (weak to it: double)' : '') + '.'); }
+      if (S.type === 'acid' && t.hp > 0) { var wv = (t.weak && t.weak.turns > 0 ? t.weak.v : 0) + 1; t.weak = { v: Math.min(3, wv), turns: 2 }; fxTag(t, 'ACID · -' + Math.min(3, wv) + ' AC'); notes.push('Its armor softens: -' + Math.min(3, wv) + ' AC.'); }
+      if (S.poison && t.hp > 0) { t.poisoned = { dice: S.poison.dice, turns: S.poison.turns }; fxTag(t, 'POISONED'); notes.push('It is poisoned: ' + S.poison.dice + ' a turn for ' + S.poison.turns + ' turns.'); }
+      if (S.area === 'grease' && t.hp > 0) { t.greased = true; if (typeof vfxArea === 'function') vfxArea('grease', t.x, t.z, 0.6, 20); notes.push('Greased head to toe, and dripping on the floor it stands on.'); }
+      if (S.douse && t.hp > 0) { if (t.burning && t.burning.turns > 0) { t.burning.turns += 2; t.burning.dice = '1d6'; fxTag(t, 'FUEL ON THE FIRE'); notes.push('It was already burning. Now it burns harder, and for longer.'); } else { t.doused = 4; fxTag(t, 'DOUSED'); notes.push('Soaked in oil: the next fire that touches it sets it ablaze.'); } }
+      if (t.hp <= 0) cbKill(t); else if (PR.crit || S.dice) cbPlay(t, 'Hit_Chest', true);
+    }
+    say((PR.wild ? 'Natural 1 · ' : PR.crit ? 'Critical · ' : PR.hit ? 'Hit · ' : 'Miss · ') + Wp.name + ' · ' + line, notes.join(' '), 5600);
   }
   function cbContest(e) { // your Athletics against their Athletics or Acrobatics, whichever is better for them
     var me = d20() + MOD.STR + skillLv('Athletics') - (hasTrait('Bad Back') ? 2 : 0), them = d20() + Math.max(e.def.str, e.def.dex) + (e.kind === 'imp' ? 2 : 0);
@@ -8778,10 +8856,14 @@
 
   // ---------- monster turns ----------
   function cbEnemyTurn(e) {
+    if (e.surprised && !e.dead) { e.surprised = false; say(e.name + ' is surprised', 'It is still working out what just happened. It loses this turn.', 2400); setTimeout(cbNext, 1000); return; }
     if (!CB.on) return;
     if (e.dead || e.calm) { setTimeout(cbNext, 200); return; } // it made a deal mid-fight: it keeps its word
     if (e.weak && e.weak.turns > 0) e.weak.turns--;
     burnPools(e); areaTurnStart(e); if (e.dead) { setTimeout(cbNext, 900); return; }
+    if (e.blind > 0) { e.blind--; if (!e.blind) fxTag(e, 'CAN SEE AGAIN'); }
+    if (e.doused > 0) e.doused--;
+    if (e.poisoned && e.poisoned.turns > 0) { var pd = Math.max(1, rollDice(e.poisoned.dice)); e.hp -= pd; e.poisoned.turns--; floater(e.px, e.def.h + 0.3, e.pz, '-' + pd + ' poison', 'dmg'); vfxHit('poison', e.px, e.pz, e.def.h); say(e.name + ' is poisoned', pd + ' poison damage.' + (e.poisoned.turns ? '' : ' It has sweated it out.'), 2400); if (e.hp <= 0) { cbKill(e); setTimeout(cbNext, 900); return; } }
     if (e.burning && e.burning.turns > 0) { // on fire: damage every turn until it goes out (a DEX save, or it spends its turn patting it out)
       var bd = Math.max(1, rollDice(e.burning.dice)); e.hp -= bd; e.burning.turns--; floater(e.px, e.def.h + 0.3, e.pz, '-' + bd, 'dmg'); fxTag(e, 'BURNING');
       var smart = typeof intOf === 'function' && intOf(e) === 'smart', sv = d20() + (e.def.dex || 0), out = e.burning.turns <= 0 || sv >= 10, pat = false;
@@ -8793,13 +8875,13 @@
     if (e.stunned > 0) { e.stunned--; say(e.name + ' loses its turn', e.stunned ? 'Still reeling.' : 'It shakes it off. Next turn it is back.', 2600); setTimeout(cbNext, 1000); return; }
     var speed = e.def.speed;
     if (e.prone) { e.prone = false; speed = Math.floor(speed / 2); cbPlay(e, 'Idle_Loop'); say(e.name, 'It scrambles back to its feet (half its movement).', 2200); }
-    if (e.grappled || e.webbed) speed = 0;
+    if (e.grappled || e.webbed) speed = 0; if (e.pinned > 0) { e.pinned--; speed = 0; }
     if (PC.down) { // the show likes a dramatic pause: monsters gloat instead of finishing you
       setTimeout(function () { say(e.name, ['It pokes you with its ' + e.def.weapon + ' and waves at the camera.', 'It goes through your pockets.', 'It does a little dance.'][Math.floor(Math.random() * 3)], 2400); setTimeout(cbNext, 900); }, 300); return;
     }
     if (persona(e, speed)) return; // cowards run, braggarts taunt, leaders rally
     if (cheb(e.x, e.z, P.x, P.z) <= 1) { cbEnemyAttack(e, false, cbNextAfterHit); return; }
-    if (!speed) { say(e.name, e.webbed ? 'It thrashes in the web and cannot move.' : 'It strains against your grip and cannot reach you.', 2200); setTimeout(cbNext, 600); return; }
+    if (!speed) { say(e.name, e.webbed ? 'It thrashes in the web and cannot move.' : e.pinned !== undefined && speed === 0 && !e.grappled ? 'It is pinned in place by your bolt.' : 'It strains against your grip and cannot reach you.', 2200); setTimeout(cbNext, 600); return; }
     var r = bfs(e.x, e.z, e, 40), best = null;
     for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { if (!dx && !dz) continue; var k = (P.x + dx) + ',' + (P.z + dz); if (r.dist[k] !== undefined && (best === null || r.dist[k] < r.dist[best])) best = k; }
     if (best === null) { say(e.name, 'It cannot find a way to you and snarls instead.', 2500); setTimeout(cbNext, 700); return; }
@@ -8851,7 +8933,10 @@
   function obscured(x, z) { return areaHas(x, z, ['smoke', 'darkness']); }
   function tileCost(x, z) { return areaHas(x, z, ['ice', 'web', 'spikes']) ? 2 : 1; }
   function areaSave(who, stat) { return d20() + (who === 'pc' ? MOD[stat] : ((who.def[stat.toLowerCase()] | 0) || 0)); }
+  // a monster coated in oil goes up the moment fire touches it; one already burning keeps burning
+  function fireTouch(e) { if (!e || e === 'pc' || e.dead || !(e.doused > 0)) return false; e.doused = 0; var was = e.burning && e.burning.turns > 0; e.burning = { dice: '1d6', turns: (was ? e.burning.turns : 0) + 3 }; fxTag(e, 'IGNITED'); vfxHit('fire', e.px, e.pz, e.def.h); say(e.name + ' goes up in flames', 'The oil on it catches. It will burn for a while.', 3000); return true; }
   function areaHurt(who, n, kind, why) {
+    if (kind === 'fire' && who !== 'pc') fireTouch(who);
     if (who === 'pc') { PC.hp = Math.max(0, PC.hp - n); floater(P.px, 1.5, P.pz, '-' + n + ' ' + kind, 'pdmg'); vfxHit(kind === 'piercing' ? 'steel' : kind, P.px, P.pz, 1.6); cbHUD(); say(why, n + ' ' + kind + ' damage.', 2600); if (PC.hp <= 0) { if (CB.on) cbFall(); else PC.hp = 1; } return; }
     who.hp -= n; floater(who.px, who.def.h + 0.3, who.pz, '-' + n + ' ' + kind, 'dmg'); vfxHit(kind === 'piercing' ? 'steel' : kind, who.px, who.pz, who.def.h); say(who.name + ': ' + why, n + ' ' + kind + ' damage.', 2400);
     if (who.hp <= 0 && !who.dead) cbKill(who);
@@ -8903,7 +8988,7 @@
   function cbEnemyAttack(e, opportunity, then) {
     cbFace(e, P.x, P.z); cbPlay(e, e.def.attackClip, true);
     var dis = CB.dodge || PC.hidden || e.prone, why = [];
-    if (CB.dodge) why.push('you dodge'); if (PC.hidden) why.push('cannot see you'); if (e.prone) why.push('attacking from the floor');
+    if (CB.dodge) why.push('you dodge'); if (PC.hidden) why.push('cannot see you'); if (e.prone) why.push('attacking from the floor'); if (e.blind > 0) { dis = true; why.push('it is blinded'); }
     var adv2 = false, oP = obscured(P.x, P.z), oE = obscured(e.x, e.z), nearP = cheb(e.x, e.z, P.x, P.z) <= 1;
     if (oP && !oE) { dis = true; why.push('cannot see you in the ' + (areaHas(P.x, P.z, ['darkness']) ? 'darkness' : 'smoke')); } else if (oE && !oP) { adv2 = true; why.push('you cannot see it'); }
     if (PC.webbed) { adv2 = true; why.push('you are stuck'); } if (PC.prone) { if (nearP) { adv2 = true; why.push('you are on the floor'); } else { dis = true; why.push('you are prone, at range'); } } if (e.webbed) { dis = true; why.push('it is stuck'); }
@@ -9218,7 +9303,16 @@
     Object.keys(ITEMS).forEach(function (n) { if (have[n]) return; var it = item(n, { from: 'DM mode' }); if (!it) return; if (ITEMS[n].ammo) it.qty = 99; (d.gear = d.gear || []).push(it); });
     return d;
   }
+  // items that were renamed: old saves keep working
+  var RENAMED = { 'Acid Splat Marker': 'Paintball gun' };
+  function renameOld(c) {
+    var f = function (n) { return RENAMED[n] || n; };
+    (c.gear || []).forEach(function (g) { if (RENAMED[g.name]) { g.name = RENAMED[g.name]; var I = ITEMS[g.name]; if (I) g.desc = I.desc; } });
+    ['wield', 'back', 'ammo'].forEach(function (k) { if (c[k]) c[k] = f(c[k]); }); ['hotbar', 'hotbar2'].forEach(function (k) { if (c[k]) c[k] = c[k].map(function (n) { return n && f(n); }); });
+    return c;
+  }
   function loadChar(c) {
+    renameOld(c);
     if (isDM() && !c.isDM) c = dmCharFrom(c);
     applyChar(c); if (c.isDM) { CHAR.isDM = true; CHAR.realName = c.realName; setTimeout(function () { say('DM mode', 'You are the DM: a separate character on this device. Your real character is untouched. Monsters ignore you until you tap one and choose DM: aggro.', 6500); }, 1800); }
     if (c.look) { for (var k in c.look) if (look[k]) look[k] = c.look[k]; buildHero(); }
@@ -10244,7 +10338,7 @@
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
     if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Load these first']);
-    if (it.name === 'Acid Splat Marker') acts.push(it.noTank ? ((CHAR.gear || []).some(function (g) { return g.name === 'CO2 tank'; }) ? ['tankon', 'Screw a CO2 tank on'] : null) : ['tankoff', 'Unscrew the CO2 tank']);
+    if (it.name === 'Paintball gun') acts.push(it.noTank ? ((CHAR.gear || []).some(function (g) { return g.name === 'CO2 tank'; }) ? ['tankon', 'Screw a CO2 tank on'] : null) : ['tankoff', 'Unscrew the CO2 tank']);
     acts = acts.concat(lampActs(it));
     if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
     if (hotEligible(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
@@ -10658,6 +10752,7 @@
       var pc = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.03), lt); pc.position.set(0, 0.22, -0.1); g.add(pc); return; }
     if (IB.proc === 'crossbow') { // after Michael's photos: a walnut rifle stock with a cheek notch, a black latch plate and lever, a steel prod with end caps, a wire string
       // same frame as the marker: +y toward the target, +z up, the hand on the wrist of the stock at the origin
+      g.position.y = -0.16 * 1.35; g0.userData.muzzle = new THREE.Vector3(0, (0.3 - 0.16) * 1.35, 0.075 * 1.35); // held by the fore-end (the front hand); the bolt leaves the front of the tiller
       var XB = gearModel.xb || (gearModel.xb = (function () {
         var cv = document.createElement('canvas'); cv.width = 32; cv.height = 128; var c2 = cv.getContext('2d'); c2.fillStyle = '#a07c4c'; c2.fillRect(0, 0, 32, 128);
         for (var i = 0; i < 26; i++) { c2.strokeStyle = ['#7e5e34', '#b8925e', '#6c4e2a'][i % 3]; c2.lineWidth = 1 + (i % 2); c2.beginPath(); var x0 = Math.random() * 32; c2.moveTo(x0, 0); c2.bezierCurveTo(x0 + 6, 40, x0 - 6, 88, x0 + 3, 128); c2.stroke(); }
@@ -10680,8 +10775,9 @@
       [tipL, tipR].forEach(function (t) { var cp = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 8), XB.iron); cp.position.copy(t); cp.rotation.z = Math.PI / 2 + (t.x < 0 ? 0.5 : -0.5); g.add(cp); });
       var nut = new THREE.Vector3(0, 0.075, 0.07), sg = new THREE.BufferGeometry().setFromPoints([tipL, nut, tipR]); g.add(new THREE.Line(sg, XB.wire)); // the string, drawn back to the latch
       return; }
-    if (IB.proc === 'marker') { // the Acid Splat Marker, after Michael's photo: gold carbon-fibre body, big black loader, long ported barrel, foregrip, air tank off the back
+    if (IB.proc === 'marker') { // the Paintball gun, after Michael's photo: gold carbon-fibre body, big black loader, long ported barrel, foregrip, air tank off the back
       // frame: +y down the barrel, +z the top of the gun, the hand round the grip at the origin
+      g.position.y = -0.13 * 1.35; g0.userData.muzzle = new THREE.Vector3(0, (0.5 - 0.13) * 1.35, 0.085 * 1.35); // held by the foregrip (the front hand); the shot leaves the muzzle
       var MK = gearModel.mk || (gearModel.mk = (function () {
         var cv = document.createElement('canvas'); cv.width = cv.height = 64; var c2 = cv.getContext('2d'); // carbon weave in gold
         for (var yy = 0; yy < 8; yy++) for (var xx = 0; xx < 8; xx++) { var on = (xx + yy) % 2; var gr = c2.createLinearGradient(xx * 8, yy * 8, xx * 8 + 8, yy * 8 + 8); gr.addColorStop(0, on ? '#f0b440' : '#8a5a14'); gr.addColorStop(1, on ? '#b07818' : '#5a3a0a'); c2.fillStyle = gr; c2.fillRect(xx * 8, yy * 8, 8, 8); }
@@ -10838,7 +10934,9 @@
     if (t.e && !t.e.dead) {
       if (cheb(P.x, P.z, t.x, t.z) <= 6) opts.push({ label: 'Talk' + (far ? ' (call out)' : ''), fn: function () { talkOpen(t.e); } });
       else opts.push({ label: 'Walk over and talk', fn: function () { walkTo(t.x, t.z, function () { talkOpen(t.e); }, true); } });
-      if (!t.e.calm && !t.e.npc) opts.push({ label: 'Attack', fn: function () { cbStart('You start it.', t.e); } });
+      if (!t.e.calm && !t.e.npc && !CB.on) { var rw = cbThrowable(), rng = cheb(P.x, P.z, t.x, t.z);
+        if (FIGHT_OPEN && rw.bow && rng <= rw.long) opts.push({ label: 'Opening shot <i>before it sees you</i>', fn: function () { cbOpenShot(t.e); } });
+        opts.push({ label: 'Attack', fn: function () { cbStart('You start it.', t.e, { surprise: true }); } }); }
     }
     if (t.e && t.e.dead) enemyActs(t.e).forEach(function (a) { if (/^Examine/.test(a.label)) return; opts.push({ label: a.label, fn: function () { walkTo(t.x, t.z, function () { act(t, a); }, true); } }); });
     else if (!t.e) (actsOf(t) || []).forEach(function (a) { if (/^Examine/.test(a.label)) return; var b = a.stat ? chkBonus(a) : 0; opts.push({ label: a.label + (a.stat ? ' <i>' + a.stat + ' ' + (b >= 0 ? '+' : '') + b + '</i>' : ''), fn: function () { walkTo(t.x, t.z, function () { act(t, a); }, true); } }); });
@@ -10945,7 +11043,7 @@
       if ((f.type === 'stun' || f.type === 'distract') && e && !e.dead) { fxTag(e, f.type === 'stun' ? 'STUNNED' : 'DISTRACTED'); e.stunned = Math.max(e.stunned || 0, Math.min(3, f.turns || 1)); notes.push(e.name + (f.type === 'stun' ? ' is stunned' : ' is distracted') + ' for ' + e.stunned + ' turn' + (e.stunned > 1 ? 's' : '') + '.'); }
       if (f.type === 'adv') { CB.advNext = true; notes.push('Your next attack has advantage.'); }
       if (f.type === 'push' && e && !e.dead) { var sx = Math.sign(e.x - P.x), sz = Math.sign(e.z - P.z), n = 0; for (var k = 0; k < Math.min(3, f.tiles || 2); k++) { if (!walkable(e.x + sx, e.z + sz, e)) break; e.x += sx; e.z += sz; n++; } e.px = e.x; e.pz = e.z; e.obj.position.set(e.x, 0, e.z); if (n) notes.push(e.name + ' is pushed back ' + n + ' tile' + (n > 1 ? 's' : '') + '.'); }
-      if (f.type === 'burn' && e && !e.dead) { fxTag(e, 'ON FIRE'); e.burning = { dice: f.dice || '1d6', turns: Math.min(6, f.turns || 2) }; notes.push(e.name + ' is on fire, and keeps burning until it puts itself out.'); }
+      if (f.type === 'burn' && e && !e.dead) { var dz = e.doused > 0; e.doused = 0; fxTag(e, dz ? 'IGNITED' : 'ON FIRE'); e.burning = { dice: dz ? '1d6' : (f.dice || '1d6'), turns: Math.min(dz ? 9 : 6, (f.turns || 2) + (dz ? 3 : 0) + (e.burning && e.burning.turns > 0 ? e.burning.turns : 0)) }; notes.push(e.name + ' is on fire, and keeps burning until it puts itself out.'); }
       if (f.type === 'weaken' && e && !e.dead) { fxTag(e, 'STUCK · -' + Math.min(4, f.ac || 2) + ' AC'); e.weak = { v: Math.min(4, f.ac || 2), turns: Math.min(5, f.turns || 2) }; notes.push('Its guard is down: ' + e.weak.v + ' less armor for ' + e.weak.turns + ' turns.'); }
       if (f.type === 'calm' && e && !e.dead) { if (e.boss && !f.weak) return; e.calm = true; notes.push(e.name + ' will not fight you.'); }
       if (f.type === 'reveal' && e) { var W = weakOf(e); notes.push(W ? 'You learn something: ' + W.hint : 'You learn how it fights: AC ' + acOf(e) + ', ' + e.def.weapon + '.'); }
@@ -10960,7 +11058,7 @@
   // status words float up over the target, staggered so they don't stack on the damage number
   function fxTag(e, txt) { e.tagN = (e.tagN || 0) + 1; var n = e.tagN; setTimeout(function () { floater(e.px, (e.def.h || 0.8) + 0.55 + 0.25 * ((n - 1) % 3), e.pz, txt, 'status'); }, 180 * ((n - 1) % 3)); setTimeout(function () { e.tagN = 0; }, 900); }
   function afterTrick(e) {
-    if (!CB.on && e && !e.dead && !e.calm) cbStart('That got its attention.', e);
+    if (!CB.on && e && !e.dead && !e.calm) cbStart('That got its attention.', e, { surprise: true });
     else if (CB.on) cbAfterMyMove();
     worldSave();
   }
@@ -11335,7 +11433,7 @@
   function spellHurt(e, dice, type, crit) {
     if (!e || e.dead) return ''; var m = /(\d+)d(\d+)([+-]\d+)?/.exec(dice || '1d4'), dm = 0; if (!m) return '';
     for (var i = 0; i < (+m[1]) * (crit ? 2 : 1); i++) dm += 1 + Math.floor(Math.random() * +m[2]); dm = Math.max(1, dm + (+(m[3] || 0)));
-    var weak = (e.def.vuln || []).indexOf(type) >= 0; if (weak) dm *= 2;
+    var weak = (e.def.vuln || []).indexOf(type) >= 0; if (weak) dm *= 2; if (type === 'fire') fireTouch(e);
     e.hp -= dm; floater(e.px, (e.def.h || 1) + 0.3, e.pz, '-' + dm + (weak ? '!' : ''), 'dmg'); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true);
     return dm + ' ' + type + (weak ? ' (weak to it: double)' : '');
   }
@@ -11582,9 +11680,21 @@
   function arrowCraft(sel, idea) {
     var wantsArrows = /arrow/i.test(idea || ''); if (sel.length < 2 || (sel.length > 3 && !wantsArrows)) return false; // asking for arrows by name lets you throw in extras: it uses what it needs
     var isArrow = function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === 'arrow'; };
-    var pb = sel.filter(function (g) { return g.name === 'Paintballs'; })[0], tox = sel.filter(function (g) { return g !== pb && tg(g, 'toxic'); })[0];
-    if (pb && tox) { var n = Math.min(10, pb.qty || 1); pb.qty = (pb.qty || 1) - n; if (pb.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(pb), 1); itemSpend(tox); invAdd(item('Acid paintballs', { qty: n, from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
-      craftSay('ok', 'Made ' + n + ' acid paintballs', 'You dosed the paintballs with ' + tox.name.toLowerCase() + '. They are warm now. Do not keep them in a pocket.'); return true; }
+    // paintballs + a filling: acid, then poison, then grease, then anything flammable
+    var pb = sel.filter(function (g) { return g.name === 'Paintballs'; })[0], rest = sel.filter(function (g) { return g !== pb; });
+    if (pb && rest.length === 1) {
+      var fl = rest[0], nm = String(fl.name).toLowerCase(), kind = tg(fl, 'acid') || /acid/.test(nm) ? 'Acid' : tg(fl, 'toxic') || /poison|venom/.test(nm) ? 'Poison' : tg(fl, 'slippery') || /grease|lard|lube/.test(nm) ? 'Grease' : tg(fl, 'flammable') && !tg(fl, 'wood') ? 'Oil' : null;
+      if (!kind) { craftSay('no', 'Nothing to fill them with', fl.name + ' will not go into a paintball. Try acid, something toxic, grease, or something flammable.'); return true; }
+      var n = Math.min(10, pb.qty || 1); pb.qty = (pb.qty || 1) - n; if (pb.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(pb), 1); itemSpend(fl);
+      invAdd(item(kind + ' paintballs', { qty: n, from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
+      craftSay('ok', 'Made ' + n + ' ' + kind.toLowerCase() + ' paintballs', { Acid: 'You filled them with ' + nm + '. They are warm now. Do not keep them in a pocket.', Poison: 'You loaded them with ' + nm + '. Hold your breath while you work.', Grease: 'Greasy little balls of trouble, filled with ' + nm + '.', Oil: 'Filled with ' + nm + '. Fire is now your friend.' }[kind]); return true;
+    }
+    // brewing acid: something toxic plus batteries (battery acid), or two different toxic things
+    var tox2 = sel.filter(function (g) { return tg(g, 'toxic') && !tg(g, 'acid') && !(ITEMS[g.name] || {}).ammo; }), bat = sel.filter(function (g) { return tg(g, 'battery') || /batter/i.test(g.name); })[0];
+    if (sel.length === 2 && ((tox2.length === 1 && bat) || (tox2.length === 2 && tox2[0].name !== tox2[1].name))) {
+      sel.forEach(function (g) { itemSpend(g); }); invAdd(item('Vial of acid', { from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
+      craftSay('ok', 'Brewed a vial of acid', 'It smokes when you tilt it. Throw it, or fill paintballs with it.'); skillCount('alchemy'); return true;
+    }
     var w = sel.filter(function (g) { return tg(g, 'wood') && !isArrow(g); }); if (!w.length || sel.some(isArrow)) return false;
     var tie = sel.length === 3 ? sel.filter(function (g) { return g !== w[0] && (tg(g, 'binding') || tg(g, 'sticky') || tg(g, 'stringy')); })[0] : null; // tape or twine: an optional third part, half again as many arrows
     if (sel.length === 3 && !tie && !wantsArrows) return false;
@@ -11821,12 +11931,12 @@
     else if (kind === 'fireball') { g = vfxOrb(0xffb040, 0.3); speed = 10; peak = 0.8 + d * 0.06; trail = 'fire'; }
     else if (kind === 'acid') { g = vfxOrb(0x9ae040, 0.3); speed = 12; peak = 0.6 + d * 0.07; trail = 0x7ac030; }
     else if (kind === 'pebble') { g = new THREE.Mesh(new THREE.DodecahedronGeometry(0.045), new THREE.MeshLambertMaterial({ color: 0x8a8278 })); speed = 20; peak = d * 0.02; o.spin = true; }
-    else if (kind === 'paint') { g = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0x9aff3a })); speed = 18; peak = d * 0.015; trail = 0x6ad020; }
+    else if (kind === 'paint') { var pc0 = o.col || 0x9aff3a; g = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: pc0 })); speed = 18; peak = d * 0.015; trail = pc0; }
     else { g = vfxOrb(0xffffff, 0.25); }
     g.position.set(x0, y0, z0); scene.add(g);
     VFX.bolts.push({ g: g, x0: x0, z0: z0, y0: y0, tx: tx, tz: tz, ty: ty, t: 0, dur: Math.max(0.12, d / speed), peak: peak, trail: trail, spin: o.spin, aim: kind === 'arrow' || kind === 'firearrow', done: function () {
       scene.remove(g);
-      if (kind === 'paint') { vfxBurst(tx, tz, 0x9aff3a, 14, 2); vfxPool(tx + (Math.random() - 0.5) * 0.3, tz + (Math.random() - 0.5) * 0.3, 0.32, 0x7adf2a, 10); vfxSmoke(tx, 0.4, tz, 0.3, 3, 0x9ac060); } else
+      if (kind === 'paint') { var pc1 = o.col || 0x9aff3a; vfxBurst(tx, tz, pc1, 14, 2); vfxPool(tx + (Math.random() - 0.5) * 0.3, tz + (Math.random() - 0.5) * 0.3, 0.22, pc1, 6); } else
       if (kind === 'fireball') vfxFireball(tx, tz, o.r || 2); else if (kind === 'firebolt' || kind === 'firearrow') vfxHit('fire', tx, tz, 1.4); else if (kind === 'acid') { vfxHit('acid', tx, tz, 1.4); vfxArea('acid', tx, tz, o.r || 0.8, 12); } else vfxHit('steel', tx, tz, 1.4);
       if (done) done();
     } });
@@ -12788,7 +12898,7 @@
     if (a.harvest) { closeMenu(); harvest(t.e); return; }
     if (a.auto === 'try') { trySomething(t.e || null); return; }
     if (a.fnx) { a.fnx(); return; }
-    if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); t.e.calm = false; cbStart(t.e.calm ? '' : 'You started it.', t.e); return; }
+    if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); t.e.calm = false; cbStart(t.e.calm ? '' : 'You started it.', t.e, { surprise: true }); return; }
     if (a.rest) { PC.hp = PC.max; cbHUD(); }
     if (a.auto === 'eat') { eatFood(); return; }
     if (a.auto === 'snack') {
@@ -13070,7 +13180,7 @@
     AL.sh.rotation.z = -0.05 - br * 0.012; AR.sh.rotation.z = 0.05 + br * 0.012;
     if (KIT && KIT.on) kitAnimate(dt, P.speed, air, crouch, sty('off') === 2);
     cbUpdate(dt);
-    held.forEach(function (h) { h.el.updateWorldMatrix(true, false); h.el.getWorldQuaternion(hq1); rig.parent.getWorldQuaternion(hq2); hq3.setFromAxisAngle(upY, rig.rotation.y); h.g.quaternion.copy(hq1.invert()).multiply(hq2).multiply(hq3); if (h.t) h.g.quaternion.multiply(h.t); }); // torches, staves and blades stay upright whatever the arm does
+    held.forEach(function (h) { if (h.g === BOW_G && KIT && KIT.bowT != null && KIT.bowPose === 'gun') return; /* aiming a gun: the pose owns it */ h.el.updateWorldMatrix(true, false); h.el.getWorldQuaternion(hq1); rig.parent.getWorldQuaternion(hq2); hq3.setFromAxisAngle(upY, rig.rotation.y); h.g.quaternion.copy(hq1.invert()).multiply(hq2).multiply(hq3); if (h.t) h.g.quaternion.multiply(h.t); }); // torches, staves and blades stay upright whatever the arm does
     rig.position.y = (KIT && KIT.on) ? jy + LIFT * rig.scale.y : jy + (LIFT - 0.155 * cr) * rig.scale.y + (P.speed > 0 && !air ? Math.abs(Math.sin(walkPhase)) * 0.025 : br * 0.004);
     rig.rotation.x = (air || (KIT && KIT.on)) ? 0 : (0.18 * cr + (P.speed > 2 ? 0.06 : 0));
     headG.rotation.y = (gearOpen || P.speed > 0) ? 0 : Math.sin(T * 0.6) * 0.3;
@@ -13092,6 +13202,7 @@
   window.__crawl = { CB: CB, stairs: { open: stairsOpen, check: stairsCheck, dbg: function () { return tiles.filter(function (t) { return t.gate !== undefined; }).map(function (t) { return [t.gate, t.mesh.visible, t.x, t.z]; }); } }, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   window.__crawl.t = { eturn: cbEnemyTurn, mind: mindOf, persona: persona, ch: ch, lv: function () { return LEVEL; }, acts: actsOf, safe: safeAct, woody: isWoody, tiles: function () { return tiles; }, areaApply: areaApply, areaStart: areaTurnStart, area: vfxArea, areasAt: areasAt, tileCost: tileCost, pc: function () { return PC; }, res: function () { return CB.res; }, tryBag: tryBag, tryApply: tryApply, hotPut: hotPut, hotItem: hotItem, throwIt: throwItem, charRaw: function () { return CHAR; }, stash: stashBody, drop: dropBody, take: talkTake, vfx: vfxPreview, shoot: cbThrow, ammoPick: ammoPick, arrowCraft: arrowCraft, throwable: cbThrowable, sty: sty, gear: function () { return CHAR.gear; }, char: function () { return { name: CHAR.name, isDM: !!CHAR.isDM, n: (CHAR.gear || []).length }; }, start: cbStart, give: function (n, q) { var it = item(n, q ? { qty: q } : null); invAdd(it, true); return !!it; } }; // test hooks
   window.__crawl.gm = function (n, o) { var g = new THREE.Group(), it = item(n); for (var k in (o || {})) it[k] = o[k]; gearModel(g, it); return g; }; window.__crawl.bagAct = bagAct; // test hook: a held item's model on its own
+  window.__crawl.fx2 = { crank: cbCrank, xb: xbState, opts: cbOptions };
   window.__crawl.ed = { toggle: edToggle, tap: edTap, S: EDIT, apply: edApply };
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
   charInit(); cbHUD();

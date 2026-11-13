@@ -81,7 +81,9 @@
     if (t.e && !t.e.dead) {
       if (cheb(P.x, P.z, t.x, t.z) <= 6) opts.push({ label: 'Talk' + (far ? ' (call out)' : ''), fn: function () { talkOpen(t.e); } });
       else opts.push({ label: 'Walk over and talk', fn: function () { walkTo(t.x, t.z, function () { talkOpen(t.e); }, true); } });
-      if (!t.e.calm && !t.e.npc) opts.push({ label: 'Attack', fn: function () { cbStart('You start it.', t.e); } });
+      if (!t.e.calm && !t.e.npc && !CB.on) { var rw = cbThrowable(), rng = cheb(P.x, P.z, t.x, t.z);
+        if (FIGHT_OPEN && rw.bow && rng <= rw.long) opts.push({ label: 'Opening shot <i>before it sees you</i>', fn: function () { cbOpenShot(t.e); } });
+        opts.push({ label: 'Attack', fn: function () { cbStart('You start it.', t.e, { surprise: true }); } }); }
     }
     if (t.e && t.e.dead) enemyActs(t.e).forEach(function (a) { if (/^Examine/.test(a.label)) return; opts.push({ label: a.label, fn: function () { walkTo(t.x, t.z, function () { act(t, a); }, true); } }); });
     else if (!t.e) (actsOf(t) || []).forEach(function (a) { if (/^Examine/.test(a.label)) return; var b = a.stat ? chkBonus(a) : 0; opts.push({ label: a.label + (a.stat ? ' <i>' + a.stat + ' ' + (b >= 0 ? '+' : '') + b + '</i>' : ''), fn: function () { walkTo(t.x, t.z, function () { act(t, a); }, true); } }); });

@@ -80,9 +80,21 @@
   function arrowCraft(sel, idea) {
     var wantsArrows = /arrow/i.test(idea || ''); if (sel.length < 2 || (sel.length > 3 && !wantsArrows)) return false; // asking for arrows by name lets you throw in extras: it uses what it needs
     var isArrow = function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === 'arrow'; };
-    var pb = sel.filter(function (g) { return g.name === 'Paintballs'; })[0], tox = sel.filter(function (g) { return g !== pb && tg(g, 'toxic'); })[0];
-    if (pb && tox) { var n = Math.min(10, pb.qty || 1); pb.qty = (pb.qty || 1) - n; if (pb.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(pb), 1); itemSpend(tox); invAdd(item('Acid paintballs', { qty: n, from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
-      craftSay('ok', 'Made ' + n + ' acid paintballs', 'You dosed the paintballs with ' + tox.name.toLowerCase() + '. They are warm now. Do not keep them in a pocket.'); return true; }
+    // paintballs + a filling: acid, then poison, then grease, then anything flammable
+    var pb = sel.filter(function (g) { return g.name === 'Paintballs'; })[0], rest = sel.filter(function (g) { return g !== pb; });
+    if (pb && rest.length === 1) {
+      var fl = rest[0], nm = String(fl.name).toLowerCase(), kind = tg(fl, 'acid') || /acid/.test(nm) ? 'Acid' : tg(fl, 'toxic') || /poison|venom/.test(nm) ? 'Poison' : tg(fl, 'slippery') || /grease|lard|lube/.test(nm) ? 'Grease' : tg(fl, 'flammable') && !tg(fl, 'wood') ? 'Oil' : null;
+      if (!kind) { craftSay('no', 'Nothing to fill them with', fl.name + ' will not go into a paintball. Try acid, something toxic, grease, or something flammable.'); return true; }
+      var n = Math.min(10, pb.qty || 1); pb.qty = (pb.qty || 1) - n; if (pb.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(pb), 1); itemSpend(fl);
+      invAdd(item(kind + ' paintballs', { qty: n, from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
+      craftSay('ok', 'Made ' + n + ' ' + kind.toLowerCase() + ' paintballs', { Acid: 'You filled them with ' + nm + '. They are warm now. Do not keep them in a pocket.', Poison: 'You loaded them with ' + nm + '. Hold your breath while you work.', Grease: 'Greasy little balls of trouble, filled with ' + nm + '.', Oil: 'Filled with ' + nm + '. Fire is now your friend.' }[kind]); return true;
+    }
+    // brewing acid: something toxic plus batteries (battery acid), or two different toxic things
+    var tox2 = sel.filter(function (g) { return tg(g, 'toxic') && !tg(g, 'acid') && !(ITEMS[g.name] || {}).ammo; }), bat = sel.filter(function (g) { return tg(g, 'battery') || /batter/i.test(g.name); })[0];
+    if (sel.length === 2 && ((tox2.length === 1 && bat) || (tox2.length === 2 && tox2[0].name !== tox2[1].name))) {
+      sel.forEach(function (g) { itemSpend(g); }); invAdd(item('Vial of acid', { from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
+      craftSay('ok', 'Brewed a vial of acid', 'It smokes when you tilt it. Throw it, or fill paintballs with it.'); skillCount('alchemy'); return true;
+    }
     var w = sel.filter(function (g) { return tg(g, 'wood') && !isArrow(g); }); if (!w.length || sel.some(isArrow)) return false;
     var tie = sel.length === 3 ? sel.filter(function (g) { return g !== w[0] && (tg(g, 'binding') || tg(g, 'sticky') || tg(g, 'stringy')); })[0] : null; // tape or twine: an optional third part, half again as many arrows
     if (sel.length === 3 && !tie && !wantsArrows) return false;
