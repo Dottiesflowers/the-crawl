@@ -90,8 +90,8 @@
     }
     if (a.auto === 'nap') {
       if (c.cool.nap && now < c.cool.nap) { say('Not tired', 'You just napped. You can sleep again in ' + Math.ceil((c.cool.nap - now) / 60000) + ' minutes.', 3000); return true; }
-      c.cool.nap = now + 5 * 60000; var gn = PC.max - PC.hp; PC.hp = PC.max; c.swUsed = false; buffOn('rested', 30 * 60000); delete buffs().jitters; kitOneShot('Interact');
-      say('Nap', 'You sleep for twenty minutes and dream about the surface. ' + (gn ? '+' + gn + ' HP. ' : '') + 'Second Wind recharged. Rested for 30 minutes: +1 to hit.', 6000);
+      c.cool.nap = now + 5 * 60000; var gn = PC.max - PC.hp; PC.hp = PC.max; var rc = 0; (c.gear || []).forEach(function (g) { if (g.recharge === 'nap' && g.uses && g.usesLeft !== undefined && g.usesLeft < g.uses) { g.usesLeft = g.uses; rc++; } }); c.swUsed = false; buffOn('rested', 30 * 60000); delete buffs().jitters; kitOneShot('Interact');
+      say('Nap', 'You sleep for twenty minutes and dream about the surface. ' + (gn ? '+' + gn + ' HP. ' : '') + 'Second Wind recharged. ' + (rc ? 'Magic items recharged. ' : '') + 'Rested for 30 minutes: +1 to hit.', 6000);
       cbHUD(); buffDraw(); return true;
     }
     if (a.auto === 'sink') { if (buffHas('jitters')) { delete buffs().jitters; buffDraw(); say('Cold water', 'The shaking stops. Jittery is gone.', 3500); } else say('Cold water', 'Refreshing. Your reflection looks like it has been through a lot.', 3000); return true; }

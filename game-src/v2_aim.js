@@ -4,6 +4,7 @@
   // (disadvantage). Each point of STR modifier adds 10 feet; Thrown Objects adds 5 feet a level.
   // Anything flammable can be lit first if you have a flame (a lighter, a lit torch or a brazier next to you).
   var AIM = { on: false, it: null, lit: false, ring: null, ring2: null, down: null };
+  function aimRange() { var S = AIM.it && AIM.it.spell; return S ? { near: S.range, far: S.range } : throwRange(); }
   function throwRange() { var n = Math.max(6, 6 + 2 * MOD.STR + skillLv('Thrown Objects')); return { near: n, far: n * 2 }; }
   function fireSource() {
     if (typeof sty === 'function' && sty('off') === 2) return 'your torch';
@@ -23,8 +24,8 @@
   // ---------- aim mode ----------
   function aimStart(it, lit) {
     if (!it || !CHAR) return;
-    if (!it.throw && !burnsKnown(it)) { say('Nothing to throw', 'That is not something you can usefully throw.', 2400); return; }
-    if (!it.throw) lit = true;
+    if (it.spell) lit = false; else if (!it.throw && !burnsKnown(it)) { say('Nothing to throw', 'That is not something you can usefully throw.', 2400); return; }
+    if (!it.throw && !it.spell) lit = true;
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', CB.on && cbMyTurn() ? 'You have used your action this turn.' : 'Wait for your turn.', 2500); return; }
     if (lit && !fireSource()) { say('No flame', 'You need a lighter, a lit torch or a brazier next to you to light it.', 3200); return; }
     if (UI.bag) bagToggle(); if (typeof closeMenu === 'function') closeMenu();
@@ -33,14 +34,14 @@
   function aimStop() { AIM.on = false; AIM.it = null; aimRings(false); var b = document.getElementById('aimBar'); if (b) b.classList.remove('on'); }
   function aimRings(on) {
     if (AIM.ring) { scene.remove(AIM.ring); scene.remove(AIM.ring2); AIM.ring = AIM.ring2 = null; }
-    if (!on) return; var R = throwRange();
+    if (!on) return; var R = aimRange();
     var mk = function (r, op, col) { var m = new THREE.Mesh(new THREE.RingGeometry(r + 0.38, r + 0.6, 72), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, depthTest: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.set(P.px, 0.04, P.pz); m.renderOrder = 50; scene.add(m); return m; };
     AIM.ring = mk(R.near, 0.75, 0xffc860); AIM.ring2 = mk(R.far, 0.35, 0xff7a50);
   }
   function aimBanner() {
     var el = document.getElementById('aimBar'); if (!el) { el = document.createElement('div'); el.id = 'aimBar'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
-    var it = AIM.it, R = throwRange(), fire = fireSource(), can = burnsKnown(it) && it.throw;
-    el.innerHTML = '<div><b>' + (AIM.lit ? 'Lit · ' : 'Throw · ') + esc(it.name) + '</b><span>Tap a target. ' + R.near * 5 + ' ft is a clean throw; out to ' + R.far * 5 + ' ft at disadvantage.' + (AIM.lit ? ' Lit with ' + esc(fire || 'nothing') + '.' : '') + '</span></div>' +
+    var it = AIM.it, R = aimRange(), fire = fireSource(), can = burnsKnown(it) && it.throw;
+    el.innerHTML = '<div><b>' + (it.spell ? 'Cast · ' : AIM.lit ? 'Lit · ' : 'Throw · ') + esc(it.name) + '</b><span>Tap a target. ' + (it.spell ? 'Reaches ' + R.far * 5 + ' ft.' : R.near * 5 + ' ft is a clean throw; out to ' + R.far * 5 + ' ft at disadvantage.') + (AIM.lit ? ' Lit with ' + esc(fire || 'nothing') + '.' : '') + '</span></div>' +
       (can ? '<button type="button" id="aimLit" class="' + (AIM.lit ? 'on' : '') + '"' + (fire ? '' : ' disabled title="You need a flame"') + '>' + (AIM.lit ? 'Lit' : 'Light it first') + '</button>' : '') + '<button type="button" id="aimX">Cancel</button>';
     el.classList.add('on');
     document.getElementById('aimX').onclick = aimStop;
@@ -61,16 +62,17 @@
   }, true);
   window.addEventListener('keydown', function (ev) { if (AIM.on && ev.key === 'Escape') { aimStop(); ev.stopPropagation(); } }, true);
   function aimAt(e, spot) {
-    var it = AIM.it, T = AIM.lit ? litThrow(it) : it.throw; if (!it) return aimStop();
+    var it = AIM.it; if (!it) return aimStop(); var T = (AIM.lit ? litThrow(it) : it.throw) || {};
     var x = e ? e.x : spot && spot.x, z = e ? e.z : spot && spot.z; if (x === undefined || x === null) return;
     if (!e && !T.area) { // a plain throw needs a creature; an area throw can land on a spot
       var near = CB.enemies.filter(function (q) { return !q.dead && !q.npc && q.obj.visible && cheb(q.x, q.z, x, z) <= 1; })[0]; if (near) { e = near; x = e.x; z = e.z; }
-      else { say('Pick a target', 'Tap a creature. Only splash things can be thrown at the floor.', 2400); return; }
+      else { say('Pick a target', it.spell ? 'Tap a creature to cast at.' : 'Tap a creature. Only splash things can be thrown at the floor.', 2400); return; }
     }
-    var R = throwRange(), dist = cheb(P.x, P.z, x, z);
+    var R = aimRange(), dist = cheb(P.x, P.z, x, z);
     if (visNow[x + ',' + z] === undefined && !(e && e.obj.visible)) { say('You cannot see there', 'You can only throw at what you can see.', 2400); return; }
     if (dist > R.far) { say('Too far', 'That is ' + dist * 5 + ' feet away. You can throw ' + R.far * 5 + ' feet at most.', 2600); return; }
     if (!los(P.x, P.z, x, z)) { say('No line of sight', 'Something solid is in the way.', 2400); return; }
+    if (it.spell) { aimStop(); castSpell(it, e); return; }
     var lit = AIM.lit; aimStop();
     if (lit) { var src = fireSource(); if (!src) { say('No flame', 'You lost your light.', 2400); return; } loreLearn([[it, 'flammable']], ''); }
     throwItem(it, e, { spot: e ? null : { x: x, z: z }, dis: dist > R.near, lit: lit, T: T });

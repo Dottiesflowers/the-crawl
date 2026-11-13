@@ -7648,6 +7648,9 @@
     'Rat tail': { cat: 'material', tags: ['stringy'], level: 1, desc: 'Long, pink, still twitching a little. Tough as cord.' },
     'Puglin grease': { cat: 'material', tags: ['flammable', 'slippery'], level: 1, desc: 'Scraped off a puglin. It is mostly puglin.' },
     'Shrub sap': { cat: 'material', tags: ['sticky'], level: 1, desc: 'Amber and tacky. The shrubs use it to hold dinner still.' },
+    // magic: items with a spell aim like a throw and cast on the tap. uses + recharge: 'nap' keeps the item and refills it on a nap
+    'Universal Remote of Unerring Darts': { cat: 'tool', spell: { kind: 'missile', darts: 3, dice: '1d4+1', type: 'force', range: 24 }, uses: 3, recharge: 'nap', tags: ['battery'], rarity: 'Rare', level: 3, desc: 'Point, press MUTE, and something stops talking forever. The System insists this is a wand. Three force darts that never miss; they split to the next target if the first one drops. 3 charges, refilled by a nap.' },
+    'Rewritten script: Firebolt': { cat: 'consumable', spell: { kind: 'firebolt', dice: '2d10', type: 'fire', range: 24, attack: true }, tags: ['paper', 'fire', 'flammable'], rarity: 'Uncommon', level: 3, desc: 'A page of dialogue someone crossed out and wrote FIREBALL over in red Sharpie. It is not a fireball. It is close enough. Read it aloud: a spell attack, 2d10 fire. Single use.' },
     'Raptor claw': { cat: 'material', tags: ['sharp', 'hard'], level: 2, desc: 'A sickle claw off a practical-effect raptor. Latex outside, something much harder inside. Makes a mean arrowhead.' },
     'Imp horn': { cat: 'material', tags: ['sharp', 'hard'], level: 1, desc: 'A small curved horn. Union-issue.' },
     'Clerk ink': { cat: 'material', tags: ['toxic', 'staining'], level: 1, desc: 'Black, permanent and faintly ticking.' },
@@ -10280,7 +10283,7 @@
   function heals(it) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal || ''); return (m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1) + healSkillBonus(it); }
   function useItem(it) {
     if (!CHAR || !it || CHAR.dead) return false;
-    if (it.throw || it.escape || it.box || (it.buff && !it.heal)) return itemSpecial(it);
+    if (it.spell || it.throw || it.escape || it.box || (it.buff && !it.heal)) return itemSpecial(it);
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.bonus)) { say('Not now', 'In a fight, using an item takes your bonus action, on your turn.', 2500); return false; }
     if (CB.on) CB.res.bonus = 0;
     var h = heals(it), before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h); skillCount(/gauze|bandage|potion|kit|salve|medic/i.test(it.name) ? 'heal' : 'eat');
@@ -10299,7 +10302,7 @@
     if (!CHAR) return; var have = {}; (CHAR.gear || []).forEach(function (g) { have[g.name] = 1; });
     ['hotbar', 'hotbar2'].forEach(function (k) { if (CHAR[k]) CHAR[k] = CHAR[k].slice(0, HOT_N).map(function (n) { return n && have[n] ? n : null; }); });
   }
-  function hotEligible(it) { return !!it && ((it.cat === 'consumable' && (it.heal || it.buff)) || !!it.throw || !!it.escape || burnsKnown(it)); }
+  function hotEligible(it) { return !!it && ((it.cat === 'consumable' && (it.heal || it.buff)) || !!it.spell || !!it.throw || !!it.escape || burnsKnown(it)); }
   // tap a bar's name (or an empty slot) to fill it: everything in your bag that can go on a hot bar, tap to add, tap again to take off
   function hotPick(bar, slot) {
     var el = document.getElementById('hotpick'); if (!el) { el = document.createElement('div'); el.id = 'hotpick'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Fill the hot bar'); document.body.appendChild(el); }
@@ -11088,8 +11091,8 @@
     }
     if (a.auto === 'nap') {
       if (c.cool.nap && now < c.cool.nap) { say('Not tired', 'You just napped. You can sleep again in ' + Math.ceil((c.cool.nap - now) / 60000) + ' minutes.', 3000); return true; }
-      c.cool.nap = now + 5 * 60000; var gn = PC.max - PC.hp; PC.hp = PC.max; c.swUsed = false; buffOn('rested', 30 * 60000); delete buffs().jitters; kitOneShot('Interact');
-      say('Nap', 'You sleep for twenty minutes and dream about the surface. ' + (gn ? '+' + gn + ' HP. ' : '') + 'Second Wind recharged. Rested for 30 minutes: +1 to hit.', 6000);
+      c.cool.nap = now + 5 * 60000; var gn = PC.max - PC.hp; PC.hp = PC.max; var rc = 0; (c.gear || []).forEach(function (g) { if (g.recharge === 'nap' && g.uses && g.usesLeft !== undefined && g.usesLeft < g.uses) { g.usesLeft = g.uses; rc++; } }); c.swUsed = false; buffOn('rested', 30 * 60000); delete buffs().jitters; kitOneShot('Interact');
+      say('Nap', 'You sleep for twenty minutes and dream about the surface. ' + (gn ? '+' + gn + ' HP. ' : '') + 'Second Wind recharged. ' + (rc ? 'Magic items recharged. ' : '') + 'Rested for 30 minutes: +1 to hit.', 6000);
       cbHUD(); buffDraw(); return true;
     }
     if (a.auto === 'sink') { if (buffHas('jitters')) { delete buffs().jitters; buffDraw(); say('Cold water', 'The shaking stops. Jittery is gone.', 3500); } else say('Cold water', 'Refreshing. Your reflection looks like it has been through a lot.', 3000); return true; }
@@ -11228,6 +11231,7 @@
       itemSpend(it); say(it.name, 'Thick smoke fills the room. When it clears, you are somewhere else. The audience boos.', 4500);
       CB.order = []; cbEnd(false); return true;
     }
+    if (it.spell) { if (it.recharge && it.usesLeft === 0) { say(it.name, 'No charges left. A nap ' + (it.recharge === 'nap' ? 'refills it.' : 'might help.'), 3000); return false; } aimStart(it, false); return true; }
     if (it.throw) { aimStart(it, false); return true; }
     if (it.buff) { itemSpend(it); buffOn(it.buff, 10 * 60000); var b = BUFFS[it.buff]; say(it.name, b ? b.name + ': ' + b.desc : 'You feel different.', 3500); return true; }
     return false;
@@ -11238,10 +11242,51 @@
     return best;
   }
   function itemSpend(it) {
-    if (it.uses) { it.usesLeft = (it.usesLeft === undefined ? it.uses : it.usesLeft) - 1; if (it.usesLeft > 0) { saveChar(CHAR); return; } }
+    if (it.uses) { it.usesLeft = (it.usesLeft === undefined ? it.uses : it.usesLeft) - 1; if (it.usesLeft > 0 || it.recharge) { it.usesLeft = Math.max(0, it.usesLeft); saveChar(CHAR); hotDraw(); if (UI.bag) bagDraw(); return; } }
     it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; if ((CHAR.hotbar || []).indexOf(it.name) >= 0 && !CHAR.gear.some(function (g) { return g.name === it.name; })) CHAR.hotbar[CHAR.hotbar.indexOf(it.name)] = null; if ((CHAR.hotbar2 || []).indexOf(it.name) >= 0 && !CHAR.gear.some(function (g) { return g.name === it.name; })) CHAR.hotbar2[CHAR.hotbar2.indexOf(it.name)] = null; }
     if (it.leaves) { var lv = item(it.leaves, { from: 'what was left' }); if (lv) invAdd(lv, true); }
     saveChar(CHAR); hotDraw(); if (UI.bag) bagDraw();
+  }
+  // ---------- spells from items: the remote's darts, a scroll's firebolt ----------
+  function spellMod() { return Math.max(MOD.INT, MOD.WIS, MOD.CHA); } // until there are classes, magic runs on your best mental stat
+  function spellHurt(e, dice, type, crit) {
+    if (!e || e.dead) return ''; var m = /(\d+)d(\d+)([+-]\d+)?/.exec(dice || '1d4'), dm = 0; if (!m) return '';
+    for (var i = 0; i < (+m[1]) * (crit ? 2 : 1); i++) dm += 1 + Math.floor(Math.random() * +m[2]); dm = Math.max(1, dm + (+(m[3] || 0)));
+    var weak = (e.def.vuln || []).indexOf(type) >= 0; if (weak) dm *= 2;
+    e.hp -= dm; floater(e.px, (e.def.h || 1) + 0.3, e.pz, '-' + dm + (weak ? '!' : ''), 'dmg'); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true);
+    return dm + ' ' + type + (weak ? ' (weak to it: double)' : '');
+  }
+  function castSpell(it, e) {
+    var S = it.spell; if (!S || !e) return false;
+    if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', 'Casting takes your action, on your turn.', 2500); return false; }
+    if (CB.on) { CB.res.action = 0; CB.busy = true; cbHUD(); }
+    if (typeof cbFaceHero === 'function') cbFaceHero(e.x, e.z); kitOneShot('Punch_Jab');
+    var name = it.name, notes = [], first = e; itemSpend(it); skillCount('magic');
+    function finish() {
+      if (CB.on) CB.busy = false; var started = !CB.on; afterTrick(first.dead ? null : first);
+      setTimeout(function () { say(name, notes.join(' ') || 'The magic fizzles.', 6000); }, started && CB.on ? 1400 : 0);
+    }
+    if (S.kind === 'missile') { // darts never miss; one that would hit a dead target turns to the next closest one in range
+      var left = S.darts || 3, tally = {};
+      (function next() {
+        if (left <= 0) { Object.keys(tally).forEach(function (k) { notes.push(k + ' takes ' + tally[k].join(' + ') + ' force.'); }); return finish(); }
+        var t = e && !e.dead ? e : null;
+        if (!t) CB.enemies.forEach(function (q) { if (q.dead || q.npc || q.calm || !q.obj.visible) return; var dd = cheb(P.x, P.z, q.x, q.z); if (dd <= S.range && los(P.x, P.z, q.x, q.z) && (!t || dd < cheb(P.x, P.z, t.x, t.z))) t = q; });
+        if (!t) { notes.push(left + (left === 1 ? ' dart fizzles' : ' darts fizzle') + ': nothing left to hit.'); left = 0; return next(); }
+        e = t; left--;
+        vfxBolt('missile', P.px, P.pz, t.px, t.pz, function () { var r = spellHurt(t, S.dice, S.type || 'force'); (tally[t.name] = tally[t.name] || []).push(parseInt(r, 10) || 0); setTimeout(next, 60); }, { n: 1 });
+      })();
+      return true;
+    }
+    // a bolt: a spell attack roll against AC
+    var bon = PROF() + spellMod(), ac = acOf(e), R = roll20(false, false), tot = R.r + bon, hit = R.r === 20 || (R.r !== 1 && tot >= ac), crit = R.r === 20;
+    diceShow({ who: 'You', vs: e.name, R: R, bonus: bon, tot: tot, ac: ac, hit: hit, why: ['spell attack: ' + name.toLowerCase()] });
+    var lx = e.px, lz = e.pz; if (!hit) { lx += (Math.random() - 0.5) * 2.5; lz += (Math.random() - 0.5) * 2.5; }
+    vfxBolt(S.kind, P.px, P.pz, lx, lz, function () {
+      if (hit) notes.push((crit ? 'Critical! ' : '') + e.name + ' takes ' + spellHurt(e, S.dice, S.type || 'fire', crit) + ' damage.'); else notes.push('The bolt goes wide and scorches the floor.');
+      finish();
+    });
+    return true;
   }
   function throwItem(it, e, o) {
     o = o || {}; var T = o.T || it.throw, spot = o.spot;
@@ -11796,6 +11841,7 @@
   // (disadvantage). Each point of STR modifier adds 10 feet; Thrown Objects adds 5 feet a level.
   // Anything flammable can be lit first if you have a flame (a lighter, a lit torch or a brazier next to you).
   var AIM = { on: false, it: null, lit: false, ring: null, ring2: null, down: null };
+  function aimRange() { var S = AIM.it && AIM.it.spell; return S ? { near: S.range, far: S.range } : throwRange(); }
   function throwRange() { var n = Math.max(6, 6 + 2 * MOD.STR + skillLv('Thrown Objects')); return { near: n, far: n * 2 }; }
   function fireSource() {
     if (typeof sty === 'function' && sty('off') === 2) return 'your torch';
@@ -11815,8 +11861,8 @@
   // ---------- aim mode ----------
   function aimStart(it, lit) {
     if (!it || !CHAR) return;
-    if (!it.throw && !burnsKnown(it)) { say('Nothing to throw', 'That is not something you can usefully throw.', 2400); return; }
-    if (!it.throw) lit = true;
+    if (it.spell) lit = false; else if (!it.throw && !burnsKnown(it)) { say('Nothing to throw', 'That is not something you can usefully throw.', 2400); return; }
+    if (!it.throw && !it.spell) lit = true;
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', CB.on && cbMyTurn() ? 'You have used your action this turn.' : 'Wait for your turn.', 2500); return; }
     if (lit && !fireSource()) { say('No flame', 'You need a lighter, a lit torch or a brazier next to you to light it.', 3200); return; }
     if (UI.bag) bagToggle(); if (typeof closeMenu === 'function') closeMenu();
@@ -11825,14 +11871,14 @@
   function aimStop() { AIM.on = false; AIM.it = null; aimRings(false); var b = document.getElementById('aimBar'); if (b) b.classList.remove('on'); }
   function aimRings(on) {
     if (AIM.ring) { scene.remove(AIM.ring); scene.remove(AIM.ring2); AIM.ring = AIM.ring2 = null; }
-    if (!on) return; var R = throwRange();
+    if (!on) return; var R = aimRange();
     var mk = function (r, op, col) { var m = new THREE.Mesh(new THREE.RingGeometry(r + 0.38, r + 0.6, 72), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, depthTest: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.set(P.px, 0.04, P.pz); m.renderOrder = 50; scene.add(m); return m; };
     AIM.ring = mk(R.near, 0.75, 0xffc860); AIM.ring2 = mk(R.far, 0.35, 0xff7a50);
   }
   function aimBanner() {
     var el = document.getElementById('aimBar'); if (!el) { el = document.createElement('div'); el.id = 'aimBar'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
-    var it = AIM.it, R = throwRange(), fire = fireSource(), can = burnsKnown(it) && it.throw;
-    el.innerHTML = '<div><b>' + (AIM.lit ? 'Lit · ' : 'Throw · ') + esc(it.name) + '</b><span>Tap a target. ' + R.near * 5 + ' ft is a clean throw; out to ' + R.far * 5 + ' ft at disadvantage.' + (AIM.lit ? ' Lit with ' + esc(fire || 'nothing') + '.' : '') + '</span></div>' +
+    var it = AIM.it, R = aimRange(), fire = fireSource(), can = burnsKnown(it) && it.throw;
+    el.innerHTML = '<div><b>' + (it.spell ? 'Cast · ' : AIM.lit ? 'Lit · ' : 'Throw · ') + esc(it.name) + '</b><span>Tap a target. ' + (it.spell ? 'Reaches ' + R.far * 5 + ' ft.' : R.near * 5 + ' ft is a clean throw; out to ' + R.far * 5 + ' ft at disadvantage.') + (AIM.lit ? ' Lit with ' + esc(fire || 'nothing') + '.' : '') + '</span></div>' +
       (can ? '<button type="button" id="aimLit" class="' + (AIM.lit ? 'on' : '') + '"' + (fire ? '' : ' disabled title="You need a flame"') + '>' + (AIM.lit ? 'Lit' : 'Light it first') + '</button>' : '') + '<button type="button" id="aimX">Cancel</button>';
     el.classList.add('on');
     document.getElementById('aimX').onclick = aimStop;
@@ -11853,16 +11899,17 @@
   }, true);
   window.addEventListener('keydown', function (ev) { if (AIM.on && ev.key === 'Escape') { aimStop(); ev.stopPropagation(); } }, true);
   function aimAt(e, spot) {
-    var it = AIM.it, T = AIM.lit ? litThrow(it) : it.throw; if (!it) return aimStop();
+    var it = AIM.it; if (!it) return aimStop(); var T = (AIM.lit ? litThrow(it) : it.throw) || {};
     var x = e ? e.x : spot && spot.x, z = e ? e.z : spot && spot.z; if (x === undefined || x === null) return;
     if (!e && !T.area) { // a plain throw needs a creature; an area throw can land on a spot
       var near = CB.enemies.filter(function (q) { return !q.dead && !q.npc && q.obj.visible && cheb(q.x, q.z, x, z) <= 1; })[0]; if (near) { e = near; x = e.x; z = e.z; }
-      else { say('Pick a target', 'Tap a creature. Only splash things can be thrown at the floor.', 2400); return; }
+      else { say('Pick a target', it.spell ? 'Tap a creature to cast at.' : 'Tap a creature. Only splash things can be thrown at the floor.', 2400); return; }
     }
-    var R = throwRange(), dist = cheb(P.x, P.z, x, z);
+    var R = aimRange(), dist = cheb(P.x, P.z, x, z);
     if (visNow[x + ',' + z] === undefined && !(e && e.obj.visible)) { say('You cannot see there', 'You can only throw at what you can see.', 2400); return; }
     if (dist > R.far) { say('Too far', 'That is ' + dist * 5 + ' feet away. You can throw ' + R.far * 5 + ' feet at most.', 2600); return; }
     if (!los(P.x, P.z, x, z)) { say('No line of sight', 'Something solid is in the way.', 2400); return; }
+    if (it.spell) { aimStop(); castSpell(it, e); return; }
     var lit = AIM.lit; aimStop();
     if (lit) { var src = fireSource(); if (!src) { say('No flame', 'You lost your light.', 2400); return; } loreLearn([[it, 'flammable']], ''); }
     throwItem(it, e, { spot: e ? null : { x: x, z: z }, dis: dist > R.near, lit: lit, T: T });

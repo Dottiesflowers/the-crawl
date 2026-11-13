@@ -236,7 +236,7 @@
   function heals(it) { var m = /(\d+)d(\d+)(?:\+(\d+))?/.exec(it.heal || ''); return (m ? d(+m[1], +m[2]) + (+m[3] || 0) : +it.heal || 1) + healSkillBonus(it); }
   function useItem(it) {
     if (!CHAR || !it || CHAR.dead) return false;
-    if (it.throw || it.escape || it.box || (it.buff && !it.heal)) return itemSpecial(it);
+    if (it.spell || it.throw || it.escape || it.box || (it.buff && !it.heal)) return itemSpecial(it);
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.bonus)) { say('Not now', 'In a fight, using an item takes your bonus action, on your turn.', 2500); return false; }
     if (CB.on) CB.res.bonus = 0;
     var h = heals(it), before = PC.hp; PC.hp = Math.min(PC.max, PC.hp + h); skillCount(/gauze|bandage|potion|kit|salve|medic/i.test(it.name) ? 'heal' : 'eat');
@@ -255,7 +255,7 @@
     if (!CHAR) return; var have = {}; (CHAR.gear || []).forEach(function (g) { have[g.name] = 1; });
     ['hotbar', 'hotbar2'].forEach(function (k) { if (CHAR[k]) CHAR[k] = CHAR[k].slice(0, HOT_N).map(function (n) { return n && have[n] ? n : null; }); });
   }
-  function hotEligible(it) { return !!it && ((it.cat === 'consumable' && (it.heal || it.buff)) || !!it.throw || !!it.escape || burnsKnown(it)); }
+  function hotEligible(it) { return !!it && ((it.cat === 'consumable' && (it.heal || it.buff)) || !!it.spell || !!it.throw || !!it.escape || burnsKnown(it)); }
   // tap a bar's name (or an empty slot) to fill it: everything in your bag that can go on a hot bar, tap to add, tap again to take off
   function hotPick(bar, slot) {
     var el = document.getElementById('hotpick'); if (!el) { el = document.createElement('div'); el.id = 'hotpick'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Fill the hot bar'); document.body.appendChild(el); }

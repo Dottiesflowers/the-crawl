@@ -25,6 +25,7 @@
       itemSpend(it); say(it.name, 'Thick smoke fills the room. When it clears, you are somewhere else. The audience boos.', 4500);
       CB.order = []; cbEnd(false); return true;
     }
+    if (it.spell) { if (it.recharge && it.usesLeft === 0) { say(it.name, 'No charges left. A nap ' + (it.recharge === 'nap' ? 'refills it.' : 'might help.'), 3000); return false; } aimStart(it, false); return true; }
     if (it.throw) { aimStart(it, false); return true; }
     if (it.buff) { itemSpend(it); buffOn(it.buff, 10 * 60000); var b = BUFFS[it.buff]; say(it.name, b ? b.name + ': ' + b.desc : 'You feel different.', 3500); return true; }
     return false;
@@ -35,10 +36,51 @@
     return best;
   }
   function itemSpend(it) {
-    if (it.uses) { it.usesLeft = (it.usesLeft === undefined ? it.uses : it.usesLeft) - 1; if (it.usesLeft > 0) { saveChar(CHAR); return; } }
+    if (it.uses) { it.usesLeft = (it.usesLeft === undefined ? it.uses : it.usesLeft) - 1; if (it.usesLeft > 0 || it.recharge) { it.usesLeft = Math.max(0, it.usesLeft); saveChar(CHAR); hotDraw(); if (UI.bag) bagDraw(); return; } }
     it.qty = (it.qty || 1) - 1; if (it.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(it), 1); UI.sel = null; if ((CHAR.hotbar || []).indexOf(it.name) >= 0 && !CHAR.gear.some(function (g) { return g.name === it.name; })) CHAR.hotbar[CHAR.hotbar.indexOf(it.name)] = null; if ((CHAR.hotbar2 || []).indexOf(it.name) >= 0 && !CHAR.gear.some(function (g) { return g.name === it.name; })) CHAR.hotbar2[CHAR.hotbar2.indexOf(it.name)] = null; }
     if (it.leaves) { var lv = item(it.leaves, { from: 'what was left' }); if (lv) invAdd(lv, true); }
     saveChar(CHAR); hotDraw(); if (UI.bag) bagDraw();
+  }
+  // ---------- spells from items: the remote's darts, a scroll's firebolt ----------
+  function spellMod() { return Math.max(MOD.INT, MOD.WIS, MOD.CHA); } // until there are classes, magic runs on your best mental stat
+  function spellHurt(e, dice, type, crit) {
+    if (!e || e.dead) return ''; var m = /(\d+)d(\d+)([+-]\d+)?/.exec(dice || '1d4'), dm = 0; if (!m) return '';
+    for (var i = 0; i < (+m[1]) * (crit ? 2 : 1); i++) dm += 1 + Math.floor(Math.random() * +m[2]); dm = Math.max(1, dm + (+(m[3] || 0)));
+    var weak = (e.def.vuln || []).indexOf(type) >= 0; if (weak) dm *= 2;
+    e.hp -= dm; floater(e.px, (e.def.h || 1) + 0.3, e.pz, '-' + dm + (weak ? '!' : ''), 'dmg'); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true);
+    return dm + ' ' + type + (weak ? ' (weak to it: double)' : '');
+  }
+  function castSpell(it, e) {
+    var S = it.spell; if (!S || !e) return false;
+    if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', 'Casting takes your action, on your turn.', 2500); return false; }
+    if (CB.on) { CB.res.action = 0; CB.busy = true; cbHUD(); }
+    if (typeof cbFaceHero === 'function') cbFaceHero(e.x, e.z); kitOneShot('Punch_Jab');
+    var name = it.name, notes = [], first = e; itemSpend(it); skillCount('magic');
+    function finish() {
+      if (CB.on) CB.busy = false; var started = !CB.on; afterTrick(first.dead ? null : first);
+      setTimeout(function () { say(name, notes.join(' ') || 'The magic fizzles.', 6000); }, started && CB.on ? 1400 : 0);
+    }
+    if (S.kind === 'missile') { // darts never miss; one that would hit a dead target turns to the next closest one in range
+      var left = S.darts || 3, tally = {};
+      (function next() {
+        if (left <= 0) { Object.keys(tally).forEach(function (k) { notes.push(k + ' takes ' + tally[k].join(' + ') + ' force.'); }); return finish(); }
+        var t = e && !e.dead ? e : null;
+        if (!t) CB.enemies.forEach(function (q) { if (q.dead || q.npc || q.calm || !q.obj.visible) return; var dd = cheb(P.x, P.z, q.x, q.z); if (dd <= S.range && los(P.x, P.z, q.x, q.z) && (!t || dd < cheb(P.x, P.z, t.x, t.z))) t = q; });
+        if (!t) { notes.push(left + (left === 1 ? ' dart fizzles' : ' darts fizzle') + ': nothing left to hit.'); left = 0; return next(); }
+        e = t; left--;
+        vfxBolt('missile', P.px, P.pz, t.px, t.pz, function () { var r = spellHurt(t, S.dice, S.type || 'force'); (tally[t.name] = tally[t.name] || []).push(parseInt(r, 10) || 0); setTimeout(next, 60); }, { n: 1 });
+      })();
+      return true;
+    }
+    // a bolt: a spell attack roll against AC
+    var bon = PROF() + spellMod(), ac = acOf(e), R = roll20(false, false), tot = R.r + bon, hit = R.r === 20 || (R.r !== 1 && tot >= ac), crit = R.r === 20;
+    diceShow({ who: 'You', vs: e.name, R: R, bonus: bon, tot: tot, ac: ac, hit: hit, why: ['spell attack: ' + name.toLowerCase()] });
+    var lx = e.px, lz = e.pz; if (!hit) { lx += (Math.random() - 0.5) * 2.5; lz += (Math.random() - 0.5) * 2.5; }
+    vfxBolt(S.kind, P.px, P.pz, lx, lz, function () {
+      if (hit) notes.push((crit ? 'Critical! ' : '') + e.name + ' takes ' + spellHurt(e, S.dice, S.type || 'fire', crit) + ' damage.'); else notes.push('The bolt goes wide and scorches the floor.');
+      finish();
+    });
+    return true;
   }
   function throwItem(it, e, o) {
     o = o || {}; var T = o.T || it.throw, spot = o.spot;

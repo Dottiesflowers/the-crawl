@@ -138,6 +138,9 @@
     'Rat tail': { cat: 'material', tags: ['stringy'], level: 1, desc: 'Long, pink, still twitching a little. Tough as cord.' },
     'Puglin grease': { cat: 'material', tags: ['flammable', 'slippery'], level: 1, desc: 'Scraped off a puglin. It is mostly puglin.' },
     'Shrub sap': { cat: 'material', tags: ['sticky'], level: 1, desc: 'Amber and tacky. The shrubs use it to hold dinner still.' },
+    // magic: items with a spell aim like a throw and cast on the tap. uses + recharge: 'nap' keeps the item and refills it on a nap
+    'Universal Remote of Unerring Darts': { cat: 'tool', spell: { kind: 'missile', darts: 3, dice: '1d4+1', type: 'force', range: 24 }, uses: 3, recharge: 'nap', tags: ['battery'], rarity: 'Rare', level: 3, desc: 'Point, press MUTE, and something stops talking forever. The System insists this is a wand. Three force darts that never miss; they split to the next target if the first one drops. 3 charges, refilled by a nap.' },
+    'Rewritten script: Firebolt': { cat: 'consumable', spell: { kind: 'firebolt', dice: '2d10', type: 'fire', range: 24, attack: true }, tags: ['paper', 'fire', 'flammable'], rarity: 'Uncommon', level: 3, desc: 'A page of dialogue someone crossed out and wrote FIREBALL over in red Sharpie. It is not a fireball. It is close enough. Read it aloud: a spell attack, 2d10 fire. Single use.' },
     'Raptor claw': { cat: 'material', tags: ['sharp', 'hard'], level: 2, desc: 'A sickle claw off a practical-effect raptor. Latex outside, something much harder inside. Makes a mean arrowhead.' },
     'Imp horn': { cat: 'material', tags: ['sharp', 'hard'], level: 1, desc: 'A small curved horn. Union-issue.' },
     'Clerk ink': { cat: 'material', tags: ['toxic', 'staining'], level: 1, desc: 'Black, permanent and faintly ticking.' },
