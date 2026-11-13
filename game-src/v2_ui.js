@@ -353,7 +353,7 @@
     var el = document.getElementById('wset'); if (!el) return; var w = wieldItem(), b = backItem();
     el.style.display = !CHAR || gearOpen || CC || AUTH.open ? 'none' : '';
     el.innerHTML = '<div class="wb"><small>On back</small>' + (b ? esc(b.name) + (b.dmg ? ' · ' + esc(b.dmg) : '') : '<i>nothing</i>') + '</div>' +
-      '<div class="wh"' + (bowHeld() ? ' id="wAmmo" role="button" tabindex="0" style="cursor:pointer"' : '') + '><small>In hand</small><b>' + (w ? esc(w.name) : 'Fists') + '</b><span>' + (bowHeld() ? ammoLine() : w && w.dmg ? esc(w.dmg) + (w.bonus ? ' · +' + w.bonus : '') : '1 + STR') + '</span></div>' +
+      '<div class="wh"' + (bowHeld() ? ' id="wAmmo" role="button" tabindex="0" style="cursor:pointer"' : '') + '><small>In hand</small><b>' + (w ? esc(w.name) : 'Fists') + '</b><span>' + (bowHeld() ? ammoLine() : w && w.dmg ? esc(w.dmg) + (w.bonus ? ' · +' + w.bonus : '') : '1d4 + STR') + '</span></div>' +
       '<button type="button" id="wSwap" aria-label="Swap weapons"' + (b ? '' : ' disabled') + '><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></button>';
     document.getElementById('wSwap').onclick = swapWeapons;
     var wa = document.getElementById('wAmmo'); if (wa) wa.onclick = ammoCycle;

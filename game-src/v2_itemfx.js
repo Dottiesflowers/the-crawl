@@ -63,7 +63,11 @@
       vfxImpact(snap, lx, lz, T, o.lit);
       if (hit) {
         var targets = area ? CB.enemies.filter(function (q) { return !q.dead && !q.npc && cheb(q.x, q.z, tx, tz) <= area && (T.vs !== 'plant' || isPlant(q)); }) : [e];
-        targets.forEach(function (q) { var n = fxApply(T.fx, q); if (n) notes.push(n); });
+        var boom = /explos|bomb|grenade|dynamite|lobber|blast|firework/i.test(snap.name + ' ' + (snap.tags || []).join(' '));
+        targets.forEach(function (q) { // an explosive that lands right on someone hits them with double dice (like a crit); the rest of the blast takes the normal roll
+          var direct = boom && area && q.x === lx && q.z === lz, fx = direct ? T.fx.map(function (f) { if (f.type !== 'damage') return f; var m = /(\d+)d(\d+)([+-]\d+)?/.exec(f.dice || '1d6'); return m ? Object.assign({}, f, { dice: (+m[1] * 2) + 'd' + m[2] + (m[3] || '') }) : f; }) : T.fx;
+          if (direct) { notes.push('Direct hit on ' + q.name + '!'); vfxFlash(q.px, q.pz, 0xffc060); }
+          var n = fxApply(fx, q); if (n) notes.push(n); });
         if (area && !targets.length) notes.push('It splashes across the floor and hits nothing.');
       }
       var head = (o.lit ? 'Lit and thrown · ' : 'Thrown · ') + snap.name, body = hit ? (notes.join(' ') || 'It lands. Nothing much happens.') : 'Missed. It ' + (o.lit ? 'bursts into flame on the floor, well wide.' : 'splatters on the floor, well wide.');
