@@ -319,14 +319,15 @@
     return true;
   }
   function bfs(sx, sz, who, maxSteps) {
-    var dist = {}, prev = {}, q = [[sx, sz]], k0 = sx + ',' + sz; dist[k0] = 0;
+    var dist = {}, prev = {}, q = [[sx, sz]], k0 = sx + ',' + sz, rough = typeof VFX !== 'undefined' && VFX.areas.length; dist[k0] = 0; // ice, webs and spikes cost 2 to enter
     while (q.length) {
       var c = q.shift(), cd = dist[c[0] + ',' + c[1]]; if (cd >= maxSteps) continue;
       for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) {
         if (!dx && !dz) continue; var nx = c[0] + dx, nz = c[1] + dz, k = nx + ',' + nz;
-        if (dist[k] !== undefined || !walkable(nx, nz, who)) continue;
+        if (!walkable(nx, nz, who)) continue;
         if (dx && dz && (!walkable(c[0] + dx, c[1], who) || !walkable(c[0], c[1] + dz, who))) continue;
-        dist[k] = cd + 1; prev[k] = c[0] + ',' + c[1]; q.push([nx, nz]);
+        var nd = cd + (rough ? tileCost(nx, nz) : 1); if (nd > maxSteps || (dist[k] !== undefined && dist[k] <= nd)) continue;
+        dist[k] = nd; prev[k] = c[0] + ',' + c[1]; q.push([nx, nz]);
       }
     }
     return { dist: dist, prev: prev };
@@ -460,6 +461,7 @@
   }
   function cbMyTurn() { return CB.on && CB.order[CB.idx] === 'pc'; }
   function cbAdjacent() { return CB.enemies.filter(function (e) { return !e.dead && !e.calm && cheb(P.x, P.z, e.x, e.z) <= 1; }); }
+  var AMMO_HINT = { arrow: 'Jury-rig some: wood + a tip (wood, rubble, scrap metal or imp horn).', pebble: 'Any Chunk of rubble or River stone works, or find ball bearings.', paintball: 'Find paintballs; Jury-rig them with something toxic (bleach, clerk ink, weed killer) for acid ones.' };
   function bowHeld() { return !!(CHAR && CHAR.wield && launcherOf(CHAR.wield)); }
   // ammo for a launcher: the stack you picked (Inventory → Shoot these), else the hardest-hitting stack you carry
   function ammoPick(kind) {
@@ -470,8 +472,8 @@
   function cbThrowable() {
     var bw = CHAR && CHAR.wield && launcherOf(CHAR.wield); // holding a bow: Throw becomes Shoot, and the bow stays in your hands
     if (bw) { var am = ammoPick(bw.ammo || 'arrow');
-      if (!am) return { name: '(no ' + (bw.ammo || 'arrow') + 's)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true };
-      var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: A.s, acc: (A.acc || 0) + (bw.acc || 0), onHit: A.onHit || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am }; }
+      if (!am) return { name: '(no ' + (bw.ammo || 'arrow') + 's)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true, ammoKind: bw.ammo || 'arrow' };
+      var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: A.s, acc: (A.acc || 0) + (bw.acc || 0), onHit: A.onHit || null, edmg: A.edmg || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am, ammoKind: bw.ammo || 'arrow', shots: bw.shots || 1, pose: bw.pose || 'bow', fly: bw.fly || 'arrow' }; }
     if (sty('off') === 3 || (KIT && !KIT.on && sty('main') === 0 && sty('off') === 3)) return { name: 'your dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', prof: true, range: 4, long: 12, dagger: true };
     return { name: 'a rock', n: 1, s: 4, stat: 'STR', prof: false, range: 4, long: 12 };
   }
@@ -524,7 +526,7 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
-  function cbEnd(win) { PC.burning = 0; CB.dmSolo = false;
+  function cbEnd(win) { PC.burning = 0; CB.dmSolo = false; PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -551,7 +553,7 @@
     if (!CB.on) return;
     if (!CB.enemies.some(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; })) { cbEnd(true); return; }
     CB.idx = (CB.idx + 1) % CB.order.length;
-    if (CB.idx === 0) { CB.round = (CB.round || 0) + 1; cbJoinCheck(); }
+    if (CB.idx === 0) { CB.round = (CB.round || 0) + 1; cbJoinCheck(); if (CB.round > 1 && typeof VFX !== 'undefined') VFX.areas.forEach(function (A) { A.t += 6; }); } // in a fight, areas last by rounds (6 seconds each)
     var c = CB.order[CB.idx];
     if (c !== 'pc' && (c.dead || c.calm)) { cbNext(); return; }
     if (c === 'pc' && cbEscaped()) return;
@@ -559,7 +561,7 @@
       CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
       if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
       if (PC.down) { cbRingsUpdate(); cbHUD(); setTimeout(cbDeathSave, 700); return; }
-      burnPools(null);
+      burnPools(null); areaTurnStart('pc');
       cbShowMoves();
     } else { c.react = true; cbShowMoves(); setTimeout(function () { cbEnemyTurn(c); }, 250); }
     cbRingsUpdate(); cbHUD();
@@ -588,7 +590,7 @@
   }
   function cbWalk(path, then) {
     if (!path || !path.length) { if (then) then(); return; }
-    CB.res.move -= path.length; CB.path = path; CB.afterWalk = then || null; CB.busy = true; cbShowMoves(); cbHUD();
+    CB.res.move -= path.reduce(function (a, s) { return a + tileCost(s[0], s[1]); }, 0); if (CB.res.move < 0) CB.res.move = 0; CB.path = path; CB.afterWalk = then || null; CB.busy = true; cbShowMoves(); cbHUD();
   }
   function cbMove(dt) { // called instead of joystick movement while a fight is on
     P.speed = 0; if (!CB.path || CB.pause) return;
@@ -602,6 +604,7 @@
     P.speed = 1.6; cbFaceHero(t[0], t[1]);
     if (dist <= step) {
       P.px = t[0]; P.pz = t[1]; P.x = t[0]; P.z = t[1]; CB.path.shift(); CB.stepChecked = false; refreshFog(); enterRoom(); cbJoinCheck();
+      if (areaApply('pc', false, true)) { CB.path = []; } // slipped, or caught in a web
       CB.enemies.forEach(function (e) { if (e.grappled && cheb(P.x, P.z, e.x, e.z) > 1) { e.grappled = false; say('Grapple released', 'You stepped away and let go of ' + e.name + '.', 2200); } });
     } else { P.px += dx / dist * step; P.pz += dz / dist * step; }
     if (!CB.path.length) { CB.path = null; P.speed = 0; CB.busy = false; var f = CB.afterWalk; CB.afterWalk = null; cbShowMoves(); cbHUD(); if (f) f(); }
@@ -634,6 +637,8 @@
     if (opt.ranged && cbAdjacent().length) { dis = true; why.push('enemy next to you'); }
     else if (opt.close) { dis = true; why.push('too close for a bow'); }
     if (opt.ranged && dist > Wp.range) { dis = true; why.push('long range'); }
+    var oT = obscured(e.x, e.z), oA = obscured(P.x, P.z); if (oT && !oA) { dis = true; why.push('cannot see into the ' + (areaHas(e.x, e.z, ['darkness']) ? 'darkness' : 'smoke')); } else if (oA && !oT) { adv = true; why.push('they cannot see you'); }
+    if (e.webbed) { adv = true; why.push('stuck in a web'); } if (PC.webbed) { dis = true; why.push('you are stuck'); } if (PC.prone) { dis = true; why.push('attacking from the floor'); }
     if (CB.advNext) { adv = true; why.push('opening'); CB.advNext = false; }
     var cover = opt.ranged && hasCover(P.x, P.z, e.x, e.z) ? 2 : 0, ac = acOf(e) + cover;
     var R = roll20(adv, dis), tot = R.r + Wp.hit, crit = R.r >= (Wp.crit || 20), hit = crit || (R.r !== 1 && tot >= ac);
@@ -643,6 +648,7 @@
       var raw = d(crit ? Wp.n * 2 : Wp.n, Wp.s), dm = Math.max(1, raw + Wp.dmgB); e.hp -= dm;
       var exTxt = ''; if (Wp.edmg) { // enchanted: extra typed damage (doubled dice on a crit, double again if it is weak to that)
         var xm = /(\d+)d(\d+)/.exec(Wp.edmg.dice), xr = xm ? d((crit ? 2 : 1) * +xm[1], +xm[2]) : 0, weak = (e.def.vuln || []).indexOf(Wp.edmg.type) >= 0; if (weak) xr *= 2;
+        if (xr && Wp.edmg.type === 'acid' && !e.dead) { var wv = (e.weak && e.weak.turns > 0 ? e.weak.v : 0) + 1; e.weak = { v: Math.min(3, wv), turns: 2 }; fxTag(e, 'ACID · -' + Math.min(3, wv) + ' AC'); } // acid eats armor (stacks to -3)
         if (xr) { vfxHit(Wp.edmg.type, e.px, e.pz, e.def.h); e.hp -= xr; dm += xr; exTxt = ' (' + xr + ' of it ' + Wp.edmg.type + (weak ? ', and it is weak to that' : '') + ')'; setTimeout(function () { floater(e.px + 0.3, e.def.h + 0.55, e.pz, '+' + xr + ' ' + Wp.edmg.type, 'crit'); }, 260); }
       }
       diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, dd: (crit ? Wp.n * 2 : Wp.n) + 'd' + Wp.s, ds: Wp.s, raw: raw, db: Wp.dmgB, dm: dm, why: why });
@@ -669,17 +675,22 @@
     if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can ' + (Wt.bow ? 'shoot' : 'throw') + ' up to ' + Wt.long + '.', 2600); return; }
     if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is between you and ' + e.name + '.', 2600); return; }
     CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); if (!Wt.bow) kitOneShot('Spell_Simple_Shoot'); cbHUD();
-    if (Wt.empty) { say('Out of arrows', 'Jury-rig some (Prop lumber + a tip) or find some.', 2600); return; }
-    var Wp = { name: (Wt.bow ? Wt.ammo.name.toLowerCase().replace(/s$/, '') : 'thrown ' + Wt.name.replace(/^(your|a) /, '')), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat] + (Wt.acc || 0), dmgB: MOD[Wt.stat], range: Wt.range, onHit: Wt.onHit || null };
-    if (Wt.bow) { CB.shot = CB.shot || {}; CB.shot[Wt.ammo.name] = (CB.shot[Wt.ammo.name] || 0) + 1; Wt.ammo.qty = (Wt.ammo.qty || 1) - 1; if (Wt.ammo.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(Wt.ammo), 1); saveChar(CHAR); if (typeof wsetDraw === 'function') wsetDraw(); }
-    var close = Wt.bow && cheb(P.x, P.z, e.x, e.z) <= 2;
-    var flyK = Wt.bow ? (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow') : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
-    var fly = function (x0, y0, z0) { vfxBolt(flyK, x0, z0, e.px, e.pz, function () {
+    if (Wt.empty) { say('Out of ' + (Wt.ammoKind || 'arrow') + 's', AMMO_HINT[Wt.ammoKind] || 'Craft or find some.', 2600); CB.busy = false; CB.res.action = 1; cbHUD(); return; }
+    var Wp = { name: (Wt.bow ? Wt.ammo.name.toLowerCase().replace(/s$/, '') : 'thrown ' + Wt.name.replace(/^(your|a) /, '')), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat] + (Wt.acc || 0), dmgB: MOD[Wt.stat], range: Wt.range, onHit: Wt.onHit || null, edmg: Wt.edmg || null };
+    var spend = function () { // one piece of ammo per shot; paintballs never come back
+      if (!Wt.bow) return true; var A = Wt.ammo; if (!A || (A.qty || 1) <= 0 || CHAR.gear.indexOf(A) < 0) return false;
+      if (!(ITEMS[A.name].ammo || {}).noRecover) { CB.shot = CB.shot || {}; CB.shot[A.name] = (CB.shot[A.name] || 0) + 1; }
+      A.qty = (A.qty || 1) - 1; if (A.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(A), 1); saveChar(CHAR); if (typeof wsetDraw === 'function') wsetDraw(); return true; };
+    var close = Wt.bow && Wt.pose !== 'gun' && cheb(P.x, P.z, e.x, e.z) <= 2;
+    var flyK = Wt.bow ? (Wt.fly === 'pebble' ? 'pebble' : Wt.fly === 'paint' ? 'paint' : (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow')) : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
+    var shots = Math.max(1, Wt.shots || 1); spend();
+    var fly = function (x0, y0, z0, left) { vfxBolt(flyK, x0, z0, e.px, e.pz, function () {
       cbResolve(e, Wp, { ranged: true, close: close });
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }
+      if (left > 1 && !e.dead && CB.on && spend()) { setTimeout(function () { kitGunKick(); fly(x0, y0, z0, left - 1); }, 260); return; } // a second shot in the same action
       cbAfterMyMove();
     }, { ty: (e.def.h || 1) * 0.6, y0: y0 }); };
-    if (Wt.bow) kitBowShot(fly); else setTimeout(function () { fly(P.px, 1.15, P.pz); }, 260);
+    if (Wt.bow) kitBowShot(function (x0, y0, z0) { fly(x0, y0, z0, shots); }, Wt.pose); else setTimeout(function () { fly(P.px, 1.15, P.pz, 1); }, 260);
   }
   function cbContest(e) { // your Athletics against their Athletics or Acrobatics, whichever is better for them
     var me = d20() + MOD.STR + skillLv('Athletics') - (hasTrait('Bad Back') ? 2 : 0), them = d20() + Math.max(e.def.str, e.def.dex) + (e.kind === 'imp' ? 2 : 0);
@@ -798,7 +809,7 @@
     if (!CB.on) return;
     if (e.dead || e.calm) { setTimeout(cbNext, 200); return; } // it made a deal mid-fight: it keeps its word
     if (e.weak && e.weak.turns > 0) e.weak.turns--;
-    burnPools(e);
+    burnPools(e); areaTurnStart(e); if (e.dead) { setTimeout(cbNext, 900); return; }
     if (e.burning && e.burning.turns > 0) { // on fire: damage every turn until it goes out (a DEX save, or it spends its turn patting it out)
       var bd = Math.max(1, rollDice(e.burning.dice)); e.hp -= bd; e.burning.turns--; floater(e.px, e.def.h + 0.3, e.pz, '-' + bd, 'dmg'); fxTag(e, 'BURNING');
       var smart = typeof intOf === 'function' && intOf(e) === 'smart', sv = d20() + (e.def.dex || 0), out = e.burning.turns <= 0 || sv >= 10, pat = false;
@@ -810,20 +821,68 @@
     if (e.stunned > 0) { e.stunned--; say(e.name + ' loses its turn', e.stunned ? 'Still reeling.' : 'It shakes it off. Next turn it is back.', 2600); setTimeout(cbNext, 1000); return; }
     var speed = e.def.speed;
     if (e.prone) { e.prone = false; speed = Math.floor(speed / 2); cbPlay(e, 'Idle_Loop'); say(e.name, 'It scrambles back to its feet (half its movement).', 2200); }
-    if (e.grappled) speed = 0;
+    if (e.grappled || e.webbed) speed = 0;
     if (PC.down) { // the show likes a dramatic pause: monsters gloat instead of finishing you
       setTimeout(function () { say(e.name, ['It pokes you with its ' + e.def.weapon + ' and waves at the camera.', 'It goes through your pockets.', 'It does a little dance.'][Math.floor(Math.random() * 3)], 2400); setTimeout(cbNext, 900); }, 300); return;
     }
     if (cheb(e.x, e.z, P.x, P.z) <= 1) { cbEnemyAttack(e, false, cbNextAfterHit); return; }
-    if (!speed) { say(e.name, 'It strains against your grip and cannot reach you.', 2200); setTimeout(cbNext, 600); return; }
+    if (!speed) { say(e.name, e.webbed ? 'It thrashes in the web and cannot move.' : 'It strains against your grip and cannot reach you.', 2200); setTimeout(cbNext, 600); return; }
     var r = bfs(e.x, e.z, e, 40), best = null;
     for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { if (!dx && !dz) continue; var k = (P.x + dx) + ',' + (P.z + dz); if (r.dist[k] !== undefined && (best === null || r.dist[k] < r.dist[best])) best = k; }
     if (best === null) { say(e.name, 'It cannot find a way to you and snarls instead.', 2500); setTimeout(cbNext, 700); return; }
-    var p = best.split(','), path = pathTo(r, +p[0], +p[1]).slice(0, speed);
+    var p = best.split(','), full = pathTo(r, +p[0], +p[1]), path = [], spent = 0; for (var pi = 0; pi < full.length; pi++) { spent += tileCost(full[pi][0], full[pi][1]); if (spent > speed) break; path.push(full[pi]); } // ice, webs and spikes cost double
     if (!path.length) { setTimeout(cbNext, 300); return; }
     e.path = path; cbPlay(e, 'Walk_Loop');
     e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); if (cheb(e.x, e.z, P.x, P.z) <= 1) cbEnemyAttack(e, false, cbNextAfterHit); else setTimeout(cbNext, 350); };
   }
+  // ---------- spell areas in a fight: what each one does to whoever is in it ----------
+  // fire 1d6, acid 1d4 and -1 AC, storm 1d8 half the time (at the start of a turn, or stepping in; once per turn each)
+  // spikes 1d4 for every tile you move through; grease (DC 12) and ice (DC 10): DEX save or fall prone; web: DEX save or stuck until a STR save
+  // ice, web and spikes cost double movement; smoke and darkness: nobody can see into them (attacks in are at disadvantage, attacks out at advantage)
+  function areasAt(x, z) { return typeof VFX === 'undefined' ? [] : VFX.areas.filter(function (A) { return Math.hypot(A.x - x, A.z - z) <= A.r + 0.25; }); }
+  function areaHas(x, z, kinds) { return areasAt(x, z).some(function (A) { return kinds.indexOf(A.kind) >= 0; }); }
+  function obscured(x, z) { return areaHas(x, z, ['smoke', 'darkness']); }
+  function tileCost(x, z) { return areaHas(x, z, ['ice', 'web', 'spikes']) ? 2 : 1; }
+  function areaSave(who, stat) { return d20() + (who === 'pc' ? MOD[stat] : ((who.def[stat.toLowerCase()] | 0) || 0)); }
+  function areaHurt(who, n, kind, why) {
+    if (who === 'pc') { PC.hp = Math.max(0, PC.hp - n); floater(P.px, 1.5, P.pz, '-' + n + ' ' + kind, 'pdmg'); vfxHit(kind === 'piercing' ? 'steel' : kind, P.px, P.pz, 1.6); cbHUD(); say(why, n + ' ' + kind + ' damage.', 2600); if (PC.hp <= 0) { if (CB.on) cbFall(); else PC.hp = 1; } return; }
+    who.hp -= n; floater(who.px, who.def.h + 0.3, who.pz, '-' + n + ' ' + kind, 'dmg'); vfxHit(kind === 'piercing' ? 'steel' : kind, who.px, who.pz, who.def.h); say(who.name + ': ' + why, n + ' ' + kind + ' damage.', 2400);
+    if (who.hp <= 0 && !who.dead) cbKill(who);
+  }
+  function areaApply(who, start, moving) { // start: beginning of their turn; moving: just stepped into this tile. Returns true if it stopped them
+    var x = who === 'pc' ? P.x : who.x, z = who === 'pc' ? P.z : who.z, list = areasAt(x, z), stop = false, rnd = CB.on ? (CB.round || 0) : Math.floor(Date.now() / 6000);
+    if (!list.length || (who !== 'pc' && who.dead)) return false;
+    var once = function (A) { var k = '_a' + VFX.areas.indexOf(A) + A.kind; var o = who === 'pc' ? PC : who; if (o[k] === rnd + ':' + (CB.idx || 0) && !moving) return false; if (o[k] === rnd + ':' + (CB.idx || 0) && moving && A.kind !== 'spikes') return false; o[k] = rnd + ':' + (CB.idx || 0); return true; };
+    list.forEach(function (A) {
+      if ((who !== 'pc' && who.dead) || (stop && /grease|ice|web/.test(A.kind))) return; if (!CB.on && /grease|ice|web|storm/.test(A.kind)) return; // slipping does not save you from the fire // out of a fight only the damaging ground matters
+      if (A.kind === 'fire' && once(A)) areaHurt(who, rollDice('1d6'), 'fire', 'Standing in fire');
+      else if (A.kind === 'acid' && once(A)) { areaHurt(who, rollDice('1d4'), 'acid', 'Acid'); if (who !== 'pc' && !who.dead) { who.weak = { v: 1, turns: 2 }; fxTag(who, 'ACID · -1 AC'); } }
+      else if (A.kind === 'storm' && start && Math.random() < 0.5 && once(A)) areaHurt(who, rollDice('1d8'), 'lightning', 'Lightning strikes');
+      else if (A.kind === 'spikes' && moving) areaHurt(who, rollDice('1d4'), 'piercing', 'Spikes');
+      else if ((A.kind === 'grease' || A.kind === 'ice') && (moving || start) && once(A)) {
+        var dc = A.kind === 'ice' ? 10 : 12, sv = areaSave(who, 'DEX');
+        if (sv < dc) { stop = true; if (who === 'pc') { PC.prone = true; say('You slip', (A.kind === 'ice' ? 'Ice' : 'Grease') + ': DEX save ' + sv + ' vs ' + dc + '. You go down. Standing up costs half your movement.', 3200); } else { who.prone = true; cbPlay(who, 'Death01'); fxTag(who, 'PRONE'); say(who.name + ' slips', 'DEX save ' + sv + ' vs ' + dc + '. Down it goes.', 2400); } }
+        else if (who === 'pc') say('Steady', 'DEX save ' + sv + ' vs ' + dc + '. You keep your feet on the ' + A.kind + '.', 2000);
+      }
+      else if (A.kind === 'web' && (moving || start) && once(A)) {
+        var o = who === 'pc' ? PC : who; if (o.webbed) return; var sw = areaSave(who, 'DEX');
+        if (sw < 12) { o.webbed = true; stop = true; if (who === 'pc') say('Stuck in the web', 'DEX save ' + sw + ' vs 12. You cannot move until you tear free (a STR save at the start of your turn).', 3600); else { fxTag(who, 'WEBBED'); say(who.name + ' is stuck', 'DEX save ' + sw + ' vs 12. It is caught in the web.', 2400); } }
+      }
+    });
+    return stop;
+  }
+  function areaTurnStart(who) { // returns false if the turn should skip movement
+    if (who === 'pc') {
+      if (PC.webbed) { var s = areaSave('pc', 'STR'); if (s >= 12 || !areaHas(P.x, P.z, ['web'])) { PC.webbed = false; say('You tear free', 'STR save ' + s + ' vs 12.', 2400); } else { CB.res.move = 0; say('Still stuck', 'STR save ' + s + ' vs 12. No moving this turn; you can still act.', 3000); } }
+      if (PC.prone) { PC.prone = false; CB.res.move = Math.floor(CB.res.move / 2); say('You get up', 'Standing costs half your movement.', 2200); }
+      areaApply('pc', true, false); return;
+    }
+    if (who.webbed) { var t = areaSave(who, 'STR'); if (t >= 12 || !areaHas(who.x, who.z, ['web'])) { who.webbed = false; say(who.name + ' tears free', 'STR save ' + t + ' vs 12.', 2200); } }
+    areaApply(who, true, false);
+  }
+  // out of a fight: walking through fire, acid or spikes still hurts
+  var areaLastTile = '';
+  setInterval(function () { if (typeof CHAR === 'undefined' || !CHAR || CB.on || CHAR.dead || typeof VFX === 'undefined' || !VFX.areas.length) return; var k = P.x + ',' + P.z; if (k === areaLastTile) return; areaLastTile = k; areaApply('pc', false, true); }, 150);
   // standing in burning grease sets you alight; you burn at the start of your turn too
   function burnPools(e) {
     var x = e ? e.px : P.px, z = e ? e.pz : P.pz, now = Date.now();
@@ -838,7 +897,10 @@
     cbFace(e, P.x, P.z); cbPlay(e, e.def.attackClip, true);
     var dis = CB.dodge || PC.hidden || e.prone, why = [];
     if (CB.dodge) why.push('you dodge'); if (PC.hidden) why.push('cannot see you'); if (e.prone) why.push('attacking from the floor');
-    var R = roll20(false, dis), tot = R.r + e.def.atk, ac = pcAC().ac, crit = R.r === 20, hit = crit || (R.r !== 1 && tot >= ac);
+    var adv2 = false, oP = obscured(P.x, P.z), oE = obscured(e.x, e.z), nearP = cheb(e.x, e.z, P.x, P.z) <= 1;
+    if (oP && !oE) { dis = true; why.push('cannot see you in the ' + (areaHas(P.x, P.z, ['darkness']) ? 'darkness' : 'smoke')); } else if (oE && !oP) { adv2 = true; why.push('you cannot see it'); }
+    if (PC.webbed) { adv2 = true; why.push('you are stuck'); } if (PC.prone) { if (nearP) { adv2 = true; why.push('you are on the floor'); } else { dis = true; why.push('you are prone, at range'); } } if (e.webbed) { dis = true; why.push('it is stuck'); }
+    var R = roll20(adv2 && !dis, dis && !adv2), tot = R.r + e.def.atk, ac = pcAC().ac, crit = R.r === 20, hit = crit || (R.r !== 1 && tot >= ac);
     setTimeout(function () {
       var line = R.txt + ' + ' + e.def.atk + ' = ' + tot + ' vs your AC ' + ac + (why.length ? ' · ' + why.join(', ') : '');
       var tag = opportunity ? 'Opportunity attack · ' : '';
@@ -916,7 +978,7 @@
       if (e.path) {
         var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = (e.roaming ? (e.body ? 1.8 : 1.3) : 3.2) * dt;
         e.obj.rotation.y = Math.atan2(dx, dz);
-        if (dist <= step) { var wasNear = CB.on && cheb(e.x, e.z, P.x, P.z) <= 1; e.px = t[0]; e.pz = t[1]; e.x = t[0]; e.z = t[1]; e.path.shift(); if (wasNear && cheb(e.x, e.z, P.x, P.z) > 1 && !e.prone) cbMyOpportunity(e); if (!CB.on && e.roaming) cbAggro(); }
+        if (dist <= step) { var wasNear = CB.on && cheb(e.x, e.z, P.x, P.z) <= 1; e.px = t[0]; e.pz = t[1]; e.x = t[0]; e.z = t[1]; e.path.shift(); if (wasNear && cheb(e.x, e.z, P.x, P.z) > 1 && !e.prone) cbMyOpportunity(e); if (!CB.on && e.roaming) cbAggro(); if (CB.on && CB.order.indexOf(e) >= 0 && areaApply(e, false, true)) e.path = []; }
         else { e.px += dx / dist * step; e.pz += dz / dist * step; }
         e.obj.position.set(e.px, 0, e.pz);
         if (!e.path.length) { e.path = null; var f = e.afterWalk; e.afterWalk = null; if (f) f(); }

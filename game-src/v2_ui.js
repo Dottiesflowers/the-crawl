@@ -177,7 +177,7 @@
     if (canBack(it) && CHAR.wield !== it.name) acts.push(CHAR.back === it.name ? ['unback', 'Take off back'] : ['back', 'Wear on back']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
-    if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Shoot these first']);
+    if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Load these first']);
     acts = acts.concat(lampActs(it));
     if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
     if (hotEligible(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
@@ -185,7 +185,7 @@
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       loreLine(it) + (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
-      '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (ITEMS[it.name] && ITEMS[it.name].twoHand ? ' · two-handed' : '') + (ITEMS[it.name] && ITEMS[it.name].ammo ? ' · ' + (it.qty || 1) + ' arrows · 1d' + ITEMS[it.name].ammo.s : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
+      '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (ITEMS[it.name] && ITEMS[it.name].twoHand ? ' · two-handed' : '') + (ITEMS[it.name] && ITEMS[it.name].ammo ? ' · ' + (ITEMS[it.name].ammo.kind || 'arrow') + ' ammo · 1d' + ITEMS[it.name].ammo.s : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
       '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
   }
   function bagAct(a, it) {
@@ -360,10 +360,10 @@
   }
   // the arrows on the string: the ones you picked stay loaded until you switch (tap the In hand card)
   function ammoTypes() { var L = launcherOf(CHAR.wield), kind = (L && L.ammo) || 'arrow'; return (CHAR.gear || []).filter(function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; }); }
-  function ammoLine() { var a = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'); if (!a) return 'No arrows · craft some'; var n = ammoTypes().length; return esc(a.name.replace(/ arrows$/, '')) + ' ×' + (a.qty || 1) + ' · 1d' + ITEMS[a.name].ammo.s + (n > 1 ? ' · tap to switch' : ''); }
+  function ammoLine() { var a = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'); if (!a) return 'No ' + ((launcherOf(CHAR.wield) || {}).ammo || 'arrow') + 's · tap for how'; var n = ammoTypes().length; return esc(a.name.replace(/ arrows$/, '')) + ' ×' + (a.qty || 1) + ' · 1d' + ITEMS[a.name].ammo.s + (n > 1 ? ' · tap to switch' : ''); }
   function ammoCycle() { var st = ammoTypes(); if (st.length < 2) { say('Arrows', st.length ? 'That is the only kind you have.' : 'No arrows. Jury-rig some: Prop lumber + a tip.', 2400); return; }
     var cur = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'), i = st.indexOf(cur), nx = st[(i + 1) % st.length]; CHAR.ammo = nx.name; saveChar(CHAR); wsetDraw(); if (CB.on) cbHUD();
-    say('Arrows · ' + nx.name, 'Loaded. 1d' + ITEMS[nx.name].ammo.s + (ITEMS[nx.name].ammo.acc ? ', +' + ITEMS[nx.name].ammo.acc + ' to hit' : '') + (ITEMS[nx.name].ammo.onHit ? ', sets them on fire' : '') + '. ' + (nx.qty || 1) + ' left.', 2400); }
+    say('Ammo · ' + nx.name, 'Loaded. 1d' + ITEMS[nx.name].ammo.s + (ITEMS[nx.name].ammo.acc ? ', +' + ITEMS[nx.name].ammo.acc + ' to hit' : '') + (ITEMS[nx.name].ammo.onHit ? ', sets them on fire' : '') + '. ' + (nx.qty || 1) + ' left.', 2400); }
 
   // ---------- wardrobe: you only wear what you own ----------
   var CLOTH_SLOTS = ['kHead', 'kNeck', 'kTop', 'kShoulder', 'kPants', 'kBoots'];
@@ -574,12 +574,27 @@
     if (!nm) return null; var I = typeof ITEMS !== 'undefined' && ITEMS[nm]; if (I && I.bow) return I.bow;
     var g = typeof CHAR !== 'undefined' && CHAR ? (CHAR.gear || []).filter(function (x) { return x.name === nm; })[0] : null; if (g && g.bow) return g.bow;
     if (g && g.cat === 'weapon' && /\b(short|long|cross)?bow\b/i.test(nm) && !/elbow|rainbow|bowl|bowtie|bow tie/i.test(nm)) return { ammo: 'arrow', range: 12, long: 36, acc: -1, crude: true };
+    if (g && g.cat === 'weapon' && /sling ?shot|wrist.?rocket/i.test(nm)) return { ammo: 'pebble', range: 6, long: 24, acc: -1, crude: true, pose: 'sling', fly: 'pebble' }; // homemade slingshots work too
     return null;
   }
   function gearModel(g0, it) {
     var k = itemKind(it), RED = 0xb02828, g = new THREE.Group(); g.scale.setScalar(1.35); g0.add(g);
     // weapons with a real model (kit2/weapons.json): grip just above the pommel, blade up; a bow is held in the middle
-    var IB = (typeof ITEMS !== 'undefined' && ITEMS[it.name]) || it; if (!IB.model && launcherOf(it.name)) IB = { model: 'w_bow', len: 0.7, bow: true, skin: 'crude' }; // a homemade bow looks like a rough version of ours
+    var IB = (typeof ITEMS !== 'undefined' && ITEMS[it.name]) || it; if (!IB.model && !IB.proc && launcherOf(it.name)) IB = { model: 'w_bow', len: 0.7, bow: true, skin: 'crude' }; // a homemade bow looks like a rough version of ours
+    if (IB.proc === 'sling') { // a wrist-rocket: wooden handle, a fork, orange tubing and a pouch
+      var wd = new THREE.MeshLambertMaterial({ color: 0x9a6a3a }), tb = new THREE.MeshLambertMaterial({ color: 0xe86a28 }), lt = new THREE.MeshLambertMaterial({ color: 0x5a3a20 });
+      var hd = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.16, 6), wd); hd.position.y = 0.06; g.add(hd);
+      [-1, 1].forEach(function (sd) { var pr = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.015, 0.12, 5), wd); pr.position.set(sd * 0.03, 0.18, 0); pr.rotation.z = -sd * 0.45; g.add(pr);
+        var tu = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 4), tb); tu.position.set(sd * 0.035, 0.24, -0.05); tu.rotation.x = 1.1; g.add(tu); });
+      var pc = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.03), lt); pc.position.set(0, 0.22, -0.1); g.add(pc); return; }
+    if (IB.proc === 'marker') { // the Acid Splat Marker: a paintball gun, barrel up the hand, a sloshing green hopper
+      var bk = new THREE.MeshLambertMaterial({ color: 0x2a2e32 }), nz = new THREE.MeshLambertMaterial({ color: 0x9aff3a, emissive: 0x2a6010 }), hp = new THREE.MeshLambertMaterial({ color: 0x8aef4a, transparent: true, opacity: 0.75, emissive: 0x1a4a0a });
+      var bd = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.07), bk); bd.position.y = 0.14; g.add(bd);
+      var br = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.22, 8), bk); br.position.y = 0.36; g.add(br);
+      var tp = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.03, 8), nz); tp.position.y = 0.46; g.add(tp);
+      var ho = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), hp); ho.position.set(0, 0.17, 0.07); ho.scale.set(1, 1.3, 1); g.add(ho);
+      var gp2 = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.08, 0.04), bk); gp2.position.set(0, 0.03, -0.03); g.add(gp2);
+      var st2 = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.2, 0.01), nz); st2.position.set(0.027, 0.14, 0); g.add(st2); return; }
     if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) {
       g.traverse(function (o) { if (!o.isMesh) return; if (IB.skin && WSKIN[IB.skin]) { o.material = wskinMat(IB.skin); return; } if (!o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); // the rust textures are dark: lift them so they read in hand
       return;

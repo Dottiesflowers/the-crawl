@@ -7339,7 +7339,8 @@
   // ---------- archery: no bow clip in the animation set, so the arms are posed in code ----------
   // 0-0.3 s raise the bow and nock, 0.3-0.75 draw the string to the chin, release at 0.75 (the arrow leaves from the bow hand), hold, lower
   var _bv = new THREE.Vector3(), _bc = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bq2 = new THREE.Quaternion(), _bd = new THREE.Vector3();
-  function kitBowShot(onRelease) { if (!KIT || !KIT.on) { if (onRelease) onRelease(P.px, 1.15, P.pz); return; } KIT.bowT = 0; KIT.bowRel = onRelease; KIT.bowFired = false; }
+  function kitBowShot(onRelease, pose) { if (!KIT || !KIT.on) { if (onRelease) onRelease(P.px, 1.15, P.pz); return; } KIT.bowT = 0; KIT.bowRel = onRelease; KIT.bowFired = false; KIT.bowPose = pose || 'bow'; KIT.kick = 0; }
+  function kitGunKick() { if (KIT) { KIT.kick = 0.16; if (KIT.bowT != null && KIT.bowPose === 'gun') KIT.bowT = Math.min(KIT.bowT, 0.6); } }
   function bonePoint(bone, child, target, w) { // turn a bone so its child sits on the line to target
     bone.getWorldPosition(_bv); child.getWorldPosition(_bc); var cur = _bc.sub(_bv).normalize(), des = _bd.copy(target).sub(_bv).normalize();
     _bq.setFromUnitVectors(cur, des); bone.getWorldQuaternion(_bq2); _bq.multiply(_bq2); bone.parent.getWorldQuaternion(_bq2); _bq2.invert(); _bq.premultiply(_bq2);
@@ -7347,7 +7348,8 @@
   }
   function kitBowPose(dt) {
     var B = KIT.bones, t = (KIT.bowT += dt); if (!B.upperarm_l || !B.upperarm_r) { KIT.bowT = null; return; }
-    var w = t < 0.25 ? t / 0.25 : t > 1.15 ? Math.max(0, 1 - (t - 1.15) / 0.25) : 1; w = w * w * (3 - 2 * w);
+    var gun = KIT.bowPose === 'gun', relAt = gun ? 0.35 : 0.75, endAt = gun ? 1.25 : 1.15; if (KIT.kick > 0) KIT.kick = Math.max(0, KIT.kick - dt);
+    var w = t < 0.25 ? t / 0.25 : t > endAt ? Math.max(0, 1 - (t - endAt) / 0.25) : 1; w = w * w * (3 - 2 * w);
     hero.updateMatrixWorld(true);
     var ry = hero.rotation.y, fwd = new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry)), side = new THREE.Vector3(fwd.z, 0, -fwd.x), up = new THREE.Vector3(0, 1, 0);
     var sL = B.upperarm_l.getWorldPosition(new THREE.Vector3()), sR = B.upperarm_r.getWorldPosition(new THREE.Vector3()), arm = sL.distanceTo(B.hand_l.getWorldPosition(new THREE.Vector3())) || 0.5;
@@ -7357,19 +7359,25 @@
     var chin = cen.clone().addScaledVector(fwd, arm * 0.12).addScaledVector(up, arm * 0.18);          // string hand anchors at the chin
     var handT = bowPt.clone().lerp(chin, d * d * (3 - 2 * d));
     var elbow = sR.clone().lerp(handT, 0.5).addScaledVector(side.clone().multiplyScalar(sR.clone().sub(cen).dot(side) > 0 ? 1 : -1), arm * 0.25 * d).addScaledVector(fwd, -arm * 0.25 * d).addScaledVector(up, arm * 0.08 * d);
+    if (gun) { // both hands on the gun at chest height, a kick back on each shot
+      var gp = cen.clone().addScaledVector(fwd, arm * (0.8 - (KIT.kick || 0) * 0.9)).addScaledVector(up, -arm * 0.12), gr = gp.clone().addScaledVector(fwd, -arm * 0.28);
+      bonePoint(B.upperarm_l, B.lowerarm_l, gp.clone().addScaledVector(up, arm * 0.1), w); bonePoint(B.lowerarm_l, B.hand_l, gp, w);
+      bonePoint(B.upperarm_r, B.lowerarm_r, gr.clone().addScaledVector(side.clone().multiplyScalar(sR.clone().sub(cen).dot(side) > 0 ? 1 : -1), arm * 0.2), w); bonePoint(B.lowerarm_r, B.hand_r, gr, w);
+    } else {
     bonePoint(B.upperarm_l, B.lowerarm_l, bowPt, w); bonePoint(B.lowerarm_l, B.hand_l, bowPt.clone().addScaledVector(fwd, arm), w);
-    bonePoint(B.upperarm_r, B.lowerarm_r, elbow, w); bonePoint(B.lowerarm_r, B.hand_r, handT, w);
+    bonePoint(B.upperarm_r, B.lowerarm_r, elbow, w); bonePoint(B.lowerarm_r, B.hand_r, handT, w); }
     if (BOW_G && BOW_G.parent) { // stand the bow upright, its face toward the target, while it is up
-      var m4 = new THREE.Matrix4().makeBasis(side, up, fwd), qw = new THREE.Quaternion().setFromRotationMatrix(m4), qp = new THREE.Quaternion(); BOW_G.parent.getWorldQuaternion(qp); qw.premultiply(qp.invert());
+      var m4 = gun ? new THREE.Matrix4().makeBasis(side, fwd, new THREE.Vector3().crossVectors(side, fwd)) : new THREE.Matrix4().makeBasis(side, up, fwd), qw = new THREE.Quaternion().setFromRotationMatrix(m4), qp = new THREE.Quaternion(); BOW_G.parent.getWorldQuaternion(qp); qw.premultiply(qp.invert());
       if (!BOW_G.userData.q0) BOW_G.userData.q0 = BOW_G.quaternion.clone(); BOW_G.quaternion.copy(BOW_G.userData.q0).slerp(qw, w);
-      if (t > 1.4) BOW_G.quaternion.copy(BOW_G.userData.q0);
+      if (t > endAt + 0.25) BOW_G.quaternion.copy(BOW_G.userData.q0);
     }
     // the nocked arrow, string hand to bow hand, until it is loosed
-    if (!KIT.bowArrow && typeof vfxMeshArrow === 'function') { KIT.bowArrow = vfxMeshArrow(false); scene.add(KIT.bowArrow); }
+    if (!KIT.bowArrow && typeof vfxMeshArrow === 'function') { KIT.bowArrow = vfxMeshArrow(false); scene.add(KIT.bowArrow); KIT.bowPebble = new THREE.Mesh(new THREE.DodecahedronGeometry(0.035), new THREE.MeshLambertMaterial({ color: 0x8a8278 })); scene.add(KIT.bowPebble); KIT.bowPebble.visible = false; }
     var hL = B.hand_l.getWorldPosition(new THREE.Vector3()), hR = B.hand_r.getWorldPosition(new THREE.Vector3());
-    if (KIT.bowArrow) { KIT.bowArrow.visible = t > 0.15 && !KIT.bowFired; KIT.bowArrow.position.copy(hR).lerp(hL, 0.5).addScaledVector(fwd, 0.12); KIT.bowArrow.lookAt(hL.clone().addScaledVector(fwd, 0.5)); KIT.bowArrow.scale.setScalar(Math.max(0.6, hR.distanceTo(hL) / 0.45)); }
-    if (t >= 0.75 && !KIT.bowFired) { KIT.bowFired = true; var cb = KIT.bowRel; KIT.bowRel = null; if (cb) cb(hL.x, hL.y, hL.z); }
-    if (t > 1.4) { KIT.bowT = null; if (KIT.bowArrow) KIT.bowArrow.visible = false; }
+    if (KIT.bowPebble) { KIT.bowPebble.visible = KIT.bowPose === 'sling' && t > 0.15 && !KIT.bowFired; KIT.bowPebble.position.copy(hR); }
+    if (KIT.bowArrow) { KIT.bowArrow.visible = KIT.bowPose === 'bow' && t > 0.15 && !KIT.bowFired; KIT.bowArrow.position.copy(hR).lerp(hL, 0.5).addScaledVector(fwd, 0.12); KIT.bowArrow.lookAt(hL.clone().addScaledVector(fwd, 0.5)); KIT.bowArrow.scale.setScalar(Math.max(0.6, hR.distanceTo(hL) / 0.45)); }
+    if (t >= relAt && !KIT.bowFired) { KIT.bowFired = true; var cb = KIT.bowRel; KIT.bowRel = null; if (cb) cb(hL.x, hL.y, hL.z); }
+    if (t > endAt + 0.25) { KIT.bowT = null; if (KIT.bowArrow) KIT.bowArrow.visible = false; if (KIT.bowPebble) KIT.bowPebble.visible = false; }
   }
   kitLoad();
 
@@ -7583,10 +7591,16 @@
     'Golden Prop Mace +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, onHit: { type: 'prone', chance: 0.25 }, tags: ['heavy'], rarity: 'Rare', level: 2, model: 'w_mace', skin: 'gold', len: 0.5, desc: 'Spray-painted gold for an awards episode. It is solid iron underneath. +1, crits on 19-20, knocks them flat a quarter of the time.' },
     'Stunt Coordinator\'s Greatsword +1': { cat: 'weapon', dmg: '2d6', twoHand: true, bonus: 1, tags: ['sharp', 'long', 'heavy'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'steel', len: 0.95, desc: 'The big one. Choreographed a thousand fights, lost none of them. 2d6, +1. Two-handed.' },
     // ammo: cat misc so it stacks (qty). ammo: { kind (matches the launcher's bow.ammo), s: damage die, acc: +N to hit, onHit: rider }. twoHand: true = no torch, shield or dagger in the off hand. Jury-rig 2 parts: wood + a tip (see ARROWS in v2_craft.js)
+    // launchers: bow: { ammo kind, range, long, shots per action, pose (bow, sling, gun), fly (arrow, pebble, paint) }; proc: a held model built in code
+    'Wrist-rocket slingshot': { cat: 'weapon', dmg: '1d2', bow: { ammo: 'pebble', range: 8, long: 32, pose: 'sling', fly: 'pebble' }, proc: 'sling', tags: ['light', 'elastic'], level: 1, desc: 'Surgical tubing and a wrist brace. Shoots pebbles: Chunk of rubble, River stone or ball bearings. Half come back after a fight. Dennis the Menace energy, D&D damage.' },
+    'Acid Splat Marker': { cat: 'weapon', dmg: '1d4', twoHand: true, bow: { ammo: 'paintball', range: 10, long: 30, shots: 2, pose: 'gun', fly: 'paint' }, proc: 'marker', tags: ['loud'], rarity: 'Uncommon', level: 2, desc: 'A paintball gun from the laser-tag episode. Two shots per action. Load acid paintballs and every hit eats their armor. Two-handed; paintballs do not come back.' },
+    'Ball bearings': { cat: 'misc', icon: 'coin', ammo: { kind: 'pebble', s: 6 }, tags: ['metal', 'slippery'], level: 1, desc: 'A jar of steel balls. Slingshot ammo: 1d6. Fast, heavy, and a nightmare on hardwood.' },
+    'Paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, noRecover: true }, tags: ['glass'], level: 2, desc: 'Marker ammo: 1d4 and a bright splat. Jury-rig with something toxic (bleach, clerk ink, weed killer) to make acid paintballs.' },
+    'Acid paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, edmg: { dice: '1d4', type: 'acid' }, noRecover: true }, tags: ['toxic', 'glass'], rarity: 'Uncommon', level: 2, desc: 'Neon green, warm, and the casing is already sweating. 1d4 + 1d4 acid, and each hit takes 1 off their armor for 2 turns (stacks to -3).' },
     'Splintered wood': { cat: 'material', tags: ['wood', 'flammable', 'long'], level: 1, desc: 'Busted shelving, a chair leg, part of a pallet. Two of these make arrows.' },
-    'Chunk of rubble': { cat: 'material', tags: ['stone', 'heavy', 'hard'], level: 1, desc: 'A fist-sized piece of the dungeon. It came off the wall. The wall did not notice.' },
+    'Chunk of rubble': { cat: 'material', ammo: { kind: 'pebble', s: 4 }, tags: ['stone', 'heavy', 'hard'], level: 1, desc: 'A fist-sized piece of the dungeon. It came off the wall. The wall did not notice.' },
     'Prop lumber': { cat: 'material', tags: ['wood', 'flammable', 'long'], level: 2, desc: 'Pine offcuts from set construction. Straight, light, splits clean. Two of these make arrows.' },
-    'River stone': { cat: 'material', tags: ['stone', 'heavy', 'hard'], level: 2, desc: 'Flat and sharp-edged, from the Jungle Set river. The river is a pump and a tarp. The stone is real.' },
+    'River stone': { cat: 'material', ammo: { kind: 'pebble', s: 4 }, tags: ['stone', 'heavy', 'hard'], level: 2, desc: 'Flat and sharp-edged, from the Jungle Set river. The river is a pump and a tarp. The stone is real.' },
     'Scrap metal': { cat: 'material', tags: ['metal', 'sharp', 'conductive', 'heavy'], level: 1, desc: 'Bent brackets, sheet offcuts and one very confused bolt.' },
     'Wooden arrows': { cat: 'misc', icon: 'arrows', ammo: { kind: 'arrow', s: 4 }, tags: ['wood', 'flammable'], level: 2, desc: 'Sharpened and fire-hardened. 1d4 from a bow. Jury-rig: Prop lumber + Prop lumber (10).' },
     'Stone-tipped arrows': { cat: 'misc', icon: 'arrows', ammo: { kind: 'arrow', s: 6 }, tags: ['wood', 'stone'], level: 2, desc: 'Knapped stone heads, lashed on. 1d6 from a bow. Jury-rig: Prop lumber + River stone (10).' },
@@ -7673,7 +7687,7 @@
   // sources: one-off places the engine hands out items
   var DROPS = {
     monsters: {
-      puglin: { gold: '1d6', always: ['Puglin stick'], chance: [['Half-eaten snack', 0.5], ['Shiny button', 0.3], ['Puglin grease', 0.35]] },
+      puglin: { gold: '1d6', always: ['Puglin stick'], chance: [['Wrist-rocket slingshot', 0.06], ['Half-eaten snack', 0.5], ['Shiny button', 0.3], ['Puglin grease', 0.35]] },
       imp: { gold: '2d6+2', always: ['Imp mace', 'Security badge', 'Union card'], chance: [['Imp horn', 0.4], ['Scrap metal', 0.3], ['Smoke bomb', 0.1]] },
       rat: { gold: '0', chance: [['Rat tail', 0.6]] },
       bog: { gold: '1d4', chance: [['Bog slime', 0.7], ['Band-aids', 0.15]] },
@@ -7699,12 +7713,12 @@
       extra: { gold: '1d6', chance: [['Rusty arming sword', 0.35], ['Rusty spear', 0.15], ['Wooden arrows', 0.25], ['Craft services sandwich', 0.3]] },
       stuntdouble: { gold: '2d6', chance: [['Rusty longsword', 0.4], ['Rusty broadsword', 0.25], ['Steel arming sword', 0.12], ['Healing potion', 0.3]] },
       stuntknight: { gold: '3d6', always: ['Healing potion'], chance: [['Stunt Coordinator\'s Greatsword +1', 0.1]], oneOf: ['Steel longsword', 'Steel broadsword', 'Steel battleaxe', 'Rusty longsword', 'Rusty battleaxe', 'Rusty flanged mace'] },
-      crew: { gold: '1d6', chance: [['Prop lumber', 0.6], ['Scrap metal', 0.35], ['Roll of duct tape', 0.4], ['AA batteries', 0.3], ['Rusty hatchet', 0.1]] },
-      crew_lead: { gold: '2d6', always: ['Roll of duct tape', 'Prop lumber'], chance: [['Healing potion', 0.4], ['Bandit\'s shortbow', 0.2], ['Scrap-metal arrows', 0.3]] },
+      crew: { gold: '1d6', chance: [['Paintballs', 0.35], ['Prop lumber', 0.6], ['Scrap metal', 0.35], ['Roll of duct tape', 0.4], ['AA batteries', 0.3], ['Rusty hatchet', 0.1]] },
+      crew_lead: { gold: '2d6', always: ['Roll of duct tape', 'Prop lumber'], chance: [['Acid Splat Marker', 0.25], ['Acid paintballs', 0.3], ['Healing potion', 0.4], ['Bandit\'s shortbow', 0.2], ['Scrap-metal arrows', 0.3]] },
       truffle: { gold: '1d4', chance: [['River stone', 0.45], ['Shrub sap', 0.4], ['Band-aids', 0.15]] },
       truffle_big: { gold: '2d4', chance: [['Shrub sap', 0.6], ['Healing potion', 0.25]] },
       truffle_king: { gold: '3d6', always: ['Healing potion'], chance: [['Rusty hatchet', 0.3], ['Emberbrand Battleaxe +1', 0.1]] },
-      automaton: { gold: '1d6', chance: [['Scrap metal', 0.6], ['AA batteries', 0.5], ['WD-40', 0.2]] },
+      automaton: { gold: '1d6', chance: [['Ball bearings', 0.3], ['Scrap metal', 0.6], ['AA batteries', 0.5], ['WD-40', 0.2]] },
       automaton_big: { gold: '2d6', always: ['AA batteries'], chance: [['Healing potion', 0.3], ['Rusty flanged mace', 0.2], ['Frostbite Arming Sword +1', 0.1]] },
       groundskeeper: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Nightshade Spear +1', 'Emberbrand Battleaxe +1'] },
       butler: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Stormcaller Longsword +1', 'Frostbite Arming Sword +1'] },
@@ -7716,10 +7730,10 @@
       small: { gold: '1d4', picks: [1, 1], from: 'a search', pool: ['Splintered wood', 'Splintered wood', 'Chunk of rubble', 'Prop lumber', 'Scrap metal', 'Energy bar', 'Bottle of water', 'Rusty key', 'Lighter', 'Ball of twine', 'Band-aids', 'Roll of toilet paper', 'Breath mints', 'Box cutter', 'Bungee cords', 'Zip ties (10)', 'Empty bottle', 'Wallet ($14 and a punch card)', 'Ibuprofen'] },
       silver: { gold: '4d6', picks: [2, 4], from: 'a silver loot box', pool: ['Greater healing potion', 'Healing potion', 'Goblin hob-lobber', 'Smoke bomb', 'Jumper cables', 'Pallet jack', 'Headlamp', 'EpiPen', 'Golf club (7 iron)', 'Chef\'s knife', 'Cast iron skillet', 'Meat tenderizer'] },
       small_office: { gold: '1d6', picks: [1, 2], from: 'a desk', pool: ['Splintered wood', 'Scrap metal', 'AA batteries', 'Stapler', 'Letter opener', 'Sticky notes', 'Archive pages', 'Ergonomic keyboard', 'Laminated visitor badge', '"World\'s Best Boss" mug', 'Breath mints', 'Lint roller', 'Ibuprofen', 'Box cutter'] },
-      small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['Splintered wood', 'Scrap metal', 'AA batteries', 'Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
+      small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['Wrist-rocket slingshot', 'Ball bearings', 'Splintered wood', 'Scrap metal', 'AA batteries', 'Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
       small_garden: { gold: '1d4', picks: [1, 2], from: 'the potting shed', pool: ['Rake', 'Hedge trimmers', 'Weed killer', 'Bug spray', 'Cordless leaf blower', 'Shrub sap', 'Bog slime', 'Floral foam brick', 'Bottle of water'] },
       small_bazaar: { gold: '2d4', picks: [1, 2], from: 'a stall', pool: ['Hot sauce', 'Can of cooking spray', 'Chef\'s knife', 'Rolling pin', 'Meat tenderizer', 'Cast iron skillet', 'Protein bar', 'Energy bar', 'Roll of aluminum foil', 'Bottle of water'] },
-      small_arena: { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Splintered wood', 'Scrap metal', 'Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] }
+      small_arena: { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Wrist-rocket slingshot', 'Splintered wood', 'Scrap metal', 'Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] }
     },
     sources: {
       starting: [['Healing potion', 3]],
@@ -8221,14 +8235,15 @@
     return true;
   }
   function bfs(sx, sz, who, maxSteps) {
-    var dist = {}, prev = {}, q = [[sx, sz]], k0 = sx + ',' + sz; dist[k0] = 0;
+    var dist = {}, prev = {}, q = [[sx, sz]], k0 = sx + ',' + sz, rough = typeof VFX !== 'undefined' && VFX.areas.length; dist[k0] = 0; // ice, webs and spikes cost 2 to enter
     while (q.length) {
       var c = q.shift(), cd = dist[c[0] + ',' + c[1]]; if (cd >= maxSteps) continue;
       for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) {
         if (!dx && !dz) continue; var nx = c[0] + dx, nz = c[1] + dz, k = nx + ',' + nz;
-        if (dist[k] !== undefined || !walkable(nx, nz, who)) continue;
+        if (!walkable(nx, nz, who)) continue;
         if (dx && dz && (!walkable(c[0] + dx, c[1], who) || !walkable(c[0], c[1] + dz, who))) continue;
-        dist[k] = cd + 1; prev[k] = c[0] + ',' + c[1]; q.push([nx, nz]);
+        var nd = cd + (rough ? tileCost(nx, nz) : 1); if (nd > maxSteps || (dist[k] !== undefined && dist[k] <= nd)) continue;
+        dist[k] = nd; prev[k] = c[0] + ',' + c[1]; q.push([nx, nz]);
       }
     }
     return { dist: dist, prev: prev };
@@ -8362,6 +8377,7 @@
   }
   function cbMyTurn() { return CB.on && CB.order[CB.idx] === 'pc'; }
   function cbAdjacent() { return CB.enemies.filter(function (e) { return !e.dead && !e.calm && cheb(P.x, P.z, e.x, e.z) <= 1; }); }
+  var AMMO_HINT = { arrow: 'Jury-rig some: wood + a tip (wood, rubble, scrap metal or imp horn).', pebble: 'Any Chunk of rubble or River stone works, or find ball bearings.', paintball: 'Find paintballs; Jury-rig them with something toxic (bleach, clerk ink, weed killer) for acid ones.' };
   function bowHeld() { return !!(CHAR && CHAR.wield && launcherOf(CHAR.wield)); }
   // ammo for a launcher: the stack you picked (Inventory → Shoot these), else the hardest-hitting stack you carry
   function ammoPick(kind) {
@@ -8372,8 +8388,8 @@
   function cbThrowable() {
     var bw = CHAR && CHAR.wield && launcherOf(CHAR.wield); // holding a bow: Throw becomes Shoot, and the bow stays in your hands
     if (bw) { var am = ammoPick(bw.ammo || 'arrow');
-      if (!am) return { name: '(no ' + (bw.ammo || 'arrow') + 's)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true };
-      var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: A.s, acc: (A.acc || 0) + (bw.acc || 0), onHit: A.onHit || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am }; }
+      if (!am) return { name: '(no ' + (bw.ammo || 'arrow') + 's)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true, ammoKind: bw.ammo || 'arrow' };
+      var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: A.s, acc: (A.acc || 0) + (bw.acc || 0), onHit: A.onHit || null, edmg: A.edmg || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am, ammoKind: bw.ammo || 'arrow', shots: bw.shots || 1, pose: bw.pose || 'bow', fly: bw.fly || 'arrow' }; }
     if (sty('off') === 3 || (KIT && !KIT.on && sty('main') === 0 && sty('off') === 3)) return { name: 'your dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', prof: true, range: 4, long: 12, dagger: true };
     return { name: 'a rock', n: 1, s: 4, stat: 'STR', prof: false, range: 4, long: 12 };
   }
@@ -8426,7 +8442,7 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
-  function cbEnd(win) { PC.burning = 0; CB.dmSolo = false;
+  function cbEnd(win) { PC.burning = 0; CB.dmSolo = false; PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -8453,7 +8469,7 @@
     if (!CB.on) return;
     if (!CB.enemies.some(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; })) { cbEnd(true); return; }
     CB.idx = (CB.idx + 1) % CB.order.length;
-    if (CB.idx === 0) { CB.round = (CB.round || 0) + 1; cbJoinCheck(); }
+    if (CB.idx === 0) { CB.round = (CB.round || 0) + 1; cbJoinCheck(); if (CB.round > 1 && typeof VFX !== 'undefined') VFX.areas.forEach(function (A) { A.t += 6; }); } // in a fight, areas last by rounds (6 seconds each)
     var c = CB.order[CB.idx];
     if (c !== 'pc' && (c.dead || c.calm)) { cbNext(); return; }
     if (c === 'pc' && cbEscaped()) return;
@@ -8461,7 +8477,7 @@
       CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
       if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
       if (PC.down) { cbRingsUpdate(); cbHUD(); setTimeout(cbDeathSave, 700); return; }
-      burnPools(null);
+      burnPools(null); areaTurnStart('pc');
       cbShowMoves();
     } else { c.react = true; cbShowMoves(); setTimeout(function () { cbEnemyTurn(c); }, 250); }
     cbRingsUpdate(); cbHUD();
@@ -8490,7 +8506,7 @@
   }
   function cbWalk(path, then) {
     if (!path || !path.length) { if (then) then(); return; }
-    CB.res.move -= path.length; CB.path = path; CB.afterWalk = then || null; CB.busy = true; cbShowMoves(); cbHUD();
+    CB.res.move -= path.reduce(function (a, s) { return a + tileCost(s[0], s[1]); }, 0); if (CB.res.move < 0) CB.res.move = 0; CB.path = path; CB.afterWalk = then || null; CB.busy = true; cbShowMoves(); cbHUD();
   }
   function cbMove(dt) { // called instead of joystick movement while a fight is on
     P.speed = 0; if (!CB.path || CB.pause) return;
@@ -8504,6 +8520,7 @@
     P.speed = 1.6; cbFaceHero(t[0], t[1]);
     if (dist <= step) {
       P.px = t[0]; P.pz = t[1]; P.x = t[0]; P.z = t[1]; CB.path.shift(); CB.stepChecked = false; refreshFog(); enterRoom(); cbJoinCheck();
+      if (areaApply('pc', false, true)) { CB.path = []; } // slipped, or caught in a web
       CB.enemies.forEach(function (e) { if (e.grappled && cheb(P.x, P.z, e.x, e.z) > 1) { e.grappled = false; say('Grapple released', 'You stepped away and let go of ' + e.name + '.', 2200); } });
     } else { P.px += dx / dist * step; P.pz += dz / dist * step; }
     if (!CB.path.length) { CB.path = null; P.speed = 0; CB.busy = false; var f = CB.afterWalk; CB.afterWalk = null; cbShowMoves(); cbHUD(); if (f) f(); }
@@ -8536,6 +8553,8 @@
     if (opt.ranged && cbAdjacent().length) { dis = true; why.push('enemy next to you'); }
     else if (opt.close) { dis = true; why.push('too close for a bow'); }
     if (opt.ranged && dist > Wp.range) { dis = true; why.push('long range'); }
+    var oT = obscured(e.x, e.z), oA = obscured(P.x, P.z); if (oT && !oA) { dis = true; why.push('cannot see into the ' + (areaHas(e.x, e.z, ['darkness']) ? 'darkness' : 'smoke')); } else if (oA && !oT) { adv = true; why.push('they cannot see you'); }
+    if (e.webbed) { adv = true; why.push('stuck in a web'); } if (PC.webbed) { dis = true; why.push('you are stuck'); } if (PC.prone) { dis = true; why.push('attacking from the floor'); }
     if (CB.advNext) { adv = true; why.push('opening'); CB.advNext = false; }
     var cover = opt.ranged && hasCover(P.x, P.z, e.x, e.z) ? 2 : 0, ac = acOf(e) + cover;
     var R = roll20(adv, dis), tot = R.r + Wp.hit, crit = R.r >= (Wp.crit || 20), hit = crit || (R.r !== 1 && tot >= ac);
@@ -8545,6 +8564,7 @@
       var raw = d(crit ? Wp.n * 2 : Wp.n, Wp.s), dm = Math.max(1, raw + Wp.dmgB); e.hp -= dm;
       var exTxt = ''; if (Wp.edmg) { // enchanted: extra typed damage (doubled dice on a crit, double again if it is weak to that)
         var xm = /(\d+)d(\d+)/.exec(Wp.edmg.dice), xr = xm ? d((crit ? 2 : 1) * +xm[1], +xm[2]) : 0, weak = (e.def.vuln || []).indexOf(Wp.edmg.type) >= 0; if (weak) xr *= 2;
+        if (xr && Wp.edmg.type === 'acid' && !e.dead) { var wv = (e.weak && e.weak.turns > 0 ? e.weak.v : 0) + 1; e.weak = { v: Math.min(3, wv), turns: 2 }; fxTag(e, 'ACID · -' + Math.min(3, wv) + ' AC'); } // acid eats armor (stacks to -3)
         if (xr) { vfxHit(Wp.edmg.type, e.px, e.pz, e.def.h); e.hp -= xr; dm += xr; exTxt = ' (' + xr + ' of it ' + Wp.edmg.type + (weak ? ', and it is weak to that' : '') + ')'; setTimeout(function () { floater(e.px + 0.3, e.def.h + 0.55, e.pz, '+' + xr + ' ' + Wp.edmg.type, 'crit'); }, 260); }
       }
       diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, dd: (crit ? Wp.n * 2 : Wp.n) + 'd' + Wp.s, ds: Wp.s, raw: raw, db: Wp.dmgB, dm: dm, why: why });
@@ -8571,17 +8591,22 @@
     if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can ' + (Wt.bow ? 'shoot' : 'throw') + ' up to ' + Wt.long + '.', 2600); return; }
     if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is between you and ' + e.name + '.', 2600); return; }
     CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); if (!Wt.bow) kitOneShot('Spell_Simple_Shoot'); cbHUD();
-    if (Wt.empty) { say('Out of arrows', 'Jury-rig some (Prop lumber + a tip) or find some.', 2600); return; }
-    var Wp = { name: (Wt.bow ? Wt.ammo.name.toLowerCase().replace(/s$/, '') : 'thrown ' + Wt.name.replace(/^(your|a) /, '')), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat] + (Wt.acc || 0), dmgB: MOD[Wt.stat], range: Wt.range, onHit: Wt.onHit || null };
-    if (Wt.bow) { CB.shot = CB.shot || {}; CB.shot[Wt.ammo.name] = (CB.shot[Wt.ammo.name] || 0) + 1; Wt.ammo.qty = (Wt.ammo.qty || 1) - 1; if (Wt.ammo.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(Wt.ammo), 1); saveChar(CHAR); if (typeof wsetDraw === 'function') wsetDraw(); }
-    var close = Wt.bow && cheb(P.x, P.z, e.x, e.z) <= 2;
-    var flyK = Wt.bow ? (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow') : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
-    var fly = function (x0, y0, z0) { vfxBolt(flyK, x0, z0, e.px, e.pz, function () {
+    if (Wt.empty) { say('Out of ' + (Wt.ammoKind || 'arrow') + 's', AMMO_HINT[Wt.ammoKind] || 'Craft or find some.', 2600); CB.busy = false; CB.res.action = 1; cbHUD(); return; }
+    var Wp = { name: (Wt.bow ? Wt.ammo.name.toLowerCase().replace(/s$/, '') : 'thrown ' + Wt.name.replace(/^(your|a) /, '')), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat] + (Wt.acc || 0), dmgB: MOD[Wt.stat], range: Wt.range, onHit: Wt.onHit || null, edmg: Wt.edmg || null };
+    var spend = function () { // one piece of ammo per shot; paintballs never come back
+      if (!Wt.bow) return true; var A = Wt.ammo; if (!A || (A.qty || 1) <= 0 || CHAR.gear.indexOf(A) < 0) return false;
+      if (!(ITEMS[A.name].ammo || {}).noRecover) { CB.shot = CB.shot || {}; CB.shot[A.name] = (CB.shot[A.name] || 0) + 1; }
+      A.qty = (A.qty || 1) - 1; if (A.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(A), 1); saveChar(CHAR); if (typeof wsetDraw === 'function') wsetDraw(); return true; };
+    var close = Wt.bow && Wt.pose !== 'gun' && cheb(P.x, P.z, e.x, e.z) <= 2;
+    var flyK = Wt.bow ? (Wt.fly === 'pebble' ? 'pebble' : Wt.fly === 'paint' ? 'paint' : (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow')) : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
+    var shots = Math.max(1, Wt.shots || 1); spend();
+    var fly = function (x0, y0, z0, left) { vfxBolt(flyK, x0, z0, e.px, e.pz, function () {
       cbResolve(e, Wp, { ranged: true, close: close });
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }
+      if (left > 1 && !e.dead && CB.on && spend()) { setTimeout(function () { kitGunKick(); fly(x0, y0, z0, left - 1); }, 260); return; } // a second shot in the same action
       cbAfterMyMove();
     }, { ty: (e.def.h || 1) * 0.6, y0: y0 }); };
-    if (Wt.bow) kitBowShot(fly); else setTimeout(function () { fly(P.px, 1.15, P.pz); }, 260);
+    if (Wt.bow) kitBowShot(function (x0, y0, z0) { fly(x0, y0, z0, shots); }, Wt.pose); else setTimeout(function () { fly(P.px, 1.15, P.pz, 1); }, 260);
   }
   function cbContest(e) { // your Athletics against their Athletics or Acrobatics, whichever is better for them
     var me = d20() + MOD.STR + skillLv('Athletics') - (hasTrait('Bad Back') ? 2 : 0), them = d20() + Math.max(e.def.str, e.def.dex) + (e.kind === 'imp' ? 2 : 0);
@@ -8700,7 +8725,7 @@
     if (!CB.on) return;
     if (e.dead || e.calm) { setTimeout(cbNext, 200); return; } // it made a deal mid-fight: it keeps its word
     if (e.weak && e.weak.turns > 0) e.weak.turns--;
-    burnPools(e);
+    burnPools(e); areaTurnStart(e); if (e.dead) { setTimeout(cbNext, 900); return; }
     if (e.burning && e.burning.turns > 0) { // on fire: damage every turn until it goes out (a DEX save, or it spends its turn patting it out)
       var bd = Math.max(1, rollDice(e.burning.dice)); e.hp -= bd; e.burning.turns--; floater(e.px, e.def.h + 0.3, e.pz, '-' + bd, 'dmg'); fxTag(e, 'BURNING');
       var smart = typeof intOf === 'function' && intOf(e) === 'smart', sv = d20() + (e.def.dex || 0), out = e.burning.turns <= 0 || sv >= 10, pat = false;
@@ -8712,20 +8737,68 @@
     if (e.stunned > 0) { e.stunned--; say(e.name + ' loses its turn', e.stunned ? 'Still reeling.' : 'It shakes it off. Next turn it is back.', 2600); setTimeout(cbNext, 1000); return; }
     var speed = e.def.speed;
     if (e.prone) { e.prone = false; speed = Math.floor(speed / 2); cbPlay(e, 'Idle_Loop'); say(e.name, 'It scrambles back to its feet (half its movement).', 2200); }
-    if (e.grappled) speed = 0;
+    if (e.grappled || e.webbed) speed = 0;
     if (PC.down) { // the show likes a dramatic pause: monsters gloat instead of finishing you
       setTimeout(function () { say(e.name, ['It pokes you with its ' + e.def.weapon + ' and waves at the camera.', 'It goes through your pockets.', 'It does a little dance.'][Math.floor(Math.random() * 3)], 2400); setTimeout(cbNext, 900); }, 300); return;
     }
     if (cheb(e.x, e.z, P.x, P.z) <= 1) { cbEnemyAttack(e, false, cbNextAfterHit); return; }
-    if (!speed) { say(e.name, 'It strains against your grip and cannot reach you.', 2200); setTimeout(cbNext, 600); return; }
+    if (!speed) { say(e.name, e.webbed ? 'It thrashes in the web and cannot move.' : 'It strains against your grip and cannot reach you.', 2200); setTimeout(cbNext, 600); return; }
     var r = bfs(e.x, e.z, e, 40), best = null;
     for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { if (!dx && !dz) continue; var k = (P.x + dx) + ',' + (P.z + dz); if (r.dist[k] !== undefined && (best === null || r.dist[k] < r.dist[best])) best = k; }
     if (best === null) { say(e.name, 'It cannot find a way to you and snarls instead.', 2500); setTimeout(cbNext, 700); return; }
-    var p = best.split(','), path = pathTo(r, +p[0], +p[1]).slice(0, speed);
+    var p = best.split(','), full = pathTo(r, +p[0], +p[1]), path = [], spent = 0; for (var pi = 0; pi < full.length; pi++) { spent += tileCost(full[pi][0], full[pi][1]); if (spent > speed) break; path.push(full[pi]); } // ice, webs and spikes cost double
     if (!path.length) { setTimeout(cbNext, 300); return; }
     e.path = path; cbPlay(e, 'Walk_Loop');
     e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); if (cheb(e.x, e.z, P.x, P.z) <= 1) cbEnemyAttack(e, false, cbNextAfterHit); else setTimeout(cbNext, 350); };
   }
+  // ---------- spell areas in a fight: what each one does to whoever is in it ----------
+  // fire 1d6, acid 1d4 and -1 AC, storm 1d8 half the time (at the start of a turn, or stepping in; once per turn each)
+  // spikes 1d4 for every tile you move through; grease (DC 12) and ice (DC 10): DEX save or fall prone; web: DEX save or stuck until a STR save
+  // ice, web and spikes cost double movement; smoke and darkness: nobody can see into them (attacks in are at disadvantage, attacks out at advantage)
+  function areasAt(x, z) { return typeof VFX === 'undefined' ? [] : VFX.areas.filter(function (A) { return Math.hypot(A.x - x, A.z - z) <= A.r + 0.25; }); }
+  function areaHas(x, z, kinds) { return areasAt(x, z).some(function (A) { return kinds.indexOf(A.kind) >= 0; }); }
+  function obscured(x, z) { return areaHas(x, z, ['smoke', 'darkness']); }
+  function tileCost(x, z) { return areaHas(x, z, ['ice', 'web', 'spikes']) ? 2 : 1; }
+  function areaSave(who, stat) { return d20() + (who === 'pc' ? MOD[stat] : ((who.def[stat.toLowerCase()] | 0) || 0)); }
+  function areaHurt(who, n, kind, why) {
+    if (who === 'pc') { PC.hp = Math.max(0, PC.hp - n); floater(P.px, 1.5, P.pz, '-' + n + ' ' + kind, 'pdmg'); vfxHit(kind === 'piercing' ? 'steel' : kind, P.px, P.pz, 1.6); cbHUD(); say(why, n + ' ' + kind + ' damage.', 2600); if (PC.hp <= 0) { if (CB.on) cbFall(); else PC.hp = 1; } return; }
+    who.hp -= n; floater(who.px, who.def.h + 0.3, who.pz, '-' + n + ' ' + kind, 'dmg'); vfxHit(kind === 'piercing' ? 'steel' : kind, who.px, who.pz, who.def.h); say(who.name + ': ' + why, n + ' ' + kind + ' damage.', 2400);
+    if (who.hp <= 0 && !who.dead) cbKill(who);
+  }
+  function areaApply(who, start, moving) { // start: beginning of their turn; moving: just stepped into this tile. Returns true if it stopped them
+    var x = who === 'pc' ? P.x : who.x, z = who === 'pc' ? P.z : who.z, list = areasAt(x, z), stop = false, rnd = CB.on ? (CB.round || 0) : Math.floor(Date.now() / 6000);
+    if (!list.length || (who !== 'pc' && who.dead)) return false;
+    var once = function (A) { var k = '_a' + VFX.areas.indexOf(A) + A.kind; var o = who === 'pc' ? PC : who; if (o[k] === rnd + ':' + (CB.idx || 0) && !moving) return false; if (o[k] === rnd + ':' + (CB.idx || 0) && moving && A.kind !== 'spikes') return false; o[k] = rnd + ':' + (CB.idx || 0); return true; };
+    list.forEach(function (A) {
+      if ((who !== 'pc' && who.dead) || (stop && /grease|ice|web/.test(A.kind))) return; if (!CB.on && /grease|ice|web|storm/.test(A.kind)) return; // slipping does not save you from the fire // out of a fight only the damaging ground matters
+      if (A.kind === 'fire' && once(A)) areaHurt(who, rollDice('1d6'), 'fire', 'Standing in fire');
+      else if (A.kind === 'acid' && once(A)) { areaHurt(who, rollDice('1d4'), 'acid', 'Acid'); if (who !== 'pc' && !who.dead) { who.weak = { v: 1, turns: 2 }; fxTag(who, 'ACID · -1 AC'); } }
+      else if (A.kind === 'storm' && start && Math.random() < 0.5 && once(A)) areaHurt(who, rollDice('1d8'), 'lightning', 'Lightning strikes');
+      else if (A.kind === 'spikes' && moving) areaHurt(who, rollDice('1d4'), 'piercing', 'Spikes');
+      else if ((A.kind === 'grease' || A.kind === 'ice') && (moving || start) && once(A)) {
+        var dc = A.kind === 'ice' ? 10 : 12, sv = areaSave(who, 'DEX');
+        if (sv < dc) { stop = true; if (who === 'pc') { PC.prone = true; say('You slip', (A.kind === 'ice' ? 'Ice' : 'Grease') + ': DEX save ' + sv + ' vs ' + dc + '. You go down. Standing up costs half your movement.', 3200); } else { who.prone = true; cbPlay(who, 'Death01'); fxTag(who, 'PRONE'); say(who.name + ' slips', 'DEX save ' + sv + ' vs ' + dc + '. Down it goes.', 2400); } }
+        else if (who === 'pc') say('Steady', 'DEX save ' + sv + ' vs ' + dc + '. You keep your feet on the ' + A.kind + '.', 2000);
+      }
+      else if (A.kind === 'web' && (moving || start) && once(A)) {
+        var o = who === 'pc' ? PC : who; if (o.webbed) return; var sw = areaSave(who, 'DEX');
+        if (sw < 12) { o.webbed = true; stop = true; if (who === 'pc') say('Stuck in the web', 'DEX save ' + sw + ' vs 12. You cannot move until you tear free (a STR save at the start of your turn).', 3600); else { fxTag(who, 'WEBBED'); say(who.name + ' is stuck', 'DEX save ' + sw + ' vs 12. It is caught in the web.', 2400); } }
+      }
+    });
+    return stop;
+  }
+  function areaTurnStart(who) { // returns false if the turn should skip movement
+    if (who === 'pc') {
+      if (PC.webbed) { var s = areaSave('pc', 'STR'); if (s >= 12 || !areaHas(P.x, P.z, ['web'])) { PC.webbed = false; say('You tear free', 'STR save ' + s + ' vs 12.', 2400); } else { CB.res.move = 0; say('Still stuck', 'STR save ' + s + ' vs 12. No moving this turn; you can still act.', 3000); } }
+      if (PC.prone) { PC.prone = false; CB.res.move = Math.floor(CB.res.move / 2); say('You get up', 'Standing costs half your movement.', 2200); }
+      areaApply('pc', true, false); return;
+    }
+    if (who.webbed) { var t = areaSave(who, 'STR'); if (t >= 12 || !areaHas(who.x, who.z, ['web'])) { who.webbed = false; say(who.name + ' tears free', 'STR save ' + t + ' vs 12.', 2200); } }
+    areaApply(who, true, false);
+  }
+  // out of a fight: walking through fire, acid or spikes still hurts
+  var areaLastTile = '';
+  setInterval(function () { if (typeof CHAR === 'undefined' || !CHAR || CB.on || CHAR.dead || typeof VFX === 'undefined' || !VFX.areas.length) return; var k = P.x + ',' + P.z; if (k === areaLastTile) return; areaLastTile = k; areaApply('pc', false, true); }, 150);
   // standing in burning grease sets you alight; you burn at the start of your turn too
   function burnPools(e) {
     var x = e ? e.px : P.px, z = e ? e.pz : P.pz, now = Date.now();
@@ -8740,7 +8813,10 @@
     cbFace(e, P.x, P.z); cbPlay(e, e.def.attackClip, true);
     var dis = CB.dodge || PC.hidden || e.prone, why = [];
     if (CB.dodge) why.push('you dodge'); if (PC.hidden) why.push('cannot see you'); if (e.prone) why.push('attacking from the floor');
-    var R = roll20(false, dis), tot = R.r + e.def.atk, ac = pcAC().ac, crit = R.r === 20, hit = crit || (R.r !== 1 && tot >= ac);
+    var adv2 = false, oP = obscured(P.x, P.z), oE = obscured(e.x, e.z), nearP = cheb(e.x, e.z, P.x, P.z) <= 1;
+    if (oP && !oE) { dis = true; why.push('cannot see you in the ' + (areaHas(P.x, P.z, ['darkness']) ? 'darkness' : 'smoke')); } else if (oE && !oP) { adv2 = true; why.push('you cannot see it'); }
+    if (PC.webbed) { adv2 = true; why.push('you are stuck'); } if (PC.prone) { if (nearP) { adv2 = true; why.push('you are on the floor'); } else { dis = true; why.push('you are prone, at range'); } } if (e.webbed) { dis = true; why.push('it is stuck'); }
+    var R = roll20(adv2 && !dis, dis && !adv2), tot = R.r + e.def.atk, ac = pcAC().ac, crit = R.r === 20, hit = crit || (R.r !== 1 && tot >= ac);
     setTimeout(function () {
       var line = R.txt + ' + ' + e.def.atk + ' = ' + tot + ' vs your AC ' + ac + (why.length ? ' · ' + why.join(', ') : '');
       var tag = opportunity ? 'Opportunity attack · ' : '';
@@ -8818,7 +8894,7 @@
       if (e.path) {
         var t = e.path[0], dx = t[0] - e.px, dz = t[1] - e.pz, dist = Math.sqrt(dx * dx + dz * dz), step = (e.roaming ? (e.body ? 1.8 : 1.3) : 3.2) * dt;
         e.obj.rotation.y = Math.atan2(dx, dz);
-        if (dist <= step) { var wasNear = CB.on && cheb(e.x, e.z, P.x, P.z) <= 1; e.px = t[0]; e.pz = t[1]; e.x = t[0]; e.z = t[1]; e.path.shift(); if (wasNear && cheb(e.x, e.z, P.x, P.z) > 1 && !e.prone) cbMyOpportunity(e); if (!CB.on && e.roaming) cbAggro(); }
+        if (dist <= step) { var wasNear = CB.on && cheb(e.x, e.z, P.x, P.z) <= 1; e.px = t[0]; e.pz = t[1]; e.x = t[0]; e.z = t[1]; e.path.shift(); if (wasNear && cheb(e.x, e.z, P.x, P.z) > 1 && !e.prone) cbMyOpportunity(e); if (!CB.on && e.roaming) cbAggro(); if (CB.on && CB.order.indexOf(e) >= 0 && areaApply(e, false, true)) e.path = []; }
         else { e.px += dx / dist * step; e.pz += dz / dist * step; }
         e.obj.position.set(e.px, 0, e.pz);
         if (!e.path.length) { e.path = null; var f = e.afterWalk; e.afterWalk = null; if (f) f(); }
@@ -10055,7 +10131,7 @@
     if (canBack(it) && CHAR.wield !== it.name) acts.push(CHAR.back === it.name ? ['unback', 'Take off back'] : ['back', 'Wear on back']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
-    if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Shoot these first']);
+    if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Load these first']);
     acts = acts.concat(lampActs(it));
     if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
     if (hotEligible(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
@@ -10063,7 +10139,7 @@
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       loreLine(it) + (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
-      '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (ITEMS[it.name] && ITEMS[it.name].twoHand ? ' · two-handed' : '') + (ITEMS[it.name] && ITEMS[it.name].ammo ? ' · ' + (it.qty || 1) + ' arrows · 1d' + ITEMS[it.name].ammo.s : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
+      '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (ITEMS[it.name] && ITEMS[it.name].twoHand ? ' · two-handed' : '') + (ITEMS[it.name] && ITEMS[it.name].ammo ? ' · ' + (ITEMS[it.name].ammo.kind || 'arrow') + ' ammo · 1d' + ITEMS[it.name].ammo.s : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
       '<div class="acts">' + acts.filter(Boolean).map(function (a) { return '<button type="button" class="ccBtn" data-act="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
   }
   function bagAct(a, it) {
@@ -10238,10 +10314,10 @@
   }
   // the arrows on the string: the ones you picked stay loaded until you switch (tap the In hand card)
   function ammoTypes() { var L = launcherOf(CHAR.wield), kind = (L && L.ammo) || 'arrow'; return (CHAR.gear || []).filter(function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; }); }
-  function ammoLine() { var a = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'); if (!a) return 'No arrows · craft some'; var n = ammoTypes().length; return esc(a.name.replace(/ arrows$/, '')) + ' ×' + (a.qty || 1) + ' · 1d' + ITEMS[a.name].ammo.s + (n > 1 ? ' · tap to switch' : ''); }
+  function ammoLine() { var a = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'); if (!a) return 'No ' + ((launcherOf(CHAR.wield) || {}).ammo || 'arrow') + 's · tap for how'; var n = ammoTypes().length; return esc(a.name.replace(/ arrows$/, '')) + ' ×' + (a.qty || 1) + ' · 1d' + ITEMS[a.name].ammo.s + (n > 1 ? ' · tap to switch' : ''); }
   function ammoCycle() { var st = ammoTypes(); if (st.length < 2) { say('Arrows', st.length ? 'That is the only kind you have.' : 'No arrows. Jury-rig some: Prop lumber + a tip.', 2400); return; }
     var cur = ammoPick((launcherOf(CHAR.wield) || {}).ammo || 'arrow'), i = st.indexOf(cur), nx = st[(i + 1) % st.length]; CHAR.ammo = nx.name; saveChar(CHAR); wsetDraw(); if (CB.on) cbHUD();
-    say('Arrows · ' + nx.name, 'Loaded. 1d' + ITEMS[nx.name].ammo.s + (ITEMS[nx.name].ammo.acc ? ', +' + ITEMS[nx.name].ammo.acc + ' to hit' : '') + (ITEMS[nx.name].ammo.onHit ? ', sets them on fire' : '') + '. ' + (nx.qty || 1) + ' left.', 2400); }
+    say('Ammo · ' + nx.name, 'Loaded. 1d' + ITEMS[nx.name].ammo.s + (ITEMS[nx.name].ammo.acc ? ', +' + ITEMS[nx.name].ammo.acc + ' to hit' : '') + (ITEMS[nx.name].ammo.onHit ? ', sets them on fire' : '') + '. ' + (nx.qty || 1) + ' left.', 2400); }
 
   // ---------- wardrobe: you only wear what you own ----------
   var CLOTH_SLOTS = ['kHead', 'kNeck', 'kTop', 'kShoulder', 'kPants', 'kBoots'];
@@ -10452,12 +10528,27 @@
     if (!nm) return null; var I = typeof ITEMS !== 'undefined' && ITEMS[nm]; if (I && I.bow) return I.bow;
     var g = typeof CHAR !== 'undefined' && CHAR ? (CHAR.gear || []).filter(function (x) { return x.name === nm; })[0] : null; if (g && g.bow) return g.bow;
     if (g && g.cat === 'weapon' && /\b(short|long|cross)?bow\b/i.test(nm) && !/elbow|rainbow|bowl|bowtie|bow tie/i.test(nm)) return { ammo: 'arrow', range: 12, long: 36, acc: -1, crude: true };
+    if (g && g.cat === 'weapon' && /sling ?shot|wrist.?rocket/i.test(nm)) return { ammo: 'pebble', range: 6, long: 24, acc: -1, crude: true, pose: 'sling', fly: 'pebble' }; // homemade slingshots work too
     return null;
   }
   function gearModel(g0, it) {
     var k = itemKind(it), RED = 0xb02828, g = new THREE.Group(); g.scale.setScalar(1.35); g0.add(g);
     // weapons with a real model (kit2/weapons.json): grip just above the pommel, blade up; a bow is held in the middle
-    var IB = (typeof ITEMS !== 'undefined' && ITEMS[it.name]) || it; if (!IB.model && launcherOf(it.name)) IB = { model: 'w_bow', len: 0.7, bow: true, skin: 'crude' }; // a homemade bow looks like a rough version of ours
+    var IB = (typeof ITEMS !== 'undefined' && ITEMS[it.name]) || it; if (!IB.model && !IB.proc && launcherOf(it.name)) IB = { model: 'w_bow', len: 0.7, bow: true, skin: 'crude' }; // a homemade bow looks like a rough version of ours
+    if (IB.proc === 'sling') { // a wrist-rocket: wooden handle, a fork, orange tubing and a pouch
+      var wd = new THREE.MeshLambertMaterial({ color: 0x9a6a3a }), tb = new THREE.MeshLambertMaterial({ color: 0xe86a28 }), lt = new THREE.MeshLambertMaterial({ color: 0x5a3a20 });
+      var hd = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.16, 6), wd); hd.position.y = 0.06; g.add(hd);
+      [-1, 1].forEach(function (sd) { var pr = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.015, 0.12, 5), wd); pr.position.set(sd * 0.03, 0.18, 0); pr.rotation.z = -sd * 0.45; g.add(pr);
+        var tu = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 4), tb); tu.position.set(sd * 0.035, 0.24, -0.05); tu.rotation.x = 1.1; g.add(tu); });
+      var pc = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.03), lt); pc.position.set(0, 0.22, -0.1); g.add(pc); return; }
+    if (IB.proc === 'marker') { // the Acid Splat Marker: a paintball gun, barrel up the hand, a sloshing green hopper
+      var bk = new THREE.MeshLambertMaterial({ color: 0x2a2e32 }), nz = new THREE.MeshLambertMaterial({ color: 0x9aff3a, emissive: 0x2a6010 }), hp = new THREE.MeshLambertMaterial({ color: 0x8aef4a, transparent: true, opacity: 0.75, emissive: 0x1a4a0a });
+      var bd = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.07), bk); bd.position.y = 0.14; g.add(bd);
+      var br = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.22, 8), bk); br.position.y = 0.36; g.add(br);
+      var tp = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.03, 8), nz); tp.position.y = 0.46; g.add(tp);
+      var ho = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), hp); ho.position.set(0, 0.17, 0.07); ho.scale.set(1, 1.3, 1); g.add(ho);
+      var gp2 = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.08, 0.04), bk); gp2.position.set(0, 0.03, -0.03); g.add(gp2);
+      var st2 = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.2, 0.01), nz); st2.position.set(0.027, 0.14, 0); g.add(st2); return; }
     if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) {
       g.traverse(function (o) { if (!o.isMesh) return; if (IB.skin && WSKIN[IB.skin]) { o.material = wskinMat(IB.skin); return; } if (!o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); // the rust textures are dark: lift them so they read in hand
       return;
@@ -11255,7 +11346,12 @@
     [function (g) { return !tg(g, 'wood') && tg(g, 'flammable'); }, 'Pitch arrows', 6], [function (g) { return tg(g, 'wood'); }, 'Wooden arrows', 10]];
   function tg(g, t) { return (g.tags || []).indexOf(t) >= 0; }
   function arrowCraft(sel) {
-    if (sel.length !== 2) return false; var w = sel.filter(function (g) { return tg(g, 'wood') && !ITEMS[g.name].ammo; }); if (!w.length || sel.some(function (g) { return ITEMS[g.name] && ITEMS[g.name].ammo; })) return false;
+    if (sel.length !== 2) return false;
+    var isArrow = function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === 'arrow'; };
+    var pb = sel.filter(function (g) { return g.name === 'Paintballs'; })[0], tox = sel.filter(function (g) { return g !== pb && tg(g, 'toxic'); })[0];
+    if (pb && tox) { var n = Math.min(10, pb.qty || 1); pb.qty = (pb.qty || 1) - n; if (pb.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(pb), 1); itemSpend(tox); invAdd(item('Acid paintballs', { qty: n, from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
+      craftSay('ok', 'Made ' + n + ' acid paintballs', 'You dosed the paintballs with ' + tox.name.toLowerCase() + '. They are warm now. Do not keep them in a pocket.'); return true; }
+    var w = sel.filter(function (g) { return tg(g, 'wood') && !isArrow(g); }); if (!w.length || sel.some(isArrow)) return false;
     var shaft = w[0], tip = sel[0] === shaft ? sel[1] : sel[0], r = ARROWS.filter(function (a) { return a[0](tip); })[0]; if (!r) return false;
     itemSpend(shaft); itemSpend(tip); var made = item(r[1], { qty: r[2], from: 'your own two hands' }); invAdd(made, true); saveChar(CHAR);
     skillUse(trackSkill('physical')); CRAFT.sel = [];
@@ -11476,10 +11572,13 @@
     else if (kind === 'firebolt') { g = vfxOrb(0xff9a30, 0.42); speed = 15; trail = 'fire'; }
     else if (kind === 'fireball') { g = vfxOrb(0xffb040, 0.3); speed = 10; peak = 0.8 + d * 0.06; trail = 'fire'; }
     else if (kind === 'acid') { g = vfxOrb(0x9ae040, 0.3); speed = 12; peak = 0.6 + d * 0.07; trail = 0x7ac030; }
+    else if (kind === 'pebble') { g = new THREE.Mesh(new THREE.DodecahedronGeometry(0.045), new THREE.MeshLambertMaterial({ color: 0x8a8278 })); speed = 20; peak = d * 0.02; o.spin = true; }
+    else if (kind === 'paint') { g = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0x9aff3a })); speed = 18; peak = d * 0.015; trail = 0x6ad020; }
     else { g = vfxOrb(0xffffff, 0.25); }
     g.position.set(x0, y0, z0); scene.add(g);
     VFX.bolts.push({ g: g, x0: x0, z0: z0, y0: y0, tx: tx, tz: tz, ty: ty, t: 0, dur: Math.max(0.12, d / speed), peak: peak, trail: trail, spin: o.spin, aim: kind === 'arrow' || kind === 'firearrow', done: function () {
       scene.remove(g);
+      if (kind === 'paint') { vfxBurst(tx, tz, 0x9aff3a, 14, 2); vfxPool(tx + (Math.random() - 0.5) * 0.3, tz + (Math.random() - 0.5) * 0.3, 0.32, 0x7adf2a, 10); vfxSmoke(tx, 0.4, tz, 0.3, 3, 0x9ac060); } else
       if (kind === 'fireball') vfxFireball(tx, tz, o.r || 2); else if (kind === 'firebolt' || kind === 'firearrow') vfxHit('fire', tx, tz, 1.4); else if (kind === 'acid') { vfxHit('acid', tx, tz, 1.4); vfxArea('acid', tx, tz, o.r || 0.8, 12); } else vfxHit('steel', tx, tz, 1.4);
       if (done) done();
     } });
@@ -11507,6 +11606,7 @@
     else if (kind === 'spikes') { m = vfxGround('spike', 0xb08a5a, r, 0.95, 0.05); A.meshes.push(m); }
     else if (kind === 'storm') { m = vfxGround('ring', 0x6ab0ff, r, 0.45, 0.06); m.material.blending = THREE.AdditiveBlending; A.meshes.push(m); }
     A.meshes.forEach(function (q) { q.position.x += x; q.position.z += z; q.userData.op = q.material.opacity; });
+    if (kind === 'fire') VFX.areas.forEach(function (W2) { if (W2.kind === 'web' && Math.hypot(W2.x - x, W2.z - z) <= W2.r + r) W2.t = Math.max(W2.t, W2.life - 1.2); }); // fire burns webs away
     VFX.areas.push(A); if (typeof refreshFog === 'function') setTimeout(function () { try { mapRedraw(); } catch (x) {} }, 50); return A;
   }
   function mapRedraw() {} // the minimap redraws itself every few hundred ms
@@ -11558,7 +11658,7 @@
       if (R2.sph) { R2.sph.scale.setScalar(0.2 + R2.r * (1 - Math.pow(1 - Math.min(1, ra * 1.6), 3))); R2.sph.material.opacity = 0.85 * (1 - ra); R2.sph.material.color.setHSL(0.08 - ra * 0.06, 1, 0.55 - ra * 0.25); }
       else { R2.m.scale.setScalar(0.2 + R2.r * 5 * ra); R2.m.material.opacity = 0.9 * (1 - ra); }
       if (ra >= 1) { scene.remove(R2.sph || R2.m); VFX.rings.splice(i, 1); } }
-    for (i = VFX.areas.length - 1; i >= 0; i--) { var AR = VFX.areas[i]; AR.t += dt; vfxAreaTick(AR, dt); var fade = Math.min(1, (AR.life - AR.t) / 3, AR.t / 0.4);
+    for (i = VFX.areas.length - 1; i >= 0; i--) { var AR = VFX.areas[i]; if (!(typeof CB !== 'undefined' && CB.on)) AR.t += dt; vfxAreaTick(AR, dt); var fade = Math.min(1, (AR.life - AR.t) / 3, AR.t / 0.4);
       AR.meshes.forEach(function (q) { q.material.opacity = q.userData.op * Math.max(0, fade); });
       if (AR.t >= AR.life) { AR.meshes.forEach(function (q) { scene.remove(q); }); if (AR.light) scene.remove(AR.light); VFX.areas.splice(i, 1); try { mapRedraw(); } catch (x) {} } }
     for (i = VFX.pools.length - 1; i >= 0; i--) { var q = VFX.pools[i]; q.t += dt;
@@ -12582,7 +12682,7 @@
   }
   refreshFog(); enterRoom();
   window.__crawl = { CB: CB, stairs: { open: stairsOpen, check: stairsCheck, dbg: function () { return tiles.filter(function (t) { return t.gate !== undefined; }).map(function (t) { return [t.gate, t.mesh.visible, t.x, t.z]; }); } }, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
-  window.__crawl.t = { tryBag: tryBag, tryApply: tryApply, hotPut: hotPut, hotItem: hotItem, throwIt: throwItem, charRaw: function () { return CHAR; }, stash: stashBody, drop: dropBody, take: talkTake, vfx: vfxPreview, shoot: cbThrow, ammoPick: ammoPick, arrowCraft: arrowCraft, throwable: cbThrowable, sty: sty, gear: function () { return CHAR.gear; }, char: function () { return { name: CHAR.name, isDM: !!CHAR.isDM, n: (CHAR.gear || []).length }; }, start: cbStart, give: function (n, q) { var it = item(n, q ? { qty: q } : null); invAdd(it, true); return !!it; } }; // test hooks
+  window.__crawl.t = { areaApply: areaApply, areaStart: areaTurnStart, area: vfxArea, areasAt: areasAt, tileCost: tileCost, pc: function () { return PC; }, res: function () { return CB.res; }, tryBag: tryBag, tryApply: tryApply, hotPut: hotPut, hotItem: hotItem, throwIt: throwItem, charRaw: function () { return CHAR; }, stash: stashBody, drop: dropBody, take: talkTake, vfx: vfxPreview, shoot: cbThrow, ammoPick: ammoPick, arrowCraft: arrowCraft, throwable: cbThrowable, sty: sty, gear: function () { return CHAR.gear; }, char: function () { return { name: CHAR.name, isDM: !!CHAR.isDM, n: (CHAR.gear || []).length }; }, start: cbStart, give: function (n, q) { var it = item(n, q ? { qty: q } : null); invAdd(it, true); return !!it; } }; // test hooks
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
   charInit(); cbHUD();
   requestAnimationFrame(loop);

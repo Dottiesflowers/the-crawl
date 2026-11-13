@@ -88,10 +88,16 @@
     'Golden Prop Mace +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, onHit: { type: 'prone', chance: 0.25 }, tags: ['heavy'], rarity: 'Rare', level: 2, model: 'w_mace', skin: 'gold', len: 0.5, desc: 'Spray-painted gold for an awards episode. It is solid iron underneath. +1, crits on 19-20, knocks them flat a quarter of the time.' },
     'Stunt Coordinator\'s Greatsword +1': { cat: 'weapon', dmg: '2d6', twoHand: true, bonus: 1, tags: ['sharp', 'long', 'heavy'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'steel', len: 0.95, desc: 'The big one. Choreographed a thousand fights, lost none of them. 2d6, +1. Two-handed.' },
     // ammo: cat misc so it stacks (qty). ammo: { kind (matches the launcher's bow.ammo), s: damage die, acc: +N to hit, onHit: rider }. twoHand: true = no torch, shield or dagger in the off hand. Jury-rig 2 parts: wood + a tip (see ARROWS in v2_craft.js)
+    // launchers: bow: { ammo kind, range, long, shots per action, pose (bow, sling, gun), fly (arrow, pebble, paint) }; proc: a held model built in code
+    'Wrist-rocket slingshot': { cat: 'weapon', dmg: '1d2', bow: { ammo: 'pebble', range: 8, long: 32, pose: 'sling', fly: 'pebble' }, proc: 'sling', tags: ['light', 'elastic'], level: 1, desc: 'Surgical tubing and a wrist brace. Shoots pebbles: Chunk of rubble, River stone or ball bearings. Half come back after a fight. Dennis the Menace energy, D&D damage.' },
+    'Acid Splat Marker': { cat: 'weapon', dmg: '1d4', twoHand: true, bow: { ammo: 'paintball', range: 10, long: 30, shots: 2, pose: 'gun', fly: 'paint' }, proc: 'marker', tags: ['loud'], rarity: 'Uncommon', level: 2, desc: 'A paintball gun from the laser-tag episode. Two shots per action. Load acid paintballs and every hit eats their armor. Two-handed; paintballs do not come back.' },
+    'Ball bearings': { cat: 'misc', icon: 'coin', ammo: { kind: 'pebble', s: 6 }, tags: ['metal', 'slippery'], level: 1, desc: 'A jar of steel balls. Slingshot ammo: 1d6. Fast, heavy, and a nightmare on hardwood.' },
+    'Paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, noRecover: true }, tags: ['glass'], level: 2, desc: 'Marker ammo: 1d4 and a bright splat. Jury-rig with something toxic (bleach, clerk ink, weed killer) to make acid paintballs.' },
+    'Acid paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, edmg: { dice: '1d4', type: 'acid' }, noRecover: true }, tags: ['toxic', 'glass'], rarity: 'Uncommon', level: 2, desc: 'Neon green, warm, and the casing is already sweating. 1d4 + 1d4 acid, and each hit takes 1 off their armor for 2 turns (stacks to -3).' },
     'Splintered wood': { cat: 'material', tags: ['wood', 'flammable', 'long'], level: 1, desc: 'Busted shelving, a chair leg, part of a pallet. Two of these make arrows.' },
-    'Chunk of rubble': { cat: 'material', tags: ['stone', 'heavy', 'hard'], level: 1, desc: 'A fist-sized piece of the dungeon. It came off the wall. The wall did not notice.' },
+    'Chunk of rubble': { cat: 'material', ammo: { kind: 'pebble', s: 4 }, tags: ['stone', 'heavy', 'hard'], level: 1, desc: 'A fist-sized piece of the dungeon. It came off the wall. The wall did not notice.' },
     'Prop lumber': { cat: 'material', tags: ['wood', 'flammable', 'long'], level: 2, desc: 'Pine offcuts from set construction. Straight, light, splits clean. Two of these make arrows.' },
-    'River stone': { cat: 'material', tags: ['stone', 'heavy', 'hard'], level: 2, desc: 'Flat and sharp-edged, from the Jungle Set river. The river is a pump and a tarp. The stone is real.' },
+    'River stone': { cat: 'material', ammo: { kind: 'pebble', s: 4 }, tags: ['stone', 'heavy', 'hard'], level: 2, desc: 'Flat and sharp-edged, from the Jungle Set river. The river is a pump and a tarp. The stone is real.' },
     'Scrap metal': { cat: 'material', tags: ['metal', 'sharp', 'conductive', 'heavy'], level: 1, desc: 'Bent brackets, sheet offcuts and one very confused bolt.' },
     'Wooden arrows': { cat: 'misc', icon: 'arrows', ammo: { kind: 'arrow', s: 4 }, tags: ['wood', 'flammable'], level: 2, desc: 'Sharpened and fire-hardened. 1d4 from a bow. Jury-rig: Prop lumber + Prop lumber (10).' },
     'Stone-tipped arrows': { cat: 'misc', icon: 'arrows', ammo: { kind: 'arrow', s: 6 }, tags: ['wood', 'stone'], level: 2, desc: 'Knapped stone heads, lashed on. 1d6 from a bow. Jury-rig: Prop lumber + River stone (10).' },
@@ -178,7 +184,7 @@
   // sources: one-off places the engine hands out items
   var DROPS = {
     monsters: {
-      puglin: { gold: '1d6', always: ['Puglin stick'], chance: [['Half-eaten snack', 0.5], ['Shiny button', 0.3], ['Puglin grease', 0.35]] },
+      puglin: { gold: '1d6', always: ['Puglin stick'], chance: [['Wrist-rocket slingshot', 0.06], ['Half-eaten snack', 0.5], ['Shiny button', 0.3], ['Puglin grease', 0.35]] },
       imp: { gold: '2d6+2', always: ['Imp mace', 'Security badge', 'Union card'], chance: [['Imp horn', 0.4], ['Scrap metal', 0.3], ['Smoke bomb', 0.1]] },
       rat: { gold: '0', chance: [['Rat tail', 0.6]] },
       bog: { gold: '1d4', chance: [['Bog slime', 0.7], ['Band-aids', 0.15]] },
@@ -204,12 +210,12 @@
       extra: { gold: '1d6', chance: [['Rusty arming sword', 0.35], ['Rusty spear', 0.15], ['Wooden arrows', 0.25], ['Craft services sandwich', 0.3]] },
       stuntdouble: { gold: '2d6', chance: [['Rusty longsword', 0.4], ['Rusty broadsword', 0.25], ['Steel arming sword', 0.12], ['Healing potion', 0.3]] },
       stuntknight: { gold: '3d6', always: ['Healing potion'], chance: [['Stunt Coordinator\'s Greatsword +1', 0.1]], oneOf: ['Steel longsword', 'Steel broadsword', 'Steel battleaxe', 'Rusty longsword', 'Rusty battleaxe', 'Rusty flanged mace'] },
-      crew: { gold: '1d6', chance: [['Prop lumber', 0.6], ['Scrap metal', 0.35], ['Roll of duct tape', 0.4], ['AA batteries', 0.3], ['Rusty hatchet', 0.1]] },
-      crew_lead: { gold: '2d6', always: ['Roll of duct tape', 'Prop lumber'], chance: [['Healing potion', 0.4], ['Bandit\'s shortbow', 0.2], ['Scrap-metal arrows', 0.3]] },
+      crew: { gold: '1d6', chance: [['Paintballs', 0.35], ['Prop lumber', 0.6], ['Scrap metal', 0.35], ['Roll of duct tape', 0.4], ['AA batteries', 0.3], ['Rusty hatchet', 0.1]] },
+      crew_lead: { gold: '2d6', always: ['Roll of duct tape', 'Prop lumber'], chance: [['Acid Splat Marker', 0.25], ['Acid paintballs', 0.3], ['Healing potion', 0.4], ['Bandit\'s shortbow', 0.2], ['Scrap-metal arrows', 0.3]] },
       truffle: { gold: '1d4', chance: [['River stone', 0.45], ['Shrub sap', 0.4], ['Band-aids', 0.15]] },
       truffle_big: { gold: '2d4', chance: [['Shrub sap', 0.6], ['Healing potion', 0.25]] },
       truffle_king: { gold: '3d6', always: ['Healing potion'], chance: [['Rusty hatchet', 0.3], ['Emberbrand Battleaxe +1', 0.1]] },
-      automaton: { gold: '1d6', chance: [['Scrap metal', 0.6], ['AA batteries', 0.5], ['WD-40', 0.2]] },
+      automaton: { gold: '1d6', chance: [['Ball bearings', 0.3], ['Scrap metal', 0.6], ['AA batteries', 0.5], ['WD-40', 0.2]] },
       automaton_big: { gold: '2d6', always: ['AA batteries'], chance: [['Healing potion', 0.3], ['Rusty flanged mace', 0.2], ['Frostbite Arming Sword +1', 0.1]] },
       groundskeeper: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Nightshade Spear +1', 'Emberbrand Battleaxe +1'] },
       butler: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Stormcaller Longsword +1', 'Frostbite Arming Sword +1'] },
@@ -221,10 +227,10 @@
       small: { gold: '1d4', picks: [1, 1], from: 'a search', pool: ['Splintered wood', 'Splintered wood', 'Chunk of rubble', 'Prop lumber', 'Scrap metal', 'Energy bar', 'Bottle of water', 'Rusty key', 'Lighter', 'Ball of twine', 'Band-aids', 'Roll of toilet paper', 'Breath mints', 'Box cutter', 'Bungee cords', 'Zip ties (10)', 'Empty bottle', 'Wallet ($14 and a punch card)', 'Ibuprofen'] },
       silver: { gold: '4d6', picks: [2, 4], from: 'a silver loot box', pool: ['Greater healing potion', 'Healing potion', 'Goblin hob-lobber', 'Smoke bomb', 'Jumper cables', 'Pallet jack', 'Headlamp', 'EpiPen', 'Golf club (7 iron)', 'Chef\'s knife', 'Cast iron skillet', 'Meat tenderizer'] },
       small_office: { gold: '1d6', picks: [1, 2], from: 'a desk', pool: ['Splintered wood', 'Scrap metal', 'AA batteries', 'Stapler', 'Letter opener', 'Sticky notes', 'Archive pages', 'Ergonomic keyboard', 'Laminated visitor badge', '"World\'s Best Boss" mug', 'Breath mints', 'Lint roller', 'Ibuprofen', 'Box cutter'] },
-      small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['Splintered wood', 'Scrap metal', 'AA batteries', 'Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
+      small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['Wrist-rocket slingshot', 'Ball bearings', 'Splintered wood', 'Scrap metal', 'AA batteries', 'Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
       small_garden: { gold: '1d4', picks: [1, 2], from: 'the potting shed', pool: ['Rake', 'Hedge trimmers', 'Weed killer', 'Bug spray', 'Cordless leaf blower', 'Shrub sap', 'Bog slime', 'Floral foam brick', 'Bottle of water'] },
       small_bazaar: { gold: '2d4', picks: [1, 2], from: 'a stall', pool: ['Hot sauce', 'Can of cooking spray', 'Chef\'s knife', 'Rolling pin', 'Meat tenderizer', 'Cast iron skillet', 'Protein bar', 'Energy bar', 'Roll of aluminum foil', 'Bottle of water'] },
-      small_arena: { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Splintered wood', 'Scrap metal', 'Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] }
+      small_arena: { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Wrist-rocket slingshot', 'Splintered wood', 'Scrap metal', 'Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] }
     },
     sources: {
       starting: [['Healing potion', 3]],

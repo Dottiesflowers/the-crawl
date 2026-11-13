@@ -78,7 +78,12 @@
     [function (g) { return !tg(g, 'wood') && tg(g, 'flammable'); }, 'Pitch arrows', 6], [function (g) { return tg(g, 'wood'); }, 'Wooden arrows', 10]];
   function tg(g, t) { return (g.tags || []).indexOf(t) >= 0; }
   function arrowCraft(sel) {
-    if (sel.length !== 2) return false; var w = sel.filter(function (g) { return tg(g, 'wood') && !ITEMS[g.name].ammo; }); if (!w.length || sel.some(function (g) { return ITEMS[g.name] && ITEMS[g.name].ammo; })) return false;
+    if (sel.length !== 2) return false;
+    var isArrow = function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === 'arrow'; };
+    var pb = sel.filter(function (g) { return g.name === 'Paintballs'; })[0], tox = sel.filter(function (g) { return g !== pb && tg(g, 'toxic'); })[0];
+    if (pb && tox) { var n = Math.min(10, pb.qty || 1); pb.qty = (pb.qty || 1) - n; if (pb.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(pb), 1); itemSpend(tox); invAdd(item('Acid paintballs', { qty: n, from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
+      craftSay('ok', 'Made ' + n + ' acid paintballs', 'You dosed the paintballs with ' + tox.name.toLowerCase() + '. They are warm now. Do not keep them in a pocket.'); return true; }
+    var w = sel.filter(function (g) { return tg(g, 'wood') && !isArrow(g); }); if (!w.length || sel.some(isArrow)) return false;
     var shaft = w[0], tip = sel[0] === shaft ? sel[1] : sel[0], r = ARROWS.filter(function (a) { return a[0](tip); })[0]; if (!r) return false;
     itemSpend(shaft); itemSpend(tip); var made = item(r[1], { qty: r[2], from: 'your own two hands' }); invAdd(made, true); saveChar(CHAR);
     skillUse(trackSkill('physical')); CRAFT.sel = [];

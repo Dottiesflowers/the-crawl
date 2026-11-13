@@ -253,7 +253,8 @@
   // ---------- archery: no bow clip in the animation set, so the arms are posed in code ----------
   // 0-0.3 s raise the bow and nock, 0.3-0.75 draw the string to the chin, release at 0.75 (the arrow leaves from the bow hand), hold, lower
   var _bv = new THREE.Vector3(), _bc = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bq2 = new THREE.Quaternion(), _bd = new THREE.Vector3();
-  function kitBowShot(onRelease) { if (!KIT || !KIT.on) { if (onRelease) onRelease(P.px, 1.15, P.pz); return; } KIT.bowT = 0; KIT.bowRel = onRelease; KIT.bowFired = false; }
+  function kitBowShot(onRelease, pose) { if (!KIT || !KIT.on) { if (onRelease) onRelease(P.px, 1.15, P.pz); return; } KIT.bowT = 0; KIT.bowRel = onRelease; KIT.bowFired = false; KIT.bowPose = pose || 'bow'; KIT.kick = 0; }
+  function kitGunKick() { if (KIT) { KIT.kick = 0.16; if (KIT.bowT != null && KIT.bowPose === 'gun') KIT.bowT = Math.min(KIT.bowT, 0.6); } }
   function bonePoint(bone, child, target, w) { // turn a bone so its child sits on the line to target
     bone.getWorldPosition(_bv); child.getWorldPosition(_bc); var cur = _bc.sub(_bv).normalize(), des = _bd.copy(target).sub(_bv).normalize();
     _bq.setFromUnitVectors(cur, des); bone.getWorldQuaternion(_bq2); _bq.multiply(_bq2); bone.parent.getWorldQuaternion(_bq2); _bq2.invert(); _bq.premultiply(_bq2);
@@ -261,7 +262,8 @@
   }
   function kitBowPose(dt) {
     var B = KIT.bones, t = (KIT.bowT += dt); if (!B.upperarm_l || !B.upperarm_r) { KIT.bowT = null; return; }
-    var w = t < 0.25 ? t / 0.25 : t > 1.15 ? Math.max(0, 1 - (t - 1.15) / 0.25) : 1; w = w * w * (3 - 2 * w);
+    var gun = KIT.bowPose === 'gun', relAt = gun ? 0.35 : 0.75, endAt = gun ? 1.25 : 1.15; if (KIT.kick > 0) KIT.kick = Math.max(0, KIT.kick - dt);
+    var w = t < 0.25 ? t / 0.25 : t > endAt ? Math.max(0, 1 - (t - endAt) / 0.25) : 1; w = w * w * (3 - 2 * w);
     hero.updateMatrixWorld(true);
     var ry = hero.rotation.y, fwd = new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry)), side = new THREE.Vector3(fwd.z, 0, -fwd.x), up = new THREE.Vector3(0, 1, 0);
     var sL = B.upperarm_l.getWorldPosition(new THREE.Vector3()), sR = B.upperarm_r.getWorldPosition(new THREE.Vector3()), arm = sL.distanceTo(B.hand_l.getWorldPosition(new THREE.Vector3())) || 0.5;
@@ -271,18 +273,24 @@
     var chin = cen.clone().addScaledVector(fwd, arm * 0.12).addScaledVector(up, arm * 0.18);          // string hand anchors at the chin
     var handT = bowPt.clone().lerp(chin, d * d * (3 - 2 * d));
     var elbow = sR.clone().lerp(handT, 0.5).addScaledVector(side.clone().multiplyScalar(sR.clone().sub(cen).dot(side) > 0 ? 1 : -1), arm * 0.25 * d).addScaledVector(fwd, -arm * 0.25 * d).addScaledVector(up, arm * 0.08 * d);
+    if (gun) { // both hands on the gun at chest height, a kick back on each shot
+      var gp = cen.clone().addScaledVector(fwd, arm * (0.8 - (KIT.kick || 0) * 0.9)).addScaledVector(up, -arm * 0.12), gr = gp.clone().addScaledVector(fwd, -arm * 0.28);
+      bonePoint(B.upperarm_l, B.lowerarm_l, gp.clone().addScaledVector(up, arm * 0.1), w); bonePoint(B.lowerarm_l, B.hand_l, gp, w);
+      bonePoint(B.upperarm_r, B.lowerarm_r, gr.clone().addScaledVector(side.clone().multiplyScalar(sR.clone().sub(cen).dot(side) > 0 ? 1 : -1), arm * 0.2), w); bonePoint(B.lowerarm_r, B.hand_r, gr, w);
+    } else {
     bonePoint(B.upperarm_l, B.lowerarm_l, bowPt, w); bonePoint(B.lowerarm_l, B.hand_l, bowPt.clone().addScaledVector(fwd, arm), w);
-    bonePoint(B.upperarm_r, B.lowerarm_r, elbow, w); bonePoint(B.lowerarm_r, B.hand_r, handT, w);
+    bonePoint(B.upperarm_r, B.lowerarm_r, elbow, w); bonePoint(B.lowerarm_r, B.hand_r, handT, w); }
     if (BOW_G && BOW_G.parent) { // stand the bow upright, its face toward the target, while it is up
-      var m4 = new THREE.Matrix4().makeBasis(side, up, fwd), qw = new THREE.Quaternion().setFromRotationMatrix(m4), qp = new THREE.Quaternion(); BOW_G.parent.getWorldQuaternion(qp); qw.premultiply(qp.invert());
+      var m4 = gun ? new THREE.Matrix4().makeBasis(side, fwd, new THREE.Vector3().crossVectors(side, fwd)) : new THREE.Matrix4().makeBasis(side, up, fwd), qw = new THREE.Quaternion().setFromRotationMatrix(m4), qp = new THREE.Quaternion(); BOW_G.parent.getWorldQuaternion(qp); qw.premultiply(qp.invert());
       if (!BOW_G.userData.q0) BOW_G.userData.q0 = BOW_G.quaternion.clone(); BOW_G.quaternion.copy(BOW_G.userData.q0).slerp(qw, w);
-      if (t > 1.4) BOW_G.quaternion.copy(BOW_G.userData.q0);
+      if (t > endAt + 0.25) BOW_G.quaternion.copy(BOW_G.userData.q0);
     }
     // the nocked arrow, string hand to bow hand, until it is loosed
-    if (!KIT.bowArrow && typeof vfxMeshArrow === 'function') { KIT.bowArrow = vfxMeshArrow(false); scene.add(KIT.bowArrow); }
+    if (!KIT.bowArrow && typeof vfxMeshArrow === 'function') { KIT.bowArrow = vfxMeshArrow(false); scene.add(KIT.bowArrow); KIT.bowPebble = new THREE.Mesh(new THREE.DodecahedronGeometry(0.035), new THREE.MeshLambertMaterial({ color: 0x8a8278 })); scene.add(KIT.bowPebble); KIT.bowPebble.visible = false; }
     var hL = B.hand_l.getWorldPosition(new THREE.Vector3()), hR = B.hand_r.getWorldPosition(new THREE.Vector3());
-    if (KIT.bowArrow) { KIT.bowArrow.visible = t > 0.15 && !KIT.bowFired; KIT.bowArrow.position.copy(hR).lerp(hL, 0.5).addScaledVector(fwd, 0.12); KIT.bowArrow.lookAt(hL.clone().addScaledVector(fwd, 0.5)); KIT.bowArrow.scale.setScalar(Math.max(0.6, hR.distanceTo(hL) / 0.45)); }
-    if (t >= 0.75 && !KIT.bowFired) { KIT.bowFired = true; var cb = KIT.bowRel; KIT.bowRel = null; if (cb) cb(hL.x, hL.y, hL.z); }
-    if (t > 1.4) { KIT.bowT = null; if (KIT.bowArrow) KIT.bowArrow.visible = false; }
+    if (KIT.bowPebble) { KIT.bowPebble.visible = KIT.bowPose === 'sling' && t > 0.15 && !KIT.bowFired; KIT.bowPebble.position.copy(hR); }
+    if (KIT.bowArrow) { KIT.bowArrow.visible = KIT.bowPose === 'bow' && t > 0.15 && !KIT.bowFired; KIT.bowArrow.position.copy(hR).lerp(hL, 0.5).addScaledVector(fwd, 0.12); KIT.bowArrow.lookAt(hL.clone().addScaledVector(fwd, 0.5)); KIT.bowArrow.scale.setScalar(Math.max(0.6, hR.distanceTo(hL) / 0.45)); }
+    if (t >= relAt && !KIT.bowFired) { KIT.bowFired = true; var cb = KIT.bowRel; KIT.bowRel = null; if (cb) cb(hL.x, hL.y, hL.z); }
+    if (t > endAt + 0.25) { KIT.bowT = null; if (KIT.bowArrow) KIT.bowArrow.visible = false; if (KIT.bowPebble) KIT.bowPebble.visible = false; }
   }
   kitLoad();
