@@ -10403,7 +10403,7 @@
   setInterval(function () { if (typeof P === 'undefined') return; var m = document.getElementById('mini'); m.style.display = gearOpen || CC || AUTH.open ? 'none' : ''; if (m.style.display !== 'none') mapDraw(m, false); if (UI.map) mapDraw(document.getElementById('mapC'), true); }, 250);
 
   // ---------- inventory ----------
-  var CATS = [['all', 'All'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['scroll', 'Scrolls'], ['valuable', 'Valuables'], ['material', 'Materials'], ['body', 'Bodies'], ['misc', 'Misc']];
+  var CATS = [['all', 'All'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['scroll', 'Scrolls'], ['box', 'Loot boxes'], ['valuable', 'Valuables'], ['material', 'Materials'], ['body', 'Bodies'], ['misc', 'Misc']];
   function bagItems() { return CHAR && CHAR.gear ? CHAR.gear : []; }
   function bagToggle() {
     UI.bag = !UI.bag; if (UI.bag && UI.map) mapToggle(); document.getElementById('bag').classList.toggle('on', UI.bag);
@@ -10425,15 +10425,17 @@
     return tg.indexOf(f) >= 0;
   }
   function isScroll(it) { var tg = it.tags || (ITEMS[it.name] || {}).tags || []; return tg.indexOf('scroll') >= 0 || /\bscroll\b|rewritten script/i.test(it.name); }
+  function isBox(it) { return !!(it.box || (ITEMS[it.name] || {}).box) || /loot box/i.test(it.name); }
   function quickUse(it) { // the one-tap button on a bag row: what using it means, in a word
     if (!it || it.worn) return ''; var tg = it.tags || (ITEMS[it.name] || {}).tags || [];
+    if (it.box) return 'Open';
     if (it.spell && isScroll(it)) return 'Read'; if (it.spell) return 'Cast';
     if (!(it.cat === 'consumable' && (it.heal || it.buff)) || it.throw || it.escape) return '';
     return tg.indexOf('drink') >= 0 || /potion|tonic|water|soda|coffee|juice|tea\b|drink/i.test(it.name) ? 'Drink' : tg.indexOf('food') >= 0 ? 'Eat' : 'Use';
   }
   function quickGo(it) { if (it.spell) { if (UI.bag) bagToggle(); useItem(it); return; } useItem(it); }
   function facetsFor(cat, items) {
-    if (cat === 'scroll') return [];
+    if (cat === 'scroll' || cat === 'box') return [];
     if (FACETS[cat]) return FACETS[cat];
     var cnt = {}; items.forEach(function (it) { if (cat !== 'all' && it.cat !== cat) return; ((ITEMS[it.name] || {}).tags || it.tags || []).forEach(function (t) { if (TAGNAME[t]) cnt[t] = (cnt[t] || 0) + 1; }); });
     return Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).slice(0, 8).map(function (t) { return [t, TAGNAME[t]]; });
@@ -10441,7 +10443,7 @@
   function bagDraw() {
     var el = document.getElementById('bag'), items = bagItems(), q = UI.q.toLowerCase(); UI.sub = UI.sub || ''; UI.rar = UI.rar || 'any'; UI.sort = UI.sort || 'name';
     var facets = facetsFor(UI.cat, items); if (UI.sub && !facets.some(function (f) { return f[0] === UI.sub; })) UI.sub = '';
-    var list = items.map(function (it, i) { return { it: it, i: i }; }).filter(function (o) { return (UI.cat === 'all' || (UI.cat === 'scroll' ? isScroll(o.it) : o.it.cat === UI.cat)) && (!UI.sub || hasFacet(o.it, UI.sub)) && (UI.rar === 'any' || (UI.rar === 'rare' ? rarRank(o.it) >= 3 : rarRank(o.it) === (UI.rar === 'uncommon' ? 2 : 1))) && (!q || (o.it.name + ' ' + (o.it.desc || '') + ' ' + ((ITEMS[o.it.name] || {}).tags || []).join(' ')).toLowerCase().indexOf(q) >= 0); });
+    var list = items.map(function (it, i) { return { it: it, i: i }; }).filter(function (o) { return (UI.cat === 'all' || (UI.cat === 'scroll' ? isScroll(o.it) : UI.cat === 'box' ? isBox(o.it) : o.it.cat === UI.cat)) && (!UI.sub || hasFacet(o.it, UI.sub)) && (UI.rar === 'any' || (UI.rar === 'rare' ? rarRank(o.it) >= 3 : rarRank(o.it) === (UI.rar === 'uncommon' ? 2 : 1))) && (!q || (o.it.name + ' ' + (o.it.desc || '') + ' ' + ((ITEMS[o.it.name] || {}).tags || []).join(' ')).toLowerCase().indexOf(q) >= 0); });
     if (UI.sort === 'rarity') list.sort(function (a, b) { return rarRank(b.it) - rarRank(a.it) || a.it.name.localeCompare(b.it.name); });
     else if (UI.sort === 'dmg') list.sort(function (a, b) { return dmgAvg(b.it) - dmgAvg(a.it) || a.it.name.localeCompare(b.it.name); });
     else if (UI.sort === 'name') list.sort(function (a, b) { return a.it.name.localeCompare(b.it.name); });
