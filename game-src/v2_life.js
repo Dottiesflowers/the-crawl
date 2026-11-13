@@ -51,11 +51,23 @@
     'Sink': [{ label: 'Splash your face', auto: 'sink' }],
     'TV': [{ label: 'Watch the replay', auto: 'tv' }]
   };
-  function actsOf(t) { var lk = LEVEL.links && LEVEL.links[t.key]; if (lk) return [{ label: lk.label, auto: 'link', link: lk }, { label: 'Examine', text: 'A creaky staircase. Every step has its own opinion.' }]; if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; } return ACTS[t.c]; }
+  function actsOf(t) { var lk = LEVEL.links && LEVEL.links[t.key]; if (lk) return [{ label: lk.label, auto: 'link', link: lk }, { label: 'Examine', text: 'A creaky staircase. Every step has its own opinion.' }]; if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; } return woodActs(t, ACTS[t.c]); }
+  // anything wooden can be broken down for arrow shafts (once each)
+  var WOODY = /chair|table|desk|shelf|shelving|bookcase|book|crate|barrel|bench|cabinet|pallet|bed|bunk|dresser|stool|cart|wagon|fence|rack|box|drawer|wardrobe|counter|piano|coffin|sign|post|trough|ladder|door/i, NOTWOOD = /lamp|boulder|bars|metal|steel|iron|fridge|refrigerator|stove|oven|tv|television|computer|monitor|washer|dryer|sink|toilet|locker|vending|machine|filing|safe/i;
+  function isWoody(t) { if (t.c === 'T' || t.c === 'h' || t.c === 'K' || t.c === 'W') return true; if (t.c !== 'o') return false; var nm = (LEVEL.dname[t.key] || '') + ' ' + ((LEVEL.decor && LEVEL.decor[t.key] && (LEVEL.decor[t.key].m || LEVEL.decor[t.key].model)) || ''); return WOODY.test(nm) && !NOTWOOD.test(nm); }
+  function woodActs(t, list) { if (!list || !isWoody(t)) return list; return list.concat([{ label: 'Break it down for wood', auto: 'wood' }]); }
   function safeAct(a, t) {
     var c = CHAR, now = Date.now(); if (!c) { say('Not yet', 'Create a character first.', 2500); return true; }
     c.cool = c.cool || {};
     if (a.auto === 'link') { takeLink(a.link); return true; }
+    if (a.auto === 'wood') {
+      if (done[t.key + 'wood']) { say('Already stripped', 'You already took everything useful off this one.', 2600); return true; }
+      var r = d20(), tot = r + MOD.STR + (skillLv('Athletics') || 0), ok = r === 20 || (r !== 1 && tot >= 10); kitOneShot('Punch_Jab');
+      if (!ok) { say('Failure · Break it down · d20 ' + r + ' + ' + (tot - r) + ' = ' + tot + ' vs DC 10', 'It holds together out of spite. Try again.', 3200); return true; }
+      var n = r >= 15 ? 2 : 1; done[t.key + 'wood'] = true; invAdd(item('Splintered wood', { qty: n, from: 'furniture you broke' }), true); saveChar(CHAR);
+      vfxBurst(t.x, t.z, 0x9a6a3a, 14, 2); say('Success · Break it down · d20 ' + r + ' + ' + (tot - r) + ' = ' + tot + ' vs DC 10', 'You crack off ' + (n > 1 ? 'two good lengths' : 'a usable length') + ' of wood. Splintered wood ×' + n + '. Two pieces make arrows, or one piece and a tip.', 5000);
+      return true;
+    }
     if (a.auto === 'coffee') {
       c.cups = (c.cups || []).filter(function (x) { return now - x < 15 * 60000; }); c.cups.push(now);
       buffOn('caffeine', 15 * 60000); kitOneShot('Interact');
