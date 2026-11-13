@@ -496,7 +496,7 @@
       ['pan', /skillet|\bpan\b|\bpot\b|\bwok\b/], ['helmet', /helmet|hard hat|\bhelm\b/], ['sword', /sword|saber|sabre|machete|katana|cleaver/], ['axe', /\baxe\b|hatchet/], ['lootbox', /loot box|\bchest\b|\bcrate\b/],
       ['bone', /bone|skull|gristle/], ['flower', /flower|rose\b|tulip|bouquet|herb|petal|seed/], ['shield', /shield|trash can lid/], ['gem', /\bgem|jewel|crystal|diamond|ruby|emerald/]];
     for (var j = 0; j < K0.length; j++) if (K0[j][1].test(n)) return K0[j][0];
-    var K = [['shears', /shear|scissor|clipper|pruner|snip/], ['knife', /knife|blade|cutter|dagger|razor|scalpel/], ['hammer', /hammer|mallet/], ['mace', /mace|morning star/], ['wrench', /wrench|spanner/],
+    var K = [['shears', /shear|scissor|clipper|pruner|snip/], ['knife', /knife|blade|cutter|dagger|razor|scalpel|letter opener/], ['hammer', /hammer|mallet/], ['mace', /mace|morning star/], ['wrench', /wrench|spanner/],
       ['bat', /bat\b|club|stick|pipe|crowbar|cane|rod|pole|broom|mop/], ['phone', /phone|tablet|ipad/], ['laptop', /laptop|computer/], ['keys', /key/], ['tape', /tape|zip tie/], ['pick', /pick\b|picks|plectrum/],
       ['bandage', /gauze|bandage|band-aid|first aid/], ['snack', /snack|bar\b|food|jerky|apple|sandwich|gum|candy|chip/], ['drink', /bottle|flask|water|coffee|drink|can\b|potion/], ['opener', /opener|corkscrew/],
       ['rag', /rag|towel|cloth|apron/], ['badge', /badge|card|id\b|license|wallet/], ['coin', /coin|gold|button/], ['pen', /pen\b|pencil|marker|sharpie/], ['light', /flashlight|lighter|torch|lamp/],
@@ -585,6 +585,7 @@
     if (g && g.cat === 'weapon' && /sling ?shot|wrist.?rocket/i.test(nm)) return { ammo: 'pebble', range: 6, long: 24, acc: -1, crude: true, pose: 'sling', fly: 'pebble' }; // homemade slingshots work too
     return null;
   }
+  var AXE_YAW = Math.PI;
   function gearModel(g0, it) {
     var k = itemKind(it), RED = 0xb02828, g = new THREE.Group(); g.scale.setScalar(1.35); g0.add(g);
     // weapons with a real model (kit2/weapons.json): grip just above the pommel, blade up; a bow is held in the middle
@@ -595,6 +596,58 @@
       [-1, 1].forEach(function (sd) { var pr = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.015, 0.12, 5), wd); pr.position.set(sd * 0.03, 0.18, 0); pr.rotation.z = -sd * 0.45; g.add(pr);
         var tu = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 4), tb); tu.position.set(sd * 0.035, 0.24, -0.05); tu.rotation.x = 1.1; g.add(tu); });
       var pc = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.03), lt); pc.position.set(0, 0.22, -0.1); g.add(pc); return; }
+    // everyday weapons built from Michael's reference photos. Frame: the hand at the origin, the item up +y, +z is the side that faces away from you
+    if (IB.proc === 'racket' || IB.proc === 'crowbar' || IB.proc === 'cleaver' || IB.proc === 'drill') {
+      var LM = function (c, e) { return new THREE.MeshLambertMaterial({ color: c, emissive: e || 0x000000 }); };
+      var bxm = function (w, h, d, m, x, y, z) { var o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); g.add(o); return o; };
+      var cym = function (r1, r2, h, m, x, y, z, seg) { var o = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg || 10), m); o.position.set(x, y, z); g.add(o); return o; };
+      if (IB.proc === 'racket') { // black frame, open throat, strung oval head, tan leather grip
+        var blk = LM(0x1e2024), lea = LM(0xb06a3a);
+        cym(0.016, 0.017, 0.2, lea, 0, 0.02, 0); cym(0.018, 0.018, 0.012, blk, 0, -0.08, 0); cym(0.014, 0.016, 0.03, blk, 0, 0.135, 0);
+        [-1, 1].forEach(function (sd) { var th = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.15, 6), blk); th.position.set(sd * 0.03, 0.22, 0); th.rotation.z = -sd * 0.38; g.add(th); });
+        var rim = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.008, 6, 32), blk); rim.scale.set(1, 1.32, 1); rim.position.y = 0.42; g.add(rim);
+        var sc = document.createElement('canvas'); sc.width = sc.height = 64; var sx = sc.getContext('2d'); sx.strokeStyle = '#e8e4d8'; sx.lineWidth = 1.2; for (var i = 2; i < 64; i += 5) { sx.beginPath(); sx.moveTo(i, 0); sx.lineTo(i, 64); sx.stroke(); sx.beginPath(); sx.moveTo(0, i); sx.lineTo(64, i); sx.stroke(); }
+        var st = new THREE.Mesh(new THREE.CircleGeometry(0.098, 28), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide })); st.scale.set(1, 1.32, 1); st.position.y = 0.42; g.add(st);
+        return; }
+      if (IB.proc === 'crowbar') { // a dark iron bar: chisel at the bottom, gooseneck and split claw at the top
+        var irn = LM(0x34363a, 0x0c0d0e);
+        var path = new THREE.CurvePath(); path.add(new THREE.LineCurve3(new THREE.Vector3(0, -0.12, 0), new THREE.Vector3(0, 0.48, 0)));
+        path.add(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, 0.48, 0), new THREE.Vector3(0, 0.6, 0), new THREE.Vector3(0, 0.6, 0.07)));
+        path.add(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, 0.6, 0.07), new THREE.Vector3(0, 0.6, 0.11), new THREE.Vector3(0, 0.56, 0.12)));
+        g.add(new THREE.Mesh(new THREE.TubeGeometry(path, 40, 0.012, 6, false), irn));
+        [-1, 1].forEach(function (sd) { var cl = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.03, 0.012), irn); cl.position.set(sd * 0.007, 0.545, 0.125); cl.rotation.x = 0.4; g.add(cl); });
+        var ch = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.035, 0.008), irn); ch.position.set(0, -0.135, 0.004); ch.rotation.x = 0.25; g.add(ch);
+        return; }
+      if (IB.proc === 'cleaver') { // rectangular steel blade with a hole, wooden handle with brass rivets
+        var stl = LM(0x8e969e, 0x08090a), wdc = LM(0x9a4a28), brs = LM(0xd8b048);
+        bxm(0.018, 0.13, 0.03, wdc, 0, 0, 0); [-0.04, 0, 0.04].forEach(function (yy) { [-1, 1].forEach(function (sd) { cym(0.006, 0.006, 0.002, brs, sd * 0.0095, yy, 0, 8).rotation.z = Math.PI / 2; }); });
+        var bl = bxm(0.005, 0.16, 0.11, stl, 0, 0.145, 0.035); // the blade: spine over the handle, edge out front
+        var hole = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.006, 10), LM(0x1a1a1a)); hole.rotation.z = Math.PI / 2; hole.position.set(0, 0.2, 0.0); g.add(hole);
+        bxm(0.0052, 0.16, 0.006, LM(0xc4c8cc, 0x101214), 0, 0.145, 0.088); // bright honed edge
+        return; }
+      if (IB.proc === 'drill') { // red and black body, pistol grip, battery pack, chuck and bit
+        var red = LM(0xc8241c), bk = LM(0x24262a), sil = LM(0xa8acb2, 0x101214);
+        var gp = bxm(0.032, 0.11, 0.042, bk, 0, 0, -0.01); gp.rotation.x = -0.18; bxm(0.034, 0.05, 0.02, red, 0, 0.0, 0.016).rotation.x = -0.18;
+        bxm(0.05, 0.035, 0.08, red, 0, -0.07, 0.01); bxm(0.052, 0.012, 0.082, bk, 0, -0.055, 0.01); // battery
+        bxm(0.046, 0.06, 0.1, red, 0, 0.08, 0.02); bxm(0.048, 0.03, 0.05, bk, 0, 0.09, -0.01); // motor housing
+        var t1 = cym(0.022, 0.024, 0.05, bk, 0, 0.085, 0.095); t1.rotation.x = Math.PI / 2; var t2 = cym(0.016, 0.02, 0.04, sil, 0, 0.085, 0.14); t2.rotation.x = Math.PI / 2;
+        var bit = cym(0.002, 0.005, 0.06, sil, 0, 0.085, 0.19, 6); bit.rotation.x = Math.PI / 2; // chuck and bit, pointing away from you
+        bxm(0.01, 0.02, 0.012, bk, 0, 0.035, 0.03); // trigger
+        return; }
+    }
+    if (IB.proc === 'letteropener') { // after Michael's photo: a wavy burl-wood handle, a round knob, a chrome collar, a long four-sided blade
+      var LO = gearModel.lo || (gearModel.lo = (function () {
+        var cv = document.createElement('canvas'); cv.width = 32; cv.height = 64; var c2 = cv.getContext('2d'); c2.fillStyle = '#c8a060'; c2.fillRect(0, 0, 32, 64);
+        for (var i = 0; i < 9; i++) { c2.strokeStyle = i % 3 ? '#8a6030' : '#2a1a10'; c2.lineWidth = i % 3 ? 1 : 2; c2.beginPath(); var x0 = Math.random() * 32; c2.moveTo(x0, 0); c2.bezierCurveTo(x0 + 10, 20, x0 - 10, 44, x0 + 4, 64); c2.stroke(); }
+        return { wood: new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(cv) }), chrome: new THREE.MeshLambertMaterial({ color: 0xb4bcc6, emissive: 0x14181c }) };
+      })());
+      var hd = new THREE.Group(); g.add(hd);
+      [[-0.05, 0.016], [-0.03, 0.02], [-0.01, 0.017], [0.01, 0.021], [0.03, 0.018], [0.05, 0.02]].forEach(function (q, i, a) { var nx = a[i + 1]; if (!nx) return; var sg = new THREE.Mesh(new THREE.CylinderGeometry(nx[1], q[1], nx[0] - q[0], 10), LO.wood); sg.position.y = (q[0] + nx[0]) / 2; hd.add(sg); }); // the wavy grip
+      var cap = new THREE.Mesh(new THREE.SphereGeometry(0.016, 10, 6), LO.wood); cap.position.y = -0.05; hd.add(cap);
+      var knob = new THREE.Mesh(new THREE.SphereGeometry(0.026, 12, 8), LO.wood); knob.position.y = 0.072; g.add(knob);
+      var col2 = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.022, 10), LO.chrome); col2.position.y = 0.101; g.add(col2);
+      var bl = new THREE.Mesh(new THREE.CylinderGeometry(0.0015, 0.011, 0.2, 4), LO.chrome); bl.position.y = 0.212; bl.rotation.y = Math.PI / 4; g.add(bl); // four-sided, tapering to a point
+      return; }
     if (IB.proc === 'crossbow') { // after Michael's photos: a walnut rifle stock with a cheek notch, a black latch plate and lever, a steel prod with end caps, a wire string
       // same frame as the marker: +y toward the target, +z up, the hand on the wrist of the stock at the origin
       g.position.y = -0.16 * 1.35; g0.userData.muzzle = new THREE.Vector3(0, (0.3 - 0.16) * 1.35, 0.075 * 1.35); // held by the fore-end (the front hand); the bolt leaves the front of the tiller
@@ -660,6 +713,7 @@
       bx(0.03, 0.04, 0.02, MK.blk, 0, -0.03, -0.045); // ASA under the grip
       return; }
     if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) {
+      if (/^w_axe/.test(IB.model)) g.rotation.y = AXE_YAW; // axe heads face away from you, not off to the side
       g.traverse(function (o) { if (!o.isMesh) return; if (IB.skin && WSKIN[IB.skin]) { o.material = wskinMat(IB.skin); return; } if (!o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); // the rust textures are dark: lift them so they read in hand
       return;
     }
