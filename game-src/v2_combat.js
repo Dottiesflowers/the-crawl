@@ -166,7 +166,7 @@
     var m = sty('main');
     var W = [{ name: 'fists', n: 1, s: 4, b: MOD.STR, stat: 'STR', clip: 'Punch_Jab' }, { name: 'sword', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' }, { name: 'axe', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' },
       { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'It is a performance as much as a weapon, so it hits with Charisma.' }][m];
-    if (!m && sty('off') === 3) W = { name: 'dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', clip: 'Punch_Jab' };
+    if (!m && sty('off') === 3) W = { name: 'dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', clip: 'Punch_Jab', style: 'stab' };
     W.skey = W.name === 'fists' ? 'wpn:fist' : W.name === 'dagger' ? 'wpn:blade' : 'wpn:blunt';
     W.hit = PROF() + MOD[W.stat] + weaponSkillBonus(W.skey) + buffHit(); W.dmgB = W.b !== undefined ? W.b : MOD[W.stat]; return W;
   }
@@ -737,8 +737,8 @@
     if (offhand) CB.res.bonus = 0; else CB.res.action = 0;
     var Wp = offhand ? { name: 'off-hand dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', clip: 'Punch_Jab' } : pcWeapon();
     if (offhand) { Wp.hit = PROF() + MOD[Wp.stat]; Wp.dmgB = 0; }
-    CB.busy = true; cbFaceHero(e.x, e.z); cbFace(e, P.x, P.z); kitOneShot(Wp.clip); cbHUD();
-    setTimeout(function () { cbResolve(e, Wp); cbAfterMyMove(); }, 420);
+    CB.busy = true; cbFaceHero(e.x, e.z); cbFace(e, P.x, P.z); var lag = kitStrike(Wp); cbHUD();
+    setTimeout(function () { cbResolve(e, Wp); cbAfterMyMove(); }, lag);
   }
   // the opening shot: you see it before it sees you, take one ranged shot, then initiative is rolled (with advantage)
   var FIGHT_OPEN = false; // opening shot + advantage on initiative: built, switched off until Michael picks a rule
@@ -1093,8 +1093,8 @@
   // your reaction: a monster that walks out of your reach gets hit on the way
   function cbMyOpportunity(e) {
     if (!PC.react || PC.down || e.dead) return; PC.react = false;
-    var Wp = pcWeapon(); kitOneShot(Wp.clip); cbFaceHero(e.x, e.z);
-    setTimeout(function () { cbResolve(e, Wp, { label: 'Your opportunity attack' }); cbHUD(); }, 300);
+    var Wp = pcWeapon(); cbFaceHero(e.x, e.z); var lag = kitStrike(Wp);
+    setTimeout(function () { cbResolve(e, Wp, { label: 'Your opportunity attack' }); cbHUD(); }, Math.max(300, lag - 100));
   }
 
   // ---------- life between fights: monsters mill about; shrubs go looking for bodies ----------

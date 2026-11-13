@@ -378,13 +378,22 @@
     if ((item.cat === 'consumable' && item.heal) || item.throw) hotAuto();
   }
   // a wielded item from the inventory overrides the builder's weapon slot
+  // how a weapon is swung: slash (the sword clip), stab (a thrust) or smash (an overhead blow). Item field `swing` wins.
+  function attackStyle(it) {
+    if (!it) return 'slash'; var I = ITEMS[it.name] || {}; if (I.swing || it.swing) return I.swing || it.swing;
+    var n = String(it.name).toLowerCase(), d = String(it.desc || I.desc || '').toLowerCase(), tg = it.tags || I.tags || [];
+    if (/spear|pike|trident|lance|javelin|rapier|fork|skewer|awl|ice pick|letter opener|screwdriver|dagger|stiletto|epee|foil|bayonet|harpoon|umbrella|pool cue|stake|syringe/.test(n) || /\bstab|\bthrust|\bjab\b|\bpoke/.test(d)) return 'stab';
+    if (/hammer|mace|club|\bbat\b|crowbar|wrench|pipe|cudgel|baton|maul|flail|morning ?star|skillet|\bpan\b|plunger|golf|stapler|keyboard|mic stand|chair|brick|rock|sledge|mallet|gavel|rolling pin|trophy|lamp|guitar|log\b|branch|shovel/.test(n) || weaponSkillKey(it) === 'wpn:blunt') return 'smash';
+    if (tg.indexOf('heavy') >= 0 && tg.indexOf('sharp') < 0) return 'smash';
+    return 'slash';
+  }
   function gearWeapon() {
     if (!CHAR || !CHAR.wield) return null; var it = (CHAR.gear || []).filter(function (g) { return g.name === CHAR.wield && g.dmg; })[0]; if (!it) return null;
     var m = /(\d+)d(\d+)/.exec(it.dmg), light = /knife|dagger|shear|scissor|blade|pick|opener|pen/i.test(it.name);
     var stat = light && MOD.DEX > MOD.STR ? 'DEX' : 'STR';
     var fam = !it.from || it.from === 'home' ? 1 : 0; // you have used this tool every day of your life
     var bon = +it.bonus || 0, sk = weaponSkillKey(it); // enchanted: +1 weapons add to hit and damage, 5e style; weapon skills add to hit
-    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', hit: PROF() + MOD[stat] + fam + bon + (+it.acc || 0) + weaponSkillBonus(sk) + buffHit(), edmg: it.edmg || null, dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk, crit: +it.crit || 20, onHit: it.onHit || null };
+    return { name: it.name.toLowerCase(), n: +m[1], s: +m[2], stat: stat, clip: light ? 'Punch_Jab' : 'Sword_Attack', style: attackStyle(it), twoHand: !!((ITEMS[it.name] || {}).twoHand), hit: PROF() + MOD[stat] + fam + bon + (+it.acc || 0) + weaponSkillBonus(sk) + buffHit(), edmg: it.edmg || null, dmgB: MOD[stat] + bon, fam: fam, magic: bon, skey: sk, crit: +it.crit || 20, onHit: it.onHit || null };
   }
 
   // ---------- weapon on your back: one spare weapon (or nothing, if you'd rather wear a pack); swapping is free once a turn ----------

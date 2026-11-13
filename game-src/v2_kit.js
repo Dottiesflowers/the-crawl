@@ -249,6 +249,7 @@
     Object.keys(want2).forEach(function (k) { var a = kitOver(k); if (want2[k] && !a.isRunning()) { a.reset(); a.play(); } if (!want2[k] && a.isRunning()) a.stop(); });
     KIT.overMixer.update(dt);
     if (KIT.bowT != null) kitBowPose(dt);
+    if (KIT.strike) kitStrikePose(dt);
   }
   // ---------- archery: no bow clip in the animation set, so the arms are posed in code ----------
   // 0-0.3 s raise the bow and nock, 0.3-0.75 draw the string to the chin, release at 0.75 (the arrow leaves from the bow hand), hold, lower
@@ -292,5 +293,38 @@
     if (KIT.bowArrow) { KIT.bowArrow.visible = KIT.bowPose === 'bow' && t > 0.15 && !KIT.bowFired; KIT.bowArrow.position.copy(hR).lerp(hL, 0.5).addScaledVector(fwd, 0.12); KIT.bowArrow.lookAt(hL.clone().addScaledVector(fwd, 0.5)); KIT.bowArrow.scale.setScalar(Math.max(0.6, hR.distanceTo(hL) / 0.45)); }
     if (t >= relAt && !KIT.bowFired) { KIT.bowFired = true; var cb = KIT.bowRel; KIT.bowRel = null; var mz = gun && BOW_G && BOW_G.userData.muzzle ? BOW_G.localToWorld(BOW_G.userData.muzzle.clone()) : hL; if (cb) cb(mz.x, mz.y, mz.z); } // guns fire from the muzzle
     if (t > endAt + 0.25) { KIT.bowT = null; if (KIT.bowArrow) KIT.bowArrow.visible = false; if (KIT.bowPebble) KIT.bowPebble.visible = false; }
+  }
+  // ---------- melee: the clip set only has a sword slash, so stabs and overhead smashes are posed in code ----------
+  // kitStrike starts one and returns when the blow lands (ms), so the dice wait for the hit
+  function kitStrike(Wp) {
+    var st = Wp && Wp.style;
+    if (!KIT || !KIT.on || (st !== 'stab' && st !== 'smash')) { kitOneShot(Wp ? Wp.clip : 'Sword_Attack'); return 420; }
+    KIT.strike = { t: 0, style: st, two: !!Wp.twoHand }; KIT.shot = null; return st === 'stab' ? 330 : 470;
+  }
+  var STRIKE = { // [time, hand forward, hand up, item tilt (deg: 0 upright, 90 pointing at the target), body lunge]
+    stab: { end: 0.62, keys: [[0, 0.45, -0.2, 90, 0], [0.16, 0.18, -0.12, 90, -0.04], [0.29, 1.08, -0.02, 90, 0.16], [0.4, 1.0, -0.04, 90, 0.12], [0.62, 0.5, -0.2, 90, 0]] },
+    smash: { end: 0.78, keys: [[0, 0.5, 0.1, 10, 0], [0.26, -0.05, 0.95, -35, -0.03], [0.34, 0.1, 0.9, -40, -0.04], [0.45, 0.9, -0.3, 105, 0.12], [0.56, 0.85, -0.32, 110, 0.1], [0.78, 0.5, -0.1, 30, 0]] }
+  };
+  var KIT_STRIKE_Q = new THREE.Quaternion();
+  function kitStrikePose(dt) {
+    var S = KIT.strike, D = STRIKE[S.style], B = KIT.bones, t = (S.t += dt * (KIT.slow || 1)); if (!B.upperarm_r) { KIT.strike = null; return; }
+    if (t > D.end + 0.2) { KIT.strike = null; KIT.root.position.z = 0; KIT_STRIKE_Q.identity(); return; }
+    var K = D.keys, a = K[0], b = K[K.length - 1]; for (var i = 0; i < K.length - 1; i++) if (t >= K[i][0] && t <= K[i + 1][0]) { a = K[i]; b = K[i + 1]; break; }
+    var u = b[0] > a[0] ? Math.min(1, Math.max(0, (t - a[0]) / (b[0] - a[0]))) : 1; u = u * u * (3 - 2 * u); var L = function (j) { return a[j] + (b[j] - a[j]) * u; };
+    var w = t < 0.08 ? t / 0.08 : t > D.end ? Math.max(0, 1 - (t - D.end) / 0.2) : 1; w = w * w * (3 - 2 * w);
+    var fw = L(1), uw = L(2), tilt = L(3) * Math.PI / 180, lunge = L(4);
+    KIT.root.position.z = lunge * w / (rig.scale.z || 1);
+    hero.updateMatrixWorld(true);
+    var ry = hero.rotation.y, fwd = new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry)), side = new THREE.Vector3(fwd.z, 0, -fwd.x), up = new THREE.Vector3(0, 1, 0);
+    var sL = B.upperarm_l.getWorldPosition(new THREE.Vector3()), sR = B.upperarm_r.getWorldPosition(new THREE.Vector3()), arm = sR.distanceTo(B.hand_r.getWorldPosition(new THREE.Vector3())) || 0.5;
+    var cen = sL.clone().add(sR).multiplyScalar(0.5), rs = sR.clone().sub(cen).dot(side) > 0 ? 1 : -1;
+    var hand = cen.clone().addScaledVector(fwd, arm * fw).addScaledVector(up, arm * uw).addScaledVector(side, rs * arm * 0.12);
+    var elbow = sR.clone().lerp(hand, 0.5).addScaledVector(side, rs * arm * 0.22).addScaledVector(up, -arm * 0.12);
+    bonePoint(B.upperarm_r, B.lowerarm_r, elbow, w); bonePoint(B.lowerarm_r, B.hand_r, hand, w);
+    if (S.two && B.upperarm_l) { // the other hand on the shaft, a little behind
+      var h2 = hand.clone().addScaledVector(S.style === 'stab' ? fwd : up, -arm * 0.32).addScaledVector(side, -rs * arm * 0.1);
+      bonePoint(B.upperarm_l, B.lowerarm_l, sL.clone().lerp(h2, 0.5).addScaledVector(side, -rs * arm * 0.2).addScaledVector(up, -arm * 0.1), w); bonePoint(B.lowerarm_l, B.hand_l, h2, w);
+    }
+    KIT_STRIKE_Q.setFromAxisAngle(new THREE.Vector3(1, 0, 0), tilt * w);
   }
   kitLoad();

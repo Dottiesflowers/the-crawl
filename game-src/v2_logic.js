@@ -570,7 +570,7 @@
     AL.sh.rotation.z = -0.05 - br * 0.012; AR.sh.rotation.z = 0.05 + br * 0.012;
     if (KIT && KIT.on) kitAnimate(dt, P.speed, air, crouch, sty('off') === 2);
     cbUpdate(dt);
-    held.forEach(function (h) { if (h.g === BOW_G && KIT && KIT.bowT != null && KIT.bowPose === 'gun') return; /* aiming a gun: the pose owns it */ h.el.updateWorldMatrix(true, false); h.el.getWorldQuaternion(hq1); rig.parent.getWorldQuaternion(hq2); hq3.setFromAxisAngle(upY, rig.rotation.y); h.g.quaternion.copy(hq1.invert()).multiply(hq2).multiply(hq3); if (h.t) h.g.quaternion.multiply(h.t); }); // torches, staves and blades stay upright whatever the arm does
+    held.forEach(function (h) { if (h.g === BOW_G && KIT && KIT.bowT != null && KIT.bowPose === 'gun') return; /* aiming a gun: the pose owns it */ h.el.updateWorldMatrix(true, false); h.el.getWorldQuaternion(hq1); rig.parent.getWorldQuaternion(hq2); hq3.setFromAxisAngle(upY, rig.rotation.y); h.g.quaternion.copy(hq1.invert()).multiply(hq2).multiply(hq3); if (h.side > 0 && KIT && KIT.strike) h.g.quaternion.multiply(KIT_STRIKE_Q); if (h.t) h.g.quaternion.multiply(h.t); }); // torches, staves and blades stay upright whatever the arm does
     rig.position.y = (KIT && KIT.on) ? jy + LIFT * rig.scale.y : jy + (LIFT - 0.155 * cr) * rig.scale.y + (P.speed > 0 && !air ? Math.abs(Math.sin(walkPhase)) * 0.025 : br * 0.004);
     rig.rotation.x = (air || (KIT && KIT.on)) ? 0 : (0.18 * cr + (P.speed > 2 ? 0.06 : 0));
     headG.rotation.y = (gearOpen || P.speed > 0) ? 0 : Math.sin(T * 0.6) * 0.3;
@@ -596,6 +596,7 @@
   window.__crawl.fx2 = { crank: cbCrank, xb: xbState, opts: cbOptions, resolve: cbResolve, pw: pcWeapon };
   window.__crawl.ed = { toggle: edToggle, tap: edTap, S: EDIT, apply: edApply };
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
+  window.__crawl.strike = function (slow) { KIT.slow = slow || 1; var W = pcWeapon(); return [W.style, kitStrike(W)]; }; window.__crawl.face = function (r) { hero.rotation.y = r; };
   window.__crawl.ach = { achieve: achieve, ACH: ACH, state: worldState, apply: worldApply, calm: calmSave, key: spawnKey, talkFight: function (e) { e.talk = e.talk || { lines: [], facts: [], mood: 'neutral' }; } }; // test hooks
   charInit(); cbHUD();
   requestAnimationFrame(loop);
