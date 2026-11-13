@@ -142,7 +142,18 @@
   // ---------- loot rolls: rarer things turn up less, nothing above this floor's level, searches match the room ----------
   function lootWeight(n) { var it = ITEMS[n]; if (!it) return 0; if ((it.level || 1) > FLOOR || (it.until && it.until < FLOOR)) return 0; var r = String(it.rarity || '').toLowerCase(); return it.common ? 1.6 : r === 'uncommon' ? 0.35 : r === 'rare' ? 0.12 : r === 'legendary' ? 0.03 : 1; }
   function lootPick(pool) { var tot = 0, w = pool.map(function (n) { var v = lootWeight(n); tot += v; return v; }); var r = Math.random() * tot; for (var i = 0; i < pool.length; i++) { r -= w[i]; if (r <= 0) return pool[i]; } return pool[pool.length - 1]; }
-  function rollLoot(kind, theme) {
+  // a search by tag: the furniture's name (or the room's theme) picks a mix of tags, each pick rolls a tag, then an item with it
+  var TAGIDX = null;
+  function tagIndex() { if (TAGIDX) return TAGIDX; TAGIDX = {}; Object.keys(ITEMS).forEach(function (n) { (ITEMS[n].tags || []).forEach(function (t) { (TAGIDX[t] = TAGIDX[t] || []).push(n); }); if (ITEMS[n].cat === 'clothing') (TAGIDX.clothing = TAGIDX.clothing || []).push(n); }); return TAGIDX; }
+  function mixFor(fname, theme) { var M = DROPS.mixes || {}, k; if (fname) for (k in M) if (M[k].match && M[k].match.test(fname)) return M[k]; k = (DROPS.themeMix || {})[theme]; return k ? M[k] : null; }
+  function rollMix(mix, n) {
+    var ix = tagIndex(), tags = Object.keys(mix.tags).filter(function (t) { return (ix[t] || []).some(function (nm) { return lootWeight(nm) > 0; }); }), items = [], seen = {};
+    if (!tags.length) return items; var tot = tags.reduce(function (a, t) { return a + mix.tags[t]; }, 0);
+    for (var i = 0; i < n * 3 && items.length < n; i++) { var r = Math.random() * tot, tg = tags[0]; for (var j = 0; j < tags.length; j++) { r -= mix.tags[tags[j]]; if (r <= 0) { tg = tags[j]; break; } } var nm = lootPick(ix[tg]); if (seen[nm] && Math.random() < 0.7) continue; seen[nm] = 1; items.push(nm); }
+    return items;
+  }
+  function rollLoot(kind, theme, fname, label) {
+    if (kind === 'small') { var mx = mixFor(fname, theme), R0 = DROPS.containers.small; if (mx && R0) { var n0 = R0.picks[0] + Math.floor(Math.random() * (R0.picks[1] - R0.picks[0] + 1)), its = [], gold0 = 0; rollMix(mx, n0).forEach(function (nm) { var x = item(nm, { from: label ? 'the ' + label.toLowerCase() : R0.from }); if (!x) return; if (nm === 'Hollowed-out book') gold0 += diceRoll('2d6'); its.push(x); }); return { gold: Math.round(diceRoll(R0.gold) * (mx.tags.book > 50 ? 0.25 : 1)) + gold0, items: its }; } }
     if (kind === 'small' && theme && DROPS.containers['small_' + theme] && Math.random() < 0.75) kind = 'small_' + theme;
     var R = DROPS.containers[kind]; if (!R) return { gold: 0, items: [] };
     var n = R.picks[0] + Math.floor(Math.random() * (R.picks[1] - R.picks[0] + 1)), items = [], seen = {};

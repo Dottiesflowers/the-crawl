@@ -133,9 +133,34 @@
     UI.bag = !UI.bag; if (UI.bag && UI.map) mapToggle(); document.getElementById('bag').classList.toggle('on', UI.bag);
     if (UI.bag) bagDraw();
   }
+  // ---------- inventory filters: a second row of chips that fits the category, a rarity filter and a sort ----------
+  var FACETS = { weapon: [['melee', 'Melee'], ['ranged', 'Ranged'], ['sharp', 'Sharp'], ['blunt', 'Blunt'], ['long', 'Long reach'], ['twohand', 'Two-handed'], ['ench', 'Enchanted']],
+    consumable: [['heal', 'Healing'], ['food', 'Food & drink'], ['throw', 'Throwable'], ['magic', 'Magic']] };
+  var TAGNAME = { electronics: 'Electronics', book: 'Books', paper: 'Paper', scroll: 'Scrolls', food: 'Food', drink: 'Drinks', medical: 'Medical', kitchen: 'Kitchen', office: 'Office', household: 'Household', tool: 'Hardware', garden: 'Garden', sports: 'Sports', valuable: 'Valuable', junk: 'Junk', ammo: 'Ammo', wood: 'Wood', metal: 'Metal', stone: 'Stone', glass: 'Glass', flammable: 'Flammable', toxic: 'Toxic', sticky: 'Sticky', magic: 'Magic', battery: 'Battery', plastic: 'Plastic' };
+  function rarRank(it) { var r = String(it.rarity || '').toLowerCase(); return r === 'legendary' ? 4 : r === 'rare' ? 3 : r === 'uncommon' ? 2 : 1; }
+  function dmgAvg(it) { var m = /(\d+)d(\d+)/.exec(it.dmg || ''); var L = launcherOf(it.name); return m ? (+m[1]) * (+m[2] + 1) / 2 + (it.bonus || 0) : L ? 3 : 0; }
+  function hasFacet(it, f) {
+    var I = ITEMS[it.name] || it, tg = it.tags || I.tags || [], L = launcherOf(it.name);
+    if (f === 'ranged') return !!L; if (f === 'melee') return it.cat === 'weapon' && !L;
+    var sharp = tg.indexOf('sharp') >= 0 || /knife|blade|sword|axe|hatchet|shears|cleaver|spear|machete|scissor|cutter|opener|dagger|scalpel|razor|saw\b|trimmers/i.test(it.name);
+    if (f === 'sharp') return sharp && !L; if (f === 'blunt') return it.cat === 'weapon' && !L && !sharp;
+    if (f === 'long') return tg.indexOf('long') >= 0; if (f === 'twohand') return !!I.twoHand; if (f === 'ench') return !!(it.bonus || I.edmg || I.spell || /enchanted|\+\d/i.test(it.name));
+    if (f === 'heal') return !!(it.heal || I.heal); if (f === 'food') return tg.indexOf('food') >= 0 || tg.indexOf('drink') >= 0; if (f === 'throw') return !!I.throw; if (f === 'magic') return !!I.spell || tg.indexOf('magic') >= 0;
+    return tg.indexOf(f) >= 0;
+  }
+  function facetsFor(cat, items) {
+    if (FACETS[cat]) return FACETS[cat];
+    var cnt = {}; items.forEach(function (it) { if (cat !== 'all' && it.cat !== cat) return; ((ITEMS[it.name] || {}).tags || it.tags || []).forEach(function (t) { if (TAGNAME[t]) cnt[t] = (cnt[t] || 0) + 1; }); });
+    return Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).slice(0, 8).map(function (t) { return [t, TAGNAME[t]]; });
+  }
   function bagDraw() {
-    var el = document.getElementById('bag'), items = bagItems(), q = UI.q.toLowerCase();
-    var list = items.map(function (it, i) { return { it: it, i: i }; }).filter(function (o) { return (UI.cat === 'all' || o.it.cat === UI.cat) && (!q || (o.it.name + ' ' + (o.it.desc || '')).toLowerCase().indexOf(q) >= 0); });
+    var el = document.getElementById('bag'), items = bagItems(), q = UI.q.toLowerCase(); UI.sub = UI.sub || ''; UI.rar = UI.rar || 'any'; UI.sort = UI.sort || 'name';
+    var facets = facetsFor(UI.cat, items); if (UI.sub && !facets.some(function (f) { return f[0] === UI.sub; })) UI.sub = '';
+    var list = items.map(function (it, i) { return { it: it, i: i }; }).filter(function (o) { return (UI.cat === 'all' || o.it.cat === UI.cat) && (!UI.sub || hasFacet(o.it, UI.sub)) && (UI.rar === 'any' || (UI.rar === 'rare' ? rarRank(o.it) >= 3 : rarRank(o.it) === (UI.rar === 'uncommon' ? 2 : 1))) && (!q || (o.it.name + ' ' + (o.it.desc || '') + ' ' + ((ITEMS[o.it.name] || {}).tags || []).join(' ')).toLowerCase().indexOf(q) >= 0); });
+    if (UI.sort === 'rarity') list.sort(function (a, b) { return rarRank(b.it) - rarRank(a.it) || a.it.name.localeCompare(b.it.name); });
+    else if (UI.sort === 'dmg') list.sort(function (a, b) { return dmgAvg(b.it) - dmgAvg(a.it) || a.it.name.localeCompare(b.it.name); });
+    else if (UI.sort === 'name') list.sort(function (a, b) { return a.it.name.localeCompare(b.it.name); });
+    else if (UI.sort === 'found') list.reverse();
     // identical things stack into one tile with a count (worn clothes stay separate)
     // the one in your hand and the one on your back peel off the stack and stand alone
     var wIt = wieldItem(), bIt = backItem();
@@ -154,6 +179,9 @@
         '<p class="eqHint">Tap an item, then Wield or Wear on back. Swap is free once a turn.</p></div>' +
       '<div class="pk"><div id="bagTools"><input id="bagQ" type="search" placeholder="Search" aria-label="Search items" value="' + esc(UI.q) + '">' +
       CATS.map(function (c) { return '<button type="button" class="chip2' + (UI.cat === c[0] ? ' on' : '') + '" data-cat="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>' +
+      '<div id="bagSub">' + (facets.length ? facets.map(function (f) { return '<button type="button" class="chip3' + (UI.sub === f[0] ? ' on' : '') + '" data-sub="' + f[0] + '">' + f[1] + '</button>'; }).join('') : '') +
+        '<select id="bagRar" aria-label="Rarity"><option value="any">Any rarity</option><option value="common">Common</option><option value="uncommon">Uncommon</option><option value="rare">Rare +</option></select>' +
+        '<select id="bagSort" aria-label="Sort"><option value="name">Sort: name</option><option value="rarity">Sort: rarity</option><option value="dmg">Sort: damage</option><option value="found">Sort: newest</option></select></div>' +
       '<div id="bagList">' + (list.length ? list.map(function (o) {
         var t = o.it.worn ? 'worn' : o.k === '#hand' ? 'in hand' : o.k === '#back' ? 'on back' : '';
         return '<button type="button" data-i="' + o.i + '" class="' + (o.all.indexOf(UI.sel) >= 0 ? 'on' : '') + (o.it.rarity ? ' r-' + String(o.it.rarity).toLowerCase() : '') + (o.it.bonus ? ' magic' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + '</span>' + (o.n > 1 ? '<b class="qn">×' + o.n + '</b>' : '') + (t ? '<span class="tag">' + t + '</span>' : '') + '</button>';
@@ -166,7 +194,9 @@
     document.getElementById('bagX').onclick = bagToggle;
     var qi = document.getElementById('bagQ'); qi.oninput = function () { UI.q = qi.value; var pos = qi.selectionStart; bagDraw(); var n = document.getElementById('bagQ'); n.focus(); n.setSelectionRange(pos, pos); };
     qi.addEventListener('keydown', function (ev) { ev.stopPropagation(); });
-    el.querySelectorAll('[data-cat]').forEach(function (b) { b.onclick = function () { UI.cat = b.dataset.cat; bagDraw(); }; });
+    el.querySelectorAll('[data-cat]').forEach(function (b) { b.onclick = function () { UI.cat = b.dataset.cat; UI.sub = ''; bagDraw(); }; });
+    el.querySelectorAll('[data-sub]').forEach(function (b) { b.onclick = function () { UI.sub = UI.sub === b.dataset.sub ? '' : b.dataset.sub; bagDraw(); }; });
+    var br = document.getElementById('bagRar'), bs = document.getElementById('bagSort'); br.value = UI.rar; bs.value = UI.sort; br.onchange = function () { UI.rar = br.value; bagDraw(); }; bs.onchange = function () { UI.sort = bs.value; bagDraw(); };
     el.querySelectorAll('[data-i]').forEach(function (b) { b.onclick = function () { UI.sel = +b.dataset.i; bagDraw(); }; });
     el.querySelectorAll('[data-act]').forEach(function (b) { b.onclick = function () { bagAct(b.dataset.act, sel); }; });
   }
@@ -803,17 +833,50 @@
 
   // ---------- loot from containers and secret doors ----------
   // container pools live in items.js (DROPS.containers); rollContainer() reads them
-  function lootSpot(x, z, kind) {
+  function lootSpot(x, z, kind) { var st = lootPrep(x, z, kind); passiveClear(x + ',' + z); lootWindow(st); }
+  // roll what is in a spot (once): searching shows it, and passive perception peeks at it
+  function lootPrep(x, z, kind) {
     var key = 'loot' + x + ',' + z, st = lootSpot.done[key];
     if (!st) {
-      var R = rollLoot(kind, (roomInfo(x, z) || {}).theme);
+      var fnm = (LEVEL.dname[x + ',' + z] || '') + ' ' + ({ h: 'Shelf', k: 'Book stand', K: 'Crate', R: 'Barrel', b: 'Sack', T: 'Table', v: 'Vase' }[ch(x, z)] || '') + ' ' + ((LEVEL.decor[x + ',' + z] || []).map(function (d) { return d.m; }).join(' '));
+      var R = rollLoot(kind, (roomInfo(x, z) || {}).theme, fnm.trim(), LEVEL.dname[x + ',' + z] || { h: 'shelf', k: 'book stand', K: 'crate', R: 'barrel', b: 'sack', v: 'vase' }[ch(x, z)] || '');
       if (kind === 'chest') { skillCount('box'); if (Math.random() < skillLv('Box Cracker') * 0.12) { var ex = rollLoot(kind).items[0]; if (ex) { ex.from = 'a loot box (Box Cracker)'; R.items.push(ex); } } }
       st = lootSpot.done[key] = { title: kind === 'chest' ? 'Loot box' : 'You found', items: R.items, gold: R.gold };
     }
-    lootWindow(st);
+    return st;
   }
+  // ---------- passive perception: walk past something hidden and you might notice it ----------
+  // every searchable spot (and every hidden door) within 4 tiles you can see gets one roll: d20 + WIS + Perception skill.
+  // Only spots hiding something worth noticing (uncommon or better, a scroll, a valuable) or a hidden door can be noticed.
+  var PASSIVE = { rolled: {}, seen: {}, glint: {} };
+  function notable(st) { return (st.items || []).some(function (it) { var r = String(it.rarity || '').toLowerCase(), tg = it.tags || []; return r === 'uncommon' || r === 'rare' || r === 'legendary' || tg.indexOf('scroll') >= 0 || (tg.indexOf('valuable') >= 0 && tg.indexOf('junk') < 0); }); }
+  function passiveClear(k) { PASSIVE.seen[k] = 0; if (PASSIVE.glint[k]) { scene.remove(PASSIVE.glint[k]); delete PASSIVE.glint[k]; } }
+  var GLINT_TEX = null;
+  function glintAt(x, z, h) {
+    if (!GLINT_TEX) { var cv = document.createElement('canvas'); cv.width = cv.height = 64; var c = cv.getContext('2d'), gr = c.createRadialGradient(32, 32, 0, 32, 32, 30); gr.addColorStop(0, 'rgba(255,255,240,1)'); gr.addColorStop(0.25, 'rgba(255,230,150,0.8)'); gr.addColorStop(1, 'rgba(255,220,120,0)'); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); c.fillStyle = 'rgba(255,255,255,0.95)'; c.fillRect(30, 2, 4, 60); c.fillRect(2, 30, 60, 4); GLINT_TEX = new THREE.CanvasTexture(cv); }
+    var sp = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: GLINT_TEX, transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); sp.position.set(x, h, z); sp.renderOrder = 70; sp.userData.t0 = performance.now(); scene.add(sp); return sp;
+  }
+  setInterval(function () { var t = performance.now() / 1000; for (var k in PASSIVE.glint) { var sp = PASSIVE.glint[k], ph = (t * 1.3 + (sp.userData.t0 % 7)) % 2.2; var a = ph < 0.5 ? Math.sin(ph / 0.5 * Math.PI) : 0; sp.material.opacity = 0.45 + a * 0.55; sp.scale.setScalar(0.38 + a * 0.5); sp.quaternion.copy(cam.quaternion); sp.rotateZ(t * 0.6); } }, 60);
+  function passiveScan() {
+    if (!CHAR || !CB.ready || CB.on || !LEVEL || !LEVEL.map) return;
+    var R = 4, wis = MOD.WIS + (typeof skillLv === 'function' ? skillLv('Perception') : 0);
+    for (var dz = -R; dz <= R; dz++) for (var dx = -R; dx <= R; dx++) {
+      var x = P.x + dx, z = P.z + dz, k = x + ',' + z; if (PASSIVE.rolled[k]) continue; var c = ch(x, z);
+      var door = c === 'H', spot = 'ohkKRbv'.indexOf(c) >= 0 && c !== '';
+      if (!door && !spot) continue; if (!(k in visNow) && !los(P.x, P.z, x, z)) continue;
+      PASSIVE.rolled[k] = 1;
+      if (door && done[k + 'found']) continue; if (spot) { if (done[k + 'loot']) continue; if (!notable(lootPrep(x, z, 'small'))) continue; }
+      var r = 1 + Math.floor(Math.random() * 20), tot = r + wis, need = door ? 17 : 19;
+      if (r >= 19 || tot >= need) {
+        PASSIVE.seen[k] = 1; PASSIVE.glint[k] = glintAt(x, z, door ? 1.2 : 0.9);
+        say('Something catches your eye', (door ? 'A draft where there should not be one, and a seam in the wall. ' : 'A glint from the ' + ((LEVEL.dname[k] || { h: 'shelf', k: 'book stand', K: 'crate', R: 'barrel', b: 'sack', v: 'vase' }[c] || 'furniture').toLowerCase()) + '. ') + '(Passive Perception: d20 ' + r + ' + ' + wis + ' = ' + tot + '.) Search it and you will find it.', 5200);
+        skillCount('perceive');
+      }
+    }
+  }
+  setInterval(passiveScan, 600);
   lootSpot.done = {};
   function revealHidden(x, z) {
-    if (ch(x, z) !== 'H') return; MAP[z] = MAP[z].substr(0, x) + 'D' + MAP[z].substr(x + 1);
+    if (ch(x, z) !== 'H') return; passiveClear(x + ',' + z); MAP[z] = MAP[z].substr(0, x) + 'D' + MAP[z].substr(x + 1);
     rebuildChunks(); refreshFog(); grantXP(75); setTimeout(function () { achieve('secret', 'Secret Agent', 'You found a hidden room. The producers did not think anyone would.', 25); }, 2600);
   }
