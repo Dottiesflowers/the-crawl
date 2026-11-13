@@ -44,7 +44,7 @@
   // ---------- spells from items: the remote's darts, a scroll's firebolt ----------
   function spellMod() { return Math.max(MOD.INT, MOD.WIS, MOD.CHA); } // until there are classes, magic runs on your best mental stat
   function spellHurt(e, dice, type, crit) {
-    if (!e || e.dead) return ''; var m = /(\d+)d(\d+)([+-]\d+)?/.exec(dice || '1d4'), dm = 0; if (!m) return '';
+    if (!e || e.dead) return ''; if (e.calm && !e.npc) { e.calm = false; setTimeout(worldSave, 50); say('Truce broken', e.name + ' will remember that.', 2400); setTimeout(function () { achieve('traitor'); }, 3200); } var m = /(\d+)d(\d+)([+-]\d+)?/.exec(dice || '1d4'), dm = 0; if (!m) return '';
     for (var i = 0; i < (+m[1]) * (crit ? 2 : 1); i++) dm += 1 + Math.floor(Math.random() * +m[2]); dm = Math.max(1, dm + (+(m[3] || 0)));
     var weak = (e.def.vuln || []).indexOf(type) >= 0; if (weak) dm *= 2; if (type === 'fire') fireTouch(e);
     e.hp -= dm; floater(e.px, (e.def.h || 1) + 0.3, e.pz, '-' + dm + (weak ? '!' : ''), 'dmg'); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true);
@@ -56,7 +56,7 @@
     var bat = null; if (S.needs === 'battery') { bat = (CHAR.gear || []).filter(function (g) { return (g.tags || []).indexOf('battery') >= 0 || /^AA batteries$/i.test(g.name); })[0]; if (!bat) { say(it.name, 'Nothing to power them. You need batteries in your bag.', 3000); return false; } }
     if (CB.on) { CB.res.action = 0; CB.busy = true; cbHUD(); }
     if (typeof cbFaceHero === 'function') cbFaceHero(e.x, e.z); kitOneShot('Punch_Jab');
-    var name = it.name, notes = [], first = e; if (it.uses || it.cat !== 'tool') itemSpend(it); /* tools without charges are kept */ skillCount('magic');
+    var name = it.name, notes = [], first = e; if (it.uses || it.cat !== 'tool') itemSpend(it); /* tools without charges are kept */ skillCount('magic'); setTimeout(function () { achieve('spell'); }, 2600); 
     function finish() {
       if (CB.on) CB.busy = false; var started = !CB.on; afterTrick(first.dead ? null : first);
       setTimeout(function () { say(name, notes.join(' ') || 'The magic fizzles.', 6000); }, started && CB.on ? 1400 : 0);
@@ -136,7 +136,7 @@
   function openBox(it) {
     var here = roomInfo(P.x, P.z); if (!here || here.type !== 'safe') { say(it.name, 'Loot boxes only open in a safe room. The System is very firm about this.', 3500); return false; }
     var R = rollContainer(it.box); itemSpend(it);
-    lootWindow({ title: it.name, items: R.items, gold: R.gold }); kitOneShot('Interact'); skillCount('box'); return true;
+    lootWindow({ title: it.name, items: R.items, gold: R.gold }); kitOneShot('Interact'); skillCount('box'); setTimeout(function () { achieve('loot_box'); }, 1200); return true;
   }
 
   // ---------- loot rolls: rarer things turn up less, nothing above this floor's level, searches match the room ----------

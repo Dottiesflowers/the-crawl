@@ -284,8 +284,11 @@
   function worldState() {
     var dead = [], eaten = [], calm = [], hp = {};
     var rats = []; CB.enemies.forEach(function (e) { if (e.npc) return; if (e.def.base === 'rat') { if (e.dead) rats.push([e.n, e.diedAt || Date.now()]); return; } if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
-    return { dead: dead, eaten: eaten, calm: calm, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
+    var calmK = CB.enemies.filter(function (e) { return e.calm && !e.dead && !e.npc; }).map(spawnKey);
+    return { dead: dead, eaten: eaten, calm: calm, calmK: calmK, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
   }
+  function spawnKey(e) { return (e.kind || '') + '@' + e.sx + ',' + e.sz; }
+  function calmSave(e) { if (!e || e.npc) return; e.calm = true; setTimeout(worldSave, 50); } // a truce lasts until you break it, across reloads too
   function worldSave() {
     if (!CB.ready || !WORLD.loaded) return; var st = worldState();
     try { localStorage.setItem(worldKey(), JSON.stringify(st)); } catch (x) {}
@@ -308,7 +311,8 @@
   function worldApply(st) {
     var byN = {}; CB.enemies.forEach(function (e) { byN[e.n] = e; });
     (st.dead || []).concat(st.eaten || []).forEach(function (n) { var e = byN[n]; if (!e) return; e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; }); // bodies from earlier sessions are gone
-    (st.calm || []).forEach(function (n) { if (byN[n]) byN[n].calm = true; });
+    if (st.calmK) { var byK = {}; CB.enemies.forEach(function (e) { byK[spawnKey(e)] = e; }); st.calmK.forEach(function (k) { var e = byK[k]; if (e && !e.dead) e.calm = true; }); }
+    else (st.calm || []).forEach(function (n) { if (byN[n]) byN[n].calm = true; });
     Object.keys(st.hp || {}).forEach(function (n) { if (byN[n] && !byN[n].dead) byN[n].hp = Math.max(1, st.hp[n]); });
     (st.shrubs || []).forEach(function (s) { var e = byN[s[0]]; if (e && !e.dead) { e.def = BEAST['shrub' + s[1]]; e.kind = 'shrub' + s[1]; e.lvl = s[1]; e.name = e.def.name; e.max = e.def.hp; e.hp = Math.min(e.hp, e.max); } });
     (st.rats || []).forEach(function (r) { var e = byN[r[0]]; if (e && Date.now() - r[1] < ratBack(e)) { e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; e.diedAt = r[1]; } });
@@ -537,7 +541,7 @@
     CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
     foes.forEach(function (e) { e.react = true; e.prone = false; e.grappled = false; e.fought = true; });
     // surprise (5e, 2014): you started it and they had not spotted you. They lose their first turn and cannot react until it passes; from a sneak, your first attack has advantage
-    var surp = opt.surprise ? foes.filter(function (e) { return !e.boss || sneaky; }) : []; surp.forEach(function (e) { e.surprised = true; e.react = false; fxTag(e, 'SURPRISED'); });
+    var surp = opt.surprise ? foes.filter(function (e) { return !e.boss || sneaky; }) : []; surp.forEach(function (e) { e.surprised = true; e.react = false; fxTag(e, 'SURPRISED'); }); if (surp.length) setTimeout(function () { achieve('surprise'); }, 3000); 
     if (surp.length && sneaky) CB.advNext = true;
     var ia = d20(), ib = opt.advInit ? d20() : 0, pcInit = Math.max(ia, ib) + MOD.DEX - (hasTrait('Distractible') ? 2 : 0) + buffInit(); /* you started it on something that had not noticed you: advantage on initiative */ CB.order = [{ init: pcInit, who: 'pc' }].concat(foes.map(function (e) { e.init = d20() + e.def.init; return { init: e.init, who: e }; }))
       .sort(function (a, b) { return b.init - a.init; }).map(function (o) { return o.who; });
@@ -698,7 +702,7 @@
     if (hit) {
       if (Wp.plain) { // a plain paintball: a splat and a sting, unless it finds an eye
         vfxHit('acid', e.px, e.pz, e.def.h); diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, why: why });
-        if (crit) { e.hp -= 2; e.blind = 2; floater(e.px, e.def.h + 0.25, e.pz, 'CRIT -2', 'crit'); fxTag(e, 'BLINDED'); say('Right in the eye · ' + Wp.name + ' · ' + line, e.name + ' takes 2 damage and is blinded for 2 turns: it attacks at disadvantage and you attack it with advantage.', 5200); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true); }
+        if (crit) { e.hp -= 2; e.blind = 2; floater(e.px, e.def.h + 0.25, e.pz, 'CRIT -2', 'crit'); fxTag(e, 'BLINDED'); setTimeout(function () { achieve('blinded'); }, 2400);  say('Right in the eye · ' + Wp.name + ' · ' + line, e.name + ' takes 2 damage and is blinded for 2 turns: it attacks at disadvantage and you attack it with advantage.', 5200); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true); }
         else { floater(e.px, e.def.h + 0.25, e.pz, 'SPLAT', 'miss'); say('Splat · ' + Wp.name + ' · ' + line, e.name + ' is now very colorful. Plain paintballs only sting: fill them with something nasty.', 4200); }
         return hit;
       }
@@ -755,6 +759,7 @@
   // cranking the crossbow: your bonus action, and it ends your movement this turn; a monster next to you gets a free swing (Crossbow 3: all free)
   function cbCrank(after) {
     var w = wieldItem(), st = xbState(); if (!w || !st || st === 'loaded') { if (after) after(); return; }
+    if (st !== 'blocked') setTimeout(function () { achieve('crank'); }, 1800); 
     if (st === 'free') { w.unloaded = false; say('Crossbow', 'You crank it on the move. (Crossbow ' + skillLv('Crossbow') + ')', 1800); cbHUD(); if (after) after(); return; }
     if (!CB.on) { w.unloaded = false; say('Crossbow', 'Cranked and loaded.', 1600); if (after) after(); return; }
     if (st === 'blocked') { say('Not loaded', 'Cranking takes your bonus action, and you have used it this turn.', 3200); return; }
@@ -808,7 +813,7 @@
     else if (!onT) { notes.push('Missed ' + e.name + '. It splats at its feet.'); floorCoat(e.x, e.z); }
     else {
       var t = onT;
-      if (PR.crit) { t.hp -= 2; t.blind = 2; floater(t.px, t.def.h + 0.25, t.pz, 'CRIT -2', 'crit'); fxTag(t, 'BLINDED'); notes.push('Right in the eye: 2 damage, and it is blinded for 2 turns.'); }
+      if (PR.crit) { t.hp -= 2; t.blind = 2; floater(t.px, t.def.h + 0.25, t.pz, 'CRIT -2', 'crit'); fxTag(t, 'BLINDED'); setTimeout(function () { achieve('blinded'); }, 2400);  notes.push('Right in the eye: 2 damage, and it is blinded for 2 turns.'); }
       else { floater(t.px, t.def.h + 0.25, t.pz, 'COATED', 'status'); notes.push('Hit. The ball does nothing on its own, but ' + t.name + ' is coated.'); }
       if (S.dice) { var dm = Math.max(1, rollDice(S.dice)), weak = (t.def.vuln || []).indexOf(S.type) >= 0; if (weak) dm *= 2; t.hp -= dm; setTimeout(function () { floater(t.px, t.def.h + 0.5, t.pz, '-' + dm + ' ' + S.type, 'dmg'); }, 250); vfxHit(S.type, t.px, t.pz, t.def.h); notes.push('The ' + S.type + ' eats at it: ' + dm + ' ' + S.type + ' damage' + (weak ? ' (weak to it: double)' : '') + '.'); }
       if (S.type === 'acid' && t.hp > 0) { var wv = (t.weak && t.weak.turns > 0 ? t.weak.v : 0) + 1; t.weak = { v: Math.min(3, wv), turns: 2 }; fxTag(t, 'ACID · -' + Math.min(3, wv) + ' AC'); notes.push('Its armor softens: -' + Math.min(3, wv) + ' AC.'); }

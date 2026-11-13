@@ -76,9 +76,56 @@
     var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon).' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : '';
     setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'Level up. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
   }
-  function achieve(id, title, text, xp) {
-    var c = CHAR; if (!c) return; c.ach = c.ach || {}; if (c.ach[id]) return; c.ach[id] = Date.now(); logEvent('Achievement: ' + title, 'ach');
-    say('New achievement: ' + title, text + (xp ? ' +' + xp + ' XP.' : ''), 5500); if (xp) grantXP(xp); else cbSaveChar();
+  // DCC-style achievements. The registry wins over whatever the caller passed, so wording lives in one place.
+  // reward: an item name (a loot box, usually) or null for "Reward: none".
+  var ACH = {
+    talker: ['Use Your Words', 'You talked a monster out of a fight. The System finds this personally refreshing. The audience found it boring.', 50, 'Bronze loot box'],
+    first_blood: ['First Blood', 'Your first kill on camera. Your mother would be so proud. She is watching, by the way.', 50, 'Bronze loot box'],
+    got_away: ['Strategic Retreat', 'You ran away and lived. Cowardice is a skill on this show.', 10, null],
+    free_lunch: ['Free Lunch', 'You ate the sponsors\' food. They own a small part of you now.', 10, null],
+    bipedal: ['Bipedal', 'You walked three whole tiles without falling over. The bar has been set. It is on the floor.', 10, null],
+    tried: ['Thinking Outside the Box', 'You tried something nobody wrote down, and it worked. The writers are furious.', 25, 'Bronze loot box'],
+    first_invention: ['Some Assembly Required', 'You built something from garbage and it worked. The System has filed a patent in its own name.', 25, null],
+    coffee: ['Productive Member of the Crawl', 'You found the coffee machine. Studies show caffeinated crawlers die 4% more efficiently.', 10, null],
+    floor1: ['Basic Training: Passed', 'You found the stairs. The System had money on you not finding the stairs. It is disappointed in itself.', 500, 'Silver loot box'],
+    secret: ['Secret Agent', 'You found a hidden room. The producers did not think anyone would. They are recalculating.', 25, 'Bronze loot box'],
+    weed: ['Weed Whacker', 'You killed a shrub. Gardeners everywhere salute you. The shrub had a family.', 10, null],
+    glint: ['Ooh, Shiny', 'Something sparkled and you noticed. Like a magpie. A magpie with a tragic backstory.', 15, null],
+    spell: ['You\'re a Wizard, Crawler', 'You cast your first spell. It was mostly the item doing the work, but we will let you have this one.', 25, 'Bronze loot box'],
+    blinded: ['Right in the Eye', 'You shot a monster in the eyeball with a paintball. The audience made a noise you will hear in your sleep.', 25, null],
+    surprise: ['Didn\'t See That Coming', 'You attacked something that had no idea you were there. Rude. Effective, but rude.', 25, null],
+    crank: ['Medieval Tech Support', 'You cranked a crossbow back by hand. Your forearms are filing a complaint.', 10, null],
+    fillings: ['Arts and Crafts', 'You filled paintballs with something they were not designed to hold. Child-safety labels weep.', 15, null],
+    acid: ['Breaking Bad Decisions', 'You brewed acid out of household garbage. Please do not tell your HOA.', 25, 'Bronze loot box'],
+    tank: ['Some Disassembly Required', 'You took the CO2 tank off a paintball gun. You now own a small, angry metal grenade.', 10, null],
+    traitor: ['Et Tu, Crawler?', 'You made friends with a monster and then attacked it. The viewers love a betrayal. Your new enemy does not.', 0, null],
+    loot_box: ['Unboxing Video', 'You opened a loot box on camera. Remember to like and subscribe.', 10, null]
+  };
+  var ACHQ = [], achShowing = false;
+  function achStyle() {
+    if (document.getElementById('achCss')) return; var st = document.createElement('style'); st.id = 'achCss';
+    st.textContent = '#achBan{position:fixed;left:50%;top:14%;transform:translate(-50%,-30px) scale(.9);opacity:0;z-index:60;width:min(420px,90vw);padding:14px 18px 12px;background:linear-gradient(180deg,#1b1030,#0d0818);border:2px solid #ffcc33;border-radius:10px;box-shadow:0 0 0 2px #000,0 0 28px rgba(255,204,51,.55);color:#f3ecff;font-family:inherit;text-align:center;pointer-events:auto;transition:transform .35s cubic-bezier(.2,1.6,.4,1),opacity .3s}' +
+      '#achBan.on{transform:translate(-50%,0) scale(1);opacity:1}#achBan .ah{font-weight:900;letter-spacing:.14em;font-size:20px;color:#ffcc33;text-shadow:0 0 10px rgba(255,204,51,.8),2px 2px 0 #000}' +
+      '#achBan .at{margin:6px 0 4px;font-size:17px;font-weight:800;color:#fff}#achBan .ax{font-size:13.5px;line-height:1.35;color:#d9cff0}#achBan .ar{margin-top:9px;padding-top:8px;border-top:1px dashed rgba(255,204,51,.4);font-size:13px;color:#9fd}#achBan .ar b{color:#ffcc33}#achBan .ar.none{color:#c99}#achBan .ap{font-size:11px;color:#8a7fa8;margin-top:6px}';
+    document.head.appendChild(st);
+  }
+  function achNext() {
+    if (achShowing || !ACHQ.length) return; achShowing = true; achStyle(); var a = ACHQ.shift();
+    var el = document.getElementById('achBan'); if (!el) { el = document.createElement('div'); el.id = 'achBan'; document.body.appendChild(el); }
+    var esc = function (s) { return String(s).replace(/[&<>]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]; }); };
+    var rw = a.reward ? '<div class="ar">Reward: You have received a <b>' + esc(a.reward) + '</b>!' + (a.xp ? ' And ' + a.xp + ' XP.' : '') + '</div>'
+      : '<div class="ar none">Reward: ' + (a.xp ? a.xp + ' XP. That is it. ' : 'None. ') + esc(pick(['What were you expecting, a cookie?', 'The System does not hand out participation trophies.', 'Not everything is about you.', 'The satisfaction of a job done adequately.', 'Your reward is the friends you made along the way. Kidding. You get nothing.'])) + '</div>';
+    el.innerHTML = '<div class="ah">NEW ACHIEVEMENT!</div><div class="at">' + esc(a.title) + '</div><div class="ax">' + esc(a.text) + '</div>' + rw + '<div class="ap">tap to close</div>';
+    var done = function () { if (!achShowing) return; el.classList.remove('on'); clearTimeout(achNext.t); setTimeout(function () { achShowing = false; achNext(); }, 400); };
+    el.onclick = done; void el.offsetWidth; el.classList.add('on'); achNext.t = setTimeout(done, 6500);
+  }
+  function achieve(id, title, text, xp, reward) {
+    var c = CHAR; if (!c) return; c.ach = c.ach || {}; if (c.ach[id]) return; c.ach[id] = Date.now();
+    var R = ACH[id]; if (R) { title = R[0]; text = R[1]; xp = R[2]; reward = R[3]; }
+    logEvent('Achievement: ' + title, 'ach'); cbLog('NEW ACHIEVEMENT!', title + (reward ? ' · Reward: ' + reward : ' · Reward: none'));
+    if (reward) { var it = item(reward, { from: 'an achievement' }); if (it) invAdd(it, true); else reward = null; }
+    ACHQ.push({ title: title, text: text, xp: xp, reward: reward }); achNext();
+    if (xp) grantXP(xp); else cbSaveChar();
   }
   function overcome(e) { // a monster beaten without killing it
     if (!e || e.counted || e.npc || CB.on) return; e.counted = true; grantXP(e.def.xp); skillCount('talkdown'); logEvent('Talked ' + e.name + ' out of a fight', 'talk');

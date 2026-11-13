@@ -227,7 +227,7 @@
     if (a === 'wield') { if (CHAR.back === it.name && (CHAR.gear || []).filter(function (g) { return g.name === it.name; }).length < 2) CHAR.back = CHAR.wield || null; CHAR.wield = it.name; buildHero(); say('In hand · ' + it.name, 'You will fight with it: ' + it.dmg + ' damage.', 3000); }
     if (a === 'unwield') { CHAR.wield = null; buildHero(); }
     if (a === 'nock') { CHAR.ammo = it.name; saveChar(CHAR); say('Arrows · ' + it.name, 'Your bow shoots these first.', 2600); }
-    if (a === 'tankoff') { it.noTank = true; var tk = item('CO2 tank', { from: 'your paintball marker' }); if (tk) invAdd(tk, true); saveChar(CHAR); if (CHAR.wield === it.name) buildHero(); say('CO2 tank', 'Unscrewed with a hiss. The marker will not shoot until a tank goes back on. Try jury-rigging the tank.', 4000); }
+    if (a === 'tankoff') { setTimeout(function () { achieve('tank'); }, 1500); it.noTank = true; var tk = item('CO2 tank', { from: 'your paintball marker' }); if (tk) invAdd(tk, true); saveChar(CHAR); if (CHAR.wield === it.name) buildHero(); say('CO2 tank', 'Unscrewed with a hiss. The marker will not shoot until a tank goes back on. Try jury-rigging the tank.', 4000); }
     if (a === 'tankon') { var t2 = (CHAR.gear || []).filter(function (g) { return g.name === 'CO2 tank'; })[0]; if (t2) { t2.qty = (t2.qty || 1) - 1; if (t2.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(t2), 1); it.noTank = false; saveChar(CHAR); if (CHAR.wield === it.name) buildHero(); say('CO2 tank', 'Screwed on. Pressure is up. Ready to splat.', 3000); } }
     if (a === 'unnock') { CHAR.ammo = null; saveChar(CHAR); }
     if (a === 'wear') wear(it);
@@ -869,7 +869,7 @@
       var r = 1 + Math.floor(Math.random() * 20), tot = r + wis, need = door ? 17 : 19;
       if (r >= 19 || tot >= need) {
         PASSIVE.seen[k] = 1; PASSIVE.glint[k] = glintAt(x, z, door ? 1.2 : 0.9);
-        say('Something catches your eye', (door ? 'A draft where there should not be one, and a seam in the wall. ' : 'A glint from the ' + ((LEVEL.dname[k] || { h: 'shelf', k: 'book stand', K: 'crate', R: 'barrel', b: 'sack', v: 'vase' }[c] || 'furniture').toLowerCase()) + '. ') + '(Passive Perception: d20 ' + r + ' + ' + wis + ' = ' + tot + '.) Search it and you will find it.', 5200);
+        say('Something catches your eye', (door ? 'A draft where there should not be one, and a seam in the wall. ' : 'A glint from the ' + ((LEVEL.dname[k] || { h: 'shelf', k: 'book stand', K: 'crate', R: 'barrel', b: 'sack', v: 'vase' }[c] || 'furniture').toLowerCase()) + '. ') + '(Passive Perception: d20 ' + r + ' + ' + wis + ' = ' + tot + '.) Search it and you will find it.', 5200); setTimeout(function () { achieve('glint'); }, 2200); 
         skillCount('perceive');
       }
     }

@@ -362,7 +362,7 @@
       var t = (mindOf(q) || { t: {} }).t;
       q.ctx = (q.ctx || []).concat([who + ' just agreed to stop fighting the player.']).slice(-4);
       if ((lead && t.loyalty >= 3) || (intOf(q) === 'dim' && t.brave <= 2)) {
-        q.calm = true; overcome(q);
+        q.calm = true; calmSave(q); overcome(q);
         say(mindName(q) + ' stands down too', lead ? 'Its boss quit the fight, so it does too.' : 'It sees ' + who + ' back off and decides it does not want to be the last one swinging.', 3800);
       } else q.allyCalm = true;
     });
@@ -375,6 +375,7 @@
     var bits = [], here = LEVEL.rooms[(LEVEL.reg[e.z] || [])[e.x]] || LEVEL.rooms[e.room];
     if (here) bits.push('WHERE YOU ARE: ' + here.name + (here.line ? ' (' + here.line + ')' : '') + '. Describe only this place; never invent water, caves or other places.');
     if (e.sp && e.sp.name === 'Dermot Stoker' && P && LEVEL.rooms[(LEVEL.reg[P.z] || [])[P.x]] && /Penthouse Green/.test(LEVEL.rooms[LEVEL.reg[P.z][P.x]].name)) bits.push('The player is standing ON YOUR PUTTING GREEN right now.');
+    if (e.calm) bits.push('You already made peace with the player. You will NOT fight them now, whatever they say (outcome must never be fight). You can be rude, refuse to talk, or tell them to leave. Only an actual attack from them ends the truce.');
     if (CB.on && CB.order.indexOf(e) >= 0 && !e.calm) bits.push('You are in the MIDDLE OF A FIGHT with the player right now and have been trying to hurt them. Unless you agree to a truce this line, you keep fighting on your next turn, so talk like someone mid-fight: short, out of breath, threatening or bargaining.');
     if (scared(e)) bits.push('You are badly hurt and scared for your life.');
     var allies = CB.enemies.filter(function (q) { return q !== e && !q.npc && !q.dead && speaks(q) && cheb(q.x, q.z, e.x, e.z) <= 8; });

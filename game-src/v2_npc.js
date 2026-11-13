@@ -166,7 +166,8 @@
     bubble(e, String(j.say || '…').replace(/\*[^*]*\*/g, '').trim().slice(0, 220) || '…', TALK.whisper);
     if (j.used_roll && roll && roll.total >= 13) skillUse(roll.skill);
     if (j.takes) talkTake(e, String(j.takes));
-    if (j.outcome === 'calm' && !e.calm) { setTimeout(function () { overcome(e); }, 1500); e.calm = true; e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : mindName(e).replace(/^the/, 'The')) + ' will not fight you.' }); if (!e.npc) mindGroup(e); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
+    if (j.outcome === 'calm' && !e.calm) { setTimeout(function () { overcome(e); }, 1500); e.calm = true; calmSave(e); e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : mindName(e).replace(/^the/, 'The')) + ' will not fight you.' }); if (!e.npc) mindGroup(e); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
+    if (j.outcome === 'fight' && !e.npc && e.calm) { e.talk.mood = 'wary'; e.talk.lines.push({ who: 'sys', text: 'It is annoyed with you, but a deal is a deal. It will not fight unless you attack it.' }); j.outcome = ''; }
     if (j.outcome === 'fight' && !e.npc) { e.calm = false; e.talk.mood = 'hostile'; talkDraw(); talkStore(e); setTimeout(function () { talkClose(); if (!CB.on) cbStart('Words failed. Steel next.', e); }, 1400); return; }
     talkStore(e); if (TALK.e === e) talkDraw();
   }

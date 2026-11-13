@@ -7648,6 +7648,7 @@
     'Laminated visitor badge': { tags: ['office'], cat: 'valuable', checks: { Deception: 2 }, level: 1, desc: 'VISITOR. ESCORT REQUIRED. The System sometimes believes it.' },
     '"World\'s Best Boss" mug': { cat: 'valuable', tags: ['glass', 'kitchen', 'office'], level: 1, desc: 'Self-purchased.' },
     'Wallet ($14 and a punch card)': { tags: ['valuable'], cat: 'valuable', level: 1, desc: 'One more punch for a free sandwich, in another universe.' },
+    'Bronze loot box': { tags: ['valuable'], cat: 'valuable', box: 'chest', rarity: 'Common', level: 1, desc: 'The System\'s idea of a pat on the head. Opens in a safe room.' },
     'Silver loot box': { tags: ['valuable'], cat: 'valuable', box: 'silver', rarity: 'Uncommon', level: 1, desc: 'The System promises this one is better. Opens in a safe room.' },
     // ---- oddities ----
     'Shiny button': { tags: ['valuable', 'junk'], cat: 'misc', level: 1, desc: 'The puglin was very proud of this.' },
@@ -8264,8 +8265,11 @@
   function worldState() {
     var dead = [], eaten = [], calm = [], hp = {};
     var rats = []; CB.enemies.forEach(function (e) { if (e.npc) return; if (e.def.base === 'rat') { if (e.dead) rats.push([e.n, e.diedAt || Date.now()]); return; } if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
-    return { dead: dead, eaten: eaten, calm: calm, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
+    var calmK = CB.enemies.filter(function (e) { return e.calm && !e.dead && !e.npc; }).map(spawnKey);
+    return { dead: dead, eaten: eaten, calm: calm, calmK: calmK, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
   }
+  function spawnKey(e) { return (e.kind || '') + '@' + e.sx + ',' + e.sz; }
+  function calmSave(e) { if (!e || e.npc) return; e.calm = true; setTimeout(worldSave, 50); } // a truce lasts until you break it, across reloads too
   function worldSave() {
     if (!CB.ready || !WORLD.loaded) return; var st = worldState();
     try { localStorage.setItem(worldKey(), JSON.stringify(st)); } catch (x) {}
@@ -8288,7 +8292,8 @@
   function worldApply(st) {
     var byN = {}; CB.enemies.forEach(function (e) { byN[e.n] = e; });
     (st.dead || []).concat(st.eaten || []).forEach(function (n) { var e = byN[n]; if (!e) return; e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; }); // bodies from earlier sessions are gone
-    (st.calm || []).forEach(function (n) { if (byN[n]) byN[n].calm = true; });
+    if (st.calmK) { var byK = {}; CB.enemies.forEach(function (e) { byK[spawnKey(e)] = e; }); st.calmK.forEach(function (k) { var e = byK[k]; if (e && !e.dead) e.calm = true; }); }
+    else (st.calm || []).forEach(function (n) { if (byN[n]) byN[n].calm = true; });
     Object.keys(st.hp || {}).forEach(function (n) { if (byN[n] && !byN[n].dead) byN[n].hp = Math.max(1, st.hp[n]); });
     (st.shrubs || []).forEach(function (s) { var e = byN[s[0]]; if (e && !e.dead) { e.def = BEAST['shrub' + s[1]]; e.kind = 'shrub' + s[1]; e.lvl = s[1]; e.name = e.def.name; e.max = e.def.hp; e.hp = Math.min(e.hp, e.max); } });
     (st.rats || []).forEach(function (r) { var e = byN[r[0]]; if (e && Date.now() - r[1] < ratBack(e)) { e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; e.diedAt = r[1]; } });
@@ -8517,7 +8522,7 @@
     CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
     foes.forEach(function (e) { e.react = true; e.prone = false; e.grappled = false; e.fought = true; });
     // surprise (5e, 2014): you started it and they had not spotted you. They lose their first turn and cannot react until it passes; from a sneak, your first attack has advantage
-    var surp = opt.surprise ? foes.filter(function (e) { return !e.boss || sneaky; }) : []; surp.forEach(function (e) { e.surprised = true; e.react = false; fxTag(e, 'SURPRISED'); });
+    var surp = opt.surprise ? foes.filter(function (e) { return !e.boss || sneaky; }) : []; surp.forEach(function (e) { e.surprised = true; e.react = false; fxTag(e, 'SURPRISED'); }); if (surp.length) setTimeout(function () { achieve('surprise'); }, 3000); 
     if (surp.length && sneaky) CB.advNext = true;
     var ia = d20(), ib = opt.advInit ? d20() : 0, pcInit = Math.max(ia, ib) + MOD.DEX - (hasTrait('Distractible') ? 2 : 0) + buffInit(); /* you started it on something that had not noticed you: advantage on initiative */ CB.order = [{ init: pcInit, who: 'pc' }].concat(foes.map(function (e) { e.init = d20() + e.def.init; return { init: e.init, who: e }; }))
       .sort(function (a, b) { return b.init - a.init; }).map(function (o) { return o.who; });
@@ -8678,7 +8683,7 @@
     if (hit) {
       if (Wp.plain) { // a plain paintball: a splat and a sting, unless it finds an eye
         vfxHit('acid', e.px, e.pz, e.def.h); diceShow({ who: 'You', vs: e.name, R: R, bonus: Wp.hit, tot: tot, ac: ac, hit: true, crit: crit, why: why });
-        if (crit) { e.hp -= 2; e.blind = 2; floater(e.px, e.def.h + 0.25, e.pz, 'CRIT -2', 'crit'); fxTag(e, 'BLINDED'); say('Right in the eye · ' + Wp.name + ' · ' + line, e.name + ' takes 2 damage and is blinded for 2 turns: it attacks at disadvantage and you attack it with advantage.', 5200); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true); }
+        if (crit) { e.hp -= 2; e.blind = 2; floater(e.px, e.def.h + 0.25, e.pz, 'CRIT -2', 'crit'); fxTag(e, 'BLINDED'); setTimeout(function () { achieve('blinded'); }, 2400);  say('Right in the eye · ' + Wp.name + ' · ' + line, e.name + ' takes 2 damage and is blinded for 2 turns: it attacks at disadvantage and you attack it with advantage.', 5200); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true); }
         else { floater(e.px, e.def.h + 0.25, e.pz, 'SPLAT', 'miss'); say('Splat · ' + Wp.name + ' · ' + line, e.name + ' is now very colorful. Plain paintballs only sting: fill them with something nasty.', 4200); }
         return hit;
       }
@@ -8735,6 +8740,7 @@
   // cranking the crossbow: your bonus action, and it ends your movement this turn; a monster next to you gets a free swing (Crossbow 3: all free)
   function cbCrank(after) {
     var w = wieldItem(), st = xbState(); if (!w || !st || st === 'loaded') { if (after) after(); return; }
+    if (st !== 'blocked') setTimeout(function () { achieve('crank'); }, 1800); 
     if (st === 'free') { w.unloaded = false; say('Crossbow', 'You crank it on the move. (Crossbow ' + skillLv('Crossbow') + ')', 1800); cbHUD(); if (after) after(); return; }
     if (!CB.on) { w.unloaded = false; say('Crossbow', 'Cranked and loaded.', 1600); if (after) after(); return; }
     if (st === 'blocked') { say('Not loaded', 'Cranking takes your bonus action, and you have used it this turn.', 3200); return; }
@@ -8788,7 +8794,7 @@
     else if (!onT) { notes.push('Missed ' + e.name + '. It splats at its feet.'); floorCoat(e.x, e.z); }
     else {
       var t = onT;
-      if (PR.crit) { t.hp -= 2; t.blind = 2; floater(t.px, t.def.h + 0.25, t.pz, 'CRIT -2', 'crit'); fxTag(t, 'BLINDED'); notes.push('Right in the eye: 2 damage, and it is blinded for 2 turns.'); }
+      if (PR.crit) { t.hp -= 2; t.blind = 2; floater(t.px, t.def.h + 0.25, t.pz, 'CRIT -2', 'crit'); fxTag(t, 'BLINDED'); setTimeout(function () { achieve('blinded'); }, 2400);  notes.push('Right in the eye: 2 damage, and it is blinded for 2 turns.'); }
       else { floater(t.px, t.def.h + 0.25, t.pz, 'COATED', 'status'); notes.push('Hit. The ball does nothing on its own, but ' + t.name + ' is coated.'); }
       if (S.dice) { var dm = Math.max(1, rollDice(S.dice)), weak = (t.def.vuln || []).indexOf(S.type) >= 0; if (weak) dm *= 2; t.hp -= dm; setTimeout(function () { floater(t.px, t.def.h + 0.5, t.pz, '-' + dm + ' ' + S.type, 'dmg'); }, 250); vfxHit(S.type, t.px, t.pz, t.def.h); notes.push('The ' + S.type + ' eats at it: ' + dm + ' ' + S.type + ' damage' + (weak ? ' (weak to it: double)' : '') + '.'); }
       if (S.type === 'acid' && t.hp > 0) { var wv = (t.weak && t.weak.turns > 0 ? t.weak.v : 0) + 1; t.weak = { v: Math.min(3, wv), turns: 2 }; fxTag(t, 'ACID · -' + Math.min(3, wv) + ' AC'); notes.push('Its armor softens: -' + Math.min(3, wv) + ' AC.'); }
@@ -9270,9 +9276,56 @@
     var extra = PC.level === 3 ? ' Class selection has unlocked (the choice itself is coming soon).' : PC.level === 5 ? ' Your proficiency bonus is now +3.' : '';
     setTimeout(function () { say('LEVEL UP · Level ' + PC.level, 'Level up. +' + (PC.max - was) + ' max HP, +1 skill point' + (stat ? ', +1 stat point' : '') + ' and ' + (10 * PC.level) + ' gold from the sponsors.' + extra + ' Spend your points on the Sheet tab.', 7500); }, 2600 * k);
   }
-  function achieve(id, title, text, xp) {
-    var c = CHAR; if (!c) return; c.ach = c.ach || {}; if (c.ach[id]) return; c.ach[id] = Date.now(); logEvent('Achievement: ' + title, 'ach');
-    say('New achievement: ' + title, text + (xp ? ' +' + xp + ' XP.' : ''), 5500); if (xp) grantXP(xp); else cbSaveChar();
+  // DCC-style achievements. The registry wins over whatever the caller passed, so wording lives in one place.
+  // reward: an item name (a loot box, usually) or null for "Reward: none".
+  var ACH = {
+    talker: ['Use Your Words', 'You talked a monster out of a fight. The System finds this personally refreshing. The audience found it boring.', 50, 'Bronze loot box'],
+    first_blood: ['First Blood', 'Your first kill on camera. Your mother would be so proud. She is watching, by the way.', 50, 'Bronze loot box'],
+    got_away: ['Strategic Retreat', 'You ran away and lived. Cowardice is a skill on this show.', 10, null],
+    free_lunch: ['Free Lunch', 'You ate the sponsors\' food. They own a small part of you now.', 10, null],
+    bipedal: ['Bipedal', 'You walked three whole tiles without falling over. The bar has been set. It is on the floor.', 10, null],
+    tried: ['Thinking Outside the Box', 'You tried something nobody wrote down, and it worked. The writers are furious.', 25, 'Bronze loot box'],
+    first_invention: ['Some Assembly Required', 'You built something from garbage and it worked. The System has filed a patent in its own name.', 25, null],
+    coffee: ['Productive Member of the Crawl', 'You found the coffee machine. Studies show caffeinated crawlers die 4% more efficiently.', 10, null],
+    floor1: ['Basic Training: Passed', 'You found the stairs. The System had money on you not finding the stairs. It is disappointed in itself.', 500, 'Silver loot box'],
+    secret: ['Secret Agent', 'You found a hidden room. The producers did not think anyone would. They are recalculating.', 25, 'Bronze loot box'],
+    weed: ['Weed Whacker', 'You killed a shrub. Gardeners everywhere salute you. The shrub had a family.', 10, null],
+    glint: ['Ooh, Shiny', 'Something sparkled and you noticed. Like a magpie. A magpie with a tragic backstory.', 15, null],
+    spell: ['You\'re a Wizard, Crawler', 'You cast your first spell. It was mostly the item doing the work, but we will let you have this one.', 25, 'Bronze loot box'],
+    blinded: ['Right in the Eye', 'You shot a monster in the eyeball with a paintball. The audience made a noise you will hear in your sleep.', 25, null],
+    surprise: ['Didn\'t See That Coming', 'You attacked something that had no idea you were there. Rude. Effective, but rude.', 25, null],
+    crank: ['Medieval Tech Support', 'You cranked a crossbow back by hand. Your forearms are filing a complaint.', 10, null],
+    fillings: ['Arts and Crafts', 'You filled paintballs with something they were not designed to hold. Child-safety labels weep.', 15, null],
+    acid: ['Breaking Bad Decisions', 'You brewed acid out of household garbage. Please do not tell your HOA.', 25, 'Bronze loot box'],
+    tank: ['Some Disassembly Required', 'You took the CO2 tank off a paintball gun. You now own a small, angry metal grenade.', 10, null],
+    traitor: ['Et Tu, Crawler?', 'You made friends with a monster and then attacked it. The viewers love a betrayal. Your new enemy does not.', 0, null],
+    loot_box: ['Unboxing Video', 'You opened a loot box on camera. Remember to like and subscribe.', 10, null]
+  };
+  var ACHQ = [], achShowing = false;
+  function achStyle() {
+    if (document.getElementById('achCss')) return; var st = document.createElement('style'); st.id = 'achCss';
+    st.textContent = '#achBan{position:fixed;left:50%;top:14%;transform:translate(-50%,-30px) scale(.9);opacity:0;z-index:60;width:min(420px,90vw);padding:14px 18px 12px;background:linear-gradient(180deg,#1b1030,#0d0818);border:2px solid #ffcc33;border-radius:10px;box-shadow:0 0 0 2px #000,0 0 28px rgba(255,204,51,.55);color:#f3ecff;font-family:inherit;text-align:center;pointer-events:auto;transition:transform .35s cubic-bezier(.2,1.6,.4,1),opacity .3s}' +
+      '#achBan.on{transform:translate(-50%,0) scale(1);opacity:1}#achBan .ah{font-weight:900;letter-spacing:.14em;font-size:20px;color:#ffcc33;text-shadow:0 0 10px rgba(255,204,51,.8),2px 2px 0 #000}' +
+      '#achBan .at{margin:6px 0 4px;font-size:17px;font-weight:800;color:#fff}#achBan .ax{font-size:13.5px;line-height:1.35;color:#d9cff0}#achBan .ar{margin-top:9px;padding-top:8px;border-top:1px dashed rgba(255,204,51,.4);font-size:13px;color:#9fd}#achBan .ar b{color:#ffcc33}#achBan .ar.none{color:#c99}#achBan .ap{font-size:11px;color:#8a7fa8;margin-top:6px}';
+    document.head.appendChild(st);
+  }
+  function achNext() {
+    if (achShowing || !ACHQ.length) return; achShowing = true; achStyle(); var a = ACHQ.shift();
+    var el = document.getElementById('achBan'); if (!el) { el = document.createElement('div'); el.id = 'achBan'; document.body.appendChild(el); }
+    var esc = function (s) { return String(s).replace(/[&<>]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]; }); };
+    var rw = a.reward ? '<div class="ar">Reward: You have received a <b>' + esc(a.reward) + '</b>!' + (a.xp ? ' And ' + a.xp + ' XP.' : '') + '</div>'
+      : '<div class="ar none">Reward: ' + (a.xp ? a.xp + ' XP. That is it. ' : 'None. ') + esc(pick(['What were you expecting, a cookie?', 'The System does not hand out participation trophies.', 'Not everything is about you.', 'The satisfaction of a job done adequately.', 'Your reward is the friends you made along the way. Kidding. You get nothing.'])) + '</div>';
+    el.innerHTML = '<div class="ah">NEW ACHIEVEMENT!</div><div class="at">' + esc(a.title) + '</div><div class="ax">' + esc(a.text) + '</div>' + rw + '<div class="ap">tap to close</div>';
+    var done = function () { if (!achShowing) return; el.classList.remove('on'); clearTimeout(achNext.t); setTimeout(function () { achShowing = false; achNext(); }, 400); };
+    el.onclick = done; void el.offsetWidth; el.classList.add('on'); achNext.t = setTimeout(done, 6500);
+  }
+  function achieve(id, title, text, xp, reward) {
+    var c = CHAR; if (!c) return; c.ach = c.ach || {}; if (c.ach[id]) return; c.ach[id] = Date.now();
+    var R = ACH[id]; if (R) { title = R[0]; text = R[1]; xp = R[2]; reward = R[3]; }
+    logEvent('Achievement: ' + title, 'ach'); cbLog('NEW ACHIEVEMENT!', title + (reward ? ' · Reward: ' + reward : ' · Reward: none'));
+    if (reward) { var it = item(reward, { from: 'an achievement' }); if (it) invAdd(it, true); else reward = null; }
+    ACHQ.push({ title: title, text: text, xp: xp, reward: reward }); achNext();
+    if (xp) grantXP(xp); else cbSaveChar();
   }
   function overcome(e) { // a monster beaten without killing it
     if (!e || e.counted || e.npc || CB.on) return; e.counted = true; grantXP(e.def.xp); skillCount('talkdown'); logEvent('Talked ' + e.name + ' out of a fight', 'talk');
@@ -9998,7 +10051,7 @@
       var t = (mindOf(q) || { t: {} }).t;
       q.ctx = (q.ctx || []).concat([who + ' just agreed to stop fighting the player.']).slice(-4);
       if ((lead && t.loyalty >= 3) || (intOf(q) === 'dim' && t.brave <= 2)) {
-        q.calm = true; overcome(q);
+        q.calm = true; calmSave(q); overcome(q);
         say(mindName(q) + ' stands down too', lead ? 'Its boss quit the fight, so it does too.' : 'It sees ' + who + ' back off and decides it does not want to be the last one swinging.', 3800);
       } else q.allyCalm = true;
     });
@@ -10011,6 +10064,7 @@
     var bits = [], here = LEVEL.rooms[(LEVEL.reg[e.z] || [])[e.x]] || LEVEL.rooms[e.room];
     if (here) bits.push('WHERE YOU ARE: ' + here.name + (here.line ? ' (' + here.line + ')' : '') + '. Describe only this place; never invent water, caves or other places.');
     if (e.sp && e.sp.name === 'Dermot Stoker' && P && LEVEL.rooms[(LEVEL.reg[P.z] || [])[P.x]] && /Penthouse Green/.test(LEVEL.rooms[LEVEL.reg[P.z][P.x]].name)) bits.push('The player is standing ON YOUR PUTTING GREEN right now.');
+    if (e.calm) bits.push('You already made peace with the player. You will NOT fight them now, whatever they say (outcome must never be fight). You can be rude, refuse to talk, or tell them to leave. Only an actual attack from them ends the truce.');
     if (CB.on && CB.order.indexOf(e) >= 0 && !e.calm) bits.push('You are in the MIDDLE OF A FIGHT with the player right now and have been trying to hurt them. Unless you agree to a truce this line, you keep fighting on your next turn, so talk like someone mid-fight: short, out of breath, threatening or bargaining.');
     if (scared(e)) bits.push('You are badly hurt and scared for your life.');
     var allies = CB.enemies.filter(function (q) { return q !== e && !q.npc && !q.dead && speaks(q) && cheb(q.x, q.z, e.x, e.z) <= 8; });
@@ -10200,7 +10254,8 @@
     bubble(e, String(j.say || '…').replace(/\*[^*]*\*/g, '').trim().slice(0, 220) || '…', TALK.whisper);
     if (j.used_roll && roll && roll.total >= 13) skillUse(roll.skill);
     if (j.takes) talkTake(e, String(j.takes));
-    if (j.outcome === 'calm' && !e.calm) { setTimeout(function () { overcome(e); }, 1500); e.calm = true; e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : mindName(e).replace(/^the/, 'The')) + ' will not fight you.' }); if (!e.npc) mindGroup(e); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
+    if (j.outcome === 'calm' && !e.calm) { setTimeout(function () { overcome(e); }, 1500); e.calm = true; calmSave(e); e.talk.lines.push({ who: 'sys', text: (e.npc ? personaOf(e).name : mindName(e).replace(/^the/, 'The')) + ' will not fight you.' }); if (!e.npc) mindGroup(e); if (typeof cbHUD === 'function') cbHUD(); if (CB.on && !CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) cbEnd(true); }
+    if (j.outcome === 'fight' && !e.npc && e.calm) { e.talk.mood = 'wary'; e.talk.lines.push({ who: 'sys', text: 'It is annoyed with you, but a deal is a deal. It will not fight unless you attack it.' }); j.outcome = ''; }
     if (j.outcome === 'fight' && !e.npc) { e.calm = false; e.talk.mood = 'hostile'; talkDraw(); talkStore(e); setTimeout(function () { talkClose(); if (!CB.on) cbStart('Words failed. Steel next.', e); }, 1400); return; }
     talkStore(e); if (TALK.e === e) talkDraw();
   }
@@ -10446,7 +10501,7 @@
     if (a === 'wield') { if (CHAR.back === it.name && (CHAR.gear || []).filter(function (g) { return g.name === it.name; }).length < 2) CHAR.back = CHAR.wield || null; CHAR.wield = it.name; buildHero(); say('In hand · ' + it.name, 'You will fight with it: ' + it.dmg + ' damage.', 3000); }
     if (a === 'unwield') { CHAR.wield = null; buildHero(); }
     if (a === 'nock') { CHAR.ammo = it.name; saveChar(CHAR); say('Arrows · ' + it.name, 'Your bow shoots these first.', 2600); }
-    if (a === 'tankoff') { it.noTank = true; var tk = item('CO2 tank', { from: 'your paintball marker' }); if (tk) invAdd(tk, true); saveChar(CHAR); if (CHAR.wield === it.name) buildHero(); say('CO2 tank', 'Unscrewed with a hiss. The marker will not shoot until a tank goes back on. Try jury-rigging the tank.', 4000); }
+    if (a === 'tankoff') { setTimeout(function () { achieve('tank'); }, 1500); it.noTank = true; var tk = item('CO2 tank', { from: 'your paintball marker' }); if (tk) invAdd(tk, true); saveChar(CHAR); if (CHAR.wield === it.name) buildHero(); say('CO2 tank', 'Unscrewed with a hiss. The marker will not shoot until a tank goes back on. Try jury-rigging the tank.', 4000); }
     if (a === 'tankon') { var t2 = (CHAR.gear || []).filter(function (g) { return g.name === 'CO2 tank'; })[0]; if (t2) { t2.qty = (t2.qty || 1) - 1; if (t2.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(t2), 1); it.noTank = false; saveChar(CHAR); if (CHAR.wield === it.name) buildHero(); say('CO2 tank', 'Screwed on. Pressure is up. Ready to splat.', 3000); } }
     if (a === 'unnock') { CHAR.ammo = null; saveChar(CHAR); }
     if (a === 'wear') wear(it);
@@ -11088,7 +11143,7 @@
       var r = 1 + Math.floor(Math.random() * 20), tot = r + wis, need = door ? 17 : 19;
       if (r >= 19 || tot >= need) {
         PASSIVE.seen[k] = 1; PASSIVE.glint[k] = glintAt(x, z, door ? 1.2 : 0.9);
-        say('Something catches your eye', (door ? 'A draft where there should not be one, and a seam in the wall. ' : 'A glint from the ' + ((LEVEL.dname[k] || { h: 'shelf', k: 'book stand', K: 'crate', R: 'barrel', b: 'sack', v: 'vase' }[c] || 'furniture').toLowerCase()) + '. ') + '(Passive Perception: d20 ' + r + ' + ' + wis + ' = ' + tot + '.) Search it and you will find it.', 5200);
+        say('Something catches your eye', (door ? 'A draft where there should not be one, and a seam in the wall. ' : 'A glint from the ' + ((LEVEL.dname[k] || { h: 'shelf', k: 'book stand', K: 'crate', R: 'barrel', b: 'sack', v: 'vase' }[c] || 'furniture').toLowerCase()) + '. ') + '(Passive Perception: d20 ' + r + ' + ' + wis + ' = ' + tot + '.) Search it and you will find it.', 5200); setTimeout(function () { achieve('glint'); }, 2200); 
         skillCount('perceive');
       }
     }
@@ -11293,7 +11348,7 @@
       if (f.type === 'push' && e && !e.dead) { var sx = Math.sign(e.x - P.x), sz = Math.sign(e.z - P.z), n = 0; for (var k = 0; k < Math.min(3, f.tiles || 2); k++) { if (!walkable(e.x + sx, e.z + sz, e)) break; e.x += sx; e.z += sz; n++; } e.px = e.x; e.pz = e.z; e.obj.position.set(e.x, 0, e.z); if (n) notes.push(e.name + ' is pushed back ' + n + ' tile' + (n > 1 ? 's' : '') + '.'); }
       if (f.type === 'burn' && e && !e.dead) { var dz = e.doused > 0; e.doused = 0; fxTag(e, dz ? 'IGNITED' : 'ON FIRE'); e.burning = { dice: dz ? '1d6' : (f.dice || '1d6'), turns: Math.min(dz ? 9 : 6, (f.turns || 2) + (dz ? 3 : 0) + (e.burning && e.burning.turns > 0 ? e.burning.turns : 0)) }; notes.push(e.name + ' is on fire, and keeps burning until it puts itself out.'); }
       if (f.type === 'weaken' && e && !e.dead) { fxTag(e, 'STUCK · -' + Math.min(4, f.ac || 2) + ' AC'); e.weak = { v: Math.min(4, f.ac || 2), turns: Math.min(5, f.turns || 2) }; notes.push('Its guard is down: ' + e.weak.v + ' less armor for ' + e.weak.turns + ' turns.'); }
-      if (f.type === 'calm' && e && !e.dead) { if (e.boss && !f.weak) return; e.calm = true; notes.push(e.name + ' will not fight you.'); }
+      if (f.type === 'calm' && e && !e.dead) { if (e.boss && !f.weak) return; e.calm = true; calmSave(e); notes.push(e.name + ' will not fight you.'); }
       if (f.type === 'reveal' && e) { var W = weakOf(e); notes.push(W ? 'You learn something: ' + W.hint : 'You learn how it fights: AC ' + acOf(e) + ', ' + e.def.weapon + '.'); }
       if (f.type === 'heal') { var h = rollDice(f.dice || '1d4'); PC.hp = Math.min(PC.max, PC.hp + h); notes.push('+' + h + ' HP.'); }
       if (f.type === 'guards_leave' && e) { var g = 0; CB.enemies.forEach(function (q) { if (q !== e && !q.dead && !q.boss && q.def.base === e.def.base && (CB.order.indexOf(q) >= 0 || cheb(q.x, q.z, e.x, e.z) <= 10)) { q.calm = true; g++; } }); notes.push(g ? g + ' of its people walk away.' : 'Nobody was left to walk away.'); }
@@ -11679,7 +11734,7 @@
   // ---------- spells from items: the remote's darts, a scroll's firebolt ----------
   function spellMod() { return Math.max(MOD.INT, MOD.WIS, MOD.CHA); } // until there are classes, magic runs on your best mental stat
   function spellHurt(e, dice, type, crit) {
-    if (!e || e.dead) return ''; var m = /(\d+)d(\d+)([+-]\d+)?/.exec(dice || '1d4'), dm = 0; if (!m) return '';
+    if (!e || e.dead) return ''; if (e.calm && !e.npc) { e.calm = false; setTimeout(worldSave, 50); say('Truce broken', e.name + ' will remember that.', 2400); setTimeout(function () { achieve('traitor'); }, 3200); } var m = /(\d+)d(\d+)([+-]\d+)?/.exec(dice || '1d4'), dm = 0; if (!m) return '';
     for (var i = 0; i < (+m[1]) * (crit ? 2 : 1); i++) dm += 1 + Math.floor(Math.random() * +m[2]); dm = Math.max(1, dm + (+(m[3] || 0)));
     var weak = (e.def.vuln || []).indexOf(type) >= 0; if (weak) dm *= 2; if (type === 'fire') fireTouch(e);
     e.hp -= dm; floater(e.px, (e.def.h || 1) + 0.3, e.pz, '-' + dm + (weak ? '!' : ''), 'dmg'); if (e.hp <= 0) cbKill(e); else cbPlay(e, 'Hit_Chest', true);
@@ -11691,7 +11746,7 @@
     var bat = null; if (S.needs === 'battery') { bat = (CHAR.gear || []).filter(function (g) { return (g.tags || []).indexOf('battery') >= 0 || /^AA batteries$/i.test(g.name); })[0]; if (!bat) { say(it.name, 'Nothing to power them. You need batteries in your bag.', 3000); return false; } }
     if (CB.on) { CB.res.action = 0; CB.busy = true; cbHUD(); }
     if (typeof cbFaceHero === 'function') cbFaceHero(e.x, e.z); kitOneShot('Punch_Jab');
-    var name = it.name, notes = [], first = e; if (it.uses || it.cat !== 'tool') itemSpend(it); /* tools without charges are kept */ skillCount('magic');
+    var name = it.name, notes = [], first = e; if (it.uses || it.cat !== 'tool') itemSpend(it); /* tools without charges are kept */ skillCount('magic'); setTimeout(function () { achieve('spell'); }, 2600); 
     function finish() {
       if (CB.on) CB.busy = false; var started = !CB.on; afterTrick(first.dead ? null : first);
       setTimeout(function () { say(name, notes.join(' ') || 'The magic fizzles.', 6000); }, started && CB.on ? 1400 : 0);
@@ -11771,7 +11826,7 @@
   function openBox(it) {
     var here = roomInfo(P.x, P.z); if (!here || here.type !== 'safe') { say(it.name, 'Loot boxes only open in a safe room. The System is very firm about this.', 3500); return false; }
     var R = rollContainer(it.box); itemSpend(it);
-    lootWindow({ title: it.name, items: R.items, gold: R.gold }); kitOneShot('Interact'); skillCount('box'); return true;
+    lootWindow({ title: it.name, items: R.items, gold: R.gold }); kitOneShot('Interact'); skillCount('box'); setTimeout(function () { achieve('loot_box'); }, 1200); return true;
   }
 
   // ---------- loot rolls: rarer things turn up less, nothing above this floor's level, searches match the room ----------
@@ -11957,13 +12012,13 @@
       if (!kind) { craftSay('no', 'Nothing to fill them with', fl.name + ' will not go into a paintball. Try acid, something toxic, grease, or something flammable.'); return true; }
       var n = Math.min(10, pb.qty || 1); pb.qty = (pb.qty || 1) - n; if (pb.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(pb), 1); itemSpend(fl);
       invAdd(item(kind + ' paintballs', { qty: n, from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
-      craftSay('ok', 'Made ' + n + ' ' + kind.toLowerCase() + ' paintballs', { Acid: 'You filled them with ' + nm + '. They are warm now. Do not keep them in a pocket.', Poison: 'You loaded them with ' + nm + '. Hold your breath while you work.', Grease: 'Greasy little balls of trouble, filled with ' + nm + '.', Oil: 'Filled with ' + nm + '. Fire is now your friend.' }[kind]); return true;
+      setTimeout(function () { achieve('fillings'); }, 1800); craftSay('ok', 'Made ' + n + ' ' + kind.toLowerCase() + ' paintballs', { Acid: 'You filled them with ' + nm + '. They are warm now. Do not keep them in a pocket.', Poison: 'You loaded them with ' + nm + '. Hold your breath while you work.', Grease: 'Greasy little balls of trouble, filled with ' + nm + '.', Oil: 'Filled with ' + nm + '. Fire is now your friend.' }[kind]); return true;
     }
     // brewing acid: something toxic plus batteries (battery acid), or two different toxic things
     var tox2 = sel.filter(function (g) { return tg(g, 'toxic') && !tg(g, 'acid') && !(ITEMS[g.name] || {}).ammo; }), bat = sel.filter(function (g) { return tg(g, 'battery') || /batter/i.test(g.name); })[0];
     if (sel.length === 2 && ((tox2.length === 1 && bat) || (tox2.length === 2 && tox2[0].name !== tox2[1].name))) {
       sel.forEach(function (g) { itemSpend(g); }); invAdd(item('Vial of acid', { from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
-      craftSay('ok', 'Brewed a vial of acid', 'It smokes when you tilt it. Throw it, or fill paintballs with it.'); skillCount('alchemy'); return true;
+      setTimeout(function () { achieve('acid'); }, 1800); craftSay('ok', 'Brewed a vial of acid', 'It smokes when you tilt it. Throw it, or fill paintballs with it.'); skillCount('alchemy'); return true;
     }
     var w = sel.filter(function (g) { return tg(g, 'wood') && !isArrow(g); }); if (!w.length || sel.some(isArrow)) return false;
     var tie = sel.length === 3 ? sel.filter(function (g) { return g !== w[0] && (tg(g, 'binding') || tg(g, 'sticky') || tg(g, 'stringy')); })[0] : null; // tape or twine: an optional third part, half again as many arrows
@@ -13172,7 +13227,7 @@
     if (a.harvest) { closeMenu(); harvest(t.e); return; }
     if (a.auto === 'try') { trySomething(t.e || null); return; }
     if (a.fnx) { a.fnx(); return; }
-    if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); t.e.calm = false; cbStart(t.e.calm ? '' : 'You started it.', t.e, { surprise: true }); return; }
+    if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); var wasFriend = t.e.calm; t.e.calm = false; setTimeout(worldSave, 50); if (wasFriend) setTimeout(function () { achieve('traitor'); }, 3200); cbStart(wasFriend ? 'You broke the truce.' : 'You started it.', t.e, { surprise: true }); return; }
     if (a.rest) { PC.hp = PC.max; cbHUD(); }
     if (a.auto === 'eat') { eatFood(); return; }
     if (a.auto === 'snack') {
@@ -13190,7 +13245,7 @@
     if (ok && a.skill) skillUse(a.skill[0]);
     if (ok && a.flag) {
       done[t.key + a.flag] = true;
-      if (a.flag === 'calm' && t.e) { t.e.calm = true; cbHUD(); overcome(t.e); mindGroup(t.e); }
+      if (a.flag === 'calm' && t.e) { t.e.calm = true; calmSave(t.e); cbHUD(); overcome(t.e); mindGroup(t.e); }
       if (a.flag === 'calm') { tiles.forEach(function (q) { if (q.mob && q.glow && q.x === t.x && q.z === t.z) q.base.set(0x40ff70); }); refreshFog(); }
       if (a.flag === 'open') { tiles.forEach(function (q) { if (q.x === t.x && q.z === t.z && q.lid) { q.mesh.position.y += 0.2; q.mesh.position.z -= 0.2; } }); lootSpot(t.x, t.z, 'chest'); }
       if (a.flag === 'loot') lootSpot(t.x, t.z, 'small');
@@ -13481,6 +13536,7 @@
   window.__crawl.fx2 = { crank: cbCrank, xb: xbState, opts: cbOptions, resolve: cbResolve, pw: pcWeapon };
   window.__crawl.ed = { toggle: edToggle, tap: edTap, S: EDIT, apply: edApply };
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
+  window.__crawl.ach = { achieve: achieve, ACH: ACH, state: worldState, apply: worldApply, calm: calmSave, key: spawnKey, talkFight: function (e) { e.talk = e.talk || { lines: [], facts: [], mood: 'neutral' }; } }; // test hooks
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();

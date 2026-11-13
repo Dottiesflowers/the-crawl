@@ -135,6 +135,7 @@
     'Laminated visitor badge': { tags: ['office'], cat: 'valuable', checks: { Deception: 2 }, level: 1, desc: 'VISITOR. ESCORT REQUIRED. The System sometimes believes it.' },
     '"World\'s Best Boss" mug': { cat: 'valuable', tags: ['glass', 'kitchen', 'office'], level: 1, desc: 'Self-purchased.' },
     'Wallet ($14 and a punch card)': { tags: ['valuable'], cat: 'valuable', level: 1, desc: 'One more punch for a free sandwich, in another universe.' },
+    'Bronze loot box': { tags: ['valuable'], cat: 'valuable', box: 'chest', rarity: 'Common', level: 1, desc: 'The System\'s idea of a pat on the head. Opens in a safe room.' },
     'Silver loot box': { tags: ['valuable'], cat: 'valuable', box: 'silver', rarity: 'Uncommon', level: 1, desc: 'The System promises this one is better. Opens in a safe room.' },
     // ---- oddities ----
     'Shiny button': { tags: ['valuable', 'junk'], cat: 'misc', level: 1, desc: 'The puglin was very proud of this.' },

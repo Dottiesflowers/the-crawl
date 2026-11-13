@@ -286,7 +286,7 @@
     if (a.harvest) { closeMenu(); harvest(t.e); return; }
     if (a.auto === 'try') { trySomething(t.e || null); return; }
     if (a.fnx) { a.fnx(); return; }
-    if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); t.e.calm = false; cbStart(t.e.calm ? '' : 'You started it.', t.e, { surprise: true }); return; }
+    if (a.fight) { say('Attack', t.e.calm ? 'You swing at a friend. It is no longer a friend.' : 'You strike first.', 2200); var wasFriend = t.e.calm; t.e.calm = false; setTimeout(worldSave, 50); if (wasFriend) setTimeout(function () { achieve('traitor'); }, 3200); cbStart(wasFriend ? 'You broke the truce.' : 'You started it.', t.e, { surprise: true }); return; }
     if (a.rest) { PC.hp = PC.max; cbHUD(); }
     if (a.auto === 'eat') { eatFood(); return; }
     if (a.auto === 'snack') {
@@ -304,7 +304,7 @@
     if (ok && a.skill) skillUse(a.skill[0]);
     if (ok && a.flag) {
       done[t.key + a.flag] = true;
-      if (a.flag === 'calm' && t.e) { t.e.calm = true; cbHUD(); overcome(t.e); mindGroup(t.e); }
+      if (a.flag === 'calm' && t.e) { t.e.calm = true; calmSave(t.e); cbHUD(); overcome(t.e); mindGroup(t.e); }
       if (a.flag === 'calm') { tiles.forEach(function (q) { if (q.mob && q.glow && q.x === t.x && q.z === t.z) q.base.set(0x40ff70); }); refreshFog(); }
       if (a.flag === 'open') { tiles.forEach(function (q) { if (q.x === t.x && q.z === t.z && q.lid) { q.mesh.position.y += 0.2; q.mesh.position.z -= 0.2; } }); lootSpot(t.x, t.z, 'chest'); }
       if (a.flag === 'loot') lootSpot(t.x, t.z, 'small');
@@ -595,6 +595,7 @@
   window.__crawl.fx2 = { crank: cbCrank, xb: xbState, opts: cbOptions, resolve: cbResolve, pw: pcWeapon };
   window.__crawl.ed = { toggle: edToggle, tap: edTap, S: EDIT, apply: edApply };
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
+  window.__crawl.ach = { achieve: achieve, ACH: ACH, state: worldState, apply: worldApply, calm: calmSave, key: spawnKey, talkFight: function (e) { e.talk = e.talk || { lines: [], facts: [], mood: 'neutral' }; } }; // test hooks
   charInit(); cbHUD();
   requestAnimationFrame(loop);
 })();
