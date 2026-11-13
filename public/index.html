@@ -8019,7 +8019,7 @@
   BEAST.gremlin_big = variant('puglin', { name: 'Applause gremlin', ac: 12, hp: 14, atk: 4, dmg: [1, 8, 1], weapon: 'APPLAUSE sign', str: 1, dex: 2, init: 2, xp: 80, scale: 0.8, h: 0.7, tint: 0x70b0a0, lines: ['Holds up the APPLAUSE sign. Hits you with it when you do not clap.'] });
   BEAST.writer = variant('imp', { name: 'Striking writer', ac: 11, hp: 10, atk: 3, dmg: [1, 6, 0], weapon: 'picket sign', str: 1, xp: 45, scale: 0.62, h: 1.0, tint: 0xb8c0d0, lines: ['On strike since the System took over. The sign says FAIR PAY FOR FLOOR TWO. It is also a club.'] });
   BEAST.writer_lead = variant('imp', { name: 'Staff writer', ac: 12, hp: 18, atk: 4, dmg: [1, 8, 1], weapon: 'rolled-up script and a stapler', str: 2, xp: 100, scale: 0.75, h: 1.2, tint: 0x8a9ab8, lines: ['Has notes. On you. Delivered at stapler speed.'] });
-  BEAST.director = own('crew', { name: 'The Director', ac: 15, hp: 80, speed: 6, atk: 7, dmg: [2, 8, 3], weapon: 'megaphone and a director\'s chair', str: 3, dex: 2, init: 3, pp: 15, xp: 1000, h: 2.05, tint: 0xe8c890, boss: true, lines: ['Beret, scarf, megaphone. He has never once said cut. He is not going to start for you.'] });
+  BEAST.director = own('crew', { name: 'The Director', ac: 15, hp: 80, speed: 6, atk: 7, dmg: [2, 8, 3], weapon: 'megaphone and a director\'s chair', str: 3, dex: 2, init: 3, pp: 15, xp: 1000, h: 2.05, tint: 0xffc860, boss: true, props: [{ bone: /head$|^head|mixamorig:?head/i, kind: 'beret' }, { bone: /hand_?right|righthand|hand_?r$|r_?hand/i, kind: 'megaphone' }], lines: ['Beret, scarf, megaphone. He has never once said cut. He is not going to start for you.'] });
   BEAST.archivist = variant('imp', { name: 'The Head Archivist', ac: 15, hp: 56, atk: 6, dmg: [2, 6, 4], str: 4, dex: 2, init: 3, pp: 14, xp: 600, scale: 1.15, h: 1.8, tint: 0x4a6ab8, boss: true, lines: ['Boss of the Flooded Archive. It has a file on you, and the file is very thin.'] });
   // stand-ins for the Arena headliner (the ogre bugbear) and the Stairwell Gate's final boss (the dragon) until those models are in
   BEAST.headliner = variant('puglin', { name: 'The Headliner', ac: 15, hp: 70, atk: 7, dmg: [2, 8, 4], str: 5, dex: 0, init: 0, pp: 12, xp: 800, scale: 1.8, h: 1.6, tint: 0x9a6a4a, boss: true, lines: ['The Arena\'s main event. The crowd chants its name. It does not know yours yet.'] });
@@ -8139,6 +8139,23 @@
   // walks stay on the spot: position tracks keep their bob but lose their drift
   function inPlace(c) { c.tracks.forEach(function (t) { if (!/\.position$/.test(t.name)) return; var v = t.values; for (var i = 3; i < v.length; i += 3) { v[i] = v[0]; v[i + 2] = v[2]; } }); return c; }
   // what a model without the clip does instead
+  // average brightness of a texture (0-255), measured once
+  function texAvg(t) {
+    if (!t || !t.image) return 95; if (t.__avg) return t.__avg;
+    try { var cv = document.createElement('canvas'); cv.width = cv.height = 16; var cx = cv.getContext('2d'); cx.drawImage(t.image, 0, 0, 16, 16); var d = cx.getImageData(0, 0, 16, 16).data, s2 = 0, n = 0; for (var i = 0; i < d.length; i += 4) { if (d[i + 3] < 40) continue; s2 += d[i] + d[i + 1] + d[i + 2]; n++; } t.__avg = n ? Math.max(8, s2 / (3 * n)) : 95; } catch (x) { t.__avg = 95; }
+    return t.__avg;
+  }
+  // little props stuck on a model's bones (the Director's beret and megaphone)
+  function ownProps(e, ro, B) {
+    if (!B.props) return; e.obj.updateMatrixWorld(true);
+    B.props.forEach(function (pp) {
+      var bone = null; ro.traverse(function (o) { if (!bone && o.isBone && pp.bone.test(o.name)) bone = o; }); if (!bone) return;
+      var m = new THREE.Group(), wp = bone.getWorldPosition(new THREE.Vector3()), mat = function (c) { return new THREE.MeshLambertMaterial({ color: c }); };
+      if (pp.kind === 'beret') { var bt = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.12, 0.05, 14), mat(0xc0201a)); bt.rotation.z = 0.25; m.add(bt); var nub = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.03, 6), mat(0xc0201a)); nub.position.y = 0.035; m.add(nub); wp.y += pp.up || 0.16; }
+      if (pp.kind === 'megaphone') { var cone = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.03, 0.24, 12, 1, true), new THREE.MeshLambertMaterial({ color: 0xf4f0e6, side: THREE.DoubleSide })); cone.rotation.x = Math.PI / 2; cone.position.z = 0.14; m.add(cone); var bnd = new THREE.Mesh(new THREE.CylinderGeometry(0.092, 0.092, 0.03, 12, 1, true), new THREE.MeshLambertMaterial({ color: 0xc0201a, side: THREE.DoubleSide })); bnd.rotation.x = Math.PI / 2; bnd.position.z = 0.25; m.add(bnd); var hd = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.04), mat(0x2a2a2a)); hd.position.set(0, -0.05, 0.04); m.add(hd); }
+      e.obj.add(m); m.position.copy(e.obj.worldToLocal(wp)); m.updateMatrixWorld(true); bone.attach(m);
+    });
+  }
   function ownFx(e, dt) {
     var w = e.wrap; if (!w) return; e.pt = (e.pt || 0) + dt; var t = e.pt, n = e.pfx;
     w.position.set(0, 0, 0); w.rotation.set(0, 0, 0);
@@ -8184,12 +8201,14 @@
     if (B.own) { // a model that brings its own materials and animations
       if (!CB.defs[B.own]) return;
       var ro = THREE.SkeletonUtils.clone(CB.defs[B.own]);
-      ro.traverse(function (o) { if (!o.isMesh) return; var src = o.material; o.material = new THREE.MeshLambertMaterial({ map: src.map || null, color: (src.color ? src.color.clone() : new THREE.Color(1, 1, 1)).multiplyScalar(1.5), skinning: !!o.isSkinnedMesh, side: src.side || THREE.FrontSide, transparent: !!src.transparent, alphaTest: src.alphaTest || 0 }); if (B.tint) o.material.color.multiply(new THREE.Color(B.tint)); if (B.glow && src.map) { o.material.emissiveMap = src.map; o.material.emissive = new THREE.Color(B.glow, B.glow, B.glow); } if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); o.castShadow = true; o.frustumCulled = false; });
+      ro.traverse(function (o) { if (!o.isMesh) return; var src = o.material, lift = Math.min(3.2, Math.max(1, 95 / texAvg(src.map))); // dark textures are lifted so every model reads in a dim room
+        o.material = new THREE.MeshLambertMaterial({ map: src.map || null, color: (src.color ? src.color.clone() : new THREE.Color(1, 1, 1)).multiplyScalar(1.5 * lift), skinning: !!o.isSkinnedMesh, side: src.side || THREE.FrontSide, transparent: false, alphaTest: src.transparent || src.alphaTest ? 0.5 : 0 });
+        if (lift > 2 && src.map) { o.material.emissiveMap = src.map; o.material.emissive = new THREE.Color(0.35, 0.35, 0.35); } if (B.tint) o.material.color.multiply(new THREE.Color(B.tint)); if (B.glow && src.map) { o.material.emissiveMap = src.map; o.material.emissive = new THREE.Color(B.glow, B.glow, B.glow); } if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); o.castShadow = true; o.frustumCulled = false; });
       // size it by its skeleton (the mesh bounds of a skinned model are unreliable): feet to the top of the head = B.h
       if (!CB.hgtBones) CB.hgtBones = {};
       if (!CB.hgtBones[B.own]) { ro.updateMatrixWorld(true); var lo = 1e9, hi = -1e9, v = new THREE.Vector3(); ro.traverse(function (o) { if (o.isBone) { o.getWorldPosition(v); lo = Math.min(lo, v.y); hi = Math.max(hi, v.y); } }); CB.hgtBones[B.own] = hi > lo ? (hi - lo) * 1.12 : (CB.hgt[B.own] || 1); }
       if (!CB.anims[B.own] || !CB.anims[B.own].length) { var hasBone = false; ro.traverse(function (o) { if (o.isBone) hasBone = true; }); if (!hasBone) { ro.updateMatrixWorld(true); var bb = new THREE.Box3().setFromObject(ro), cc = bb.getCenter(new THREE.Vector3()); ro.position.x -= cc.x; ro.position.z -= cc.z; ro.position.y -= bb.min.y; if (B.yaw) ro.rotation.y = B.yaw; } } // a statue model: feet on the floor, centred on its tile
-      var wrap = new THREE.Group(); wrap.add(ro); wrap.scale.setScalar(B.h / CB.hgtBones[B.own]); e.obj.add(wrap); // (not e.body: that is for rats and shrubs, which animate in code) the wrapper takes the scale: the model's own tracks may animate its root
+      var wrap = new THREE.Group(); wrap.add(ro); wrap.scale.setScalar(B.h / CB.hgtBones[B.own]); e.obj.add(wrap); ownProps(e, ro, B); // (not e.body: that is for rats and shrubs, which animate in code) the wrapper takes the scale: the model's own tracks may animate its root
       var mx = new THREE.AnimationMixer(ro), up = mx.update.bind(mx); e.wrap = wrap; e.clips = {};
       e.mixer = { update: function (dt) { up(dt); ownFx(e, dt); }, clipAction: function (c) { return mx.clipAction(c); }, stopAllAction: function () { mx.stopAllAction(); } };
       (CB.anims[B.own] || []).forEach(function (cl) { if (/idle/i.test(cl.name)) e.clips.Idle_Loop = cl; else if (/walk/i.test(cl.name)) e.clips.Walk_Loop = cl; });
@@ -9324,7 +9343,7 @@
   }
   function loadChar(c) {
     renameOld(c);
-    if (isDM() && !c.isDM) c = dmCharFrom(c);
+    if (isDM() && !c.isDM) c = renameOld(dmCharFrom(c));
     applyChar(c); if (c.isDM) { CHAR.isDM = true; CHAR.realName = c.realName; setTimeout(function () { say('DM mode', 'You are the DM: a separate character on this device. Your real character is untouched. Monsters ignore you until you tap one and choose DM: aggro.', 6500); }, 1800); }
     if (c.look) { for (var k in c.look) if (look[k]) look[k] = c.look[k]; buildHero(); }
   }

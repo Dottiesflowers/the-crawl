@@ -178,7 +178,7 @@
   }
   function loadChar(c) {
     renameOld(c);
-    if (isDM() && !c.isDM) c = dmCharFrom(c);
+    if (isDM() && !c.isDM) c = renameOld(dmCharFrom(c));
     applyChar(c); if (c.isDM) { CHAR.isDM = true; CHAR.realName = c.realName; setTimeout(function () { say('DM mode', 'You are the DM: a separate character on this device. Your real character is untouched. Monsters ignore you until you tap one and choose DM: aggro.', 6500); }, 1800); }
     if (c.look) { for (var k in c.look) if (look[k]) look[k] = c.look[k]; buildHero(); }
   }
