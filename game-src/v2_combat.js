@@ -500,7 +500,7 @@
     var wi = bw && wieldItem(); if (wi && wi.noTank) return { name: '(no air)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true, ammoKind: 'air', noAir: true };
     if (bw) { var am = ammoPick(bw.ammo || 'arrow');
       if (!am) return { name: '(no ' + (bw.ammo || 'arrow') + 's)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true, ammoKind: bw.ammo || 'arrow' };
-      var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: A.s, acc: (A.acc || 0) + (bw.acc || 0), onHit: A.onHit || null, edmg: A.edmg || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am, ammoKind: bw.ammo || 'arrow', shots: bw.shots || 1, pose: bw.pose || 'bow', fly: bw.fly || 'arrow' }; }
+      var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: bw.s ? Math.max(A.s, bw.s) : A.s, acc: (A.acc || 0) + (bw.acc || 0), onHit: A.onHit || null, edmg: A.edmg || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am, ammoKind: bw.ammo || 'arrow', shots: bw.shots || 1, pose: bw.pose || 'bow', fly: bw.fly || 'arrow' }; }
     if (sty('off') === 3 || (KIT && !KIT.on && sty('main') === 0 && sty('off') === 3)) return { name: 'your dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', prof: true, range: 4, long: 12, dagger: true };
     return { name: 'a rock', n: 1, s: 4, stat: 'STR', prof: false, range: 4, long: 12 };
   }

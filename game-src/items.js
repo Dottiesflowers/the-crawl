@@ -90,6 +90,7 @@
     // ammo: cat misc so it stacks (qty). ammo: { kind (matches the launcher's bow.ammo), s: damage die, acc: +N to hit, onHit: rider }. twoHand: true = no torch, shield or dagger in the off hand. Jury-rig 2 parts: wood + a tip (see ARROWS in v2_craft.js)
     // launchers: bow: { ammo kind, range, long, shots per action, pose (bow, sling, gun), fly (arrow, pebble, paint) }; proc: a held model built in code
     'Wrist-rocket slingshot': { cat: 'weapon', dmg: '1d2', bow: { ammo: 'pebble', range: 8, long: 32, pose: 'sling', fly: 'pebble' }, proc: 'sling', tags: ['light', 'elastic'], level: 1, desc: 'Surgical tubing and a wrist brace. Shoots pebbles: Chunk of rubble, River stone or ball bearings. Half come back after a fight. Dennis the Menace energy, D&D damage.' },
+    'Frontier crossbow': { cat: 'weapon', dmg: '1d4', twoHand: true, bow: { ammo: 'arrow', s: 8, range: 16, long: 64, acc: 1, pose: 'gun', fly: 'arrow' }, proc: 'crossbow', tags: ['wood', 'metal'], rarity: 'Uncommon', level: 2, desc: 'A walnut rifle stock with a steel bow across the front, from the western picture\'s prop cage. Shouldered like a rifle: shoots any arrow (the System calls them bolts) for at least 1d8, +1 to hit, out to 16 tiles (64 at disadvantage). Two-handed.' },
     'Acid Splat Marker': { cat: 'weapon', dmg: '1d4', twoHand: true, bow: { ammo: 'paintball', range: 10, long: 30, shots: 2, pose: 'gun', fly: 'paint' }, proc: 'marker', tags: ['loud'], rarity: 'Uncommon', level: 2, desc: 'A paintball gun from the laser-tag episode. Two shots per action. Load acid paintballs and every hit eats their armor. Two-handed; paintballs do not come back.' },
     'Ball bearings': { cat: 'misc', icon: 'coin', ammo: { kind: 'pebble', s: 6 }, tags: ['metal', 'slippery'], level: 1, desc: 'A jar of steel balls. Slingshot ammo: 1d6. Fast, heavy, and a nightmare on hardwood.' },
     'Paintballs': { cat: 'misc', icon: 'slime', ammo: { kind: 'paintball', s: 4, noRecover: true }, tags: ['glass'], level: 2, desc: 'Marker ammo: 1d4 and a bright splat. Jury-rig with something toxic (bleach, clerk ink, weed killer) to make acid paintballs.' },
@@ -213,7 +214,7 @@
       headliner: { gold: '8d6', always: ['Silver loot box', 'Goblin hob-lobber'], oneOf: ['Headliner\'s Mic Stand +1'] },
       // Floor 2 casts
       extra: { gold: '1d6', chance: [['Rusty arming sword', 0.35], ['Rusty spear', 0.15], ['Wooden arrows', 0.25], ['Craft services sandwich', 0.3]] },
-      stuntdouble: { gold: '2d6', chance: [['Rusty longsword', 0.4], ['Rusty broadsword', 0.25], ['Steel arming sword', 0.12], ['Healing potion', 0.3]] },
+      stuntdouble: { gold: '2d6', chance: [['Frontier crossbow', 0.06], ['Rusty longsword', 0.4], ['Rusty broadsword', 0.25], ['Steel arming sword', 0.12], ['Healing potion', 0.3]] },
       stuntknight: { gold: '3d6', always: ['Healing potion'], chance: [['Stunt Coordinator\'s Greatsword +1', 0.1]], oneOf: ['Steel longsword', 'Steel broadsword', 'Steel battleaxe', 'Rusty longsword', 'Rusty battleaxe', 'Rusty flanged mace'] },
       crew: { gold: '1d6', chance: [['Paintballs', 0.35], ['Prop lumber', 0.6], ['Scrap metal', 0.35], ['Roll of duct tape', 0.4], ['AA batteries', 0.3], ['Rusty hatchet', 0.1]] },
       crew_lead: { gold: '2d6', always: ['Roll of duct tape', 'Prop lumber'], chance: [['Acid Splat Marker', 0.25], ['Acid paintballs', 0.3], ['Healing potion', 0.4], ['Bandit\'s shortbow', 0.2], ['Scrap-metal arrows', 0.3]] },
@@ -230,7 +231,7 @@
       zorr: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Stormcaller Longsword +1', 'Acid Splat Marker'] },
       ronin: { gold: '3d6', always: ['Healing potion'], chance: [['Stunt Coordinator\'s Greatsword +1', 0.12]], oneOf: ['Steel longsword', 'Steel arming sword', 'Rusty longsword'] },
       kobold: { gold: '1d6', chance: [['Puglin stick', 0.4], ['Prop lumber', 0.35], ['Roll of duct tape', 0.2], ['Wooden arrows', 0.2]] },
-      kobold_boss: { gold: '2d6', always: ['Healing potion'], chance: [['Bandit\'s shortbow', 0.15], ['Rusty hatchet', 0.25], ['Stone-tipped arrows', 0.3]] },
+      kobold_boss: { gold: '2d6', always: ['Healing potion'], chance: [['Frontier crossbow', 0.15], ['Bandit\'s shortbow', 0.15], ['Rusty hatchet', 0.25], ['Stone-tipped arrows', 0.3]] },
       gremlin: { gold: '1d6', chance: [['Half-eaten snack', 0.5], ['Shiny button', 0.3], ['Craft services sandwich', 0.2]] },
       gremlin_big: { gold: '2d6', chance: [['Healing potion', 0.3], ['Bluetooth speaker', 0.1], ['AA batteries', 0.4]] },
       writer: { gold: '1d6', always: ['Union card'], chance: [['Prop lumber', 0.3], ['Ibuprofen', 0.3], ['Craft services sandwich', 0.25]] },

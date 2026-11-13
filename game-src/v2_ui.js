@@ -590,6 +590,30 @@
       [-1, 1].forEach(function (sd) { var pr = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.015, 0.12, 5), wd); pr.position.set(sd * 0.03, 0.18, 0); pr.rotation.z = -sd * 0.45; g.add(pr);
         var tu = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 4), tb); tu.position.set(sd * 0.035, 0.24, -0.05); tu.rotation.x = 1.1; g.add(tu); });
       var pc = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.03), lt); pc.position.set(0, 0.22, -0.1); g.add(pc); return; }
+    if (IB.proc === 'crossbow') { // after Michael's photos: a walnut rifle stock with a cheek notch, a black latch plate and lever, a steel prod with end caps, a wire string
+      // same frame as the marker: +y toward the target, +z up, the hand on the wrist of the stock at the origin
+      var XB = gearModel.xb || (gearModel.xb = (function () {
+        var cv = document.createElement('canvas'); cv.width = 32; cv.height = 128; var c2 = cv.getContext('2d'); c2.fillStyle = '#a07c4c'; c2.fillRect(0, 0, 32, 128);
+        for (var i = 0; i < 26; i++) { c2.strokeStyle = ['#7e5e34', '#b8925e', '#6c4e2a'][i % 3]; c2.lineWidth = 1 + (i % 2); c2.beginPath(); var x0 = Math.random() * 32; c2.moveTo(x0, 0); c2.bezierCurveTo(x0 + 6, 40, x0 - 6, 88, x0 + 3, 128); c2.stroke(); }
+        var tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.rotation = Math.PI / 2; tx.repeat.set(6, 6);
+        return { wood: new THREE.MeshLambertMaterial({ map: tx }), iron: new THREE.MeshLambertMaterial({ color: 0x2a2c30 }), steel: new THREE.MeshLambertMaterial({ color: 0x3a3e44 }), wire: new THREE.LineBasicMaterial({ color: 0x8a8e94 }) };
+      })());
+      var xb = function (w, l, h, m, x, y, z, rx) { var o = new THREE.Mesh(new THREE.BoxGeometry(w, l, h), m); o.position.set(x, y, z); if (rx) o.rotation.x = rx; g.add(o); return o; };
+      // the stock as one piece: a side profile (y along the gun, z up) cut out and given thickness
+      var pf = new THREE.Shape(), P2 = [[0.33, 0.062], [0.33, 0.018], [0.03, 0.018], [-0.06, 0.004], [-0.27, -0.062], [-0.28, 0.07], [-0.13, 0.068], [-0.115, 0.05], [-0.085, 0.048], [-0.04, 0.056], [0.0, 0.062]];
+      pf.moveTo(P2[0][0], P2[0][1]); P2.slice(1).forEach(function (q) { pf.lineTo(q[0], q[1]); });
+      var sgeo = new THREE.ExtrudeGeometry(pf, { depth: 0.036, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 1 });
+      sgeo.applyMatrix4(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0))); sgeo.translate(-0.018, 0, 0);
+      g.add(new THREE.Mesh(sgeo, XB.wood));
+      xb(0.044, 0.07, 0.01, XB.iron, 0, 0.06, 0.068); // latch plate
+      xb(0.012, 0.035, 0.012, XB.iron, 0, 0.1, 0.07, -0.35); // latch tab
+      var lv = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.008, 4, 10, 1.2), XB.iron); lv.rotation.y = Math.PI / 2; lv.rotation.x = 2.5; lv.position.set(0, 0.075, -0.045); g.add(lv); // trigger lever, curving back under the stock
+      // the prod: a steel rod bent back toward the shooter, caps on the tips
+      var tipL = new THREE.Vector3(-0.27, 0.18, 0.045), tipR = new THREE.Vector3(0.27, 0.18, 0.045), mid = new THREE.Vector3(0, 0.33, 0.045);
+      var curve = new THREE.QuadraticBezierCurve3(tipL, mid.clone().setY(0.48), tipR), prod = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.009, 6, false), XB.steel); g.add(prod);
+      [tipL, tipR].forEach(function (t) { var cp = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 8), XB.iron); cp.position.copy(t); cp.rotation.z = Math.PI / 2 + (t.x < 0 ? 0.5 : -0.5); g.add(cp); });
+      var nut = new THREE.Vector3(0, 0.075, 0.07), sg = new THREE.BufferGeometry().setFromPoints([tipL, nut, tipR]); g.add(new THREE.Line(sg, XB.wire)); // the string, drawn back to the latch
+      return; }
     if (IB.proc === 'marker') { // the Acid Splat Marker, after Michael's photo: gold carbon-fibre body, big black loader, long ported barrel, foregrip, air tank off the back
       // frame: +y down the barrel, +z the top of the gun, the hand round the grip at the origin
       var MK = gearModel.mk || (gearModel.mk = (function () {
