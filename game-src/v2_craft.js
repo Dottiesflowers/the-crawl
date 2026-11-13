@@ -76,18 +76,21 @@
   // arrows are fixed recipes (no AI): something wooden for the shafts + something for the tips, exactly two parts
   var ARROWS = [[function (g) { return /imp horn/i.test(g.name); }, 'Horn-tipped arrows', 6], [function (g) { return tg(g, 'metal'); }, 'Scrap-metal arrows', 10], [function (g) { return tg(g, 'stone'); }, 'Stone-tipped arrows', 10],
     [function (g) { return !tg(g, 'wood') && tg(g, 'flammable'); }, 'Pitch arrows', 6], [function (g) { return tg(g, 'wood'); }, 'Wooden arrows', 10]];
-  function tg(g, t) { return (g.tags || []).indexOf(t) >= 0; }
+  function tg(g, t) { return (g.tags || []).indexOf(t) >= 0 || (ITEMS[g.name] && (ITEMS[g.name].tags || []).indexOf(t) >= 0); } // the catalog's tags count too (items picked up before a tag was added)
   function arrowCraft(sel) {
-    if (sel.length !== 2) return false;
+    if (sel.length < 2 || sel.length > 3) return false;
     var isArrow = function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === 'arrow'; };
     var pb = sel.filter(function (g) { return g.name === 'Paintballs'; })[0], tox = sel.filter(function (g) { return g !== pb && tg(g, 'toxic'); })[0];
     if (pb && tox) { var n = Math.min(10, pb.qty || 1); pb.qty = (pb.qty || 1) - n; if (pb.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(pb), 1); itemSpend(tox); invAdd(item('Acid paintballs', { qty: n, from: 'your own two hands' }), true); saveChar(CHAR); CRAFT.sel = [];
       craftSay('ok', 'Made ' + n + ' acid paintballs', 'You dosed the paintballs with ' + tox.name.toLowerCase() + '. They are warm now. Do not keep them in a pocket.'); return true; }
     var w = sel.filter(function (g) { return tg(g, 'wood') && !isArrow(g); }); if (!w.length || sel.some(isArrow)) return false;
-    var shaft = w[0], tip = sel[0] === shaft ? sel[1] : sel[0], r = ARROWS.filter(function (a) { return a[0](tip); })[0]; if (!r) return false;
-    itemSpend(shaft); itemSpend(tip); var made = item(r[1], { qty: r[2], from: 'your own two hands' }); invAdd(made, true); saveChar(CHAR);
+    var tie = sel.length === 3 ? sel.filter(function (g) { return g !== w[0] && (tg(g, 'binding') || tg(g, 'sticky') || tg(g, 'stringy')); })[0] : null; // tape or twine: an optional third part, half again as many arrows
+    if (sel.length === 3 && !tie) return false;
+    var rest = sel.filter(function (g) { return g !== w[0] && g !== tie; }), shaft = w[0], tip = rest[0], r = tip && ARROWS.filter(function (a) { return a[0](tip); })[0]; if (!r) return false;
+    var qty = tie ? Math.round(r[2] * 1.5) : r[2];
+    itemSpend(shaft); itemSpend(tip); if (tie) itemSpend(tie); var made = item(r[1], { qty: qty, from: 'your own two hands' }); invAdd(made, true); saveChar(CHAR);
     skillUse(trackSkill('physical')); CRAFT.sel = [];
-    craftSay('ok', 'Made ' + r[2] + ' ' + r[1].toLowerCase(), 'Shafts from ' + shaft.name.toLowerCase() + ', tips from ' + tip.name.toLowerCase() + '. ' + (ITEMS[r[1]].desc || '').split('. ')[0] + '.');
+    craftSay('ok', 'Made ' + qty + ' ' + r[1].toLowerCase(), 'Shafts from ' + shaft.name.toLowerCase() + ', tips from ' + tip.name.toLowerCase() + (tie ? ', bound with ' + tie.name.toLowerCase() : '') + '. ' + (ITEMS[r[1]].desc || '').split('. ')[0] + '.');
     return true;
   }
   function craftInvent(idea) {
