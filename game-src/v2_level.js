@@ -1170,6 +1170,7 @@
       var start2 = { x: 119, z: 116 }; put(start2.x, start2.z, '@', vil.id);
       spawns.push({ kind: 'imp', npc: 'pip', x: 121, z: 116, room: vil.id }); taken['121,116'] = 1;
       taken['116,117'] = 1; spawns.push({ kind: 'producer', npc: 'quib', x: 116, z: 117, room: vil.id });
+      taken['104,112'] = 1; spawns.push({ kind: 'catfolk', npc: 'arthrav', x: 104, z: 112, room: vil.id }); taken['134,112'] = 1; spawns.push({ kind: 'birdfolk', npc: 'aeson', x: 134, z: 112, room: vil.id });
       [[100, 104], [108, 104], [130, 104], [138, 104], [130, 117], [138, 117], [100, 117]].forEach(function (p) { if (freeT(p[0], p[1], vil)) diningSet(p[0], p[1], vil, true); });
       F(112, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine', { paint: 0xb8282a }); F(113, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine', { paint: 0x2a5ab8 });
       obj(124, 107, 'BookStand', { h: 1.2 }, 'Call sheet board');
@@ -1239,15 +1240,15 @@
       var SS = Zn({ name: 'Soundstage 9', theme: 'stage', line: 'The biggest stage on the lot. The Director is up on the crane, and the sets change when he says so.' });
       var stg = stamp(TPL.stage, 88, 6, 0, SS);
       var stairs2 = stg.room.stairsDown ? { x: stg.room.stairsDown[0], z: stg.room.stairsDown[1] } : { x: 142, z: 12 };
-      spawnIn(stg.room, 'imp', { tier: 3, name: 'The Director', boss: true }); pack(stg.room, 'crew', 3); pack(stg.room, 'knight', 4); spawnIn(stg.room, 'knight', { sub: 'stuntknight' }); spawnIn(stg.room, 'knight', { sub: 'stuntknight' });
+      spawnIn(stg.room, 'imp', { tier: 3, name: 'The Director', boss: true }); pack(stg.room, 'crew', 3); pack(stg.room, 'knight', 4); spawnIn(stg.room, 'ronin'); spawnIn(stg.room, 'knight', { sub: 'stuntknight' }); spawnIn(stg.room, 'knight', { sub: 'stuntknight' });
 
       // ---------- Starship Valiant (northeast) ----------
       var SV = Zn({ name: 'Starship Valiant', theme: 'lot', line: 'A starship set. Foam walls, blinking panels and costume goblins who think they are a real crew.' });
       area({ name: 'Hangar Apron', type: 'corridor', x0: 165, z0: 44, x1: 234, z1: 52 }, SV); area({ name: 'Hangar Apron', type: 'corridor', x0: 198, z0: 53, x1: 202, z1: 55 }, SV);
       area({ name: 'Hangar Apron', type: 'corridor', x0: 165, z0: 6, x1: 166, z1: 43 }, SV); area({ name: 'Hangar Apron', type: 'corridor', x0: 233, z0: 6, x1: 234, z1: 43 }, SV);
       var sv = stamp(TPL.ship, 167, 7, 0, SV);
-      roomsOf(sv, /Quarters|Mess|Lab|Med|Cargo|Engine|Transporter|Holodeck|Rec|Briefing/).forEach(function (r) { pack(r, 'clerk', ri(1, 2), 0, 'Costume goblin'); });
-      var bridge = roomsOf(sv, /Bridge/)[0]; if (bridge) spawnIn(bridge, 'clerk', { tier: 3, name: 'Captain Zorr', boss: true });
+      roomsOf(sv, /Quarters|Mess|Lab|Med|Cargo|Engine|Transporter|Holodeck|Rec|Briefing/).forEach(function (r) { pack(r, 'goblin', ri(1, 2)); });
+      var bridge = roomsOf(sv, /Bridge/)[0]; if (bridge) { spawnIn(bridge, 'goblin', { sub: 'zorr', name: 'Captain Zorr', boss: true }); pack(bridge, 'goblin', 2, 3); }
       for (k = 0; k < 6; k++) { var hx3 = ri(168, 232), hz3 = ri(45, 51); if (freeT(hx3, hz3)) obj(hx3, hz3, pick(['Crate_Metal', 'Barrel', 'cardboardBoxClosed']), { fit: 0.7, rot: rnd() }, 'Equipment'); }
 
       // ---------- The Jungle Set (east): trees, a river with a bridge, a temple, the Groundskeeper's shed ----------
@@ -1264,6 +1265,12 @@
         for (var tt = 0, tp = null; tt < 40 && !tp; tt++) { var qx = ri(jung.x0 + 3, jung.x1 - 3), qz = ri(jung.z0 + 3, jung.z1 - 3); if (reg[qz] && reg[qz][qx] === jung.id && (g[qz][qx] === '.' || g[qz][qx] === ',') && !taken[qx + ',' + qz]) tp = [qx, qz]; }
         if (!tp) continue; for (var tn = ri(1, 3), dd = 0; tn > 0 && dd < 12; dd++) { var ax = tp[0] + ri(-2, 2), az = tp[1] + ri(-2, 2); if (reg[az] && reg[az][ax] === jung.id && (g[az][ax] === '.' || g[az][ax] === ',') && !taken[ax + ',' + az]) { taken[ax + ',' + az] = 1; spawns.push({ kind: 'truffle', tier: rnd() < 0.12 ? 3 : rnd() < 0.35 ? 2 : 1, x: ax, z: az, room: jung.id }); tn--; } }
       }
+      function jspot(near, rad) { for (var t = 0; t < 40; t++) { var qx = near ? near[0] + ri(-rad, rad) : ri(jung.x0 + 3, jung.x1 - 3), qz = near ? near[1] + ri(-rad, rad) : ri(jung.z0 + 3, jung.z1 - 3); if (reg[qz] && reg[qz][qx] === jung.id && (g[qz][qx] === '.' || g[qz][qx] === ',') && !taken[qx + ',' + qz]) { taken[qx + ',' + qz] = 1; return [qx, qz]; } } return null; }
+      for (k = 0; k < 4; k++) { // the practical effects: raptor packs hunting through the trees (a leader in two of them)
+        var rc = jspot(); if (!rc) continue; spawns.push({ kind: 'dino', tier: k < 2 ? 3 : 1, x: rc[0], z: rc[1], room: jung.id });
+        for (var rn = ri(1, 2); rn > 0; rn--) { var rq = jspot(rc, 2); if (rq) spawns.push({ kind: 'dino', tier: 1, x: rq[0], z: rq[1], room: jung.id }); }
+      }
+      var tr = jspot([200, 96], 8) || jspot(); if (tr) spawns.push({ kind: 'trex', name: 'The Big Animatronic', x: tr[0], z: tr[1], room: jung.id }); // the big one, in front of the temple
 
       // ---------- Maple Lane (southwest): six sitcom houses, front yards, the Showrunner's house ----------
       var ML = Zn({ name: 'Maple Lane', theme: 'lawn', line: 'A sitcom street. Six identical houses, perfect lawns and a laugh track that never stops.' });

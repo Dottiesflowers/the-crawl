@@ -1298,6 +1298,7 @@
       var start2 = { x: 119, z: 116 }; put(start2.x, start2.z, '@', vil.id);
       spawns.push({ kind: 'imp', npc: 'pip', x: 121, z: 116, room: vil.id }); taken['121,116'] = 1;
       taken['116,117'] = 1; spawns.push({ kind: 'producer', npc: 'quib', x: 116, z: 117, room: vil.id });
+      taken['104,112'] = 1; spawns.push({ kind: 'catfolk', npc: 'arthrav', x: 104, z: 112, room: vil.id }); taken['134,112'] = 1; spawns.push({ kind: 'birdfolk', npc: 'aeson', x: 134, z: 112, room: vil.id });
       [[100, 104], [108, 104], [130, 104], [138, 104], [130, 117], [138, 117], [100, 117]].forEach(function (p) { if (freeT(p[0], p[1], vil)) diningSet(p[0], p[1], vil, true); });
       F(112, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine', { paint: 0xb8282a }); F(113, 107, 'kitchenFridgeLarge', 0.9, Math.PI, 'Vending machine', { paint: 0x2a5ab8 });
       obj(124, 107, 'BookStand', { h: 1.2 }, 'Call sheet board');
@@ -1367,15 +1368,15 @@
       var SS = Zn({ name: 'Soundstage 9', theme: 'stage', line: 'The biggest stage on the lot. The Director is up on the crane, and the sets change when he says so.' });
       var stg = stamp(TPL.stage, 88, 6, 0, SS);
       var stairs2 = stg.room.stairsDown ? { x: stg.room.stairsDown[0], z: stg.room.stairsDown[1] } : { x: 142, z: 12 };
-      spawnIn(stg.room, 'imp', { tier: 3, name: 'The Director', boss: true }); pack(stg.room, 'crew', 3); pack(stg.room, 'knight', 4); spawnIn(stg.room, 'knight', { sub: 'stuntknight' }); spawnIn(stg.room, 'knight', { sub: 'stuntknight' });
+      spawnIn(stg.room, 'imp', { tier: 3, name: 'The Director', boss: true }); pack(stg.room, 'crew', 3); pack(stg.room, 'knight', 4); spawnIn(stg.room, 'ronin'); spawnIn(stg.room, 'knight', { sub: 'stuntknight' }); spawnIn(stg.room, 'knight', { sub: 'stuntknight' });
 
       // ---------- Starship Valiant (northeast) ----------
       var SV = Zn({ name: 'Starship Valiant', theme: 'lot', line: 'A starship set. Foam walls, blinking panels and costume goblins who think they are a real crew.' });
       area({ name: 'Hangar Apron', type: 'corridor', x0: 165, z0: 44, x1: 234, z1: 52 }, SV); area({ name: 'Hangar Apron', type: 'corridor', x0: 198, z0: 53, x1: 202, z1: 55 }, SV);
       area({ name: 'Hangar Apron', type: 'corridor', x0: 165, z0: 6, x1: 166, z1: 43 }, SV); area({ name: 'Hangar Apron', type: 'corridor', x0: 233, z0: 6, x1: 234, z1: 43 }, SV);
       var sv = stamp(TPL.ship, 167, 7, 0, SV);
-      roomsOf(sv, /Quarters|Mess|Lab|Med|Cargo|Engine|Transporter|Holodeck|Rec|Briefing/).forEach(function (r) { pack(r, 'clerk', ri(1, 2), 0, 'Costume goblin'); });
-      var bridge = roomsOf(sv, /Bridge/)[0]; if (bridge) spawnIn(bridge, 'clerk', { tier: 3, name: 'Captain Zorr', boss: true });
+      roomsOf(sv, /Quarters|Mess|Lab|Med|Cargo|Engine|Transporter|Holodeck|Rec|Briefing/).forEach(function (r) { pack(r, 'goblin', ri(1, 2)); });
+      var bridge = roomsOf(sv, /Bridge/)[0]; if (bridge) { spawnIn(bridge, 'goblin', { sub: 'zorr', name: 'Captain Zorr', boss: true }); pack(bridge, 'goblin', 2, 3); }
       for (k = 0; k < 6; k++) { var hx3 = ri(168, 232), hz3 = ri(45, 51); if (freeT(hx3, hz3)) obj(hx3, hz3, pick(['Crate_Metal', 'Barrel', 'cardboardBoxClosed']), { fit: 0.7, rot: rnd() }, 'Equipment'); }
 
       // ---------- The Jungle Set (east): trees, a river with a bridge, a temple, the Groundskeeper's shed ----------
@@ -1392,6 +1393,12 @@
         for (var tt = 0, tp = null; tt < 40 && !tp; tt++) { var qx = ri(jung.x0 + 3, jung.x1 - 3), qz = ri(jung.z0 + 3, jung.z1 - 3); if (reg[qz] && reg[qz][qx] === jung.id && (g[qz][qx] === '.' || g[qz][qx] === ',') && !taken[qx + ',' + qz]) tp = [qx, qz]; }
         if (!tp) continue; for (var tn = ri(1, 3), dd = 0; tn > 0 && dd < 12; dd++) { var ax = tp[0] + ri(-2, 2), az = tp[1] + ri(-2, 2); if (reg[az] && reg[az][ax] === jung.id && (g[az][ax] === '.' || g[az][ax] === ',') && !taken[ax + ',' + az]) { taken[ax + ',' + az] = 1; spawns.push({ kind: 'truffle', tier: rnd() < 0.12 ? 3 : rnd() < 0.35 ? 2 : 1, x: ax, z: az, room: jung.id }); tn--; } }
       }
+      function jspot(near, rad) { for (var t = 0; t < 40; t++) { var qx = near ? near[0] + ri(-rad, rad) : ri(jung.x0 + 3, jung.x1 - 3), qz = near ? near[1] + ri(-rad, rad) : ri(jung.z0 + 3, jung.z1 - 3); if (reg[qz] && reg[qz][qx] === jung.id && (g[qz][qx] === '.' || g[qz][qx] === ',') && !taken[qx + ',' + qz]) { taken[qx + ',' + qz] = 1; return [qx, qz]; } } return null; }
+      for (k = 0; k < 4; k++) { // the practical effects: raptor packs hunting through the trees (a leader in two of them)
+        var rc = jspot(); if (!rc) continue; spawns.push({ kind: 'dino', tier: k < 2 ? 3 : 1, x: rc[0], z: rc[1], room: jung.id });
+        for (var rn = ri(1, 2); rn > 0; rn--) { var rq = jspot(rc, 2); if (rq) spawns.push({ kind: 'dino', tier: 1, x: rq[0], z: rq[1], room: jung.id }); }
+      }
+      var tr = jspot([200, 96], 8) || jspot(); if (tr) spawns.push({ kind: 'trex', name: 'The Big Animatronic', x: tr[0], z: tr[1], room: jung.id }); // the big one, in front of the temple
 
       // ---------- Maple Lane (southwest): six sitcom houses, front yards, the Showrunner's house ----------
       var ML = Zn({ name: 'Maple Lane', theme: 'lawn', line: 'A sitcom street. Six identical houses, perfect lawns and a laugh track that never stops.' });
@@ -7944,9 +7951,21 @@
   BEAST.automaton = own('robot', { vuln: ['lightning'],  name: 'Animatronic', ac: 13, hp: 12, speed: 5, atk: 3, dmg: [1, 6, 1], weapon: 'brass fists', str: 2, dex: 0, xp: 60, h: 1.75, lines: ['A clockwork servant from the haunted-manor set. It is still serving. You are the course.'] });
   BEAST.automaton_big = own('robot', { vuln: ['lightning'],  name: 'Footman unit', ac: 15, hp: 22, speed: 5, atk: 4, dmg: [1, 8, 2], weapon: 'brass fists', str: 3, dex: 0, xp: 140, h: 2.0, tint: 0xd0d8e0, lines: ['Polished, upright, and programmed to remove guests who overstay.'] });
   BEAST.butler = own('robot', { vuln: ['lightning'],  name: 'The Butler Unit', ac: 16, hp: 64, speed: 5, atk: 6, dmg: [2, 8, 3], weapon: 'silver tray', str: 4, dex: 1, init: 2, pp: 14, xp: 700, h: 2.5, tint: 0xffd890, boss: true, lines: ['Head of the manor staff. Its manners are flawless. So is its right hook.'] });
+  // practical-effect dinosaurs of the Jungle Set, costume goblins of Starship Valiant, a stunt ronin, and two Catering Village regulars
+  BEAST.raptor = own('raptor', { name: 'Velociraptor', ac: 13, hp: 12, speed: 8, atk: 4, dmg: [1, 6, 2], weapon: 'sickle claws', str: 1, dex: 3, init: 3, pp: 14, xp: 70, h: 1.05, lines: ['A practical-effect raptor from the jungle picture. The puppeteers went home. It did not need them.'] });
+  BEAST.raptor_alpha = own('raptor', { name: 'Raptor pack leader', ac: 14, hp: 22, speed: 8, atk: 5, dmg: [2, 6, 2], weapon: 'sickle claws', str: 2, dex: 3, init: 4, pp: 15, xp: 150, h: 1.2, tint: 0xd8a070, lines: ['The clever one. It tests the fences. It also tests you.'] });
+  BEAST.trex = own('trex', { name: 'The Big Animatronic', ac: 13, hp: 70, speed: 7, atk: 7, dmg: [3, 8, 4], weapon: 'jaws', str: 5, dex: 0, init: 1, pp: 13, xp: 800, h: 2.2, lines: ['Forty feet of hydraulics and latex, built for one scene. The System gave it the rest of the movie.'] });
+  BEAST.costume_goblin = own('piggob', { name: 'Costume goblin', ac: 12, hp: 8, speed: 6, atk: 3, dmg: [1, 6, 1], weapon: 'a prop phaser (it is a flashlight with a hose)', xp: 35, h: 1.3, lines: ['A pig-faced goblin in a crew jumpsuit. Hired as an extra. Has been promoted, in its own mind, to Ensign.'] });
+  BEAST.costume_officer = own('piggob', { name: 'Goblin bridge officer', ac: 13, hp: 16, speed: 6, atk: 4, dmg: [1, 8, 2], weapon: 'a prop phaser (set to stun, it insists)', str: 2, xp: 80, h: 1.45, tint: 0xc8d0ff, lines: ['Wears a sash it made from gaffer tape. Outranks you, it says.'] });
+  BEAST.zorr = own('piggob', { name: 'Captain Zorr', ac: 15, hp: 55, speed: 6, atk: 6, dmg: [2, 6, 3], weapon: 'the captain\'s prop phaser', str: 3, dex: 1, init: 2, pp: 14, xp: 600, h: 1.75, tint: 0xffd890, boss: true, lines: ['Captain of Starship Valiant. Has never broken character. Will not start now.'] });
+  BEAST.ronin = own('ronin', { name: 'Stunt ronin', ac: 15, hp: 30, speed: 6, atk: 6, dmg: [1, 10, 3], weapon: 'katana (real, unfortunately)', str: 2, dex: 3, init: 3, pp: 14, xp: 220, h: 1.95, lines: ['The fight coordinator from the samurai picture. Horned helmet, perfect form, and no interest in pulling a single swing.'] });
+  BEAST.catfolk = { name: 'Catfolk', own: 'catfolk', file: 'm_catfolk', ac: 20, hp: 999, speed: 5, atk: 0, dmg: [1, 1, 0], weapon: 'claws (sheathed)', init: 0, str: 0, dex: 0, pp: 15, xp: 0, scale: 1, h: 1.75, glow: 0.7, attackClip: 'Idle_Loop', lines: ['A tall black catfolk in scavenged armour. Watches everything, says little.'] };
+  BEAST.birdfolk = { name: 'Birdfolk', own: 'birdfolk', file: 'm_birdfolk', ac: 20, hp: 999, speed: 5, atk: 0, dmg: [1, 1, 0], weapon: 'talons', init: 0, str: 0, dex: 0, pp: 15, xp: 0, scale: 1, h: 1.6, glow: 0.45, attackClip: 'Idle_Loop', lines: ['A crested birdfolk in a patched coat, crouched like it might take off at any moment.'] };
   BEAST.showrunner = own('dracul', { name: 'The Showrunner', ac: 16, hp: 75, speed: 6, atk: 7, dmg: [2, 8, 4], weapon: 'claws and a rolled-up script', str: 4, dex: 2, init: 3, pp: 15, xp: 900, h: 2.1, boss: true, lines: ['A dragon in a blazer. Runs every sitcom on Maple Lane, and has notes on your performance.'] });
   var NPCS = { pip: { name: 'Pip', exam: 'A small imp in a lanyard that says PRODUCTION. Clipboard, headset, nervous smile.' },
     vrell: { name: 'Producer Vrell', exam: 'A tall grey alien in a lanyard that says EXECUTIVE PRODUCER. Huge black eyes, long fingers, a tablet. This is one of the ones who took you.' },
+    arthrav: { name: 'Arthrav, catfolk fixer', exam: 'A tall black catfolk in mismatched armour, tail flicking. Leans on a tent pole like it owns the tent. It might.' },
+    aeson: { name: 'Aeson, birdfolk runner', exam: 'A birdfolk with a bright red crest and a patched coat, crouched on its heels, eyes darting between the sets.' },
     quib: { name: 'Associate Producer Quib', exam: 'A grey alien in a lanyard that says FLOOR 2 PRODUCTION, holding three coffees and a headset. One of the ones who took you, now very busy.' } };
   // monster families: tiers share a model and get bigger, tougher and nastier. base: which loaded model to use
   function variant(base, o) { var v = {}; for (var k in BEAST[base]) v[k] = BEAST[base][k]; for (k in o) v[k] = o[k]; v.base = base; return v; }
@@ -8002,7 +8021,7 @@
   BEAST.shrub3 = shrubDef({ lvl: 3, name: 'Bramble glutton', ac: 12, hp: 18, speed: 5, atk: 4, dmg: [1, 6, 2], str: 1, xp: 60, scale: 0.52, h: 0.9, prop: 'Bush_Common_Flowers', weapon: 'thorn lash', lines: ['A shrub the size of a dog that has eaten several crawlers\' worth of leftovers. It hunts now.'] });
   BEAST.shrub4 = shrubDef({ lvl: 4, name: 'Thornmaw', ac: 14, hp: 34, speed: 5, atk: 6, dmg: [2, 6, 3], str: 3, xp: 180, scale: 0.78, h: 1.3, prop: 'Bush_Common_Flowers', weapon: 'crushing roots', lines: ['Somebody should have stepped on this when it was small. Nobody did.'] });
   var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'], bog: [null, 'bog', 'bog_brute', 'bog_chief'], clerk: [null, 'clerk', 'clerk_mid', 'clerk_head'],
-    knight: [null, 'extra', 'stuntdouble', 'stuntknight'], crew: [null, 'crew', 'crew', 'crew_lead'], truffle: [null, 'truffle', 'truffle_big', 'truffle_king'], robot: [null, 'automaton', 'automaton', 'automaton_big'] };
+    knight: [null, 'extra', 'stuntdouble', 'stuntknight'], crew: [null, 'crew', 'crew', 'crew_lead'], truffle: [null, 'truffle', 'truffle_big', 'truffle_king'], robot: [null, 'automaton', 'automaton', 'automaton_big'], dino: [null, 'raptor', 'raptor', 'raptor_alpha'], goblin: [null, 'costume_goblin', 'costume_goblin', 'costume_officer'] };
   var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? (sp.kind || 'imp') : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
   function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
 
@@ -8129,10 +8148,11 @@
     if (B.own) { // a model that brings its own materials and animations
       if (!CB.defs[B.own]) return;
       var ro = THREE.SkeletonUtils.clone(CB.defs[B.own]);
-      ro.traverse(function (o) { if (!o.isMesh) return; var src = o.material; o.material = new THREE.MeshLambertMaterial({ map: src.map || null, color: (src.color ? src.color.clone() : new THREE.Color(1, 1, 1)).multiplyScalar(1.5), skinning: !!o.isSkinnedMesh }); if (B.tint) o.material.color.multiply(new THREE.Color(B.tint)); if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); o.castShadow = true; o.frustumCulled = false; });
+      ro.traverse(function (o) { if (!o.isMesh) return; var src = o.material; o.material = new THREE.MeshLambertMaterial({ map: src.map || null, color: (src.color ? src.color.clone() : new THREE.Color(1, 1, 1)).multiplyScalar(1.5), skinning: !!o.isSkinnedMesh, side: src.side || THREE.FrontSide, transparent: !!src.transparent, alphaTest: src.alphaTest || 0 }); if (B.tint) o.material.color.multiply(new THREE.Color(B.tint)); if (B.glow && src.map) { o.material.emissiveMap = src.map; o.material.emissive = new THREE.Color(B.glow, B.glow, B.glow); } if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); o.castShadow = true; o.frustumCulled = false; });
       // size it by its skeleton (the mesh bounds of a skinned model are unreliable): feet to the top of the head = B.h
       if (!CB.hgtBones) CB.hgtBones = {};
       if (!CB.hgtBones[B.own]) { ro.updateMatrixWorld(true); var lo = 1e9, hi = -1e9, v = new THREE.Vector3(); ro.traverse(function (o) { if (o.isBone) { o.getWorldPosition(v); lo = Math.min(lo, v.y); hi = Math.max(hi, v.y); } }); CB.hgtBones[B.own] = hi > lo ? (hi - lo) * 1.12 : (CB.hgt[B.own] || 1); }
+      if (!CB.anims[B.own] || !CB.anims[B.own].length) { var hasBone = false; ro.traverse(function (o) { if (o.isBone) hasBone = true; }); if (!hasBone) { ro.updateMatrixWorld(true); var bb = new THREE.Box3().setFromObject(ro), cc = bb.getCenter(new THREE.Vector3()); ro.position.x -= cc.x; ro.position.z -= cc.z; ro.position.y -= bb.min.y; if (B.yaw) ro.rotation.y = B.yaw; } } // a statue model: feet on the floor, centred on its tile
       var wrap = new THREE.Group(); wrap.add(ro); wrap.scale.setScalar(B.h / CB.hgtBones[B.own]); e.obj.add(wrap); // (not e.body: that is for rats and shrubs, which animate in code) the wrapper takes the scale: the model's own tracks may animate its root
       var mx = new THREE.AnimationMixer(ro), up = mx.update.bind(mx); e.wrap = wrap; e.clips = {};
       e.mixer = { update: function (dt) { up(dt); ownFx(e, dt); }, clipAction: function (c) { return mx.clipAction(c); }, stopAllAction: function () { mx.stopAllAction(); } };
@@ -9565,6 +9585,11 @@
       fears: ['writer\'s block', 'being replaced by an AI', 'a note from management'],
       secrets: ['crossed the picket line once for free coffee', 'has secretly been ghostwriting Dermot\'s scripts for years', 'wrote the episode where your crew dies (it was cut)'],
       greet: ['*waves a picket sign* No scab crawlers! Unless you\'re here to support the strike.', 'Let me guess: you\'re the inciting incident. Great. Act two is going to be a mess.', 'That entrance needs work. Can I give you a note?'] },
+    dino: { species: 'beast', title: 'Practical effect of the Jungle Set',
+      who: 'A practical-effect dinosaur from the jungle picture, latex over hydraulics, given teeth and hunger by the System.',
+      culture: 'Pack hunters. They follow the leader and scatter when it falls.', voice: 'shrieks, hisses and clicking', knows: 'Nothing it can tell you.', trades: 'cannot be talked to',
+      names: ['Raptor', 'Raptor', 'Raptor'], quirks: ['tilts its head at every noise', 'clicks its claws on the ground', 'circles before it strikes'],
+      wants: [['meat', 'meat|food|steak']], fears: ['fire'], secrets: ['is mostly foam under the latex'], greet: ['*a shriek from the trees*'] },
     goblin: { species: 'goblin', title: 'Costume goblin of Starship Valiant',
       who: 'A goblin in a cheap foam spacesuit, part of the crew of Starship Valiant, a sci-fi set. The goblins were hired as extras and decided they really are a starship crew. They never break character.',
       culture: 'Fully method. Ranks, protocols, "Captain\'s log" and ship-wide alerts. Captain Zorr is their commander and they would die for him. Everything is a red alert. Outsiders are "unidentified life forms".',
@@ -9697,6 +9722,7 @@
     var base = (e.def && e.def.base) || e.kind, k = e.kind || '';
     var hood = ((LEVEL.hoods || [])[(LEVEL.rooms[e.room] || {}).hood] || {}).name || '';
     var bn = e.sp && e.sp.name && BOSS_NAMED[e.sp.name]; if (bn) return (e.fac = 'boss:' + e.sp.name);
+    if (/^raptor|^trex/.test(k)) return (e.fac = 'dino');
     if (LEVEL.floor === 2 && base !== 'rat' && base !== 'shrub') return (e.fac = /Frontier/.test(hood) ? 'stunt' : /Writers/.test(hood) ? 'writer' : /Starship/.test(hood) ? 'goblin' : /Maple/.test(hood) ? 'gremlin' : /Blackwood/.test(hood) ? 'animatronic' : /Jungle/.test(hood) ? 'jungle' : /Soundstage/.test(hood) ? 'crew' : base === 'imp' ? 'writer' : 'stunt');
     var f = base === 'rat' ? 'rat' : base === 'shrub' ? 'shrub' : /^clerk|archivist/.test(k) ? 'clerk' : /^bog|gardener/.test(k) ? 'bog' :
       /Arena/.test(hood) || k === 'headliner' ? 'arena' : base === 'imp' ? (/Stairwell/.test(hood) || k === 'gatekeeper' ? 'gate' : 'union') : base === 'puglin' ? (/Processing/.test(hood) ? 'reject' : 'warren') : null;
@@ -9847,6 +9873,18 @@
       knows: 'The Backlot: Catering Village is the one safe hub; Maple Lane and Frontier Town are the easiest sets, then Blackwood Manor and the Jungle Set, then Starship Valiant and the Writers\' Building. Soundstage 9 is the way down, and the Director is on the crane in there. Dermot Stoker, the head writer, lives on the roof of the Writers\' Building and is very touchy about his putting green.',
       limits: 'Cannot be fought or harmed in Catering Village. Will not send anyone home. Never breaks character to talk about being an AI or a game.',
       start: 'friendly', calmed: true },
+    arthrav: { name: 'Arthrav, catfolk fixer', voice: 'low, dry and unhurried, few words, purrs when amused, calls the player "kitten" or "new blood", never answers a question directly the first time',
+      who: 'A catfolk crawler from an earlier season who got stuck on Floor 2 and decided she liked it. She runs odd jobs and trades out of Catering Village and knows every set on the Backlot. Catfolk are a real race of the dungeon; crawlers who reach the third floor can choose to become one.',
+      wants: 'A good trade, a good story, and to see someone finally beat the Director. Fish, if anyone has any.',
+      knows: 'The Backlot: which sets are easy (Maple Lane, Frontier Town), which are not (the Jungle Set has practical-effect raptors and one very large animatronic; Starship Valiant has Captain Zorr and his costume goblins). Furniture on the sets breaks down into wood if you hit it hard enough. The race choice comes on Floor 3, and she thinks catfolk is the obvious pick.',
+      limits: 'Cannot be fought or harmed in Catering Village. Will not join the party or leave the village. Never breaks character to talk about being an AI or a game.',
+      start: 'neutral', calmed: true },
+    aeson: { name: 'Aeson, birdfolk runner', voice: 'quick, chirpy and twitchy, talks in bursts, loves gossip, clicks its beak when nervous, calls everyone "friend-friend"',
+      who: 'A birdfolk who runs messages, coffee and rumours between every set on the Backlot for the crew. Fast, nosy and always slightly out of breath. Birdfolk are a real race of the dungeon; crawlers who reach the third floor can choose to become one.',
+      wants: 'Gossip. Shiny things. Never to be sent into the Jungle Set again.',
+      knows: 'All the rumours: the writers are on strike, Dermot Stoker is on the roof of the Writers\' Building with his putting green, the Showrunner is rewriting Maple Lane, the raptors in the Jungle Set hunt in packs and follow the leader, the big animatronic hates fire. Soundstage 9 is the way down.',
+      limits: 'Cannot be fought or harmed in Catering Village. Will not join the party or leave the village. Never breaks character to talk about being an AI or a game.',
+      start: 'friendly', calmed: true },
     puglin: { name: 'Puglin', voice: 'short grunting sentences, third person sometimes ("Grik hungry"), easily flattered, bad grammar',
       who: 'A small goblin-pug monster spawned two days ago for the show. Lives for snacks and approval from bigger monsters.',
       wants: 'Food. Shiny things. Not to be the one who dies first on camera.',
@@ -9988,6 +10026,8 @@
     if (!e.npc) return mindCanned(e, text, roll0 || talkRoll());
     var t = (text || '').toLowerCase(), roll = roll0 || talkRoll(), win = roll.total >= (e.kind === 'imp' && !e.npc ? 15 : 12);
     if (e.npc === 'vrell') return { say: !text ? 'Ah. The talent is awake. Welcome to the Green Room. You signed everything, in case you were wondering.' : (/home|earth|why|took|taken|abduct/.test(t) ? 'You were chosen. "Strong Guys Club" tested very well with the focus group. The name, specifically.' : (/stairs|exit|down/.test(t) ? 'Northeast. Behind the Gatekeeper. I would not rush. The audience likes a slow build.' : 'Noted. I\'ll pass that along to someone who cares.')), mood: e.talk.mood, outcome: 'none' };
+    if (e.npc === 'arthrav') return { say: !text ? '*looks you over* New blood. Try not to die where I have to step over you.' : (/jungle|raptor|dino/.test(t) ? 'Raptors hunt in packs. Drop the big one first and the rest lose their nerve.' : (/wood|arrow/.test(t) ? 'Every set is full of furniture, kitten. Hit it until it is lumber.' : (/cat|race|become/.test(t) ? 'Third floor, you get to pick what you are. Pick well. Pick cat.' : '*purrs* Maybe. Ask me again when you have something to trade.'))), mood: 'neutral', outcome: 'none' };
+    if (e.npc === 'aeson') return { say: !text ? 'Friend-friend! New faces! Got news? I have news. I always have news.' : (/jungle|raptor|dino|animatronic|rex/.test(t) ? 'Big one in front of the temple. Hates fire, friend-friend. Hates it.' : (/dermot|writer|roof/.test(t) ? 'Dermot is on the roof. Putting green. Do not touch the putting green.' : (/bird|race|become/.test(t) ? 'Third floor! You can be one of us! Hollow bones, very light, highly recommend.' : '*clicks beak* Heard the Director fired three cameras today. The cameras. Not the operators.'))), mood: 'friendly', outcome: 'none' };
     if (e.npc === 'quib') return { say: !text ? 'Oh good, the talent! Hi. Welcome to the Backlot. Grab a coffee, we\'re rolling in five. Ish.' : (/stairs|exit|down|soundstage/.test(t) ? 'Soundstage 9, up Director\'s Row. He\'s on the crane. Do NOT call him by his first name.' : (/dermot|writer|green|golf/.test(t) ? 'Dermot\'s on the roof of the Writers\' Building. Stay off his grass. I mean it.' : 'Totally, yes, love it. Sorry, what? Somebody\'s talking in my ear.')), mood: e.talk.mood, outcome: 'none' };
     if (e.npc) return { say: !text ? 'Oh! Talent! Hi! Welcome to the Safe Room. I\'m Pip, production. No hitting in here, please. Please don\'t die before the break.' : (/stairs|exit|down/.test(t) ? 'Stairs are far east, past the grotto, behind security. Don\'t tell him I said "behind."' : (/monster|puglin|imp|guard/.test(t) ? 'Two puglins and one very tired security imp. The imp takes bribes. You did not hear that from me.' : 'Uh huh, totally, love that. Great energy. Keep doing that on camera.')), mood: 'friendly', outcome: 'hint' };
     if (!text) return { say: e.kind === 'imp' ? 'Keep walking, pal. Or don\'t. I get paid either way.' : 'Grik see you. Grik hungry.', mood: e.talk.mood, outcome: 'none' };

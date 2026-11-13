@@ -132,6 +132,11 @@
       fears: ['writer\'s block', 'being replaced by an AI', 'a note from management'],
       secrets: ['crossed the picket line once for free coffee', 'has secretly been ghostwriting Dermot\'s scripts for years', 'wrote the episode where your crew dies (it was cut)'],
       greet: ['*waves a picket sign* No scab crawlers! Unless you\'re here to support the strike.', 'Let me guess: you\'re the inciting incident. Great. Act two is going to be a mess.', 'That entrance needs work. Can I give you a note?'] },
+    dino: { species: 'beast', title: 'Practical effect of the Jungle Set',
+      who: 'A practical-effect dinosaur from the jungle picture, latex over hydraulics, given teeth and hunger by the System.',
+      culture: 'Pack hunters. They follow the leader and scatter when it falls.', voice: 'shrieks, hisses and clicking', knows: 'Nothing it can tell you.', trades: 'cannot be talked to',
+      names: ['Raptor', 'Raptor', 'Raptor'], quirks: ['tilts its head at every noise', 'clicks its claws on the ground', 'circles before it strikes'],
+      wants: [['meat', 'meat|food|steak']], fears: ['fire'], secrets: ['is mostly foam under the latex'], greet: ['*a shriek from the trees*'] },
     goblin: { species: 'goblin', title: 'Costume goblin of Starship Valiant',
       who: 'A goblin in a cheap foam spacesuit, part of the crew of Starship Valiant, a sci-fi set. The goblins were hired as extras and decided they really are a starship crew. They never break character.',
       culture: 'Fully method. Ranks, protocols, "Captain\'s log" and ship-wide alerts. Captain Zorr is their commander and they would die for him. Everything is a red alert. Outsiders are "unidentified life forms".',
@@ -264,6 +269,7 @@
     var base = (e.def && e.def.base) || e.kind, k = e.kind || '';
     var hood = ((LEVEL.hoods || [])[(LEVEL.rooms[e.room] || {}).hood] || {}).name || '';
     var bn = e.sp && e.sp.name && BOSS_NAMED[e.sp.name]; if (bn) return (e.fac = 'boss:' + e.sp.name);
+    if (/^raptor|^trex/.test(k)) return (e.fac = 'dino');
     if (LEVEL.floor === 2 && base !== 'rat' && base !== 'shrub') return (e.fac = /Frontier/.test(hood) ? 'stunt' : /Writers/.test(hood) ? 'writer' : /Starship/.test(hood) ? 'goblin' : /Maple/.test(hood) ? 'gremlin' : /Blackwood/.test(hood) ? 'animatronic' : /Jungle/.test(hood) ? 'jungle' : /Soundstage/.test(hood) ? 'crew' : base === 'imp' ? 'writer' : 'stunt');
     var f = base === 'rat' ? 'rat' : base === 'shrub' ? 'shrub' : /^clerk|archivist/.test(k) ? 'clerk' : /^bog|gardener/.test(k) ? 'bog' :
       /Arena/.test(hood) || k === 'headliner' ? 'arena' : base === 'imp' ? (/Stairwell/.test(hood) || k === 'gatekeeper' ? 'gate' : 'union') : base === 'puglin' ? (/Processing/.test(hood) ? 'reject' : 'warren') : null;
