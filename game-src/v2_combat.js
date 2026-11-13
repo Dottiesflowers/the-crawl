@@ -162,7 +162,7 @@
     return { ac: ac, why: why };
   }
   function pcWeapon() {
-    var gw = gearWeapon(); if (gw) return gw;
+    var gw = gearWeapon(); if (gw) { var WI = wieldItem(), WD = WI && ITEMS[WI.name]; if (WD && WD.power) gw.power = WD.power; if (WD && WD.breaks) gw.breaks = WD.breaks; return gw; }
     var m = sty('main');
     var W = [{ name: 'fists', n: 1, s: 4, b: MOD.STR, stat: 'STR', clip: 'Punch_Jab' }, { name: 'sword', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' }, { name: 'axe', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' },
       { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'It is a performance as much as a weapon, so it hits with Charisma.' }][m];
@@ -493,7 +493,7 @@
   function ammoPick(kind) {
     var st = (CHAR.gear || []).filter(function (g) { var I = ITEMS[g.name]; return I && I.ammo && (I.ammo.kind || 'arrow') === kind && (g.qty || 1) > 0; });
     if (!st.length) return null; var pref = st.filter(function (g) { return g.name === CHAR.ammo; })[0]; if (pref) return pref;
-    st.sort(function (a, b) { var A = ITEMS[a.name].ammo, B = ITEMS[b.name].ammo; return (B.s + (B.acc || 0)) - (A.s + (A.acc || 0)); }); return st[0];
+    var sc = function (X) { return X.s + (X.acc || 0) + (X.edmg ? 2 : 0) + (X.splash ? 6 : 0) - (X.plain ? 6 : 0); }; st.sort(function (a, b) { return sc(ITEMS[b.name].ammo) - sc(ITEMS[a.name].ammo); }); return st[0]; /* filled paintballs beat plain ones unless you picked */
   }
   function cbThrowable() {
     var bw = CHAR && CHAR.wield && launcherOf(CHAR.wield); // holding a bow: Throw becomes Shoot, and the bow stays in your hands
@@ -694,6 +694,15 @@
       if (!opt.ranged && !Wp.edmg) vfxHit('steel', e.px, e.pz, e.def.h);
       floater(e.px, e.def.h + 0.25, e.pz, (crit ? 'CRIT ' : '') + '-' + dm, crit ? 'crit' : 'dmg');
       say((opt.label || (crit ? 'Critical hit' : 'Hit')) + ' · ' + Wp.name + ' · ' + line, e.name + ' takes ' + dm + ' damage' + exTxt + (e.hp <= 0 ? ' and goes down.' : ' (' + Math.max(0, e.hp) + ' / ' + e.max + ' left).') + (Wp.note ? ' ' + Wp.note : ''), 5200);
+      if (Wp.power && !opt.ranged && e.hp > 0) { // jumper cables: batteries in the bag make them bite
+        var bt = (CHAR.gear || []).filter(function (g) { return (g.tags || []).indexOf('battery') >= 0 || /^AA batteries$/i.test(g.name); })[0];
+        if (bt) { var zr = rollDice(Wp.power.dice), zw = (e.def.vuln || []).indexOf(Wp.power.type) >= 0; if (zw) zr *= 2; e.hp -= zr; vfxHit('lightning', e.px, e.pz, e.def.h); setTimeout(function () { floater(e.px + 0.3, e.def.h + 0.55, e.pz, '+' + zr + ' shock', 'crit'); }, 260);
+          var zn = e.name + ' takes ' + zr + ' shock' + (zw ? ' (weak to it: double)' : '') + ' from the batteries.';
+          if (Wp.power.water && ch(e.x, e.z) === '~') { var wet = CB.enemies.filter(function (q) { return q !== e && !q.dead && !q.npc && ch(q.x, q.z) === '~' && cheb(q.x, q.z, e.x, e.z) <= Wp.power.water; }); if (wet.length) { wet.forEach(function (q) { var qd = rollDice(Wp.power.dice); q.hp -= qd; vfxHit('lightning', q.px, q.pz, q.def.h); floater(q.px, q.def.h + 0.3, q.pz, '-' + qd + ' shock', 'dmg'); if (q.hp <= 0) cbKill(q); }); vfxArc(e.px, 0.3, e.pz, wet[0].px, 0.3, wet[0].pz, 0x9ad8ff, 0.4, 0.04); zn += ' The water carries it: ' + wet.map(function (q) { return q.name; }).join(', ') + ' get shocked too.'; } }
+          if (Math.random() < 0.25) { bt.qty = (bt.qty || 1) - 1; if (bt.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(bt), 1); zn += ' The batteries die.'; saveChar(CHAR); }
+          setTimeout(function () { say('Shock', zn, 3200); }, 900); }
+      }
+      if (Wp.breaks && !opt.ranged) { var bw2 = wieldItem(); if (bw2) { bw2.qty = (bw2.qty || 1) - 1; if (bw2.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(bw2), 1); if (!CHAR.gear.some(function (g) { return g.name === bw2.name; })) CHAR.wield = null; } var pz = item(Wp.breaks, { from: 'your ' + bw2.name.toLowerCase() }); if (pz) invAdd(pz, true); saveChar(CHAR); buildHero(); setTimeout(function () { say(bw2.name + ' breaks', 'It explodes into ' + Wp.breaks.toLowerCase() + '. They are in your bag.', 3200); }, 1200); } }
       if (Wp.skey && !opt.ranged) skillCount(Wp.skey);
       if (Wp.onHit && e.hp > 0 && Math.random() < (Wp.onHit.chance || 1)) { var ohn = fxApply([Wp.onHit], e); if (ohn) say('Hit · ' + Wp.name, ohn, 2600); }
       if (e.hp <= 0) cbKill(e); else if (!e.prone) cbPlay(e, 'Hit_Chest', true);

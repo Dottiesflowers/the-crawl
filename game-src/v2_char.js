@@ -168,10 +168,11 @@
     return d;
   }
   // items that were renamed: old saves keep working
-  var RENAMED = { 'Acid Splat Marker': 'Paintball gun' };
+  var RENAMED = { 'Acid Splat Marker': 'Paintball gun', 'Knobbly War Club +1': 'Enchanted Knobbly War Club +1', 'Clipboard of Authority +1': 'Enchanted Clipboard of Authority +1', 'Golden Prop Mace +1': 'Enchanted Golden Prop Mace +1', 'Cordless leaf blower': 'Overpowered Cordless Leaf Blower' };
   function renameOld(c) {
     var f = function (n) { return RENAMED[n] || n; };
     (c.gear || []).forEach(function (g) { if (RENAMED[g.name]) { g.name = RENAMED[g.name]; var I = ITEMS[g.name]; if (I) g.desc = I.desc; } });
+    (c.gear || []).forEach(function (g) { var I = ITEMS[g.name]; if (!I || g.crafted) return; ['dmg', 'bonus', 'desc', 'rarity'].forEach(function (k) { if (I[k] !== undefined) g[k] = I[k]; }); }); // catalog tweaks reach items already in bags
     ['wield', 'back', 'ammo'].forEach(function (k) { if (c[k]) c[k] = f(c[k]); }); ['hotbar', 'hotbar2'].forEach(function (k) { if (c[k]) c[k] = c[k].map(function (n) { return n && f(n); }); });
     return c;
   }

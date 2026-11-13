@@ -7548,7 +7548,7 @@
     'Goblin hob-lobber': { cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '3d6' }, { type: 'burn', dice: '1d4', turns: 2 }], area: 1 }, tags: ['flammable', 'explosive'], rarity: 'Uncommon', level: 1, desc: 'The fuse is shorter than the label claims. The label is also on fire.' },
     'Smoke bomb': { cat: 'consumable', escape: true, rarity: 'Uncommon', level: 1, desc: 'Smells like burnt popcorn. Leave a fight with no free hits.' },
     'Fire extinguisher': { cat: 'tool', uses: 3, throw: { fx: [{ type: 'stun', turns: 1 }] }, tags: ['heavy'], level: 1, desc: 'Inspected in 2019. Probably fine. A face full of foam stuns for a moment.' },
-    'Cordless leaf blower': { cat: 'tool', uses: 3, throw: { fx: [{ type: 'push', tiles: 2 }] }, level: 1, desc: 'Battery shows two bars. It has shown two bars since 2019.' },
+    'Overpowered Cordless Leaf Blower': { cat: 'tool', uses: 3, throw: { fx: [{ type: 'push', tiles: 2 }] }, level: 1, desc: 'Battery shows two bars. It has shown two bars since 2019. Somebody modded the motor.' },
     'Bluetooth speaker': { cat: 'tool', uses: 5, throw: { fx: [{ type: 'distract', turns: 1 }], area: 2 }, tags: ['loud'], level: 1, desc: '"The Bluetooth device is ready to pair." Everything nearby turns to look.' },
     // ---- weapons ----
     'Puglin stick': { cat: 'weapon', dmg: '1d4', tags: ['wood', 'long'], level: 1, until: 3, desc: 'Chewed at one end. Still works.' },
@@ -7566,12 +7566,13 @@
     'Rake': { cat: 'weapon', dmg: '1d6', tags: ['long', 'wood'], level: 1, desc: 'Every cartoon warned you.' },
     'Plunger': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Unused. Allegedly.' },
     'Tennis racket': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Restrung once, in 2012.' },
-    'Ergonomic keyboard': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Split down the middle, like the office.' },
+    'Ergonomic keyboard': { cat: 'weapon', dmg: '1d4', breaks: 'Loose keyboard keys', level: 1, desc: 'Split down the middle, like the office. It survives exactly one hit, then it is a handful of plastic.' },
+    'Loose keyboard keys': { cat: 'material', tags: ['plastic', 'sharp', 'small'], level: 1, icon: 'laptop', desc: 'What is left of an ergonomic keyboard after you hit something with it. QWERTY, mostly. Scatter them, glue them, jury-rig them.' },
     'Stapler': { cat: 'weapon', dmg: '1d2', level: 1, desc: 'Someone wrote their name on it in Sharpie. Mostly insulting.' },
-    'Hedge trimmers': { cat: 'weapon', dmg: '1d8', tags: ['sharp', 'long'], level: 1, desc: 'Long handles. Longer reach. Very satisfying.' },
-    'Bike lock and chain': { cat: 'weapon', dmg: '1d6', tags: ['heavy'], level: 1, desc: 'The key is somewhere. Somewhere.' },
+    'Hedge trimmers': { cat: 'weapon', dmg: '1d6', tags: ['sharp', 'long'], level: 1, desc: 'Long handles. Longer reach. Very satisfying.' },
+    'Bike lock and chain': { cat: 'weapon', dmg: '1d5', tags: ['heavy'], level: 1, desc: 'The key is somewhere. Somewhere.' },
     'Cordless drill': { cat: 'weapon', dmg: '1d6', checks: { Lockpicking: 2 }, level: 1, desc: 'Two batteries, neither charged. +2 to locks.' },
-    'Jumper cables': { cat: 'weapon', dmg: '2d4', tags: ['conductive'], rarity: 'Uncommon', level: 1, desc: 'Red to dead, black to back. Or something.' },
+    'Jumper cables': { cat: 'weapon', dmg: '1d4', power: { dice: '2d3', type: 'lightning', water: 2 }, tags: ['conductive'], rarity: 'Uncommon', level: 1, desc: 'Red to dead, black to back. Or something. 1d4 as a whip; with batteries in your bag they bite for +2d3 shock (the batteries can die), and a shocked monster standing in water takes everything in the water within 2 tiles with it.' },
     'Pallet jack': { cat: 'weapon', dmg: '1d10', tags: ['heavy'], rarity: 'Uncommon', level: 1, desc: 'Requires a forklift certification you do not have.' },
     // Floor 2: real weapons off the fantasy set on Soundstage 9 (they were props until the System made them real; the rust is real too)
     // model: the held 3D model from kit2/weapons.json · len: its length in hand · bow: shoots arrows (range/long in tiles)
@@ -7595,7 +7596,7 @@
     'Emberbrand Battleaxe +1': { cat: 'weapon', dmg: '1d10', twoHand: true, bonus: 1, edmg: { dice: '1d4', type: 'fire' }, tags: ['sharp', 'heavy', 'fire'], rarity: 'Rare', level: 2, model: 'w_axe2', skin: 'ember', len: 0.6, desc: 'Black iron, hot to the touch, smells like a pyro test. +1, plus 1d4 fire. Mushrooms burn. Two-handed.' },
     'Frostbite Arming Sword +1': { cat: 'weapon', dmg: '1d6', crit: 19, bonus: 1, edmg: { dice: '1d4', type: 'cold' }, onHit: { type: 'stun', turns: 1, chance: 0.1 }, tags: ['sharp'], rarity: 'Rare', level: 2, model: 'w_sword1', skin: 'frost', len: 0.5, desc: 'Frosted white, and it fogs your breath. +1, plus 1d4 cold; now and then the cold locks them up for a turn.' },
     'Nightshade Spear +1': { cat: 'weapon', dmg: '1d8', bonus: 1, edmg: { dice: '1d4', type: 'necrotic' }, tags: ['long', 'sharp'], rarity: 'Rare', level: 2, model: 'w_spear', skin: 'shadow', len: 1.1, desc: 'The point drinks the light around it. +1, plus 1d4 necrotic.' },
-    'Golden Prop Mace +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, onHit: { type: 'prone', chance: 0.25 }, tags: ['heavy'], rarity: 'Rare', level: 2, model: 'w_mace', skin: 'gold', len: 0.5, desc: 'Spray-painted gold for an awards episode. It is solid iron underneath. +1, crits on 19-20, knocks them flat a quarter of the time.' },
+    'Enchanted Golden Prop Mace +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, onHit: { type: 'prone', chance: 0.25 }, tags: ['heavy'], rarity: 'Rare', level: 2, model: 'w_mace', skin: 'gold', len: 0.5, desc: 'Spray-painted gold for an awards episode. It is solid iron underneath. +1, crits on 19-20, knocks them flat a quarter of the time.' },
     'Stunt Coordinator\'s Greatsword +1': { cat: 'weapon', dmg: '2d6', twoHand: true, bonus: 1, tags: ['sharp', 'long', 'heavy'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'steel', len: 0.95, desc: 'The big one. Choreographed a thousand fights, lost none of them. 2d6, +1. Two-handed.' },
     // ammo: cat misc so it stacks (qty). ammo: { kind (matches the launcher's bow.ammo), s: damage die, acc: +N to hit, onHit: rider }. twoHand: true = no torch, shield or dagger in the off hand. Jury-rig 2 parts: wood + a tip (see ARROWS in v2_craft.js)
     // launchers: bow: { ammo kind, range, long, shots per action, pose (bow, sling, gun), fly (arrow, pebble, paint) }; proc: a held model built in code
@@ -7664,15 +7665,15 @@
     'Archive pages': { cat: 'material', tags: ['flammable', 'paper'], level: 1, desc: 'Forms in triplicate. Two copies too many.' },
     'Empty bottle': { cat: 'material', tags: ['glass', 'container'], level: 1, common: true, desc: 'Holds liquids. Also breaks over heads.' },
     // ---- elite and boss drops (enchanted) ----
-    'Knobbly War Club +1': { cat: 'weapon', dmg: '1d6', bonus: 1, rarity: 'Uncommon', level: 1, desc: 'The war-chief carved notches in it. You do not want to count them.' },
-    'Clipboard of Authority +1': { cat: 'weapon', dmg: '1d4', bonus: 1, checks: { Intimidation: 2 }, rarity: 'Uncommon', level: 1, desc: 'Sharpened along one edge. People step aside for a clipboard.' },
+    'Enchanted Knobbly War Club +1': { cat: 'weapon', dmg: '1d6', bonus: 1, rarity: 'Uncommon', level: 1, desc: 'The war-chief carved notches in it. You do not want to count them.' },
+    'Enchanted Clipboard of Authority +1': { cat: 'weapon', dmg: '1d4', bonus: 1, checks: { Intimidation: 2 }, rarity: 'Uncommon', level: 1, desc: 'Sharpened along one edge. People step aside for a clipboard.' },
     'Warden\'s Reed Spear +1': { cat: 'weapon', dmg: '1d6', bonus: 1, tags: ['long'], rarity: 'Uncommon', level: 1, desc: 'Swamp-cured, light, and smells of the Gardens.' },
     'Head Clerk\'s Letter Opener +1': { cat: 'weapon', dmg: '1d4', bonus: 1, crit: 19, tags: ['sharp'], rarity: 'Uncommon', level: 1, desc: 'For opening letters, and other things. Crits on 19-20.' },
     'Gristle King\'s Cleaver +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, tags: ['sharp', 'heavy'], rarity: 'Rare', level: 1, desc: 'Grik\'s pride. Still greasy. Crits on 19-20.' },
     'Shop Steward\'s Gavel +1': { cat: 'weapon', dmg: '1d6', bonus: 1, onHit: { type: 'stun', turns: 1, chance: 0.15 }, rarity: 'Rare', level: 1, desc: 'Order! Order! Sometimes stuns on a hit.' },
     'Archivist\'s Lantern': { cat: 'tool', light: true, checks: { Investigation: 3, Perception: 2 }, rarity: 'Rare', level: 1, desc: 'It shows what was filed away. A light, +3 Investigation, +2 Perception.' },
     'The Gardener\'s Shears +1': { cat: 'weapon', dmg: '1d6', bonus: 1, crit: 19, tags: ['sharp'], rarity: 'Rare', level: 1, desc: 'They hum near anything green. Crits on 19-20.' },
-    'Headliner\'s Mic Stand +1': { cat: 'weapon', dmg: '1d8', bonus: 1, checks: { Performance: 3 }, tags: ['long', 'heavy'], rarity: 'Rare', level: 1, desc: 'The crowd still chants when you lift it. +3 Performance.' },
+    'Headliner\'s Mic Stand +1': { cat: 'weapon', dmg: '1d6', bonus: 1, checks: { Performance: 3 }, tags: ['long', 'heavy'], rarity: 'Rare', level: 1, desc: 'The crowd still chants when you lift it. +3 Performance.' },
     'Gatekeeper\'s Keyring': { cat: 'tool', checks: { Lockpicking: 5 }, rarity: 'Rare', level: 1, desc: 'Forty keys, one of them to everything on this floor. +5 to locks.' },
     // ---- brought from home: canonical starting gear (character creation looks these up by name) ----
     'Pruning shears': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Made for stems. Willing to try other things.' },
@@ -7715,9 +7716,9 @@
       shrub3: { gold: '1d4', chance: [['Shrub sap', 0.8]] },
       shrub4: { gold: '1d6', always: ['Shrub sap'] },
       puglin_brute: { gold: '2d6', always: ['Puglin grease'], chance: [['Healing potion', 0.3], ['Hot sauce', 0.3]] },
-      puglin_chief: { gold: '4d6', always: ['Puglin grease', 'Healing potion'], oneOf: ['Knobbly War Club +1'] },
+      puglin_chief: { gold: '4d6', always: ['Puglin grease', 'Healing potion'], oneOf: ['Enchanted Knobbly War Club +1'] },
       imp_intern: { gold: '2d6', always: ['Union card'], chance: [['Imp horn', 0.4], ['Ibuprofen', 0.3]] },
-      imp_foreman: { gold: '4d6', always: ['Security badge', 'Healing potion'], chance: [['Smoke bomb', 0.4]], oneOf: ['Clipboard of Authority +1'] },
+      imp_foreman: { gold: '4d6', always: ['Security badge', 'Healing potion'], chance: [['Smoke bomb', 0.4]], oneOf: ['Enchanted Clipboard of Authority +1'] },
       bog_brute: { gold: '2d6', always: ['Bog slime'], chance: [['Healing potion', 0.3]] },
       bog_chief: { gold: '4d6', always: ['Bog slime', 'Healing potion'], oneOf: ['Warden\'s Reed Spear +1'] },
       clerk_mid: { gold: '2d6', always: ['Archive pages'], chance: [['Laminated visitor badge', 0.3], ['Ibuprofen', 0.3]] },
@@ -7751,10 +7752,10 @@
       gremlin_big: { gold: '2d6', chance: [['Healing potion', 0.3], ['Bluetooth speaker', 0.1], ['AA batteries', 0.4]] },
       writer: { gold: '1d6', always: ['Union card'], chance: [['Prop lumber', 0.3], ['Ibuprofen', 0.3], ['Craft services sandwich', 0.25]] },
       writer_lead: { gold: '2d6', always: ['Union card'], chance: [['Healing potion', 0.35], ['Smoke bomb', 0.15], ['Roll of duct tape', 0.3]] },
-      director: { gold: '10d6', always: ['Silver loot box', 'Silver loot box', 'Greater healing potion'], oneOf: ['Stormcaller Longsword +1', 'Golden Prop Mace +1'] },
+      director: { gold: '10d6', always: ['Silver loot box', 'Silver loot box', 'Greater healing potion'], oneOf: ['Stormcaller Longsword +1', 'Enchanted Golden Prop Mace +1'] },
       groundskeeper: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Nightshade Spear +1', 'Emberbrand Battleaxe +1'] },
       butler: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Stormcaller Longsword +1', 'Frostbite Arming Sword +1'] },
-      showrunner: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Golden Prop Mace +1', 'Stormcaller Longsword +1'] },
+      showrunner: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Enchanted Golden Prop Mace +1', 'Stormcaller Longsword +1'] },
       gatekeeper: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Gatekeeper\'s Keyring'] }
     },
     containers: {
@@ -7763,7 +7764,7 @@
       silver: { gold: '4d6', picks: [2, 4], from: 'a silver loot box', pool: ['Greater healing potion', 'Healing potion', 'Goblin hob-lobber', 'Smoke bomb', 'Jumper cables', 'Pallet jack', 'Headlamp', 'EpiPen', 'Golf club (7 iron)', 'Chef\'s knife', 'Cast iron skillet', 'Meat tenderizer'] },
       small_office: { gold: '1d6', picks: [1, 2], from: 'a desk', pool: ['Splintered wood', 'Scrap metal', 'AA batteries', 'Stapler', 'Letter opener', 'Sticky notes', 'Archive pages', 'Ergonomic keyboard', 'Laminated visitor badge', '"World\'s Best Boss" mug', 'Breath mints', 'Lint roller', 'Ibuprofen', 'Box cutter'] },
       small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['Wrist-rocket slingshot', 'Ball bearings', 'Splintered wood', 'Scrap metal', 'AA batteries', 'Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
-      small_garden: { gold: '1d4', picks: [1, 2], from: 'the potting shed', pool: ['Rake', 'Hedge trimmers', 'Weed killer', 'Bug spray', 'Cordless leaf blower', 'Shrub sap', 'Bog slime', 'Floral foam brick', 'Bottle of water'] },
+      small_garden: { gold: '1d4', picks: [1, 2], from: 'the potting shed', pool: ['Rake', 'Hedge trimmers', 'Weed killer', 'Bug spray', 'Overpowered Cordless Leaf Blower', 'Shrub sap', 'Bog slime', 'Floral foam brick', 'Bottle of water'] },
       small_bazaar: { gold: '2d4', picks: [1, 2], from: 'a stall', pool: ['Hot sauce', 'Can of cooking spray', 'Chef\'s knife', 'Rolling pin', 'Meat tenderizer', 'Cast iron skillet', 'Protein bar', 'Energy bar', 'Roll of aluminum foil', 'Bottle of water'] },
       small_arena: { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Wrist-rocket slingshot', 'Splintered wood', 'Scrap metal', 'Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] }
     },
@@ -8112,7 +8113,7 @@
     return { ac: ac, why: why };
   }
   function pcWeapon() {
-    var gw = gearWeapon(); if (gw) return gw;
+    var gw = gearWeapon(); if (gw) { var WI = wieldItem(), WD = WI && ITEMS[WI.name]; if (WD && WD.power) gw.power = WD.power; if (WD && WD.breaks) gw.breaks = WD.breaks; return gw; }
     var m = sty('main');
     var W = [{ name: 'fists', n: 1, s: 4, b: MOD.STR, stat: 'STR', clip: 'Punch_Jab' }, { name: 'sword', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' }, { name: 'axe', n: 1, s: 8, stat: 'STR', clip: 'Sword_Attack' },
       { name: 'staff', n: 1, s: 6, stat: 'STR', clip: 'Sword_Attack' }, { name: 'club', n: 1, s: 4, stat: 'STR', clip: 'Sword_Attack' }, { name: 'bass guitar', n: 1, s: 6, stat: 'CHA', clip: 'Sword_Attack', note: 'It is a performance as much as a weapon, so it hits with Charisma.' }][m];
@@ -8443,7 +8444,7 @@
   function ammoPick(kind) {
     var st = (CHAR.gear || []).filter(function (g) { var I = ITEMS[g.name]; return I && I.ammo && (I.ammo.kind || 'arrow') === kind && (g.qty || 1) > 0; });
     if (!st.length) return null; var pref = st.filter(function (g) { return g.name === CHAR.ammo; })[0]; if (pref) return pref;
-    st.sort(function (a, b) { var A = ITEMS[a.name].ammo, B = ITEMS[b.name].ammo; return (B.s + (B.acc || 0)) - (A.s + (A.acc || 0)); }); return st[0];
+    var sc = function (X) { return X.s + (X.acc || 0) + (X.edmg ? 2 : 0) + (X.splash ? 6 : 0) - (X.plain ? 6 : 0); }; st.sort(function (a, b) { return sc(ITEMS[b.name].ammo) - sc(ITEMS[a.name].ammo); }); return st[0]; /* filled paintballs beat plain ones unless you picked */
   }
   function cbThrowable() {
     var bw = CHAR && CHAR.wield && launcherOf(CHAR.wield); // holding a bow: Throw becomes Shoot, and the bow stays in your hands
@@ -8644,6 +8645,15 @@
       if (!opt.ranged && !Wp.edmg) vfxHit('steel', e.px, e.pz, e.def.h);
       floater(e.px, e.def.h + 0.25, e.pz, (crit ? 'CRIT ' : '') + '-' + dm, crit ? 'crit' : 'dmg');
       say((opt.label || (crit ? 'Critical hit' : 'Hit')) + ' · ' + Wp.name + ' · ' + line, e.name + ' takes ' + dm + ' damage' + exTxt + (e.hp <= 0 ? ' and goes down.' : ' (' + Math.max(0, e.hp) + ' / ' + e.max + ' left).') + (Wp.note ? ' ' + Wp.note : ''), 5200);
+      if (Wp.power && !opt.ranged && e.hp > 0) { // jumper cables: batteries in the bag make them bite
+        var bt = (CHAR.gear || []).filter(function (g) { return (g.tags || []).indexOf('battery') >= 0 || /^AA batteries$/i.test(g.name); })[0];
+        if (bt) { var zr = rollDice(Wp.power.dice), zw = (e.def.vuln || []).indexOf(Wp.power.type) >= 0; if (zw) zr *= 2; e.hp -= zr; vfxHit('lightning', e.px, e.pz, e.def.h); setTimeout(function () { floater(e.px + 0.3, e.def.h + 0.55, e.pz, '+' + zr + ' shock', 'crit'); }, 260);
+          var zn = e.name + ' takes ' + zr + ' shock' + (zw ? ' (weak to it: double)' : '') + ' from the batteries.';
+          if (Wp.power.water && ch(e.x, e.z) === '~') { var wet = CB.enemies.filter(function (q) { return q !== e && !q.dead && !q.npc && ch(q.x, q.z) === '~' && cheb(q.x, q.z, e.x, e.z) <= Wp.power.water; }); if (wet.length) { wet.forEach(function (q) { var qd = rollDice(Wp.power.dice); q.hp -= qd; vfxHit('lightning', q.px, q.pz, q.def.h); floater(q.px, q.def.h + 0.3, q.pz, '-' + qd + ' shock', 'dmg'); if (q.hp <= 0) cbKill(q); }); vfxArc(e.px, 0.3, e.pz, wet[0].px, 0.3, wet[0].pz, 0x9ad8ff, 0.4, 0.04); zn += ' The water carries it: ' + wet.map(function (q) { return q.name; }).join(', ') + ' get shocked too.'; } }
+          if (Math.random() < 0.25) { bt.qty = (bt.qty || 1) - 1; if (bt.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(bt), 1); zn += ' The batteries die.'; saveChar(CHAR); }
+          setTimeout(function () { say('Shock', zn, 3200); }, 900); }
+      }
+      if (Wp.breaks && !opt.ranged) { var bw2 = wieldItem(); if (bw2) { bw2.qty = (bw2.qty || 1) - 1; if (bw2.qty <= 0) { CHAR.gear.splice(CHAR.gear.indexOf(bw2), 1); if (!CHAR.gear.some(function (g) { return g.name === bw2.name; })) CHAR.wield = null; } var pz = item(Wp.breaks, { from: 'your ' + bw2.name.toLowerCase() }); if (pz) invAdd(pz, true); saveChar(CHAR); buildHero(); setTimeout(function () { say(bw2.name + ' breaks', 'It explodes into ' + Wp.breaks.toLowerCase() + '. They are in your bag.', 3200); }, 1200); } }
       if (Wp.skey && !opt.ranged) skillCount(Wp.skey);
       if (Wp.onHit && e.hp > 0 && Math.random() < (Wp.onHit.chance || 1)) { var ohn = fxApply([Wp.onHit], e); if (ohn) say('Hit · ' + Wp.name, ohn, 2600); }
       if (e.hp <= 0) cbKill(e); else if (!e.prone) cbPlay(e, 'Hit_Chest', true);
@@ -9304,10 +9314,11 @@
     return d;
   }
   // items that were renamed: old saves keep working
-  var RENAMED = { 'Acid Splat Marker': 'Paintball gun' };
+  var RENAMED = { 'Acid Splat Marker': 'Paintball gun', 'Knobbly War Club +1': 'Enchanted Knobbly War Club +1', 'Clipboard of Authority +1': 'Enchanted Clipboard of Authority +1', 'Golden Prop Mace +1': 'Enchanted Golden Prop Mace +1', 'Cordless leaf blower': 'Overpowered Cordless Leaf Blower' };
   function renameOld(c) {
     var f = function (n) { return RENAMED[n] || n; };
     (c.gear || []).forEach(function (g) { if (RENAMED[g.name]) { g.name = RENAMED[g.name]; var I = ITEMS[g.name]; if (I) g.desc = I.desc; } });
+    (c.gear || []).forEach(function (g) { var I = ITEMS[g.name]; if (!I || g.crafted) return; ['dmg', 'bonus', 'desc', 'rarity'].forEach(function (k) { if (I[k] !== undefined) g[k] = I[k]; }); }); // catalog tweaks reach items already in bags
     ['wield', 'back', 'ammo'].forEach(function (k) { if (c[k]) c[k] = f(c[k]); }); ['hotbar', 'hotbar2'].forEach(function (k) { if (c[k]) c[k] = c[k].map(function (n) { return n && f(n); }); });
     return c;
   }
@@ -13202,7 +13213,7 @@
   window.__crawl = { CB: CB, stairs: { open: stairsOpen, check: stairsCheck, dbg: function () { return tiles.filter(function (t) { return t.gate !== undefined; }).map(function (t) { return [t.gate, t.mesh.visible, t.x, t.z]; }); } }, aim: { start: aimStart, at: aimAt, S: AIM, range: throwRange, fire: fireSource, stop: aimStop }, hot: { put: hotPut, draw: hotDraw }, minds: { of: mindOf, fac: factionOf, int: intOf, dc: mindDC, canned: mindCanned, reveal: mindReveal, persona: mindPersona, examine: mindExamine, read: mindRead, acts: enemyActs, group: mindGroup, scene: mindScene }, fog: function () { return tileState; }, cam: function () { return cam; }, craft: { harvest: harvest, toggle: craftToggle, apply: craftApply, S: CRAFT, invent: craftInvent, use: useItem, rollLoot: rollLoot, item: item, ac: pcAC, invAdd: invAdd }, lvl: function () { return LEVEL; }, actsAt: function (k, c) { var p = k.split(","); return actsOf({ c: c || ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }).map(function (a) { return a.label; }); }, useAt: function (k, i) { var p = k.split(","), t = { c: ch(+p[0], +p[1]), key: k, x: +p[0], z: +p[1] }; return safeAct(actsOf(t)[i || 0], t); }, skillCount: skillCount, skillGrant: skillGrant, mapv: function () { return MAPV; }, cb: { CB: CB, PC: PC, die: cbDie, start: cbStart, tap: cbTap, atk: cbAttackButton, end: cbEndTurn, dodge: cbDodge, pot: cbPotion, aggro: cbAggro, shove: cbShove, grapple: cbGrapple, hide: cbHide, disengage: cbDisengage, menu: cbMenuToggle }, talk: function (who) { var e = CB.enemies.filter(function (q) { return q.npc === who || q.name === who; })[0]; if (e) talkOpen(e); return TALK; }, logOut: logOut, toScreen: toScreen, enterRoom: enterRoom, ui: UI, bag: bagToggle, map: mapToggle, invAdd: invAdd, newChar: function () { if (gearOpen) toggleGear(); ccOpen(); }, cc: function () { return CC; }, char: function () { return CHAR; }, net: NET, applyChar: applyChar,  P: P, setSpin: function (a) { autoSpin = false; spin = a; }, spend: spendPoint, redress: redress, grant: grantXP, rebuild: rebuildChunks, PROPS: PROPS, renderer: renderer, scene: scene, joy: joy, jump: jump, toggleGear: toggleGear, look: look, hero: hero, refreshFog: refreshFog, enterRoom: enterRoom, build: buildHero };
   window.__crawl.t = { eturn: cbEnemyTurn, mind: mindOf, persona: persona, ch: ch, lv: function () { return LEVEL; }, acts: actsOf, safe: safeAct, woody: isWoody, tiles: function () { return tiles; }, areaApply: areaApply, areaStart: areaTurnStart, area: vfxArea, areasAt: areasAt, tileCost: tileCost, pc: function () { return PC; }, res: function () { return CB.res; }, tryBag: tryBag, tryApply: tryApply, hotPut: hotPut, hotItem: hotItem, throwIt: throwItem, charRaw: function () { return CHAR; }, stash: stashBody, drop: dropBody, take: talkTake, vfx: vfxPreview, shoot: cbThrow, ammoPick: ammoPick, arrowCraft: arrowCraft, throwable: cbThrowable, sty: sty, gear: function () { return CHAR.gear; }, char: function () { return { name: CHAR.name, isDM: !!CHAR.isDM, n: (CHAR.gear || []).length }; }, start: cbStart, give: function (n, q) { var it = item(n, q ? { qty: q } : null); invAdd(it, true); return !!it; } }; // test hooks
   window.__crawl.gm = function (n, o) { var g = new THREE.Group(), it = item(n); for (var k in (o || {})) it[k] = o[k]; gearModel(g, it); return g; }; window.__crawl.bagAct = bagAct; // test hook: a held item's model on its own
-  window.__crawl.fx2 = { crank: cbCrank, xb: xbState, opts: cbOptions };
+  window.__crawl.fx2 = { crank: cbCrank, xb: xbState, opts: cbOptions, resolve: cbResolve, pw: pcWeapon };
   window.__crawl.ed = { toggle: edToggle, tap: edTap, S: EDIT, apply: edApply };
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
   charInit(); cbHUD();

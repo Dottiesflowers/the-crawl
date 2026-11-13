@@ -38,7 +38,7 @@
     'Goblin hob-lobber': { cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '3d6' }, { type: 'burn', dice: '1d4', turns: 2 }], area: 1 }, tags: ['flammable', 'explosive'], rarity: 'Uncommon', level: 1, desc: 'The fuse is shorter than the label claims. The label is also on fire.' },
     'Smoke bomb': { cat: 'consumable', escape: true, rarity: 'Uncommon', level: 1, desc: 'Smells like burnt popcorn. Leave a fight with no free hits.' },
     'Fire extinguisher': { cat: 'tool', uses: 3, throw: { fx: [{ type: 'stun', turns: 1 }] }, tags: ['heavy'], level: 1, desc: 'Inspected in 2019. Probably fine. A face full of foam stuns for a moment.' },
-    'Cordless leaf blower': { cat: 'tool', uses: 3, throw: { fx: [{ type: 'push', tiles: 2 }] }, level: 1, desc: 'Battery shows two bars. It has shown two bars since 2019.' },
+    'Overpowered Cordless Leaf Blower': { cat: 'tool', uses: 3, throw: { fx: [{ type: 'push', tiles: 2 }] }, level: 1, desc: 'Battery shows two bars. It has shown two bars since 2019. Somebody modded the motor.' },
     'Bluetooth speaker': { cat: 'tool', uses: 5, throw: { fx: [{ type: 'distract', turns: 1 }], area: 2 }, tags: ['loud'], level: 1, desc: '"The Bluetooth device is ready to pair." Everything nearby turns to look.' },
     // ---- weapons ----
     'Puglin stick': { cat: 'weapon', dmg: '1d4', tags: ['wood', 'long'], level: 1, until: 3, desc: 'Chewed at one end. Still works.' },
@@ -56,12 +56,13 @@
     'Rake': { cat: 'weapon', dmg: '1d6', tags: ['long', 'wood'], level: 1, desc: 'Every cartoon warned you.' },
     'Plunger': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Unused. Allegedly.' },
     'Tennis racket': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Restrung once, in 2012.' },
-    'Ergonomic keyboard': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Split down the middle, like the office.' },
+    'Ergonomic keyboard': { cat: 'weapon', dmg: '1d4', breaks: 'Loose keyboard keys', level: 1, desc: 'Split down the middle, like the office. It survives exactly one hit, then it is a handful of plastic.' },
+    'Loose keyboard keys': { cat: 'material', tags: ['plastic', 'sharp', 'small'], level: 1, icon: 'laptop', desc: 'What is left of an ergonomic keyboard after you hit something with it. QWERTY, mostly. Scatter them, glue them, jury-rig them.' },
     'Stapler': { cat: 'weapon', dmg: '1d2', level: 1, desc: 'Someone wrote their name on it in Sharpie. Mostly insulting.' },
-    'Hedge trimmers': { cat: 'weapon', dmg: '1d8', tags: ['sharp', 'long'], level: 1, desc: 'Long handles. Longer reach. Very satisfying.' },
-    'Bike lock and chain': { cat: 'weapon', dmg: '1d6', tags: ['heavy'], level: 1, desc: 'The key is somewhere. Somewhere.' },
+    'Hedge trimmers': { cat: 'weapon', dmg: '1d6', tags: ['sharp', 'long'], level: 1, desc: 'Long handles. Longer reach. Very satisfying.' },
+    'Bike lock and chain': { cat: 'weapon', dmg: '1d5', tags: ['heavy'], level: 1, desc: 'The key is somewhere. Somewhere.' },
     'Cordless drill': { cat: 'weapon', dmg: '1d6', checks: { Lockpicking: 2 }, level: 1, desc: 'Two batteries, neither charged. +2 to locks.' },
-    'Jumper cables': { cat: 'weapon', dmg: '2d4', tags: ['conductive'], rarity: 'Uncommon', level: 1, desc: 'Red to dead, black to back. Or something.' },
+    'Jumper cables': { cat: 'weapon', dmg: '1d4', power: { dice: '2d3', type: 'lightning', water: 2 }, tags: ['conductive'], rarity: 'Uncommon', level: 1, desc: 'Red to dead, black to back. Or something. 1d4 as a whip; with batteries in your bag they bite for +2d3 shock (the batteries can die), and a shocked monster standing in water takes everything in the water within 2 tiles with it.' },
     'Pallet jack': { cat: 'weapon', dmg: '1d10', tags: ['heavy'], rarity: 'Uncommon', level: 1, desc: 'Requires a forklift certification you do not have.' },
     // Floor 2: real weapons off the fantasy set on Soundstage 9 (they were props until the System made them real; the rust is real too)
     // model: the held 3D model from kit2/weapons.json · len: its length in hand · bow: shoots arrows (range/long in tiles)
@@ -85,7 +86,7 @@
     'Emberbrand Battleaxe +1': { cat: 'weapon', dmg: '1d10', twoHand: true, bonus: 1, edmg: { dice: '1d4', type: 'fire' }, tags: ['sharp', 'heavy', 'fire'], rarity: 'Rare', level: 2, model: 'w_axe2', skin: 'ember', len: 0.6, desc: 'Black iron, hot to the touch, smells like a pyro test. +1, plus 1d4 fire. Mushrooms burn. Two-handed.' },
     'Frostbite Arming Sword +1': { cat: 'weapon', dmg: '1d6', crit: 19, bonus: 1, edmg: { dice: '1d4', type: 'cold' }, onHit: { type: 'stun', turns: 1, chance: 0.1 }, tags: ['sharp'], rarity: 'Rare', level: 2, model: 'w_sword1', skin: 'frost', len: 0.5, desc: 'Frosted white, and it fogs your breath. +1, plus 1d4 cold; now and then the cold locks them up for a turn.' },
     'Nightshade Spear +1': { cat: 'weapon', dmg: '1d8', bonus: 1, edmg: { dice: '1d4', type: 'necrotic' }, tags: ['long', 'sharp'], rarity: 'Rare', level: 2, model: 'w_spear', skin: 'shadow', len: 1.1, desc: 'The point drinks the light around it. +1, plus 1d4 necrotic.' },
-    'Golden Prop Mace +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, onHit: { type: 'prone', chance: 0.25 }, tags: ['heavy'], rarity: 'Rare', level: 2, model: 'w_mace', skin: 'gold', len: 0.5, desc: 'Spray-painted gold for an awards episode. It is solid iron underneath. +1, crits on 19-20, knocks them flat a quarter of the time.' },
+    'Enchanted Golden Prop Mace +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, onHit: { type: 'prone', chance: 0.25 }, tags: ['heavy'], rarity: 'Rare', level: 2, model: 'w_mace', skin: 'gold', len: 0.5, desc: 'Spray-painted gold for an awards episode. It is solid iron underneath. +1, crits on 19-20, knocks them flat a quarter of the time.' },
     'Stunt Coordinator\'s Greatsword +1': { cat: 'weapon', dmg: '2d6', twoHand: true, bonus: 1, tags: ['sharp', 'long', 'heavy'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'steel', len: 0.95, desc: 'The big one. Choreographed a thousand fights, lost none of them. 2d6, +1. Two-handed.' },
     // ammo: cat misc so it stacks (qty). ammo: { kind (matches the launcher's bow.ammo), s: damage die, acc: +N to hit, onHit: rider }. twoHand: true = no torch, shield or dagger in the off hand. Jury-rig 2 parts: wood + a tip (see ARROWS in v2_craft.js)
     // launchers: bow: { ammo kind, range, long, shots per action, pose (bow, sling, gun), fly (arrow, pebble, paint) }; proc: a held model built in code
@@ -154,15 +155,15 @@
     'Archive pages': { cat: 'material', tags: ['flammable', 'paper'], level: 1, desc: 'Forms in triplicate. Two copies too many.' },
     'Empty bottle': { cat: 'material', tags: ['glass', 'container'], level: 1, common: true, desc: 'Holds liquids. Also breaks over heads.' },
     // ---- elite and boss drops (enchanted) ----
-    'Knobbly War Club +1': { cat: 'weapon', dmg: '1d6', bonus: 1, rarity: 'Uncommon', level: 1, desc: 'The war-chief carved notches in it. You do not want to count them.' },
-    'Clipboard of Authority +1': { cat: 'weapon', dmg: '1d4', bonus: 1, checks: { Intimidation: 2 }, rarity: 'Uncommon', level: 1, desc: 'Sharpened along one edge. People step aside for a clipboard.' },
+    'Enchanted Knobbly War Club +1': { cat: 'weapon', dmg: '1d6', bonus: 1, rarity: 'Uncommon', level: 1, desc: 'The war-chief carved notches in it. You do not want to count them.' },
+    'Enchanted Clipboard of Authority +1': { cat: 'weapon', dmg: '1d4', bonus: 1, checks: { Intimidation: 2 }, rarity: 'Uncommon', level: 1, desc: 'Sharpened along one edge. People step aside for a clipboard.' },
     'Warden\'s Reed Spear +1': { cat: 'weapon', dmg: '1d6', bonus: 1, tags: ['long'], rarity: 'Uncommon', level: 1, desc: 'Swamp-cured, light, and smells of the Gardens.' },
     'Head Clerk\'s Letter Opener +1': { cat: 'weapon', dmg: '1d4', bonus: 1, crit: 19, tags: ['sharp'], rarity: 'Uncommon', level: 1, desc: 'For opening letters, and other things. Crits on 19-20.' },
     'Gristle King\'s Cleaver +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, tags: ['sharp', 'heavy'], rarity: 'Rare', level: 1, desc: 'Grik\'s pride. Still greasy. Crits on 19-20.' },
     'Shop Steward\'s Gavel +1': { cat: 'weapon', dmg: '1d6', bonus: 1, onHit: { type: 'stun', turns: 1, chance: 0.15 }, rarity: 'Rare', level: 1, desc: 'Order! Order! Sometimes stuns on a hit.' },
     'Archivist\'s Lantern': { cat: 'tool', light: true, checks: { Investigation: 3, Perception: 2 }, rarity: 'Rare', level: 1, desc: 'It shows what was filed away. A light, +3 Investigation, +2 Perception.' },
     'The Gardener\'s Shears +1': { cat: 'weapon', dmg: '1d6', bonus: 1, crit: 19, tags: ['sharp'], rarity: 'Rare', level: 1, desc: 'They hum near anything green. Crits on 19-20.' },
-    'Headliner\'s Mic Stand +1': { cat: 'weapon', dmg: '1d8', bonus: 1, checks: { Performance: 3 }, tags: ['long', 'heavy'], rarity: 'Rare', level: 1, desc: 'The crowd still chants when you lift it. +3 Performance.' },
+    'Headliner\'s Mic Stand +1': { cat: 'weapon', dmg: '1d6', bonus: 1, checks: { Performance: 3 }, tags: ['long', 'heavy'], rarity: 'Rare', level: 1, desc: 'The crowd still chants when you lift it. +3 Performance.' },
     'Gatekeeper\'s Keyring': { cat: 'tool', checks: { Lockpicking: 5 }, rarity: 'Rare', level: 1, desc: 'Forty keys, one of them to everything on this floor. +5 to locks.' },
     // ---- brought from home: canonical starting gear (character creation looks these up by name) ----
     'Pruning shears': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Made for stems. Willing to try other things.' },
@@ -205,9 +206,9 @@
       shrub3: { gold: '1d4', chance: [['Shrub sap', 0.8]] },
       shrub4: { gold: '1d6', always: ['Shrub sap'] },
       puglin_brute: { gold: '2d6', always: ['Puglin grease'], chance: [['Healing potion', 0.3], ['Hot sauce', 0.3]] },
-      puglin_chief: { gold: '4d6', always: ['Puglin grease', 'Healing potion'], oneOf: ['Knobbly War Club +1'] },
+      puglin_chief: { gold: '4d6', always: ['Puglin grease', 'Healing potion'], oneOf: ['Enchanted Knobbly War Club +1'] },
       imp_intern: { gold: '2d6', always: ['Union card'], chance: [['Imp horn', 0.4], ['Ibuprofen', 0.3]] },
-      imp_foreman: { gold: '4d6', always: ['Security badge', 'Healing potion'], chance: [['Smoke bomb', 0.4]], oneOf: ['Clipboard of Authority +1'] },
+      imp_foreman: { gold: '4d6', always: ['Security badge', 'Healing potion'], chance: [['Smoke bomb', 0.4]], oneOf: ['Enchanted Clipboard of Authority +1'] },
       bog_brute: { gold: '2d6', always: ['Bog slime'], chance: [['Healing potion', 0.3]] },
       bog_chief: { gold: '4d6', always: ['Bog slime', 'Healing potion'], oneOf: ['Warden\'s Reed Spear +1'] },
       clerk_mid: { gold: '2d6', always: ['Archive pages'], chance: [['Laminated visitor badge', 0.3], ['Ibuprofen', 0.3]] },
@@ -241,10 +242,10 @@
       gremlin_big: { gold: '2d6', chance: [['Healing potion', 0.3], ['Bluetooth speaker', 0.1], ['AA batteries', 0.4]] },
       writer: { gold: '1d6', always: ['Union card'], chance: [['Prop lumber', 0.3], ['Ibuprofen', 0.3], ['Craft services sandwich', 0.25]] },
       writer_lead: { gold: '2d6', always: ['Union card'], chance: [['Healing potion', 0.35], ['Smoke bomb', 0.15], ['Roll of duct tape', 0.3]] },
-      director: { gold: '10d6', always: ['Silver loot box', 'Silver loot box', 'Greater healing potion'], oneOf: ['Stormcaller Longsword +1', 'Golden Prop Mace +1'] },
+      director: { gold: '10d6', always: ['Silver loot box', 'Silver loot box', 'Greater healing potion'], oneOf: ['Stormcaller Longsword +1', 'Enchanted Golden Prop Mace +1'] },
       groundskeeper: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Nightshade Spear +1', 'Emberbrand Battleaxe +1'] },
       butler: { gold: '6d6', always: ['Silver loot box', 'Healing potion'], oneOf: ['Stormcaller Longsword +1', 'Frostbite Arming Sword +1'] },
-      showrunner: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Golden Prop Mace +1', 'Stormcaller Longsword +1'] },
+      showrunner: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Enchanted Golden Prop Mace +1', 'Stormcaller Longsword +1'] },
       gatekeeper: { gold: '8d6', always: ['Silver loot box', 'Greater healing potion'], oneOf: ['Gatekeeper\'s Keyring'] }
     },
     containers: {
@@ -253,7 +254,7 @@
       silver: { gold: '4d6', picks: [2, 4], from: 'a silver loot box', pool: ['Greater healing potion', 'Healing potion', 'Goblin hob-lobber', 'Smoke bomb', 'Jumper cables', 'Pallet jack', 'Headlamp', 'EpiPen', 'Golf club (7 iron)', 'Chef\'s knife', 'Cast iron skillet', 'Meat tenderizer'] },
       small_office: { gold: '1d6', picks: [1, 2], from: 'a desk', pool: ['Splintered wood', 'Scrap metal', 'AA batteries', 'Stapler', 'Letter opener', 'Sticky notes', 'Archive pages', 'Ergonomic keyboard', 'Laminated visitor badge', '"World\'s Best Boss" mug', 'Breath mints', 'Lint roller', 'Ibuprofen', 'Box cutter'] },
       small_store: { gold: '1d4', picks: [1, 2], from: 'the shelves', pool: ['Wrist-rocket slingshot', 'Ball bearings', 'Splintered wood', 'Scrap metal', 'AA batteries', 'Broom', 'Mop', 'Bleach', 'Plunger', 'Roll of toilet paper', 'Bungee cords', 'Zip ties (10)', 'WD-40', 'Cordless drill', 'Shop vac', 'Box cutter', 'Fire extinguisher', 'Roll of aluminum foil'] },
-      small_garden: { gold: '1d4', picks: [1, 2], from: 'the potting shed', pool: ['Rake', 'Hedge trimmers', 'Weed killer', 'Bug spray', 'Cordless leaf blower', 'Shrub sap', 'Bog slime', 'Floral foam brick', 'Bottle of water'] },
+      small_garden: { gold: '1d4', picks: [1, 2], from: 'the potting shed', pool: ['Rake', 'Hedge trimmers', 'Weed killer', 'Bug spray', 'Overpowered Cordless Leaf Blower', 'Shrub sap', 'Bog slime', 'Floral foam brick', 'Bottle of water'] },
       small_bazaar: { gold: '2d4', picks: [1, 2], from: 'a stall', pool: ['Hot sauce', 'Can of cooking spray', 'Chef\'s knife', 'Rolling pin', 'Meat tenderizer', 'Cast iron skillet', 'Protein bar', 'Energy bar', 'Roll of aluminum foil', 'Bottle of water'] },
       small_arena: { gold: '2d4', picks: [1, 2], from: 'the locker', pool: ['Wrist-rocket slingshot', 'Splintered wood', 'Scrap metal', 'Tennis racket', 'Golf club (7 iron)', 'Yoga mat', 'Protein bar', 'Bluetooth speaker', 'Selfie stick', 'Band-aids', 'Ibuprofen'] }
     },
