@@ -441,7 +441,7 @@
       { label: 'Shove: push away', tag: 'Athletics contest', ok: r.action && adj.length > 0, fn: function () { cbShove(true); } },
       { label: 'Grapple', tag: 'Athletics contest · speed 0', ok: r.action && adj.length > 0, fn: cbGrapple },
       { label: 'Hide', tag: 'Stealth vs their Perception', ok: r.action && adj.length === 0, fn: cbHide },
-      { label: (Wt.bow ? 'Shoot ' : 'Throw ') + Wt.name, tag: Wt.empty ? 'craft or find some' : Wt.n + 'd' + Wt.s + (Wt.acc ? ' · +' + Wt.acc + ' hit' : '') + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action && !Wt.empty, fn: function () { CB.aim = 'throw'; say(Wt.bow ? 'Shoot' : 'Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal ' + (Wt.bow ? 'shot' : 'throw') + '; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
+      { label: (Wt.bow ? 'Shoot ' : 'Throw ') + Wt.name, tag: Wt.noAir ? 'screw a tank on' : Wt.empty ? 'craft or find some' : Wt.n + 'd' + Wt.s + (Wt.acc ? ' · +' + Wt.acc + ' hit' : '') + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action && !Wt.empty, fn: function () { CB.aim = 'throw'; say(Wt.bow ? 'Shoot' : 'Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal ' + (Wt.bow ? 'shot' : 'throw') + '; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
     ]);
   }
   function cbMenuToggle(which) {
@@ -497,6 +497,7 @@
   }
   function cbThrowable() {
     var bw = CHAR && CHAR.wield && launcherOf(CHAR.wield); // holding a bow: Throw becomes Shoot, and the bow stays in your hands
+    var wi = bw && wieldItem(); if (wi && wi.noTank) return { name: '(no air)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true, ammoKind: 'air', noAir: true };
     if (bw) { var am = ammoPick(bw.ammo || 'arrow');
       if (!am) return { name: '(no ' + (bw.ammo || 'arrow') + 's)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true, ammoKind: bw.ammo || 'arrow' };
       var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: A.s, acc: (A.acc || 0) + (bw.acc || 0), onHit: A.onHit || null, edmg: A.edmg || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am, ammoKind: bw.ammo || 'arrow', shots: bw.shots || 1, pose: bw.pose || 'bow', fly: bw.fly || 'arrow' }; }
@@ -701,6 +702,7 @@
     if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can ' + (Wt.bow ? 'shoot' : 'throw') + ' up to ' + Wt.long + '.', 2600); return; }
     if (!los(P.x, P.z, e.x, e.z)) { say('No line of sight', 'Something solid is between you and ' + e.name + '.', 2600); return; }
     CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); if (!Wt.bow) kitOneShot('Spell_Simple_Shoot'); cbHUD();
+    if (Wt.noAir) { say('No air', 'The tank is off. Inventory → the marker → Screw a CO2 tank on.', 3000); CB.busy = false; CB.res.action = 1; cbHUD(); return; }
     if (Wt.empty) { say('Out of ' + (Wt.ammoKind || 'arrow') + 's', AMMO_HINT[Wt.ammoKind] || 'Craft or find some.', 2600); CB.busy = false; CB.res.action = 1; cbHUD(); return; }
     var Wp = { name: (Wt.bow ? Wt.ammo.name.toLowerCase().replace(/s$/, '') : 'thrown ' + Wt.name.replace(/^(your|a) /, '')), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat] + (Wt.acc || 0), dmgB: MOD[Wt.stat], range: Wt.range, onHit: Wt.onHit || null, edmg: Wt.edmg || null };
     var spend = function () { // one piece of ammo per shot; paintballs never come back

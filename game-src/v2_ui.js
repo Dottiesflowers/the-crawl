@@ -178,6 +178,7 @@
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
     if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Load these first']);
+    if (it.name === 'Acid Splat Marker') acts.push(it.noTank ? ((CHAR.gear || []).some(function (g) { return g.name === 'CO2 tank'; }) ? ['tankon', 'Screw a CO2 tank on'] : null) : ['tankoff', 'Unscrew the CO2 tank']);
     acts = acts.concat(lampActs(it));
     if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
     if (hotEligible(it)) if (hotHas(it.name)) acts.push(['unhot', 'Take off hot bar']); else { acts.push(['hot', 'Put on ' + (hotKind(it) === 'eat' ? 'Consumables' : 'Gear') + ' bar']); acts.push(['hotO', 'Put on ' + (hotKind(it) === 'eat' ? 'Gear' : 'Consumables') + ' bar']); } if (loreHidden(it).length) acts.push(['inspect', 'Inspect (INT + Alchemy)']);
@@ -196,6 +197,8 @@
     if (a === 'wield') { if (CHAR.back === it.name && (CHAR.gear || []).filter(function (g) { return g.name === it.name; }).length < 2) CHAR.back = CHAR.wield || null; CHAR.wield = it.name; buildHero(); say('In hand · ' + it.name, 'You will fight with it: ' + it.dmg + ' damage.', 3000); }
     if (a === 'unwield') { CHAR.wield = null; buildHero(); }
     if (a === 'nock') { CHAR.ammo = it.name; saveChar(CHAR); say('Arrows · ' + it.name, 'Your bow shoots these first.', 2600); }
+    if (a === 'tankoff') { it.noTank = true; var tk = item('CO2 tank', { from: 'your paintball marker' }); if (tk) invAdd(tk, true); saveChar(CHAR); if (CHAR.wield === it.name) buildHero(); say('CO2 tank', 'Unscrewed with a hiss. The marker will not shoot until a tank goes back on. Try jury-rigging the tank.', 4000); }
+    if (a === 'tankon') { var t2 = (CHAR.gear || []).filter(function (g) { return g.name === 'CO2 tank'; })[0]; if (t2) { t2.qty = (t2.qty || 1) - 1; if (t2.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(t2), 1); it.noTank = false; saveChar(CHAR); if (CHAR.wield === it.name) buildHero(); say('CO2 tank', 'Screwed on. Pressure is up. Ready to splat.', 3000); } }
     if (a === 'unnock') { CHAR.ammo = null; saveChar(CHAR); }
     if (a === 'wear') wear(it);
     if (a === 'unwear') { it.worn = false; look[it.slot] = [0, 0]; buildHero(); saveLook(); }
@@ -587,14 +590,44 @@
       [-1, 1].forEach(function (sd) { var pr = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.015, 0.12, 5), wd); pr.position.set(sd * 0.03, 0.18, 0); pr.rotation.z = -sd * 0.45; g.add(pr);
         var tu = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 4), tb); tu.position.set(sd * 0.035, 0.24, -0.05); tu.rotation.x = 1.1; g.add(tu); });
       var pc = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.03), lt); pc.position.set(0, 0.22, -0.1); g.add(pc); return; }
-    if (IB.proc === 'marker') { // the Acid Splat Marker: a paintball gun, barrel up the hand, a sloshing green hopper
-      var bk = new THREE.MeshLambertMaterial({ color: 0x2a2e32 }), nz = new THREE.MeshLambertMaterial({ color: 0x9aff3a, emissive: 0x2a6010 }), hp = new THREE.MeshLambertMaterial({ color: 0x8aef4a, transparent: true, opacity: 0.75, emissive: 0x1a4a0a });
-      var bd = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.07), bk); bd.position.y = 0.14; g.add(bd);
-      var br = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.22, 8), bk); br.position.y = 0.36; g.add(br);
-      var tp = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.03, 8), nz); tp.position.y = 0.46; g.add(tp);
-      var ho = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), hp); ho.position.set(0, 0.17, 0.07); ho.scale.set(1, 1.3, 1); g.add(ho);
-      var gp2 = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.08, 0.04), bk); gp2.position.set(0, 0.03, -0.03); g.add(gp2);
-      var st2 = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.2, 0.01), nz); st2.position.set(0.027, 0.14, 0); g.add(st2); return; }
+    if (IB.proc === 'marker') { // the Acid Splat Marker, after Michael's photo: gold carbon-fibre body, big black loader, long ported barrel, foregrip, air tank off the back
+      // frame: +y down the barrel, +z the top of the gun, the hand round the grip at the origin
+      var MK = gearModel.mk || (gearModel.mk = (function () {
+        var cv = document.createElement('canvas'); cv.width = cv.height = 64; var c2 = cv.getContext('2d'); // carbon weave in gold
+        for (var yy = 0; yy < 8; yy++) for (var xx = 0; xx < 8; xx++) { var on = (xx + yy) % 2; var gr = c2.createLinearGradient(xx * 8, yy * 8, xx * 8 + 8, yy * 8 + 8); gr.addColorStop(0, on ? '#f0b440' : '#8a5a14'); gr.addColorStop(1, on ? '#b07818' : '#5a3a0a'); c2.fillStyle = gr; c2.fillRect(xx * 8, yy * 8, 8, 8); }
+        var tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(2, 3);
+        var cv2 = document.createElement('canvas'); cv2.width = 64; cv2.height = 64; var c3 = cv2.getContext('2d'); c3.fillStyle = '#16181b'; c3.fillRect(0, 0, 64, 64); c3.fillStyle = '#d8dcdf'; // tank: black with white racing slashes, no lettering
+        [[18, 7], [30, 3]].forEach(function (b) { c3.save(); c3.translate(32, 32); c3.rotate(-0.5); c3.fillRect(-40, b[0] - 32, 80, b[1]); c3.restore(); });
+        return { gold: new THREE.MeshLambertMaterial({ map: tx }), blk: new THREE.MeshLambertMaterial({ color: 0x1c1e21 }), mat: new THREE.MeshLambertMaterial({ color: 0x2c3034 }),
+          tank: new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(cv2) }), brass: new THREE.MeshLambertMaterial({ color: 0xc8a040 }), acid: new THREE.MeshLambertMaterial({ color: 0x7ad830, emissive: 0x2a6a0a, transparent: true, opacity: 0.8 }) };
+      })());
+      var bx = function (w, l, h, m, x, y, z, rx) { var o = new THREE.Mesh(new THREE.BoxGeometry(w, l, h), m); o.position.set(x, y, z); if (rx) o.rotation.x = rx; g.add(o); return o; };
+      var cy = function (r1, r2, l, m, x, y, z, rx, seg) { var o = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, l, seg || 10), m); o.position.set(x, y, z); if (rx) o.rotation.x = rx; g.add(o); return o; };
+      bx(0.034, 0.075, 0.09, MK.mat, 0, -0.005, 0, 0.2); // grip frame, raked back
+      bx(0.036, 0.02, 0.055, MK.blk, 0, 0.028, -0.002, 0.15); // grip front strap
+      bx(0.03, 0.035, 0.012, MK.blk, 0, 0.05, 0.03); // trigger guard bottom
+      bx(0.006, 0.006, 0.03, MK.brass, 0, 0.038, 0.042); // trigger
+      bx(0.04, 0.24, 0.06, MK.gold, 0, 0.04, 0.075); // gold carbon body
+      bx(0.042, 0.04, 0.062, MK.blk, 0, -0.085, 0.075); // back cap
+      bx(0.03, 0.12, 0.012, MK.blk, 0, 0.06, 0.109); // top rail
+      cy(0.012, 0.012, 0.32, MK.blk, 0, 0.32, 0.085); // barrel
+      cy(0.016, 0.016, 0.07, MK.mat, 0, 0.45, 0.085); // ported tip
+      [0.43, 0.45, 0.47].forEach(function (yy) { bx(0.034, 0.006, 0.006, MK.blk, 0, yy, 0.085); });
+      cy(0.017, 0.017, 0.03, MK.acid, 0, 0.49, 0.085); // a lick of acid green at the muzzle
+      bx(0.03, 0.03, 0.085, MK.mat, 0, 0.13, 0.005); // vertical foregrip
+      cy(0.01, 0.012, 0.05, MK.blk, 0, 0.0, 0.13, Math.PI / 2); // feedneck (stands up from the body)
+      var hop = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 10), MK.blk); hop.scale.set(0.95, 1.55, 0.85); hop.position.set(0, -0.005, 0.185); g.add(hop); // the loader
+      bx(0.07, 0.12, 0.012, MK.mat, 0, 0.0, 0.228); // loader lid ridge
+      var win = new THREE.Mesh(new THREE.SphereGeometry(0.061, 14, 10, 0, Math.PI * 2, 1.25, 0.22), MK.acid); win.scale.set(0.95, 1.55, 0.85); win.position.copy(hop.position); g.add(win); // a green window full of acid paintballs
+      if (!it.noTank) { // the air tank, off the back of the grip and dipping a little (it can come off: see markerTank)
+        var tk = new THREE.Group(); tk.position.set(0, -0.06, -0.055); tk.rotation.x = 0.22; g.add(tk);
+        var tb2 = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.15, 14), MK.tank); tb2.position.y = -0.1; tk.add(tb2);
+        var dm = new THREE.Mesh(new THREE.SphereGeometry(0.036, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), MK.tank); dm.rotation.x = Math.PI; dm.position.y = -0.175; tk.add(dm);
+        var rg = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 0.03, 8), MK.blk); rg.position.y = -0.015; tk.add(rg);
+        var ga = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.006, 8), MK.brass); ga.rotation.z = Math.PI / 2; ga.position.set(0.015, -0.015, 0); tk.add(ga);
+      }
+      bx(0.03, 0.04, 0.02, MK.blk, 0, -0.03, -0.045); // ASA under the grip
+      return; }
     if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) {
       g.traverse(function (o) { if (!o.isMesh) return; if (IB.skin && WSKIN[IB.skin]) { o.material = wskinMat(IB.skin); return; } if (!o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); // the rust textures are dark: lift them so they read in hand
       return;
