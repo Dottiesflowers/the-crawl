@@ -3,7 +3,7 @@
   // One effect menu the engine understands. Boss weaknesses use it with fixed numbers; "Try something" lets the
   // System AI rule on any plan the player types, but it can only pick from this menu, so fights stay fair.
   // Each crawler gets TRY_MAX tries; one comes back TRY_MS after it is used.
-  var TRY_MAX = 2, TRY_MS = 10 * 60 * 1000;
+  var TRY_MAX = 2, TRY_MS = 30 * 60 * 1000;
   var FX_TYPES = { damage: 1, prone: 1, stun: 1, distract: 1, adv: 1, push: 1, burn: 1, weaken: 1, calm: 1, reveal: 1, heal: 1, guards_leave: 1, self_prone: 1, provoke: 1, self_damage: 1, none: 1 };
 
   // ---------- each boss's weaknesses: what the game knows for sure ----------
@@ -119,7 +119,7 @@
     if (!triesLeft()) { say('Out of ideas', 'You have used all ' + tryMax() + ' of your tries. The next one comes back in ' + Math.ceil(nextTryIn() / 60000) + ' minutes.', 4000); return; }
     cbMenuClose(); if (typeof closeMenu === 'function') closeMenu();
     TRY.target = target || null; var el = tryUI(); TRY.open = true;
-    document.getElementById('tryInfo').textContent = 'Uses ' + (CB.on ? 'your action and ' : '') + 'one of your tries (' + triesLeft() + ' left; each comes back 10 minutes after use). The System decides what roll it takes and what happens.';
+    document.getElementById('tryInfo').textContent = 'Uses ' + (CB.on ? 'your action and ' : '') + 'one of your tries (' + triesLeft() + ' left; each comes back ' + Math.round(TRY_MS / 60000) + ' minutes after use). The System decides what roll it takes and what happens.';
     document.getElementById('tryTxt').value = ''; el.classList.add('on'); setTimeout(function () { document.getElementById('tryTxt').focus(); }, 50);
   }
   function tryContext(target) {
