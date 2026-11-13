@@ -172,7 +172,7 @@
   function renameOld(c) {
     var f = function (n) { return RENAMED[n] || n; };
     (c.gear || []).forEach(function (g) { if (RENAMED[g.name]) { g.name = RENAMED[g.name]; var I = ITEMS[g.name]; if (I) g.desc = I.desc; } });
-    (c.gear || []).forEach(function (g) { var I = ITEMS[g.name]; if (!I || g.crafted) return; ['dmg', 'bonus', 'desc', 'rarity'].forEach(function (k) { if (I[k] !== undefined) g[k] = I[k]; }); }); // catalog tweaks reach items already in bags
+    (c.gear || []).forEach(function (g) { var I = ITEMS[g.name]; if (!I || g.crafted) return; ['cat', 'dmg', 'bonus', 'desc', 'rarity'].forEach(function (k) { if (I[k] !== undefined) g[k] = I[k]; }); if (c.wield === g.name && I.cat !== 'weapon' && !I.light) c.wield = null; }); // catalog tweaks reach items already in bags
     ['wield', 'back', 'ammo'].forEach(function (k) { if (c[k]) c[k] = f(c[k]); }); ['hotbar', 'hotbar2'].forEach(function (k) { if (c[k]) c[k] = c[k].map(function (n) { return n && f(n); }); });
     return c;
   }

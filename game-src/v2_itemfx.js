@@ -53,9 +53,10 @@
   function castSpell(it, e) {
     var S = it.spell; if (!S || !e) return false;
     if (CB.on && (!cbMyTurn() || CB.busy || !CB.res.action)) { say('Not now', 'Casting takes your action, on your turn.', 2500); return false; }
+    var bat = null; if (S.needs === 'battery') { bat = (CHAR.gear || []).filter(function (g) { return (g.tags || []).indexOf('battery') >= 0 || /^AA batteries$/i.test(g.name); })[0]; if (!bat) { say(it.name, 'Nothing to power them. You need batteries in your bag.', 3000); return false; } }
     if (CB.on) { CB.res.action = 0; CB.busy = true; cbHUD(); }
     if (typeof cbFaceHero === 'function') cbFaceHero(e.x, e.z); kitOneShot('Punch_Jab');
-    var name = it.name, notes = [], first = e; itemSpend(it); skillCount('magic');
+    var name = it.name, notes = [], first = e; if (it.uses || it.cat !== 'tool') itemSpend(it); /* tools without charges are kept */ skillCount('magic');
     function finish() {
       if (CB.on) CB.busy = false; var started = !CB.on; afterTrick(first.dead ? null : first);
       setTimeout(function () { say(name, notes.join(' ') || 'The magic fizzles.', 6000); }, started && CB.on ? 1400 : 0);
@@ -71,6 +72,16 @@
         vfxBolt('missile', P.px, P.pz, t.px, t.pz, function () { var r = spellHurt(t, S.dice, S.type || 'force'); (tally[t.name] = tally[t.name] || []).push(parseInt(r, 10) || 0); setTimeout(next, 60); }, { n: 1 });
       })();
       return true;
+    }
+    if (S.kind === 'shock') { // clamp on: a hit roll with your hands (proficiency + DEX), then the batteries do the rest
+      var sb = PROF() + MOD.DEX, sac = acOf(e), SR = roll20(false, false), stt = SR.r + sb, shit = SR.r === 20 || (SR.r !== 1 && stt >= sac);
+      diceShow({ who: 'You', vs: e.name, R: SR, bonus: sb, tot: stt, ac: sac, hit: shit, why: ['clamping on with ' + name.toLowerCase()] });
+      if (!shit) { notes.push('You miss with the clamps.'); finish(); return true; }
+      vfxArc(P.px, 0.9, P.pz, e.px, (e.def.h || 1) * 0.6, e.pz, 0x9ad8ff, 0.45, 0.05);
+      notes.push(e.name + ' takes ' + spellHurt(e, S.dice, S.type, SR.r === 20) + ' damage.');
+      if (S.water && ch(e.x, e.z) === '~') { var wet = CB.enemies.filter(function (q) { return q !== e && !q.dead && !q.npc && ch(q.x, q.z) === '~' && cheb(q.x, q.z, e.x, e.z) <= S.water; }); wet.forEach(function (q) { vfxArc(e.px, 0.3, e.pz, q.px, 0.3, q.pz, 0x9ad8ff, 0.4, 0.04); spellHurt(q, S.dice, S.type); }); if (wet.length) notes.push('The water carries it to ' + wet.map(function (q) { return q.name; }).join(', ') + '.'); }
+      if (bat && Math.random() < 0.25) { bat.qty = (bat.qty || 1) - 1; if (bat.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(bat), 1); notes.push('The batteries die.'); saveChar(CHAR); }
+      finish(); return true;
     }
     // a bolt: a spell attack roll against AC
     var bon = PROF() + spellMod(), ac = acOf(e), R = roll20(false, false), tot = R.r + bon, hit = R.r === 20 || (R.r !== 1 && tot >= ac), crit = R.r === 20;

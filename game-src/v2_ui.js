@@ -597,7 +597,7 @@
         var tu = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 4), tb); tu.position.set(sd * 0.035, 0.24, -0.05); tu.rotation.x = 1.1; g.add(tu); });
       var pc = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.03), lt); pc.position.set(0, 0.22, -0.1); g.add(pc); return; }
     // everyday weapons built from Michael's reference photos. Frame: the hand at the origin, the item up +y, +z is the side that faces away from you
-    if (IB.proc === 'racket' || IB.proc === 'crowbar' || IB.proc === 'cleaver' || IB.proc === 'drill' || IB.proc === 'golf' || IB.proc === 'keyboard' || IB.proc === 'plunger' || IB.proc === 'mop' || IB.proc === 'hedge') {
+    if (IB.proc === 'racket' || IB.proc === 'crowbar' || IB.proc === 'cleaver' || IB.proc === 'drill' || IB.proc === 'golf' || IB.proc === 'keyboard' || IB.proc === 'plunger' || IB.proc === 'mop' || IB.proc === 'hedge' || IB.proc === 'stapler' || IB.proc === 'rake' || IB.proc === 'broom' || IB.proc === 'chef') {
       var LM = function (c, e) { return new THREE.MeshLambertMaterial({ color: c, emissive: e || 0x000000 }); };
       var bxm = function (w, h, d, m, x, y, z) { var o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); g.add(o); return o; };
       var cym = function (r1, r2, h, m, x, y, z, seg) { var o = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg || 10), m); o.position.set(x, y, z); g.add(o); return o; };
@@ -659,6 +659,38 @@
           seg(blkH, 0.016, g0p, g1p); seg(redH, 0.011, g1p, j); seg(gry, 0.009, j, pvt);
           var bd = new V().subVectors(tip, pvt), bl = new THREE.Mesh(new THREE.BoxGeometry(0.004, bd.length(), 0.032), sd < 0 ? blkH : slv); bl.position.copy(pvt).addScaledVector(bd, 0.5); bl.position.x = sd * 0.0025; bl.quaternion.setFromUnitVectors(new V(0, 1, 0), bd.clone().normalize()); g.add(bl); });
         var pv = cym(0.014, 0.014, 0.012, LM(0xe8e8e8), 0, PY, 0); pv.rotation.z = Math.PI / 2;
+        return; }
+      if (IB.proc === 'stapler') { // glossy red arm over a black base, chrome head and anvil, held by the back end
+        var rdS = new THREE.MeshPhongMaterial({ color: 0xc81e1e, shininess: 70, specular: 0x553333 }), bkS = LM(0x1a1a1c), crS = LM(0xc0c6cc, 0x16181a);
+        bxm(0.032, 0.21, 0.012, bkS, 0, 0.06, -0.016); bxm(0.03, 0.2, 0.01, rdS, 0, 0.065, -0.006); // base
+        var arm = bxm(0.03, 0.17, 0.032, rdS, 0, 0.08, 0.022); arm.rotation.x = 0.06; // the top arm
+        bxm(0.031, 0.04, 0.04, rdS, 0, -0.025, 0.012); // the hinge end you hold
+        bxm(0.016, 0.018, 0.016, crS, 0, 0.155, 0.002); bxm(0.018, 0.03, 0.002, crS, 0, 0.15, -0.0005); // chrome head and anvil
+        return; }
+      if (IB.proc === 'rake') { // a leaf rake: wooden handle, green neck, a fan of curved tines with a crossbar
+        var wdR = LM(0xb87a40), grn = LM(0x1e4a2e);
+        cym(0.012, 0.012, 0.72, wdR, 0, 0.25, 0); cym(0.016, 0.01, 0.06, grn, 0, 0.63, 0);
+        for (var ti = 0; ti < 17; ti++) { var f = (ti - 8) / 8, tn = new THREE.Group(); tn.position.set(f * 0.03, 0.66, 0); tn.rotation.z = -f * 0.55; g.add(tn);
+          var t1 = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.2, 0.004), grn); t1.position.y = 0.1; tn.add(t1);
+          var t2 = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.035, 0.004), grn); t2.position.set(0, 0.21, 0.012); t2.rotation.x = 0.8; tn.add(t2); } // tips curl toward the ground side
+        var cb = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.005, 4, 20, 1.1), grn); cb.position.set(0, 0.62, 0); cb.rotation.z = Math.PI / 2 - 0.55; g.add(cb);
+        return; }
+      if (IB.proc === 'broom') { // after Michael's photo: red-brown handle, a rounded straw top flaring into a flat fan, teal stitching
+        var bc = document.createElement('canvas'); bc.width = 64; bc.height = 32; var bx2 = bc.getContext('2d'); bx2.fillStyle = '#c8b060'; bx2.fillRect(0, 0, 64, 32);
+        for (var bi = 0; bi < 40; bi++) { bx2.strokeStyle = ['#a89040', '#e0cc80', '#b8a050'][bi % 3]; bx2.beginPath(); var xx = Math.random() * 64; bx2.moveTo(xx, 0); bx2.lineTo(xx + (Math.random() - 0.5) * 4, 32); bx2.stroke(); }
+        var strw = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(bc) }), tl = LM(0x2a9aa8);
+        cym(0.012, 0.012, 0.72, LM(0x8a2a1c), 0, 0.25, 0);
+        var top = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), strw); top.scale.set(1, 0.9, 0.55); top.rotation.x = Math.PI; top.position.y = 0.63; g.add(top);
+        var fan = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.035, 0.3, 14, 1, false), strw); fan.scale.set(1, 1, 0.3); fan.position.y = 0.78; g.add(fan);
+        [0.68, 0.695, 0.71, 0.725].forEach(function (yy) { var rr = 0.035 + (yy - 0.63) * 0.32; var band = new THREE.Mesh(new THREE.CylinderGeometry(rr + 0.004, rr + 0.004, 0.007, 14), tl); band.scale.set(1, 1, 0.3); band.position.y = yy; g.add(band); });
+        return; }
+      if (IB.proc === 'chef') { // black riveted handle, steel bolster, a wide blade tapering to a point, edge facing out
+        var bkC = LM(0x1a1a1c), stC = LM(0x7c848c, 0x06080a), rv = LM(0xc8ccd0);
+        bxm(0.016, 0.11, 0.024, bkC, 0, 0, 0); [-0.03, 0, 0.03].forEach(function (yy) { [-1, 1].forEach(function (sd) { cym(0.004, 0.004, 0.002, rv, sd * 0.0085, yy, 0, 8).rotation.z = Math.PI / 2; }); });
+        bxm(0.018, 0.016, 0.03, stC, 0, 0.062, 0.002); // bolster
+        var sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(0.2, -0.002); sh.lineTo(0.215, 0.006); sh.quadraticCurveTo(0.12, 0.03, 0, 0.042); sh.lineTo(0, 0);
+        var bg = new THREE.ExtrudeGeometry(sh, { depth: 0.003, bevelEnabled: false }); bg.applyMatrix4(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0))); bg.translate(-0.0015, 0.07, -0.012);
+        g.add(new THREE.Mesh(bg, stC));
         return; }
       if (IB.proc === 'drill') { // red and black body, pistol grip, battery pack, chuck and bit
         var red = LM(0xc8241c), bk = LM(0x24262a), sil = LM(0xa8acb2, 0x101214);

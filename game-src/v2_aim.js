@@ -70,7 +70,7 @@
     }
     var R = aimRange(), dist = cheb(P.x, P.z, x, z);
     if (visNow[x + ',' + z] === undefined && !(e && e.obj.visible)) { say('You cannot see there', 'You can only throw at what you can see.', 2400); return; }
-    if (dist > R.far) { say('Too far', 'That is ' + dist * 5 + ' feet away. You can throw ' + R.far * 5 + ' feet at most.', 2600); return; }
+    if (dist > R.far) { say('Too far', 'That is ' + dist * 5 + ' feet away. ' + (it.spell ? (it.spell.range === 1 ? 'You have to be right next to it.' : 'It reaches ' + R.far * 5 + ' feet.') : 'You can throw ' + R.far * 5 + ' feet at most.'), 2600); return; }
     if (!los(P.x, P.z, x, z)) { say('No line of sight', 'Something solid is in the way.', 2400); return; }
     if (it.spell) { aimStop(); castSpell(it, e); return; }
     var lit = AIM.lit; aimStop();
