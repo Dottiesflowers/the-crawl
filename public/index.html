@@ -7560,19 +7560,19 @@
     'Box cutter': { cat: 'weapon', dmg: '1d4', tags: ['sharp'], level: 1, desc: 'Retractable, for safety. Ha.' },
     'Chef\'s knife': { cat: 'weapon', dmg: '1d4', crit: 19, tags: ['sharp'], level: 1, desc: 'German steel. Still has the price sticker. Crits on 19-20.' },
     'Letter opener': { cat: 'weapon', proc: 'letteropener', dmg: '1d4', tags: ['sharp'], level: 1, desc: 'A retirement gift. The plaque says Tom.' },
-    'Golf club (7 iron)': { cat: 'weapon', dmg: '1d6', crit: 19, tags: ['long'], level: 1, desc: 'From a set no one finished paying for. Crits on 19-20 if you yell "fore".' },
+    'Golf club (7 iron)': { cat: 'weapon', proc: 'golf', dmg: '1d6', crit: 19, tags: ['long'], level: 1, desc: 'From a set no one finished paying for. Crits on 19-20 if you yell "fore".' },
     'Cast iron skillet': { cat: 'weapon', dmg: '1d6', ac: 1, tags: ['heavy'], level: 1, desc: 'Seasoned for eleven years. +1 AC while you hold it up.' },
     'Meat tenderizer': { cat: 'weapon', dmg: '1d6', onHit: { type: 'weaken', ac: 1, turns: 1, chance: 1 }, level: 1, desc: 'The waffle pattern leaves a mark. Hits knock 1 off its armor.' },
     'Rolling pin': { cat: 'weapon', dmg: '1d4', onHit: { type: 'prone', chance: 0.25 }, level: 1, desc: 'Grandma energy. Sometimes knocks them flat.' },
     'Broom': { cat: 'weapon', dmg: '1d4', tags: ['long', 'flammable', 'wood'], level: 1, desc: 'Witches have not called dibs.' },
-    'Mop': { cat: 'weapon', dmg: '1d4', tags: ['long', 'absorbent', 'wood'], level: 1, desc: 'Wet floor sign not included. Cleans up slime.' },
+    'Mop': { cat: 'weapon', proc: 'mop', dmg: '1d4', tags: ['long', 'absorbent', 'wood'], level: 1, desc: 'Wet floor sign not included. Cleans up slime.' },
     'Rake': { cat: 'weapon', dmg: '1d6', tags: ['long', 'wood'], level: 1, desc: 'Every cartoon warned you.' },
-    'Plunger': { cat: 'weapon', dmg: '1d4', level: 1, desc: 'Unused. Allegedly.' },
+    'Plunger': { cat: 'weapon', proc: 'plunger', dmg: '1d4', level: 1, desc: 'Unused. Allegedly.' },
     'Tennis racket': { cat: 'weapon', proc: 'racket', dmg: '1d4', level: 1, desc: 'Restrung once, in 2012.' },
-    'Ergonomic keyboard': { cat: 'weapon', dmg: '1d4', breaks: 'Loose keyboard keys', level: 1, desc: 'Split down the middle, like the office. It survives exactly one hit, then it is a handful of plastic.' },
+    'Ergonomic keyboard': { cat: 'weapon', proc: 'keyboard', dmg: '1d4', breaks: 'Loose keyboard keys', level: 1, desc: 'Split down the middle, like the office. It survives exactly one hit, then it is a handful of plastic.' },
     'Loose keyboard keys': { cat: 'material', tags: ['plastic', 'sharp', 'small'], level: 1, icon: 'laptop', desc: 'What is left of an ergonomic keyboard after you hit something with it. QWERTY, mostly. Scatter them, glue them, jury-rig them.' },
     'Stapler': { cat: 'weapon', dmg: '1d2', level: 1, desc: 'Someone wrote their name on it in Sharpie. Mostly insulting.' },
-    'Hedge trimmers': { cat: 'weapon', dmg: '1d6', tags: ['sharp', 'long'], level: 1, desc: 'Long handles. Longer reach. Very satisfying.' },
+    'Hedge trimmers': { cat: 'weapon', proc: 'hedge', dmg: '1d6', tags: ['sharp', 'long'], level: 1, desc: 'Long handles. Longer reach. Very satisfying.' },
     'Bike lock and chain': { cat: 'weapon', dmg: '1d5', tags: ['heavy'], level: 1, desc: 'The key is somewhere. Somewhere.' },
     'Cordless drill': { cat: 'weapon', proc: 'drill', dmg: '1d6', checks: { Lockpicking: 2 }, level: 1, desc: 'Two batteries, neither charged. +2 to locks.' },
     'Jumper cables': { cat: 'weapon', dmg: '1d4', power: { dice: '2d3', type: 'lightning', water: 2 }, tags: ['conductive'], rarity: 'Uncommon', level: 1, desc: 'Red to dead, black to back. Or something. 1d4 as a whip; with batteries in your bag they bite for +2d3 shock (the batteries can die), and a shocked monster standing in water takes everything in the water within 2 tiles with it.' },
@@ -10790,7 +10790,7 @@
         var tu = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.1, 4), tb); tu.position.set(sd * 0.035, 0.24, -0.05); tu.rotation.x = 1.1; g.add(tu); });
       var pc = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.03), lt); pc.position.set(0, 0.22, -0.1); g.add(pc); return; }
     // everyday weapons built from Michael's reference photos. Frame: the hand at the origin, the item up +y, +z is the side that faces away from you
-    if (IB.proc === 'racket' || IB.proc === 'crowbar' || IB.proc === 'cleaver' || IB.proc === 'drill') {
+    if (IB.proc === 'racket' || IB.proc === 'crowbar' || IB.proc === 'cleaver' || IB.proc === 'drill' || IB.proc === 'golf' || IB.proc === 'keyboard' || IB.proc === 'plunger' || IB.proc === 'mop' || IB.proc === 'hedge') {
       var LM = function (c, e) { return new THREE.MeshLambertMaterial({ color: c, emissive: e || 0x000000 }); };
       var bxm = function (w, h, d, m, x, y, z) { var o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); g.add(o); return o; };
       var cym = function (r1, r2, h, m, x, y, z, seg) { var o = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg || 10), m); o.position.set(x, y, z); g.add(o); return o; };
@@ -10817,6 +10817,41 @@
         var bl = bxm(0.005, 0.16, 0.11, stl, 0, 0.145, 0.035); // the blade: spine over the handle, edge out front
         var hole = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.006, 10), LM(0x1a1a1a)); hole.rotation.z = Math.PI / 2; hole.position.set(0, 0.2, 0.0); g.add(hole);
         bxm(0.0052, 0.16, 0.006, LM(0xc4c8cc, 0x101214), 0, 0.145, 0.088); // bright honed edge
+        return; }
+      if (IB.proc === 'golf') { // black grip, long chrome shaft, a lofted wedge head
+        var blkG = LM(0x1c1e22), chr = LM(0xb8bec6, 0x14181c);
+        cym(0.015, 0.013, 0.2, blkG, 0, 0.03, 0); cym(0.016, 0.016, 0.008, LM(0x3ac0b8), 0, 0.13, 0);
+        cym(0.0055, 0.0075, 0.62, chr, 0, 0.44, 0); cym(0.009, 0.007, 0.03, blkG, 0, 0.76, 0);
+        var hd = bxm(0.016, 0.05, 0.085, chr, 0, 0.795, 0.035); hd.rotation.x = 0.35; var fc = bxm(0.017, 0.046, 0.07, LM(0xa8aeb6, 0x0c0e10), 0.0005, 0.795, 0.04); fc.rotation.x = 0.35; // the face
+        return; }
+      if (IB.proc === 'keyboard') { // a black split ergonomic keyboard, held by one end
+        var kc = document.createElement('canvas'); kc.width = 64; kc.height = 128; var kx = kc.getContext('2d'); kx.fillStyle = '#1a1b1e'; kx.fillRect(0, 0, 64, 128); kx.fillStyle = '#3a3c42';
+        for (var ky = 4; ky < 92; ky += 11) for (var kk = 4; kk < 60; kk += 11) if (!(ky > 40 && ky < 52)) kx.fillRect(kk, ky, 9, 9); // keys, with the split down the middle
+        kx.fillStyle = '#26282c'; kx.fillRect(4, 98, 56, 26); // wrist rest
+        var kmat = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(kc) }), kblk = LM(0x18191c);
+        [-1, 1].forEach(function (sd) { var hf = new THREE.Group(); hf.position.set(0, 0.2 + sd * 0.09, 0.02); hf.rotation.x = sd * 0.12; g.add(hf);
+          var body = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.18, 0.15), [kblk, kblk, kblk, kblk, kblk, kblk]); hf.add(body);
+          var top = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.18), kmat); top.rotation.y = Math.PI / 2; top.position.x = 0.0115; hf.add(top); });
+        bxm(0.026, 0.06, 0.04, kblk, 0, 0.05, -0.04); // the end you hold
+        return; }
+      if (IB.proc === 'plunger') { // a wooden handle and a red rubber cup
+        var wd = LM(0xc89a68), rub = LM(0xb8432a);
+        cym(0.013, 0.013, 0.5, wd, 0, 0.17, 0);
+        var neck = cym(0.022, 0.018, 0.035, rub, 0, 0.43, 0); var cup = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xb8432a, side: THREE.DoubleSide })); cup.scale.set(1, 0.8, 1); cup.position.y = 0.445; g.add(cup);
+        var lip = new THREE.Mesh(new THREE.TorusGeometry(0.069, 0.008, 6, 20), rub); lip.rotation.x = Math.PI / 2; lip.position.y = 0.445; g.add(lip); cup.rotation.x = Math.PI; cup.position.y = 0.5; lip.position.y = 0.5; // open end facing out
+        return; }
+      if (IB.proc === 'mop') { // a wooden handle and a skirt of cotton strings
+        var wdm = LM(0xc8944e), cot = LM(0xe8dcc0);
+        cym(0.013, 0.013, 0.7, wdm, 0, 0.25, 0); cym(0.022, 0.026, 0.035, cot, 0, 0.6, 0);
+        for (var mi = 0; mi < 22; mi++) { var an = mi / 22 * Math.PI * 2, sr = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.16 + (mi % 3) * 0.02, 0.01), cot); sr.position.set(Math.cos(an) * 0.03, 0.69, Math.sin(an) * 0.03); sr.rotation.set(Math.sin(an) * 0.14, 0, -Math.cos(an) * 0.14); g.add(sr); }
+        return; }
+      if (IB.proc === 'hedge') { // a scissor: grips apart, red handles meeting at the pivot, one black and one silver blade opening beyond it
+        var redH = LM(0xc8201c), blkH = LM(0x1c1d20), slv = LM(0x868e96), gry = LM(0x7a8088), PY = 0.38;
+        var seg = function (m, r, a, b) { var d = new THREE.Vector3().subVectors(b, a), o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, d.length(), 8), m); o.position.copy(a).addScaledVector(d, 0.5); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); g.add(o); return o; };
+        [-1, 1].forEach(function (sd) { var V = THREE.Vector3, g0p = new V(0, -0.06, sd * 0.05), g1p = new V(0, 0.04, sd * 0.042), j = new V(0, PY - 0.03, sd * 0.012), pvt = new V(0, PY, 0), tip = new V(0, PY + 0.3, -sd * 0.035);
+          seg(blkH, 0.016, g0p, g1p); seg(redH, 0.011, g1p, j); seg(gry, 0.009, j, pvt);
+          var bd = new V().subVectors(tip, pvt), bl = new THREE.Mesh(new THREE.BoxGeometry(0.004, bd.length(), 0.032), sd < 0 ? blkH : slv); bl.position.copy(pvt).addScaledVector(bd, 0.5); bl.position.x = sd * 0.0025; bl.quaternion.setFromUnitVectors(new V(0, 1, 0), bd.clone().normalize()); g.add(bl); });
+        var pv = cym(0.014, 0.014, 0.012, LM(0xe8e8e8), 0, PY, 0); pv.rotation.z = Math.PI / 2;
         return; }
       if (IB.proc === 'drill') { // red and black body, pistol grip, battery pack, chuck and bit
         var red = LM(0xc8241c), bk = LM(0x24262a), sil = LM(0xa8acb2, 0x101214);
