@@ -7346,6 +7346,23 @@
     KIT.overMixer.update(dt);
     if (KIT.bowT != null) kitBowPose(dt);
     if (KIT.strike) kitStrikePose(dt);
+    kitGrip2(dt);
+  }
+  // a two-handed weapon at rest: the off hand rides the shaft below the main hand
+  var GRIP2 = 0;
+  function kitGrip2(dt) {
+    var want = twoHandHeld() && !KIT.strike && KIT.bowT == null && !KIT.shot ? 1 : 0;
+    GRIP2 += (want - GRIP2) * Math.min(1, dt * 10); if (GRIP2 < 0.02) return;
+    var B = KIT.bones, mg = null; if (!B.upperarm_l) return;
+    for (var i = 0; i < held.length; i++) if (held[i].side > 0) { mg = held[i].g; break; } if (!mg) return;
+    hero.updateMatrixWorld(true);
+    var rh = B.hand_r.getWorldPosition(new THREE.Vector3()), ax = new THREE.Vector3(0, 1, 0).applyQuaternion(mg.getWorldQuaternion(new THREE.Quaternion()));
+    var sL = B.upperarm_l.getWorldPosition(new THREE.Vector3()), arm = sL.distanceTo(B.hand_l.getWorldPosition(new THREE.Vector3())) || 0.5;
+    var spear = /spear|pike|trident|staff|lance/i.test(CHAR.wield || '');
+    var h2 = rh.clone().addScaledVector(ax, -arm * (spear ? 0.42 : 0.16));
+    if (h2.distanceTo(sL) > arm * 1.9) return;
+    var el = sL.clone().lerp(h2, 0.5).addScaledVector(new THREE.Vector3(0, -1, 0), arm * 0.18);
+    bonePoint(B.upperarm_l, B.lowerarm_l, el, GRIP2); bonePoint(B.lowerarm_l, B.hand_l, h2, GRIP2);
   }
   // ---------- archery: no bow clip in the animation set, so the arms are posed in code ----------
   // 0-0.3 s raise the bow and nock, 0.3-0.75 draw the string to the chin, release at 0.75 (the arrow leaves from the bow hand), hold, lower
@@ -7619,7 +7636,7 @@
     'Rusty hatchet': { cat: 'weapon', dmg: '1d6', tags: ['sharp'], level: 2, model: 'w_axe1', len: 0.4, desc: 'A bearded axe from the bandit camp scene. The beard is the blade, not a man.' },
     'Rusty battleaxe': { cat: 'weapon', dmg: '1d10', twoHand: true, tags: ['sharp', 'heavy'], rarity: 'Uncommon', level: 2, model: 'w_axe2', len: 0.55, desc: 'Double-bladed and badly balanced. Hits like a falling set wall. Two-handed: no torch or shield with it.' },
     'Rusty flanged mace': { cat: 'weapon', dmg: '1d8', onHit: { type: 'prone', chance: 0.15 }, tags: ['heavy'], level: 2, model: 'w_mace', len: 0.46, desc: 'Iron flanges on a stick. Sometimes knocks them flat.' },
-    'Rusty spear': { cat: 'weapon', dmg: '1d8', tags: ['long', 'sharp'], level: 2, model: 'w_spear', len: 1.05, desc: 'Taller than you. The tip is the only part that was ever sharpened.' },
+    'Rusty spear': { cat: 'weapon', dmg: '1d8', twoHand: true, tags: ['long', 'sharp'], level: 2, model: 'w_spear', len: 1.05, desc: 'Taller than you. The tip is the only part that was ever sharpened.' },
     'Bandit\'s shortbow': { cat: 'weapon', dmg: '1d4', bow: { ammo: 'arrow', range: 16, long: 48 }, tags: ['light'], rarity: 'Uncommon', level: 2, model: 'w_bow', len: 0.72, desc: 'Hold it and Throw becomes Shoot, out to 16 tiles (48 at disadvantage). Needs arrows; the arrows decide the damage. You get half of them back after a fight. Up close it is just a stick (1d4).' },
     // clean steel: the same weapons, cared for. skin: repaint (steel, gold, storm, ember, frost, shadow) · acc: +N to hit (not magic)
     // edmg: { dice, type } extra damage of a type on every hit (doubled on a crit, doubled again vs monsters weak to it)
@@ -7627,12 +7644,12 @@
     'Steel longsword': { cat: 'weapon', dmg: '1d8', acc: 1, tags: ['sharp', 'long'], rarity: 'Uncommon', level: 2, model: 'w_sword2', skin: 'steel', len: 0.66, desc: 'The hero\'s sword, the one for close-ups. +1 to hit.' },
     'Steel broadsword': { cat: 'weapon', dmg: '1d8', acc: 1, onHit: { type: 'weaken', ac: 1, turns: 1, chance: 0.25 }, tags: ['sharp'], rarity: 'Uncommon', level: 2, model: 'w_sword3', skin: 'steel', len: 0.56, desc: 'Clean, wide and heavy. +1 to hit; sometimes knocks a chunk off their armor.' },
     'Steel battleaxe': { cat: 'weapon', dmg: '1d10', twoHand: true, acc: 1, tags: ['sharp', 'heavy'], rarity: 'Uncommon', level: 2, model: 'w_axe2', skin: 'steel', len: 0.55, desc: 'Sharpened on both sides. +1 to hit. Two-handed.' },
-    'Steel spear': { cat: 'weapon', dmg: '1d8', acc: 1, tags: ['long', 'sharp'], rarity: 'Uncommon', level: 2, model: 'w_spear', skin: 'steel', len: 1.05, desc: 'A proper spear with a proper point. +1 to hit.' },
+    'Steel spear': { cat: 'weapon', dmg: '1d8', twoHand: true, acc: 1, tags: ['long', 'sharp'], rarity: 'Uncommon', level: 2, model: 'w_spear', skin: 'steel', len: 1.05, desc: 'A proper spear with a proper point. +1 to hit.' },
     // uniques: bosses and elites only
     'Stormcaller Longsword +1': { cat: 'weapon', dmg: '1d8', bonus: 1, edmg: { dice: '1d4', type: 'lightning' }, tags: ['sharp', 'long', 'conductive'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'storm', len: 0.7, desc: 'Blue steel that will not stop crackling. +1 to hit and damage, plus 1d4 lightning on every hit. Animatronics hate it.' },
     'Emberbrand Battleaxe +1': { cat: 'weapon', dmg: '1d10', twoHand: true, bonus: 1, edmg: { dice: '1d4', type: 'fire' }, tags: ['sharp', 'heavy', 'fire'], rarity: 'Rare', level: 2, model: 'w_axe2', skin: 'ember', len: 0.6, desc: 'Black iron, hot to the touch, smells like a pyro test. +1, plus 1d4 fire. Mushrooms burn. Two-handed.' },
     'Frostbite Arming Sword +1': { cat: 'weapon', dmg: '1d6', crit: 19, bonus: 1, edmg: { dice: '1d4', type: 'cold' }, onHit: { type: 'stun', turns: 1, chance: 0.1 }, tags: ['sharp'], rarity: 'Rare', level: 2, model: 'w_sword1', skin: 'frost', len: 0.5, desc: 'Frosted white, and it fogs your breath. +1, plus 1d4 cold; now and then the cold locks them up for a turn.' },
-    'Nightshade Spear +1': { cat: 'weapon', dmg: '1d8', bonus: 1, edmg: { dice: '1d4', type: 'necrotic' }, tags: ['long', 'sharp'], rarity: 'Rare', level: 2, model: 'w_spear', skin: 'shadow', len: 1.1, desc: 'The point drinks the light around it. +1, plus 1d4 necrotic.' },
+    'Nightshade Spear +1': { cat: 'weapon', dmg: '1d8', twoHand: true, bonus: 1, edmg: { dice: '1d4', type: 'necrotic' }, tags: ['long', 'sharp'], rarity: 'Rare', level: 2, model: 'w_spear', skin: 'shadow', len: 1.1, desc: 'The point drinks the light around it. +1, plus 1d4 necrotic.' },
     'Enchanted Golden Prop Mace +1': { cat: 'weapon', dmg: '1d8', bonus: 1, crit: 19, onHit: { type: 'prone', chance: 0.25 }, tags: ['heavy'], rarity: 'Rare', level: 2, model: 'w_mace', skin: 'gold', len: 0.5, desc: 'Spray-painted gold for an awards episode. It is solid iron underneath. +1, crits on 19-20, knocks them flat a quarter of the time.' },
     'Stunt Coordinator\'s Greatsword +1': { cat: 'weapon', dmg: '2d6', twoHand: true, bonus: 1, tags: ['sharp', 'long', 'heavy'], rarity: 'Rare', level: 2, model: 'w_sword2', skin: 'steel', len: 0.95, desc: 'The big one. Choreographed a thousand fights, lost none of them. 2d6, +1. Two-handed.' },
     // ammo: cat misc so it stacks (qty). ammo: { kind (matches the launcher's bow.ammo), s: damage die, acc: +N to hit, onHit: rider }. twoHand: true = no torch, shield or dagger in the off hand. Jury-rig 2 parts: wood + a tip (see ARROWS in v2_craft.js)
@@ -7715,7 +7732,7 @@
     // ---- elite and boss drops (enchanted) ----
     'Enchanted Knobbly War Club +1': { cat: 'weapon', dmg: '1d6', bonus: 1, rarity: 'Uncommon', level: 1, desc: 'The war-chief carved notches in it. You do not want to count them.' },
     'Enchanted Clipboard of Authority +1': { cat: 'weapon', dmg: '1d4', bonus: 1, checks: { Intimidation: 2 }, rarity: 'Uncommon', level: 1, desc: 'Sharpened along one edge. People step aside for a clipboard.' },
-    'Warden\'s Reed Spear +1': { cat: 'weapon', dmg: '1d6', bonus: 1, tags: ['long'], rarity: 'Uncommon', level: 1, desc: 'Swamp-cured, light, and smells of the Gardens.' },
+    'Warden\'s Reed Spear +1': { cat: 'weapon', dmg: '1d6', twoHand: true, bonus: 1, tags: ['long'], rarity: 'Uncommon', level: 1, desc: 'Swamp-cured, light, and smells of the Gardens.' },
     'Head Clerk\'s Letter Opener +1': { cat: 'weapon', proc: 'letteropener', dmg: '1d4', bonus: 1, crit: 19, tags: ['sharp'], rarity: 'Uncommon', level: 1, desc: 'For opening letters, and other things. Crits on 19-20.' },
     'Gristle King\'s Cleaver +1': { cat: 'weapon', proc: 'cleaver', dmg: '1d8', bonus: 1, crit: 19, tags: ['sharp', 'heavy'], rarity: 'Rare', level: 1, desc: 'Grik\'s pride. Still greasy. Crits on 19-20.' },
     'Shop Steward\'s Gavel +1': { cat: 'weapon', dmg: '1d6', bonus: 1, onHit: { type: 'stun', turns: 1, chance: 0.15 }, rarity: 'Rare', level: 1, desc: 'Order! Order! Sometimes stuns on a hit.' },

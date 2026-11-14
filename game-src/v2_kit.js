@@ -250,6 +250,23 @@
     KIT.overMixer.update(dt);
     if (KIT.bowT != null) kitBowPose(dt);
     if (KIT.strike) kitStrikePose(dt);
+    kitGrip2(dt);
+  }
+  // a two-handed weapon at rest: the off hand rides the shaft below the main hand
+  var GRIP2 = 0;
+  function kitGrip2(dt) {
+    var want = twoHandHeld() && !KIT.strike && KIT.bowT == null && !KIT.shot ? 1 : 0;
+    GRIP2 += (want - GRIP2) * Math.min(1, dt * 10); if (GRIP2 < 0.02) return;
+    var B = KIT.bones, mg = null; if (!B.upperarm_l) return;
+    for (var i = 0; i < held.length; i++) if (held[i].side > 0) { mg = held[i].g; break; } if (!mg) return;
+    hero.updateMatrixWorld(true);
+    var rh = B.hand_r.getWorldPosition(new THREE.Vector3()), ax = new THREE.Vector3(0, 1, 0).applyQuaternion(mg.getWorldQuaternion(new THREE.Quaternion()));
+    var sL = B.upperarm_l.getWorldPosition(new THREE.Vector3()), arm = sL.distanceTo(B.hand_l.getWorldPosition(new THREE.Vector3())) || 0.5;
+    var spear = /spear|pike|trident|staff|lance/i.test(CHAR.wield || '');
+    var h2 = rh.clone().addScaledVector(ax, -arm * (spear ? 0.42 : 0.16));
+    if (h2.distanceTo(sL) > arm * 1.9) return;
+    var el = sL.clone().lerp(h2, 0.5).addScaledVector(new THREE.Vector3(0, -1, 0), arm * 0.18);
+    bonePoint(B.upperarm_l, B.lowerarm_l, el, GRIP2); bonePoint(B.lowerarm_l, B.hand_l, h2, GRIP2);
   }
   // ---------- archery: no bow clip in the animation set, so the arms are posed in code ----------
   // 0-0.3 s raise the bow and nock, 0.3-0.75 draw the string to the chin, release at 0.75 (the arrow leaves from the bow hand), hold, lower
