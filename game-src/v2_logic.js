@@ -56,10 +56,12 @@
   var FOG = { total: 0, seen: 0 };
   var LIT = { bazaar: 4, metro: 2, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1, lot: 4, dirt: 4, porch: 4, lawn: 4, green: 4, store: 2, house: 2, tent: 2, stage: 2, ship: 3 }; // well-lit places let you see farther
   function roomLit(r) { return r.type === 'safe' || r.type === 'boss' || r.type === 'stairs' || r.lit || (r.type !== 'corridor' && (LIT[r.theme] || 0) >= 2); }
+  var dmRevealed = false; // DM mode: the whole floor is explored, so the map shows everything
   function refreshFog() {
     streamChunks();
+    if (isDM() && !dmRevealed) { dmRevealed = true; for (var i0 = 0; i0 < W * H; i0++) tileState[i0] = tileState[i0] || 1; }
     sightI = sightNow(); var S = SIGHTS[sightI], here = roomInfo(P.x, P.z); var sl = document.getElementById('sight'); if (sl) sl.textContent = 'Sight: ' + S.name;
-    var R = S.r + ((here && LIT[here.theme]) || 0); visNow = {};
+    var R = S.r + ((here && LIT[here.theme]) || 0); if (isDM()) R = Math.max(R, 14); visNow = {};
     for (var z = P.z - R; z <= P.z + R; z++) for (var x = P.x - R; x <= P.x + R; x++) {
       if (x < 0 || z < 0 || x >= W || z >= H) continue;
       var d = Math.sqrt((x - P.x) * (x - P.x) + (z - P.z) * (z - P.z));
@@ -598,6 +600,7 @@
   window.__crawl.fx2 = { crank: cbCrank, xb: xbState, opts: cbOptions, resolve: cbResolve, pw: pcWeapon };
   window.__crawl.ed = { toggle: edToggle, tap: edTap, S: EDIT, apply: edApply };
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
+  window.__crawl.dmTest = function () { DM.as = 'dm'; refreshFog(); return Array.prototype.filter.call(tileState, function (v) { return v; }).length; }; window.__crawl.dmJump = function (x, z) { dmJump(x, z); return [P.x, P.z]; };
   window.__crawl.strike = function (slow) { KIT.slow = slow || 1; var W = pcWeapon(); return [W.style, kitStrike(W)]; }; window.__crawl.face = function (r) { hero.rotation.y = r; };
   window.__crawl.ach = { achieve: achieve, ACH: ACH, state: worldState, apply: worldApply, calm: calmSave, key: spawnKey, talkFight: function (e) { e.talk = e.talk || { lines: [], facts: [], mood: 'neutral' }; } }; // test hooks
   charInit(); cbHUD();

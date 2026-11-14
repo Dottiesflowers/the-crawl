@@ -26,7 +26,7 @@
     });
     var mini = document.createElement('canvas'); mini.id = 'mini'; mini.setAttribute('aria-label', 'Minimap: tap for the full map'); mini.onclick = function () { mapToggle(); }; document.body.appendChild(mini);
     var mf = document.createElement('div'); mf.id = 'mapFull'; mf.setAttribute('role', 'dialog'); mf.setAttribute('aria-label', 'Floor map');
-    mf.innerHTML = '<header><b>' + (FLOOR === 2 ? 'Floor 2 map · The Backlot' : 'Floor 1 map') + '</b><button type="button" class="xbtn" id="mapDM">DM</button><button type="button" class="xbtn" id="mapKey">Key</button><button type="button" class="xbtn" id="mapX">Close</button></header><canvas id="mapC" aria-label="Map: pinch or scroll to zoom, drag to move"></canvas>' +
+    mf.innerHTML = '<header><b>' + (FLOOR === 2 ? 'Floor 2 map · The Backlot' : 'Floor 1 map') + (isDM() ? ' · tap to jump' : '') + '</b><button type="button" class="xbtn" id="mapDM">DM</button><button type="button" class="xbtn" id="mapKey">Key</button><button type="button" class="xbtn" id="mapX">Close</button></header><canvas id="mapC" aria-label="Map: pinch or scroll to zoom, drag to move"></canvas>' +
       '<div id="mapTools"><button type="button" id="mapIn" aria-label="Zoom in">+</button><button type="button" id="mapOut" aria-label="Zoom out">−</button><button type="button" id="mapMe" aria-label="Center on me" style="font-size:15px">◎</button></div>' +
       '<div id="mapLeg" class="' + (innerWidth < 700 ? 'hide' : '') + '"><span><i style="background:#3df2e0"></i>You</span><span><i style="background:#ff4a6a"></i>Hostile</span><span><i style="background:#5f6"></i>Friendly</span><span><i style="background:#ffd34a"></i>Stairs</span><span><i style="background:#c98a4a"></i>Door</span><span><i style="background:#e0c060"></i>Loot box</span><span>✚ Safe room</span><span>☠ Boss</span><span>▼ Stairs</span><span>★ Secret</span></div>';
     document.body.appendChild(mf); document.getElementById('mapX').onclick = mapToggle; document.getElementById('mapDM').onclick = dmPanel; mapControls();
@@ -38,6 +38,13 @@
   // ---------- map ----------
   // full map view: zoom 1 = whole explored floor fits; pinch / scroll / buttons zoom, drag pans, ◎ recentres on you
   var MAPV = { zoom: 1, panX: 0, panZ: 0, follow: false };
+  // DM: jump to a tile (or the nearest one you can stand on), then close the map
+  function dmJump(tx, tz) {
+    if (CB.on) { say('DM', 'Finish the fight first.', 2000); return; }
+    for (var r = 0; r < 8; r++) for (var dz = -r; dz <= r; dz++) for (var dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+      if (heroTo(tx + dx, tz + dz)) { refreshFog(); enterRoom(); posStash(); if (UI.map) mapToggle(); var ri0 = roomInfo(P.x, P.z); say('DM', 'Jumped to ' + (ri0 && ri0.name ? ri0.name : 'tile ' + P.x + ', ' + P.z) + '.', 1800); return; } }
+    say('DM', 'Nothing to stand on there.', 1800);
+  }
   function mapControls() {
     var cv = document.getElementById('mapC'), pts = {}, last = null;
     function redraw() { if (UI.map) mapDraw(cv, true); }
@@ -51,13 +58,22 @@
     document.getElementById('mapMe').onclick = function () { MAPV.follow = true; if (MAPV.zoom < 4) MAPV.zoom = 4; redraw(); };
     document.getElementById('mapKey').onclick = function () { document.getElementById('mapLeg').classList.toggle('hide'); setTimeout(redraw, 0); };
     cv.addEventListener('wheel', function (e) { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.15 : 1 / 1.15); }, { passive: false });
-    cv.addEventListener('pointerdown', function (e) { cv.setPointerCapture(e.pointerId); pts[e.pointerId] = [e.clientX, e.clientY]; last = null; });
+    var tap = null;
+    cv.addEventListener('pointerdown', function (e) { cv.setPointerCapture(e.pointerId); pts[e.pointerId] = [e.clientX, e.clientY]; last = null; tap = Object.keys(pts).length === 1 ? { x: e.clientX, y: e.clientY, t: Date.now(), moved: false } : null; });
     cv.addEventListener('pointermove', function (e) {
-      if (!pts[e.pointerId]) return; var prev = pts[e.pointerId]; pts[e.pointerId] = [e.clientX, e.clientY]; var ids = Object.keys(pts);
+      if (!pts[e.pointerId]) return; var prev = pts[e.pointerId]; pts[e.pointerId] = [e.clientX, e.clientY]; var ids = Object.keys(pts); if (tap && (ids.length > 1 || Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8)) tap = null;
       if (ids.length >= 2) { var a = pts[ids[0]], b = pts[ids[1]], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (last) zoomBy(d / last); last = d; }
       else pan((e.clientX - prev[0]) * (window.devicePixelRatio || 1), (e.clientY - prev[1]) * (window.devicePixelRatio || 1));
     });
-    function up(e) { delete pts[e.pointerId]; last = null; }
+    function up(e) {
+      delete pts[e.pointerId]; last = null;
+      if (tap && e.type === 'pointerup' && isDM() && Date.now() - tap.t < 500) { // DM: tap the map to jump there
+        var rc = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1, k = MAPV.k || 1, ya = MAPV.ya || Math.PI / 4, yc = Math.cos(ya) * 1.4142, ys = Math.sin(ya) * 1.4142, det = yc * yc + ys * ys;
+        var sx = ((e.clientX - rc.left) * dpr - MAPV.ox) / k, sy = ((e.clientY - rc.top) * dpr - MAPV.oy) / k, tx = Math.round(MAPV.cx + (sx * yc + sy * ys) / det), tz = Math.round(MAPV.cz + (-sx * ys + sy * yc) / det);
+        dmJump(tx, tz);
+      }
+      tap = null;
+    }
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
   }
   function mapDraw(cv, full) {
@@ -71,7 +87,7 @@
     var ox = cv.width / 2, oy = cv.height / 2, cx = full ? (bx0 + bx1) / 2 : P.px, cz = full ? (bz0 + bz1) / 2 : P.pz;
     if (full) { if (MAPV.follow) { MAPV.panX = P.px - cx; MAPV.panZ = P.pz - cz; } cx += MAPV.panX; cz += MAPV.panZ; }
     var ya = typeof CAMV !== 'undefined' ? Math.PI / 4 + CAMV.yaw * Math.PI / 2 : Math.PI / 4, yc = Math.cos(ya) * 1.4142, ys = Math.sin(ya) * 1.4142;
-    if (full) { MAPV.k = k; MAPV.ya = ya; }
+    if (full) { MAPV.k = k; MAPV.ya = ya; MAPV.cx = cx; MAPV.cz = cz; MAPV.ox = ox; MAPV.oy = oy; }
     var tpx = k * 2; // on-screen size of one tile, in device pixels
     function tr(x, z) { var dx = x - cx, dz = z - cz; return [ox + (dx * yc - dz * ys) * k, oy + (dx * ys + dz * yc) * k]; }
     function cell(x, z, col) { var a = tr(x - .5, z - .5), b = tr(x + .5, z - .5), c = tr(x + .5, z + .5), d = tr(x - .5, z + .5); g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill(); }
@@ -121,7 +137,7 @@
     });
   }
   function mapToggle() {
-    UI.map = !UI.map; if (UI.map && UI.bag) bagToggle(); document.getElementById('mapFull').classList.toggle('on', UI.map);
+    UI.map = !UI.map; if (UI.map && UI.bag) bagToggle(); document.getElementById('mapFull').classList.toggle('on', UI.map); var mh = document.querySelector('#mapFull header b'); if (mh) mh.textContent = (FLOOR === 2 ? 'Floor 2 map · The Backlot' : 'Floor 1 map') + (isDM() ? ' · tap to jump there' : '');
     if (UI.map) mapDraw(document.getElementById('mapC'), true);
   }
   setInterval(function () { if (typeof P === 'undefined') return; var m = document.getElementById('mini'); m.style.display = gearOpen || CC || AUTH.open ? 'none' : ''; if (m.style.display !== 'none') mapDraw(m, false); if (UI.map) mapDraw(document.getElementById('mapC'), true); }, 250);
