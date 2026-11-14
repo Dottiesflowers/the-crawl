@@ -355,7 +355,13 @@
     var decor = decor || {}, dname = dname || {};
     function dec(x, z, m, o) { var d = { m: m }; for (var k in o) d[k] = o[k]; (decor[x + ',' + z] || (decor[x + ',' + z] = [])).push(d); }
     function freeT(x, z, r) { return inb(x, z) && (!r || reg[z][x] === r.id) && (g[z][x] === '.' || g[z][x] === ',') && !nearDoor(x, z) && !taken[x + ',' + z]; }
-    function obj(x, z, m, o, name) { if (!freeT(x, z)) return false; g[z][x] = 'o'; dname[x + ',' + z] = name || m.replace(/_/g, ' ').replace(/ ?\d+$/, ''); dec(x, z, m, o); return true; }
+    // props3 (downloaded furniture): swap some stock pieces for real ones, picked by a hash of the tile so the level's dice don't move
+    function h3(x, z, salt) { var n = (x * 73856093) ^ (z * 19349663) ^ ((salt || 0) * 83492791); n = (n ^ (n >>> 13)) * 1274126177; return ((n ^ (n >>> 16)) >>> 0) / 4294967296; }
+    function hpick(a, x, z, salt) { return a[Math.floor(h3(x, z, salt) * a.length)]; }
+    function alt3T() { return { Couch: { from: /^(Bench|loungeSofa)$/, p: 0.55, to: [['sofa', { fit: 0.98 }]] }, Bench: { from: /^Bench$/, p: 0.45, to: [['woodBench', { fit: 1.0 }]] }, 'Lamp post': { from: /^Torch_Metal$/, p: 0.7, to: [['streetlamp', { h: 2.7 }]] },
+      Cabinet: { from: /^Cabinet$/, p: 0.5, to: [['cupboard', { fit: 0.7 }], ['closet', { fit: 0.95 }], ['oldDresser', { fit: 0.7 }]] }, Shelf: { from: /^Shelf_Simple$/, p: 0.35, to: [['wallRack', { fit: 0.95 }]] } }; } var ALT3c = null;
+    function alt3(x, z, m, o, name) { var A = (ALT3c || (ALT3c = alt3T()))[name]; if (!A || !A.from.test(m) || h3(x, z, 7) > A.p) return null; var t = hpick(A.to, x, z, 3), d = {}; for (var k in o) if (k !== 'fit' && k !== 'h' && k !== 's') d[k] = o[k]; for (k in t[1]) d[k] = t[1][k]; return [t[0], d]; }
+    function obj(x, z, m, o, name) { if (!freeT(x, z)) return false; var a3 = alt3(x, z, m, o || {}, name); if (a3) { m = a3[0]; o = a3[1]; } g[z][x] = 'o'; dname[x + ',' + z] = name || m.replace(/_/g, ' ').replace(/ ?\d+$/, ''); dec(x, z, m, o); return true; }
     var D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]];
     function wallOf(x, z) { for (var k = 0; k < 4; k++) if (g[z + D4[k][1]] && g[z + D4[k][1]][x + D4[k][0]] === '#') return D4[k]; return null; }
     function hug(w, o) { var d = { rot: Math.atan2(-w[0], -w[1]), dx: w[0] * 0.24, dz: w[1] * 0.24 }; for (var k in o) d[k] = o[k]; return d; } // back to the wall, facing the room
@@ -375,15 +381,16 @@
     }
     function desk(x, z, r) { if (!freeT(x, z, r) || !freeT(x, z + 1, r)) return false; obj(x, z, 'Table_Large', { fit: 1.0, rot: 0 }, 'Desk'); onTable(x, z, [pick(['Book_Stack_1', 'Book_Stack_2', 'Scroll_1', 'Scroll_2']), pick(['Mug', 'Candle_1', 'BookGroup_Small_1'])]); dec(x, z + 1, 'Chair_1', { fit: 0.42, rot: Math.PI, dz: -0.25 }); return true; }
     function shelfUnit(x, z, w, kind) { var m = pick(kind || ['Bookcase_2', 'Shelf_Simple', 'Cabinet', 'Shelf_Small_Bottles']); return obj(x, z, m, hug(w, { fit: m === 'Cabinet' ? 0.8 : 0.95 }), m === 'Bookcase_2' ? 'Bookcase' : m === 'Cabinet' ? 'Cabinet' : 'Shelf'); }
+    function painting(x, z, w) { dec(x, z, hpick(['painting1', 'painting2', 'painting4', 'painting8', 'painting9', 'painting12'], x, z, 11), { rot: Math.atan2(-w[0], -w[1]), dx: w[0] * 0.47, dz: w[1] * 0.47, y: 1.25, h: 0.75, hang: true, ns: true }); return true; }
     function banner(x, z, w, m) { dec(x, z, m || pick(['Banner_1', 'Banner_2']), { rot: Math.atan2(-w[0], -w[1]), dx: w[0] * 0.46, dz: w[1] * 0.46, y: 1.48, fit: 0.9, hang: true, ns: true }); }
     function stack(x, z, w) { var m = pick(['Crate_Wooden', 'Crate_Wooden', 'Crate_Metal', 'Barrel', 'Barrel_Apples', 'FarmCrate_Carrot']); if (!obj(x, z, m, hug(w, { fit: /Barrel/.test(m) ? 0.62 : 0.8, rot: rnd() * 0.4 + Math.atan2(-w[0], -w[1]) }), /Barrel/.test(m) ? 'Barrel' : 'Crate')) return false;
       if (/Crate_/.test(m) && rnd() < 0.5) dec(x, z, pick(['Crate_Wooden', 'Bag', 'Bucket_Metal']), { y: 0.62, fit: 0.5, rot: rnd() * 6, dx: w[0] * 0.24, dz: w[1] * 0.24 }); return true; }
     var STYLE = mkStyle();
     function mkStyle() { return {
-      office: function (r) { for (var zz = r.z0 + 1; zz < r.z1 - 1; zz += 3) for (var xx = r.x0 + 1; xx < r.x1; xx += 3) desk(xx, zz, r); alongWall(r, 3, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Shelf_Simple', 'Bookcase_2']); }); },
-      meeting: function (r) { var c = center(r); rug(r, 0x3a3f5a); for (var xx = c[0] - 1; xx <= c[0] + 1; xx++) if (freeT(xx, c[1], r)) { obj(xx, c[1], 'Table_Large', { fit: 1.1 }, 'Conference table'); onTable(xx, c[1], ['Scroll_1', 'Mug']); dec(xx, c[1] - 1, 'Chair_1', { fit: 0.42, dz: 0.25 }); dec(xx, c[1] + 1, 'Chair_1', { fit: 0.42, rot: Math.PI, dz: -0.25 }); } alongWall(r, 2, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Bookcase_2']); }); },
+      office: function (r) { alongWall(r, 2, painting); for (var zz = r.z0 + 1; zz < r.z1 - 1; zz += 3) for (var xx = r.x0 + 1; xx < r.x1; xx += 3) desk(xx, zz, r); alongWall(r, 3, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Shelf_Simple', 'Bookcase_2']); }); },
+      meeting: function (r) { alongWall(r, 2, painting); var c = center(r); rug(r, 0x3a3f5a); for (var xx = c[0] - 1; xx <= c[0] + 1; xx++) if (freeT(xx, c[1], r)) { obj(xx, c[1], 'Table_Large', { fit: 1.1 }, 'Conference table'); onTable(xx, c[1], ['Scroll_1', 'Mug']); dec(xx, c[1] - 1, 'Chair_1', { fit: 0.42, dz: 0.25 }); dec(xx, c[1] + 1, 'Chair_1', { fit: 0.42, rot: Math.PI, dz: -0.25 }); } alongWall(r, 2, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet', 'Bookcase_2']); }); },
       break: function (r) { var c = center(r); diningSet(c[0], c[1], r, true); alongWall(r, 2, function (x, z, w) { return shelfUnit(x, z, w, ['Shelf_Small_Bottles', 'Cabinet']); }); alongWall(r, 2, function (x, z, w) { return stack(x, z, w); }); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Bench'); }); },
-      lounge: function (r) { rug(r, 0x6a2a3a); alongWall(r, 3, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Couch'); }); alongWall(r, 2, function (x, z, w) { banner(x, z, w); return true; }); },
+      lounge: function (r) { rug(r, 0x6a2a3a); alongWall(r, 3, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Couch'); }); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'jukebox', hug(w, { h: 1.6 }), 'Jukebox'); }); alongWall(r, 2, function (x, z, w) { banner(x, z, w); return true; }); },
       storage: function (r) { alongWall(r, Math.max(4, (r.x1 - r.x0 + r.z1 - r.z0) >> 1), function (x, z, w) { return rnd() < 0.75 ? stack(x, z, w) : shelfUnit(x, z, w, ['Shelf_Simple', 'Shelf_Small_Bottles']); }); },
       workshop: function (r) { var c = center(r); obj(c[0], c[1], 'Workbench', { fit: 1.2 }, 'Workbench'); dec(c[0], c[1], 'Pickaxe_Bronze', { y: 0.5, fit: 0.4, rot: 1 }); alongWall(r, 2, function (x, z, w) { return obj(x, z, pick(['Workbench_Drawers', 'Peg_Rack', 'WeaponStand']), hug(w, { fit: 0.95 }), 'Workbench'); }); alongWall(r, 3, function (x, z, w) { return stack(x, z, w); }); },
       bunk: function (r) { alongWall(r, 3, function (x, z, w) { if (!obj(x, z, 'Bed_Twin1', hug(w, { fit: 0.9 }), 'Bed')) return false; var sx = w[1] ? 1 : 0, sz = w[0] ? 1 : 0; if (freeT(x + sx, z + sz, r) && wallOf(x + sx, z + sz)) obj(x + sx, z + sz, 'Nightstand_Shelf', hug(w, { fit: 0.5 }), 'Nightstand'); return true; }); alongWall(r, 1, function (x, z, w) { return shelfUnit(x, z, w, ['Cabinet']); }); },
@@ -432,7 +439,7 @@
         alongWall(r, 2, function (x, z, w) { dec(x, z, rnd() < 0.6 ? 'pottedPlant' : 'lampRoundFloor', { s: KS, rot: rnd() * 6, dx: w[0] * 0.3, dz: w[1] * 0.3 }); return true; });
         alongWall(r, 1, function (x, z, w) { dec(x, z, 'trashcan', { s: KS, dx: w[0] * 0.3, dz: w[1] * 0.3 }); return true; });
       },
-      snack: function (r) { rug(r, 0x2a5a4a); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Bench'); }); },
+      snack: function (r) { rug(r, 0x2a5a4a); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'Bench', hug(w, { fit: 1.0 }), 'Bench'); }); alongWall(r, 1, function (x, z, w) { return obj(x, z, 'vending', hug(w, { h: 1.9 }), 'Vending machine'); }); alongWall(r, 1, function (x, z, w) { return obj(x, z, hpick(['bedA', 'bedF', 'bedFrame'], x, z, 5), hug(w, { fit: 1.0 }), 'Bunk'); }); },
       trophy: function (r) { alongWall(r, 4, function (x, z, w) { banner(x, z, w); return true; }); rug(r, 0x5a1a1a); },
       archive: function (r) { var c = center(r); if (freeT(c[0], r.z0 + 1, r)) obj(c[0], r.z0 + 1, 'BookStand', { h: 1.0 }, 'Reading stand'); dec(c[0] + 1, r.z0 + 1, 'CandleStick_Stand', { h: 1.0 }); alongWall(r, 3, function (x, z, w) { dec(x, z, pick(['Book_Stack_1', 'Book_Stack_2', 'BookGroup_Medium_1', 'Scroll_1']), { fit: 0.35, rot: rnd() * 6 }); return true; }); }
     }; }
@@ -479,7 +486,7 @@
     }
     var MODERN = mkModern();
     function mkModern() { return {
-      office: function (r) {
+      office: function (r) { alongWall(r, 2, painting);
         var dense = /Cubicle|Overtime|Payroll|Benefits|Badge|Intake|Waiver|Contracts/.test(r.name);
         for (var zz = r.z0 + 1; zz < r.z1 - 1; zz += 3) for (var xx = r.x0 + 1; xx < r.x1; xx += dense ? 2 : 3) deskSet(xx, zz, r, 1);
         filing(r, 2 + (r.x1 - r.x0 > 8 ? 2 : 0)); plants(r, 2); bins(r, 1); lampsWall(r, 2);
@@ -490,7 +497,7 @@
         for (var zz = r.z0 + 3; zz < r.z1 - 1; zz += 3) for (var xx = r.x0 + 1; xx < r.x1; xx += 2) deskSet(xx, zz, r, 1); filing(r, 2);
         alongWall(r, 2, function (x, z, w) { dec(x, z, 'speaker', { fit: 0.35, rot: wr(w), dx: w[0] * 0.3, dz: w[1] * 0.3 }); return true; }); lampsWall(r, 2);
       },
-      meeting: function (r) { var c = spotNear(r, [[-1, 0], [0, 0], [1, 0]]) || center(r); rug(r, 0x2f3a5a);
+      meeting: function (r) { alongWall(r, 2, painting); var c = spotNear(r, [[-1, 0], [0, 0], [1, 0]]) || center(r); rug(r, 0x2f3a5a);
         for (var xx = c[0] - 1; xx <= c[0] + 1; xx++) if (freeT(xx, c[1], r)) { F(xx, c[1], 'table', 0.98, 0, 'Conference table'); if (rnd() < 0.5) onTop(xx, c[1], pick(['mug', 'books', 'laptop']), { m: 'table', fit: 0.98 }, { fit: 0.25, rot: rnd() * 6 });
           dec(xx, c[1] - 1, 'chairCushion', { fit: 0.45, rot: 0, dz: 0.22 }); dec(xx, c[1] + 1, 'chairCushion', { fit: 0.45, rot: Math.PI, dz: -0.22 }); }
         alongWall(r, 1, function (x, z, w) { if (!F(x, z, 'cabinetTelevision', 0.95, wr(w), 'Presentation screen', { dx: w[0] * 0.24, dz: w[1] * 0.24 })) return false; dec(x, z, 'televisionModern', { on: { m: 'cabinetTelevision', fit: 0.95 }, fit: 0.8, rot: wr(w), dx: w[0] * 0.28, dz: w[1] * 0.28 }); return true; });
@@ -580,6 +587,17 @@
       if (r.tpl) return;
       var st = BYNAME[r.name] || (r.type === 'safe' && r.theme === 'crypt' ? 'safehouse' : r.hood === WRZ.idx && r.type !== 'corridor' ? 'cave' : r.hood === UHZ.idx && r.type === 'room' ? 'office' : r.hood === PCZ.idx && r.type === 'room' ? 'office' : r.hood === ARZ.idx && r.type === 'room' ? 'archive' : null);
       if (st && STYLE[st]) STYLE[st](r);
+    });
+    // props3 dressing on top of whatever the room already has (templates included); tile hashes, not dice, so the layout stays put
+    rooms.forEach(function (r) {
+      if (r.type === 'corridor' || r.type === 'boss' || r.type === 'hidden') return;
+      var nm = r.name || '';
+      if (r.type === 'safe' || /Lounge|Green Room|Break Room|Water Cooler|Vending|Craft Services/.test(nm)) alongWall(r, 1, function (x, z, w) { return obj(x, z, 'vending', hug(w, { h: 1.9 }), 'Vending machine'); });
+      if (/Lounge|Night Market|Rumor Corner/.test(nm)) alongWall(r, 1, function (x, z, w) { return obj(x, z, 'jukebox', hug(w, { h: 1.6 }), 'Jukebox'); });
+      if (r.type === 'safe' && r.theme === 'crypt') alongWall(r, 1, function (x, z, w) { return obj(x, z, hpick(['bedA', 'bedF', 'bedFrame'], x, z, 5), hug(w, { fit: 1.0 }), 'Bunk'); });
+      if (/Locker|Wardrobe|HR|Makeup|Night Shift/.test(nm)) alongWall(r, 2, function (x, z, w) { var m = hpick(['wardrobe', 'closet', 'dresser', 'sovietCabinet'], x, z, 9); return obj(x, z, m, hug(w, { fit: m === 'sovietCabinet' ? 1.0 : 0.9 }), m === 'dresser' || m === 'sovietCabinet' ? 'Dresser' : 'Wardrobe'); });
+      if (r.type === 'room' && /office|studio|gate|water/.test(r.theme)) alongWall(r, h3(r.x0, r.z0, 13) < 0.5 ? 1 : 2, painting);
+      if (r.type === 'room' && /office|studio/.test(r.theme) && h3(r.x0, r.z0, 17) < 0.35) alongWall(r, 1, function (x, z, w) { return obj(x, z, 'tvShelf', hug(w, { fit: 0.85 }), 'TV stand'); });
     });
     // the Underbazaar: proper market stalls with goods, carts, a wagon and benches round the fountain
     for (zz = stalls.z0 + 1; zz <= stalls.z1 - 1; zz++) for (xx = stalls.x0; xx <= stalls.x1; xx++) if (g[zz][xx] === 'T') { g[zz][xx] = '.'; if (g[zz + 1] && 'bRKv'.indexOf(g[zz + 1][xx]) >= 0) g[zz + 1][xx] = '.'; }

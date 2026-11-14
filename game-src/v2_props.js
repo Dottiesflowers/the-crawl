@@ -20,8 +20,8 @@
     return m;
   }
   function propLoad() {
-    var L = new THREE.GLTFLoader(), left = 5;
-    ['props', 'nature', 'furn', 'props2', 'weapons'].forEach(function (nm) {
+    var L = new THREE.GLTFLoader(), left = 6;
+    ['props', 'nature', 'furn', 'props2', 'props3', 'weapons'].forEach(function (nm) {
       fetch(KDIR + nm + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         var bin = atob(j.glb), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
         L.parse(u.buffer, KDIR, function (g) {
@@ -39,12 +39,14 @@
       }).catch(function (e) { console.warn('props failed', nm, e); });
     });
   }
+  // downloaded props whose front is not +z: turn so 'rot' means the same for every model
+  var PFRONT = { vending: -Math.PI / 2, wardrobe: -Math.PI / 2, dresser: -Math.PI / 2, sovietCabinet: Math.PI / 2, horrorChair: Math.PI };
   var _pv = new THREE.Vector3(), _pq = new THREE.Quaternion(), _ps = new THREE.Vector3(), _pm = new THREE.Matrix4();
   function propMatrix(name, o) {
     var b = PROPS.box[name], sz = b.getSize(new THREE.Vector3());
     var s = o.fit ? o.fit / Math.max(sz.x, sz.z) : o.h ? o.h / sz.y : (o.s || 0.72);
     var ctr = b.getCenter(new THREE.Vector3());
-    var q = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rx || 0, o.rot || 0, 0));
+    var q = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rx || 0, (o.rot || 0) + (PFRONT[name] || 0), 0));
     var off = new THREE.Vector3(-ctr.x * s, -b.min.y * s, -ctr.z * s).applyQuaternion(q); // centre it on the spot, bottom on the floor
     return new THREE.Matrix4().compose(new THREE.Vector3(o.x + off.x, (o.y || 0) + off.y, o.z + off.z), q, new THREE.Vector3(s, s, s));
   }
