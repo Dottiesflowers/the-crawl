@@ -40,7 +40,7 @@
     });
   }
   // downloaded props whose front is not +z: turn so 'rot' means the same for every model
-  var PFRONT = { vending: -Math.PI / 2, wardrobe: -Math.PI / 2, dresser: -Math.PI / 2, sovietCabinet: Math.PI / 2, horrorChair: Math.PI };
+  var PFRONT = { vending: -Math.PI / 2, wardrobe: Math.PI / 2, dresser: -Math.PI / 2, sovietCabinet: Math.PI / 2, horrorChair: Math.PI };
   var _pv = new THREE.Vector3(), _pq = new THREE.Quaternion(), _ps = new THREE.Vector3(), _pm = new THREE.Matrix4();
   function propMatrix(name, o) {
     var b = PROPS.box[name], sz = b.getSize(new THREE.Vector3());

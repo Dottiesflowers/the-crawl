@@ -583,7 +583,7 @@
       if (r.type === 'room' && /office|studio/.test(r.theme) && h3(r.x0, r.z0, 17) < 0.35) alongWall(r, 1, function (x, z, w) { return obj(x, z, 'tvShelf', hug(w, { fit: 0.85 }), 'TV stand'); });
     });
     // Underline Station: benches and vending machines on the platforms, a newsstand, crates and debris on the tracks, the Rat King's hoard
-    [npl, spl].forEach(function (pl) { var face = pl === npl ? Math.PI : 0, wz = pl === npl ? pl.z0 : pl.z1;
+    [npl, spl].forEach(function (pl) { var face = pl === npl ? 0 : Math.PI, wz = pl === npl ? pl.z0 : pl.z1; // back to the platform wall, front to the tracks
       for (var xx = pl.x0 + 3; xx <= pl.x1 - 3; xx += 7) { if (freeT(xx, wz, pl)) obj(xx, wz, hpick(['woodBench', 'Bench'], xx, wz, 2), { fit: 1.0, rot: face, dz: pl === npl ? -0.24 : 0.24 }, 'Platform bench'); if (freeT(xx + 3, wz, pl)) obj(xx + 3, wz, 'vending', { h: 1.9, rot: face, dz: pl === npl ? -0.24 : 0.24 }, 'Vending machine'); } });
     (function () { var x = Math.floor((npl.x0 + npl.x1) / 2), z = npl.z0 + 1; if (freeT(x, z, npl)) obj(x, z, 'Stall_Empty', { fit: 1.8, rot: 0 }, 'Newsstand'); })();
     for (var tk = 0; tk < 26; tk++) { var tx = ri(tracks.x0 + 1, tracks.x1 - 14), tz = ri(tracks.z0 + 1, tracks.z1 - 1); if (freeT(tx, tz, tracks)) dec(tx, tz, pick(['Crate_Wooden', 'Vase_Rubble_Medium', 'Bag', 'Barrel', 'Rope_1']), { fit: 0.4 + rnd() * 0.3, rot: rnd() * 6, ns: true }); }
