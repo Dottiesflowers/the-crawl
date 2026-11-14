@@ -410,7 +410,7 @@
     for (var an2 = 0; an2 < 32; an2++) { var ang = an2 / 32 * Math.PI * 2, px2 = Math.round(acx + Math.cos(ang) * 23), pz2 = Math.round(acz + Math.sin(ang) * 19); if (an2 % 2 === 0) put(px2, pz2, 'P'); else if (an2 % 4 === 1) put(px2, pz2, 'B'); }
     put(acx - 6, acz - 4, 'g'); put(acx + 6, acz + 4, 'g'); put(acx + 18, acz, 'C');
     spawns.push({ kind: 'puglin', boss: true, sub: 'headliner', x: acx, z: acz, room: afield.id }); taken[acx + ',' + acz] = 1;
-    spawns.push({ kind: 'puglin', sub: 'puglin_brute', x: acx - 8, z: acz + 2, room: afield.id, name: 'Undercard brute' });
+    spawns.push({ kind: 'reject', x: acx - 8, z: acz + 2, room: afield.id });
     spawns.push({ kind: 'imp', sub: 'imp_foreman', x: acx + 8, z: acz - 2, room: afield.id, name: 'Undercard bruiser' });
 
     // ---------- the halls: every zone one hall from the Concourse, neighbours joined in loops ----------
@@ -788,6 +788,13 @@
     }
     var map = g.map(function (row) { return row.join(''); });
     for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
+    // ---------- the new creatures: placed last, on dice of their own, so the map itself doesn't shift ----------
+    var cs = 9173; function crnd() { cs = (cs * 1103515245 + 12345) & 0x7fffffff; return cs / 0x7fffffff; }
+    function cput(r, kind, n) { for (var k = 0; k < n; k++) for (var t = 0; t < 60; t++) { var xx = r.x0 + Math.floor(crnd() * (r.x1 - r.x0 + 1)), zz = r.z0 + Math.floor(crnd() * (r.z1 - r.z0 + 1)); if (inb(xx, zz) && reg[zz][xx] === r.id && (map[zz][xx] === '.' || map[zz][xx] === ',') && !taken[xx + ',' + zz]) { taken[xx + ',' + zz] = 1; spawns.push({ kind: kind, x: xx, z: zz, room: r.id }); break; } } }
+    HALLS.forEach(function (b, i) { if (i % 3 === 0) cput(b, 'eyebat', 3); else if (i % 3 === 1 && i < 12) cput(b, 'stalker', 1); });
+    [tracks, maint].forEach(function (r) { if (r) cput(r, 'eyebat', 3); });
+    ARZ.rooms.forEach(function (r) { if (r.type !== 'room') return; var q = crnd(); if (q < 0.45) cput(r, 'inkling', 1 + (q < 0.15 ? 1 : 0)); else if (q < 0.62) cput(r, 'crawler', 1); });
+    caves.slice(1).forEach(function (c, i) { if (i % 4 === 1) cput(c, 'horror', 1); });
     return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start, hoods: zones, stairs: stairs, lost: lost, decor: decor, dname: dname, wstyle: wstyle, links: links };
 
     // ===================== building templates, used by both floors =====================
@@ -8110,6 +8117,26 @@
     lines: ['A rat the size of a cat. It looks at you like you are the snack.', 'It squeaks. Somewhere in the walls, something squeaks back.', 'Its tail is longer than your arm and it is very proud of that.'] };
   // Underline Station's boss: a huge rat with a crown of fare cards (on the rat rig until a model is in)
   BEAST.rat_king = variant('rat', { name: 'The Rat King', lvl: 3, ac: 13, hp: 45, speed: 6, init: 3, pp: 13, atk: 5, dmg: [2, 6, 2], xp: 450, h: 0.7, scale: 2.6, str: 2, dex: 3, boss: true, weapon: 'crowned teeth', lines: ['A rat the size of a pony, wearing a crown of fare cards. Its court squeaks when it does.', 'The Rat King. It has never paid a fare and it never will.'] });
+  // ---- creatures with models of their own (credits.html). Re-skinned families keep their base, so drops and harvesting don't change ----
+  function skin(k, mk, h, o) { var d = BEAST[k]; d.own = mk; d.file = 'm_' + mk; d.h = h; d.scale = 1; d.attackClip = 'Attack'; d.tint = 0; for (var q in o || {}) d[q] = o[q]; }
+  skin('bog', 'swamp', 1.45, { name: 'Bog lurker', weapon: 'webbed claws', lines: ['Something crawled out of the pond and grinned at you. It is still grinning.', 'Smells like a pond with opinions.'] });
+  skin('bog_brute', 'swamp', 1.85, { tint: 0xc8d8a8, weapon: 'webbed claws' });
+  skin('bog_chief', 'caterpillar', 2.6, { fit: 'len', name: 'Horned marsh crawler', weapon: 'spines and mandibles', lines: ['A caterpillar the length of a canoe, with horns. Nothing about it is turning into a butterfly.'] });
+  skin('gardener', 'voidspider', 1.7, { weapon: 'scything legs', lines: ['Boss of the Drowned Gardens. Too many legs, and it uses every one of them to garden.', 'It has been composting crawlers, and it is very proud of the results.'] });
+  skin('archivist', 'jotunn', 2.7, { weapon: 'antlers', lines: ['Boss of the Flooded Archive. It has a file on you, and the file is very thin.', 'Antlers like a coat rack. People have been hung on them. Filed, technically.'] });
+  skin('gatekeeper', 'wendigo', 2.8, { weapon: 'long claws', lines: ['Guardian of the stairs down. It has read your file and it is not impressed.', 'All ribs and hunger. It has been waiting at this door a long time.'] });
+  BEAST.eyebat = own('eyebat', { name: 'Eye bat', lvl: 1, ac: 12, hp: 5, speed: 7, init: 3, pp: 15, atk: 3, dmg: [1, 4, 1], weapon: 'a glare and a lot of teeth', str: -1, dex: 3, xp: 25, h: 1.3, fit: 'len', lift: 0.9, attackClip: 'Attack',
+    lines: ['One big eye on wings. It blinks first, then it bites.', 'They come in threes. The third one is always behind you.'] });
+  BEAST.inkling = own('tentacle', { name: 'Inkling', lvl: 1, ac: 11, hp: 6, speed: 5, atk: 3, dmg: [1, 4, 1], weapon: 'inky tentacles', str: 0, dex: 2, xp: 30, h: 0.95, attackClip: 'Attack',
+    lines: ['A little tentacled thing that lives in the filing cabinets. It is cute until it isn\'t.', 'It has been eating the footnotes.'] });
+  BEAST.crawler = own('nightmare4', { name: 'Stacks crawler', lvl: 3, ac: 13, hp: 20, speed: 7, init: 3, pp: 14, atk: 5, dmg: [1, 8, 2], weapon: 'hooked fingers', str: 2, dex: 3, xp: 160, h: 1.0, attackClip: 'Attack',
+    lines: ['Something on all fours between the shelves. It moves when you are not looking at it.', 'It crawls through the floodwater without a ripple.'] });
+  BEAST.horror = own('nightmare1', { name: 'Warren horror', lvl: 3, ac: 13, hp: 26, speed: 6, pp: 13, atk: 5, dmg: [2, 6, 2], weapon: 'too many claws', str: 3, dex: 1, xp: 190, h: 2.0, attackClip: 'Attack',
+    lines: ['Even the puglins won\'t go near it. That should tell you something.', 'It was a puglin once, they say. Nobody says what happened.'] });
+  BEAST.stalker = own('nightmare3', { name: 'Hall stalker', lvl: 3, ac: 14, hp: 22, speed: 7, init: 2, pp: 15, atk: 5, dmg: [1, 10, 2], weapon: 'long black claws', str: 2, dex: 2, xp: 180, h: 1.95, attackClip: 'Attack',
+    lines: ['Tall, thin and patient. It walks the halls between the zones and waits for stragglers.', 'The lights flicker when it is close. They are flickering now.'] });
+  BEAST.reject = own('reject', { name: 'The Reject', lvl: 3, ac: 13, hp: 32, speed: 5, pp: 12, atk: 5, dmg: [2, 6, 2], weapon: 'whatever it grabs', str: 4, dex: 0, xp: 210, h: 2.0, attackClip: 'Attack',
+    lines: ['Failed the System\'s design review. The crowd loves it anyway.', 'Undercard. It knows it, and it is angry about it.'] });
   function ratBuild() {
     var g = new THREE.Group(), fur = new THREE.MeshLambertMaterial({ color: 0x5e5046 }), pink = new THREE.MeshLambertMaterial({ color: 0xc7898a }), eye = new THREE.MeshBasicMaterial({ color: 0xff3a2a });
     var body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), fur); body.scale.set(1, 0.72, 1.55); body.position.y = 0.13; g.add(body);
@@ -8239,9 +8266,9 @@
   }
   function ownFx(e, dt) {
     var w = e.wrap; if (!w) return; e.pt = (e.pt || 0) + dt; var t = e.pt, n = e.pfx;
-    w.position.set(0, 0, 0); w.rotation.set(0, 0, 0);
-    if (e.pwalk && !e.dead) { var ph = performance.now() / 1000 * 9; w.position.y = Math.abs(Math.sin(ph)) * 0.07; w.rotation.z = Math.sin(ph) * 0.07; w.rotation.x = 0.08; }
-    if (n === 'Death01') { var k = Math.min(1, t / 0.55); w.rotation.x = -k * k * Math.PI / 2; w.position.y = 0.12 * k; }
+    w.position.set(0, e.def.lift ? e.def.lift + Math.sin(performance.now() / 1000 * 2.2 + e.n) * 0.08 : 0, 0); w.rotation.set(0, 0, 0); // fliers hover and bob
+    if (e.pwalk && !e.dead) { var ph = performance.now() / 1000 * 9; w.position.y += Math.abs(Math.sin(ph)) * (e.def.lift ? 0.03 : 0.07); w.rotation.z = Math.sin(ph) * 0.07; w.rotation.x = 0.08; }
+    if (n === 'Death01') { var k = Math.min(1, t / 0.55); w.rotation.x = -k * k * Math.PI / 2; w.position.y = e.def.lift ? e.def.lift * (1 - k) + 0.1 : 0.12 * k; }
     else if (n === 'Hit_Chest' && t < 0.3) w.rotation.x = -Math.sin(t / 0.3 * Math.PI) * 0.28;
     else if (n && n === e.def.attackClip && t < 0.5) { var q = Math.sin(t / 0.5 * Math.PI); w.position.z = q * 0.45; w.rotation.x = q * 0.32; }
   }
@@ -8287,12 +8314,12 @@
         if (lift > 2 && src.map) { o.material.emissiveMap = src.map; o.material.emissive = new THREE.Color(0.35, 0.35, 0.35); } if (B.tint) o.material.color.multiply(new THREE.Color(B.tint)); if (B.glow && src.map) { o.material.emissiveMap = src.map; o.material.emissive = new THREE.Color(B.glow, B.glow, B.glow); } if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); o.castShadow = true; o.frustumCulled = false; });
       // size it by its skeleton (the mesh bounds of a skinned model are unreliable): feet to the top of the head = B.h
       if (!CB.hgtBones) CB.hgtBones = {};
-      if (!CB.hgtBones[B.own]) { ro.updateMatrixWorld(true); var lo = 1e9, hi = -1e9, v = new THREE.Vector3(); ro.traverse(function (o) { if (o.isBone) { o.getWorldPosition(v); lo = Math.min(lo, v.y); hi = Math.max(hi, v.y); } }); CB.hgtBones[B.own] = hi > lo ? (hi - lo) * 1.12 : (CB.hgt[B.own] || 1); }
+      if (!CB.hgtBones[B.own]) { ro.updateMatrixWorld(true); var lo = 1e9, hi = -1e9, v = new THREE.Vector3(); ro.traverse(function (o) { if (o.isBone) { o.getWorldPosition(v); var c = B.fit === 'len' ? Math.max(Math.abs(v.x), Math.abs(v.z)) * 2 : v.y; lo = Math.min(lo, B.fit === 'len' ? 0 : c); hi = Math.max(hi, c); } }); CB.hgtBones[B.own] = hi > lo ? (hi - lo) * 1.12 : (CB.hgt[B.own] || 1); } // fit 'len': h is its length (long, low creatures)
       if (!CB.anims[B.own] || !CB.anims[B.own].length) { var hasBone = false; ro.traverse(function (o) { if (o.isBone) hasBone = true; }); if (!hasBone) { ro.updateMatrixWorld(true); var bb = new THREE.Box3().setFromObject(ro), cc = bb.getCenter(new THREE.Vector3()); ro.position.x -= cc.x; ro.position.z -= cc.z; ro.position.y -= bb.min.y; if (B.yaw) ro.rotation.y = B.yaw; } } // a statue model: feet on the floor, centred on its tile
       var wrap = new THREE.Group(); wrap.add(ro); wrap.scale.setScalar(B.h / CB.hgtBones[B.own]); e.obj.add(wrap); ownProps(e, ro, B); // (not e.body: that is for rats and shrubs, which animate in code) the wrapper takes the scale: the model's own tracks may animate its root
       var mx = new THREE.AnimationMixer(ro), up = mx.update.bind(mx); e.wrap = wrap; e.clips = {};
       e.mixer = { update: function (dt) { up(dt); ownFx(e, dt); }, clipAction: function (c) { return mx.clipAction(c); }, stopAllAction: function () { mx.stopAllAction(); } };
-      (CB.anims[B.own] || []).forEach(function (cl) { if (/idle/i.test(cl.name)) e.clips.Idle_Loop = cl; else if (/walk/i.test(cl.name)) e.clips.Walk_Loop = cl; });
+      (CB.anims[B.own] || []).forEach(function (cl) { var nm = cl.name; if (/idle/i.test(nm)) e.clips.Idle_Loop = cl; else if (/walk|run|crawl/i.test(nm)) e.clips.Walk_Loop = cl; else if (/attack|bite|swipe/i.test(nm)) e.clips[B.attackClip] = cl; else if (/hit|hurt|damage/i.test(nm)) e.clips.Hit_Chest = cl; else if (/death|die/i.test(nm)) e.clips.Death01 = cl; });
       if (!e.clips.Idle_Loop && e.clips.Walk_Loop) e.clips.Idle_Loop = THREE.AnimationUtils.subclip(e.clips.Walk_Loop, 'Idle', 0, 1, 30); // stand still in the walk's first pose
       e.cur = ''; var w0 = e.want || (e.dead ? 'Death01' : 'Idle_Loop'); cbPlay(e, w0, e.dead); if (e.dead) e.pt = 9; return;
     }
@@ -8381,7 +8408,7 @@
     if (e.wrap) { // own-model: missing clips are done in code (ownFx)
       if (name === 'Walk_Loop') e.pwalk = !c; else if (name === 'Idle_Loop') e.pwalk = false;
       if (!c) { e.pfx = name; e.pt = 0; if (name === 'Death01' || name === 'Walk_Loop') { if (e.clips.Idle_Loop && e.cur !== 'Idle_Loop') cbPlay(e, 'Idle_Loop'); e.pfx = name; } return; }
-      if (name === 'Idle_Loop' || name === 'Walk_Loop') e.pfx = null;
+      e.pfx = null; // a real clip: no faked motion on top
     }
     if (!c) return; var a = e.mixer.clipAction(c);
     if (e.cur === name && !once) return;

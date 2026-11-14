@@ -282,7 +282,7 @@
     for (var an2 = 0; an2 < 32; an2++) { var ang = an2 / 32 * Math.PI * 2, px2 = Math.round(acx + Math.cos(ang) * 23), pz2 = Math.round(acz + Math.sin(ang) * 19); if (an2 % 2 === 0) put(px2, pz2, 'P'); else if (an2 % 4 === 1) put(px2, pz2, 'B'); }
     put(acx - 6, acz - 4, 'g'); put(acx + 6, acz + 4, 'g'); put(acx + 18, acz, 'C');
     spawns.push({ kind: 'puglin', boss: true, sub: 'headliner', x: acx, z: acz, room: afield.id }); taken[acx + ',' + acz] = 1;
-    spawns.push({ kind: 'puglin', sub: 'puglin_brute', x: acx - 8, z: acz + 2, room: afield.id, name: 'Undercard brute' });
+    spawns.push({ kind: 'reject', x: acx - 8, z: acz + 2, room: afield.id });
     spawns.push({ kind: 'imp', sub: 'imp_foreman', x: acx + 8, z: acz - 2, room: afield.id, name: 'Undercard bruiser' });
 
     // ---------- the halls: every zone one hall from the Concourse, neighbours joined in loops ----------
@@ -660,6 +660,13 @@
     }
     var map = g.map(function (row) { return row.join(''); });
     for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
+    // ---------- the new creatures: placed last, on dice of their own, so the map itself doesn't shift ----------
+    var cs = 9173; function crnd() { cs = (cs * 1103515245 + 12345) & 0x7fffffff; return cs / 0x7fffffff; }
+    function cput(r, kind, n) { for (var k = 0; k < n; k++) for (var t = 0; t < 60; t++) { var xx = r.x0 + Math.floor(crnd() * (r.x1 - r.x0 + 1)), zz = r.z0 + Math.floor(crnd() * (r.z1 - r.z0 + 1)); if (inb(xx, zz) && reg[zz][xx] === r.id && (map[zz][xx] === '.' || map[zz][xx] === ',') && !taken[xx + ',' + zz]) { taken[xx + ',' + zz] = 1; spawns.push({ kind: kind, x: xx, z: zz, room: r.id }); break; } } }
+    HALLS.forEach(function (b, i) { if (i % 3 === 0) cput(b, 'eyebat', 3); else if (i % 3 === 1 && i < 12) cput(b, 'stalker', 1); });
+    [tracks, maint].forEach(function (r) { if (r) cput(r, 'eyebat', 3); });
+    ARZ.rooms.forEach(function (r) { if (r.type !== 'room') return; var q = crnd(); if (q < 0.45) cput(r, 'inkling', 1 + (q < 0.15 ? 1 : 0)); else if (q < 0.62) cput(r, 'crawler', 1); });
+    caves.slice(1).forEach(function (c, i) { if (i % 4 === 1) cput(c, 'horror', 1); });
     return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start, hoods: zones, stairs: stairs, lost: lost, decor: decor, dname: dname, wstyle: wstyle, links: links };
 
     // ===================== building templates, used by both floors =====================
