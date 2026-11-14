@@ -2083,10 +2083,11 @@
   function streamChunks(force) {
     var px = (typeof P !== 'undefined') ? P.x : start.x, pz = (typeof P !== 'undefined') ? P.z : start.z;
     if (typeof CAMV !== 'undefined' && CAMV) { px = Math.round(px + CAMV.px); pz = Math.round(pz + CAMV.pz); }
-    var key = Math.floor(px / 4) + ',' + Math.floor(pz / 4);
+    var RR = CH_R; if (typeof isDM === 'function' && isDM() && typeof CAMV !== 'undefined' && CAMV) RR = Math.min(44, Math.round(CH_R / Math.min(1, CAMV.uz || 1))); // DM zoomed out: build further
+    var key = Math.floor(px / 4) + ',' + Math.floor(pz / 4) + ',' + RR;
     if (!force && key === chunkAt) return; chunkAt = key;
     var need = {};
-    for (var cz = Math.floor((pz - CH_R) / CHUNK); cz <= Math.floor((pz + CH_R) / CHUNK); cz++) for (var cx = Math.floor((px - CH_R) / CHUNK); cx <= Math.floor((px + CH_R) / CHUNK); cx++) {
+    for (var cz = Math.floor((pz - RR) / CHUNK); cz <= Math.floor((pz + RR) / CHUNK); cz++) for (var cx = Math.floor((px - RR) / CHUNK); cx <= Math.floor((px + RR) / CHUNK); cx++) {
       if (cx < 0 || cz < 0 || cx * CHUNK >= W || cz * CHUNK >= H) continue; need[cx + ',' + cz] = 1; if (!chunks[cx + ',' + cz]) buildChunk(cx, cz);
     }
     Object.keys(chunks).forEach(function (k) { if (!need[k]) unloadChunk(k); });
@@ -9164,7 +9165,7 @@
     var lv = Math.min(4, (e.def.lvl || 1) + 1), was = e.name; if (lv === e.def.lvl) { e.hp = e.max; return; }
     e.def = BEAST['shrub' + lv]; e.kind = 'shrub' + lv; e.lvl = lv; e.name = e.def.name; e.max = e.def.hp; e.hp = e.def.hp;
     if (e.body) { e.obj.remove(e.body); e.body = null; } e.mixer = null; cbMaterialize(e);
-    if (visNow[e.x + ',' + e.z] !== undefined || cheb(e.x, e.z, P.x, P.z) <= (isDM() ? 24 : 8))
+    if (visNow[e.x + ',' + e.z] !== undefined || cheb(e.x, e.z, P.x, P.z) <= (isDM() ? 24 : 8) || (isDM() && cheb(e.x, e.z, CAMV.fx, CAMV.fz) <= 30))
       say(lv >= 4 ? 'Uh oh' : 'Something grew', 'The ' + was.toLowerCase() + ' ate the ' + body.name.toLowerCase() + '\'s body and grew into a ' + e.name.toLowerCase() + '.' + (lv >= 3 ? ' It looks hungry for something that is still moving.' : ''), 5000);
   }
   function cbShrubAnim(e, dt) {
@@ -9191,7 +9192,7 @@
         e.obj.position.set(e.px, 0, e.pz);
         if (!e.path.length) { e.path = null; var f = e.afterWalk; e.afterWalk = null; if (f) f(); }
       }
-      var seen = visNow[e.x + ',' + e.z] !== undefined || visNow[Math.round(e.px) + ',' + Math.round(e.pz)] !== undefined || (isDM() && cheb(e.x, e.z, P.x, P.z) <= 24);
+      var seen = visNow[e.x + ',' + e.z] !== undefined || visNow[Math.round(e.px) + ',' + Math.round(e.pz)] !== undefined || (isDM() && (cheb(e.x, e.z, P.x, P.z) <= 24 || cheb(e.x, e.z, CAMV.fx, CAMV.fz) <= 30));
       e.obj.visible = !e.eaten && (seen || (e.dead && !!tileState[e.z * W + e.x]));
       if (!e.dead && !e.npc && seen && (CB.on || e.hp < e.max)) {
         var s = toScreen(e.px, e.def.h + 0.32, e.pz); e.bar.style.display = 'block'; e.bar.style.left = s.x + 'px'; e.bar.style.top = s.y + 'px';
@@ -13563,12 +13564,12 @@
     document.getElementById('camHome').style.display = (Math.abs(CAMV.px) + Math.abs(CAMV.pz) > 1.5 && !gearOpen) ? '' : 'none';
   }
   // ---------- free look: drag to look around, pinch or scroll to zoom, turn the board in quarter steps ----------
-  function camZoom(f) { CAMV.uz = Math.max(0.45, Math.min(2.4, CAMV.uz * f)); }
+  function camZoom(f) { CAMV.uz = Math.max(isDM() ? 0.22 : 0.45, Math.min(2.4, CAMV.uz * f)); if (isDM()) refreshFog(); } // DM can pull back much further
   function camTurn(d) { CAMV.yaw = (CAMV.yaw + d + 4) % 4; var a = Math.PI / 4 + CAMV.yaw * Math.PI / 2; CAMV.cx = Math.round(Math.sin(a) * 1.4142); CAMV.cz = Math.round(Math.cos(a) * 1.4142); refreshFog(); }
   function camPan(dx, dy) { // pixels dragged → floor units, so the floor sticks to your finger
     var k = 2 * CAMV.halfH / window.innerHeight, ca = Math.cos(CAMV.a), sa = Math.sin(CAMV.a);
     CAMV.px -= (dx * k) * ca + (dy * k * 1.732) * sa; CAMV.pz -= -(dx * k) * sa + (dy * k * 1.732) * ca;
-    var m = Math.sqrt(CAMV.px * CAMV.px + CAMV.pz * CAMV.pz); if (m > 28) { CAMV.px *= 28 / m; CAMV.pz *= 28 / m; } CAMV.home = false;
+    var m = Math.sqrt(CAMV.px * CAMV.px + CAMV.pz * CAMV.pz); if (m > 28 && !isDM()) { CAMV.px *= 28 / m; CAMV.pz *= 28 / m; } CAMV.home = false;
   }
   (function camUI() {
     var css = document.createElement('style');

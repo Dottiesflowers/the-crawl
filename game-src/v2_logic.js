@@ -517,12 +517,12 @@
     document.getElementById('camHome').style.display = (Math.abs(CAMV.px) + Math.abs(CAMV.pz) > 1.5 && !gearOpen) ? '' : 'none';
   }
   // ---------- free look: drag to look around, pinch or scroll to zoom, turn the board in quarter steps ----------
-  function camZoom(f) { CAMV.uz = Math.max(0.45, Math.min(2.4, CAMV.uz * f)); }
+  function camZoom(f) { CAMV.uz = Math.max(isDM() ? 0.22 : 0.45, Math.min(2.4, CAMV.uz * f)); if (isDM()) refreshFog(); } // DM can pull back much further
   function camTurn(d) { CAMV.yaw = (CAMV.yaw + d + 4) % 4; var a = Math.PI / 4 + CAMV.yaw * Math.PI / 2; CAMV.cx = Math.round(Math.sin(a) * 1.4142); CAMV.cz = Math.round(Math.cos(a) * 1.4142); refreshFog(); }
   function camPan(dx, dy) { // pixels dragged → floor units, so the floor sticks to your finger
     var k = 2 * CAMV.halfH / window.innerHeight, ca = Math.cos(CAMV.a), sa = Math.sin(CAMV.a);
     CAMV.px -= (dx * k) * ca + (dy * k * 1.732) * sa; CAMV.pz -= -(dx * k) * sa + (dy * k * 1.732) * ca;
-    var m = Math.sqrt(CAMV.px * CAMV.px + CAMV.pz * CAMV.pz); if (m > 28) { CAMV.px *= 28 / m; CAMV.pz *= 28 / m; } CAMV.home = false;
+    var m = Math.sqrt(CAMV.px * CAMV.px + CAMV.pz * CAMV.pz); if (m > 28 && !isDM()) { CAMV.px *= 28 / m; CAMV.pz *= 28 / m; } CAMV.home = false;
   }
   (function camUI() {
     var css = document.createElement('style');

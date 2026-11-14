@@ -621,10 +621,11 @@
   function streamChunks(force) {
     var px = (typeof P !== 'undefined') ? P.x : start.x, pz = (typeof P !== 'undefined') ? P.z : start.z;
     if (typeof CAMV !== 'undefined' && CAMV) { px = Math.round(px + CAMV.px); pz = Math.round(pz + CAMV.pz); }
-    var key = Math.floor(px / 4) + ',' + Math.floor(pz / 4);
+    var RR = CH_R; if (typeof isDM === 'function' && isDM() && typeof CAMV !== 'undefined' && CAMV) RR = Math.min(44, Math.round(CH_R / Math.min(1, CAMV.uz || 1))); // DM zoomed out: build further
+    var key = Math.floor(px / 4) + ',' + Math.floor(pz / 4) + ',' + RR;
     if (!force && key === chunkAt) return; chunkAt = key;
     var need = {};
-    for (var cz = Math.floor((pz - CH_R) / CHUNK); cz <= Math.floor((pz + CH_R) / CHUNK); cz++) for (var cx = Math.floor((px - CH_R) / CHUNK); cx <= Math.floor((px + CH_R) / CHUNK); cx++) {
+    for (var cz = Math.floor((pz - RR) / CHUNK); cz <= Math.floor((pz + RR) / CHUNK); cz++) for (var cx = Math.floor((px - RR) / CHUNK); cx <= Math.floor((px + RR) / CHUNK); cx++) {
       if (cx < 0 || cz < 0 || cx * CHUNK >= W || cz * CHUNK >= H) continue; need[cx + ',' + cz] = 1; if (!chunks[cx + ',' + cz]) buildChunk(cx, cz);
     }
     Object.keys(chunks).forEach(function (k) { if (!need[k]) unloadChunk(k); });
