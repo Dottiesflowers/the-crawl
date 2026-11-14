@@ -86,7 +86,7 @@
     document.getElementById('explored').textContent = 'Explored ' + (Math.round(1000 * FOG.seen / FOG.total) / 10) + '%';
     for (var j = 0; j < tiles.length; j++) {
       var t = tiles[j]; if (t.floor) { floorFog(t, R, S.dark); continue; }
-      var key = t.x + ',' + t.z, d2 = visNow[key], explored = tileState[t.z * W + t.x];
+      var key = t.x + ',' + t.z, d2 = visNow[key], explored = tileState[t.z * W + t.x]; if (d2 === undefined && isDM()) d2 = 1; // DM: everything lit as if in sight
       if (d2 === undefined && t.roof && LEVEL.upZ && P.z >= LEVEL.upZ && Math.abs(t.x - P.x) < 34 && Math.abs(t.z - P.z) < 34) d2 = R + 1;
       var ax = t.x - P.x, az = t.z - P.z, sum = ax * CAMV.cx + az * CAMV.cz, dif = Math.abs(ax * CAMV.cz - az * CAMV.cx), cut = sum >= 1 && sum <= 8 && dif <= 5;
       if (d2 === undefined) {

@@ -601,7 +601,7 @@
   function floorFog(t, R, dark) {
     var col = t.mesh.geometry.attributes.color, a = col.array;
     for (var i = 0; i < t.floor.length; i++) {
-      var c = t.floor[i], key = c[0] + ',' + c[2], d2 = visNow[key], r = 0, gg = 0, bb = 0;
+      var c = t.floor[i], key = c[0] + ',' + c[2], d2 = visNow[key], r = 0, gg = 0, bb = 0; if (d2 === undefined && isDM()) d2 = 1;
       if (d2 !== undefined) { var b = Math.max(0.4, 1.1 - d2 / (R + 1.5)); if (dark) { r = 0.62 * b; gg = 0.78 * b; bb = 1.15 * b; } else r = gg = bb = b; }
       else if (tileState[c[2] * W + c[0]]) r = gg = bb = 0.17;
       for (var v = 0; v < 4; v++) { a[i * 12 + v * 3] = r; a[i * 12 + v * 3 + 1] = gg; a[i * 12 + v * 3 + 2] = bb; }
