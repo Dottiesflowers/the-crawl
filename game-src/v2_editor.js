@@ -20,6 +20,7 @@
   function edEditable(x, z) { var c = ch(x, z); return !!(LEVEL.decor[x + ',' + z] && LEVEL.decor[x + ',' + z].length) || (!isFloorCh(c) && c !== '#' && c !== '~' && c !== '@' && c !== ' ' && c !== 'D' && c !== '?'); }
   // ---------- applying one operation (u = undo it) ----------
   function edApply(o, u) {
+    if (FLOOR !== 2 && (o.lv || 1) !== LAYOUT_VER) return false; // made on an older Floor 1 layout
     var k, e;
     if (o.t === 'swap') {
       var a = o.a[0] + ',' + o.a[1], b = o.b[0] + ',' + o.b[1], ca = ch(o.a[0], o.a[1]), cb = ch(o.b[0], o.b[1]);
@@ -89,7 +90,7 @@
     document.getElementById('edUndo').onclick = edUndo;
     document.getElementById('edDone').onclick = function () { edToggle(false); };
   }
-  function edDo(o) { if (!edApply(o)) { say('Editor', 'That did not work here.', 2200); return false; } EDIT.session.push(o); if (o.t !== 'mob' && o.t !== 'mobdel') edRebuild(); edBar(); return true; }
+  function edDo(o) { if (FLOOR !== 2) o.lv = LAYOUT_VER; if (!edApply(o)) { say('Editor', 'That did not work here.', 2200); return false; } EDIT.session.push(o); if (o.t !== 'mob' && o.t !== 'mobdel') edRebuild(); edBar(); return true; }
   function edUndo() { var o = EDIT.session.pop(); if (!o) return; edApply(o, true); if (o.t !== 'mob' && o.t !== 'mobdel') edRebuild(); EDIT.sel = null; EDIT.move = false; edRing(null); edBar(); }
   // the selection ring
   function edRing(s) {

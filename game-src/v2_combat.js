@@ -78,6 +78,8 @@
   // rats: level 1 hallway vermin. Four hit points, cheap XP, they come back a while after you clear them.
   BEAST.rat = { base: 'rat', build: 'rat', lvl: 1, name: 'Dungeon rat', ac: 10, hp: 3, speed: 6, init: 2, pp: 11, atk: 2, dmg: [1, 3, 0], xp: 10, h: 0.32, weapon: 'yellow teeth', str: -2, dex: 2, attackClip: 'Bite',
     lines: ['A rat the size of a cat. It looks at you like you are the snack.', 'It squeaks. Somewhere in the walls, something squeaks back.', 'Its tail is longer than your arm and it is very proud of that.'] };
+  // Underline Station's boss: a huge rat with a crown of fare cards (on the rat rig until a model is in)
+  BEAST.rat_king = variant('rat', { name: 'The Rat King', lvl: 3, ac: 13, hp: 45, speed: 6, init: 3, pp: 13, atk: 5, dmg: [2, 6, 2], xp: 450, h: 0.7, scale: 2.6, str: 2, dex: 3, boss: true, weapon: 'crowned teeth', lines: ['A rat the size of a pony, wearing a crown of fare cards. Its court squeaks when it does.', 'The Rat King. It has never paid a fare and it never will.'] });
   function ratBuild() {
     var g = new THREE.Group(), fur = new THREE.MeshLambertMaterial({ color: 0x5e5046 }), pink = new THREE.MeshLambertMaterial({ color: 0xc7898a }), eye = new THREE.MeshBasicMaterial({ color: 0xff3a2a });
     var body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), fur); body.scale.set(1, 0.72, 1.55); body.position.y = 0.13; g.add(body);
@@ -241,7 +243,7 @@
   // monsters only get a real model (skinned mesh, materials, animations) once a crawler comes near them
   function cbMaterialize(e) {
     if (e.mixer) return; var B = e.def, sp = e.sp;
-    if (B.build === 'rat') { var gr = ratBuild(); e.obj.add(gr); e.body = gr; e.mixer = { update: function () {} }; e.clips = {}; return; }
+    if (B.build === 'rat') { var gr = ratBuild(); if (B.scale) gr.scale.multiplyScalar(B.scale); if (B.boss) { var crown = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.06, 6, 1, true), new THREE.MeshLambertMaterial({ color: 0xd8b84a, side: THREE.DoubleSide })); crown.position.set(0, 0.2, 0.17); gr.add(crown); } e.obj.add(gr); e.body = gr; e.mixer = { update: function () {} }; e.clips = {}; return; }
     if (B.prop) { // a plant: no skeleton, it bobs and lunges in code
       if (!propsOn()) return; var g2 = new THREE.Group(); propInto(g2, B.prop, { s: B.scale }); e.obj.add(g2); e.body = g2;
       g2.traverse(function (o) { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set(e.lvl >= 3 ? 0xb0c890 : 0xffffff); } });
@@ -283,9 +285,9 @@
   function zoneOf(e) { var r = LEVEL.rooms[e.room]; return r && r.hood !== undefined ? r.hood : 'free'; }
   function worldState() {
     var dead = [], eaten = [], calm = [], hp = {};
-    var rats = []; CB.enemies.forEach(function (e) { if (e.npc) return; if (e.def.base === 'rat') { if (e.dead) rats.push([e.n, e.diedAt || Date.now()]); return; } if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
+    var rats = []; CB.enemies.forEach(function (e) { if (e.npc) return; if (e.def.base === 'rat' && !e.boss) { if (e.dead) rats.push([e.n, e.diedAt || Date.now()]); return; } if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
     var calmK = CB.enemies.filter(function (e) { return e.calm && !e.dead && !e.npc; }).map(spawnKey);
-    return { dead: dead, eaten: eaten, calm: calm, calmK: calmK, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
+    return { lv: FLOOR === 2 ? undefined : LAYOUT_VER, dead: dead, eaten: eaten, calm: calm, calmK: calmK, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
   }
   function spawnKey(e) { return (e.kind || '') + '@' + e.sx + ',' + e.sz; }
   function calmSave(e) { if (!e || e.npc) return; e.calm = true; setTimeout(worldSave, 50); } // a truce lasts until you break it, across reloads too
@@ -301,7 +303,7 @@
   setInterval(function () {
     if (!CB.ready || CB.on) return; var now = Date.now(), any = false;
     CB.enemies.forEach(function (e) {
-      if (e.def.base !== 'rat' || !e.dead || !e.diedAt || now - e.diedAt < ratBack(e) || inBag(e)) return;
+      if (e.def.base !== 'rat' || e.boss || !e.dead || !e.diedAt || now - e.diedAt < ratBack(e) || inBag(e)) return;
       if (cheb(P.x, P.z, e.sx, e.sz) < 14 || cheb(P.x, P.z, e.x, e.z) < 10) return;
       e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.looted = false; e.lootStore = null; e.calm = false; e.hp = e.max; e.diedAt = 0; e.path = null;
       e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; any = true;
@@ -309,6 +311,7 @@
     if (any) worldSave();
   }, 20000);
   function worldApply(st) {
+    if (FLOOR !== 2 && st.lv !== LAYOUT_VER) return; // saved against an older Floor 1 layout
     var byN = {}; CB.enemies.forEach(function (e) { byN[e.n] = e; });
     (st.dead || []).concat(st.eaten || []).forEach(function (n) { var e = byN[n]; if (!e) return; e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; }); // bodies from earlier sessions are gone
     if (st.calmK) { var byK = {}; CB.enemies.forEach(function (e) { byK[spawnKey(e)] = e; }); st.calmK.forEach(function (k) { var e = byK[k]; if (e && !e.dead) e.calm = true; }); }
@@ -866,7 +869,7 @@
     var it = (CHAR && CHAR.gear || []).filter(function (g) { return /potion/i.test(g.name) && g.heal; })[0]; if (it) useItem(it); else say('No potions', 'You are out of healing potions.', 2400);
   }
   function cbKill(e) {
-    if (e.def.base === 'rat') e.diedAt = Date.now();
+    if (e.def.base === 'rat' && !e.boss) e.diedAt = Date.now();
     if (CB.on) try { personaAllyFell(e); } catch (x) {}
     if (/shrub/.test(e.def.base || e.kind || '')) skillCount('shrub');
     if (e.boss) logEvent('Killed ' + e.name + ', boss of ' + ((LEVEL.hoods[(roomInfo(e.x, e.z) || {}).hood] || {}).name || 'the floor'), 'boss'); else if (/chief|foreman|head|warden/.test(e.kind)) logEvent('Killed a ' + e.name, 'kill');

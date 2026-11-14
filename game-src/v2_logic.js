@@ -20,23 +20,25 @@
     P.x = x; P.z = z; P.px = x; P.pz = z; P.path = null; hero.position.set(x, 0, z); return true;
   }
   function fogKey() { return 'crawl-fog-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : '') + (FLOOR === 2 ? '-f2' : ''); }
+  var LAYOUT_VER = 2; // Floor 1 layout version: bump when the map changes so old positions, fog and monster state are dropped
+  function lvTag() { return FLOOR === 2 ? '' : 'L' + LAYOUT_VER + ':'; }
   function fogSave() { // explored tiles as runs: start,length;start,length...
     var out = [], i = 0; while (i < W * H) { if (tileState[i]) { var j = i; while (j < W * H && tileState[j]) j++; out.push(i.toString(36) + ',' + (j - i).toString(36)); i = j; } else i++; }
-    var str = out.join(';'); try { localStorage.setItem(fogKey(), str); } catch (e) {}
+    var str = lvTag() + out.join(';'); try { localStorage.setItem(fogKey(), str); } catch (e) {}
     // the server copy is what survives a new phone, a cleared browser or Safari's storage limits
     if (NET.mode === 'server' && NET.uid && !(CHAR && CHAR.isDM) && str !== fogSave.last) { fogSave.last = str; clearTimeout(fogSave.t); fogSave.t = setTimeout(function () { api('kv/fog-' + (CHAR ? CHAR.name : '').replace(/[^\w-]/g, '').slice(0, 40), { method: 'PUT', body: { value: str } }).catch(function () {}); }, 3000); }
   }
-  function fogMerge(s) { if (!s) return; s.split(';').forEach(function (p) { var a = p.split(','), st = parseInt(a[0], 36), n = parseInt(a[1], 36); for (var k = 0; k < n && st + k < W * H; k++) tileState[st + k] = 1; }); }
+  function fogMerge(s) { if (!s) return; var tg = lvTag(); if (tg) { if (s.indexOf(tg) !== 0) return; s = s.slice(tg.length); } else if (/^L\d+:/.test(s)) return; if (!s) return; s.split(';').forEach(function (p) { var a = p.split(','), st = parseInt(a[0], 36), n = parseInt(a[1], 36); for (var k = 0; k < n && st + k < W * H; k++) tileState[st + k] = 1; }); }
   function fogLoad() {
     var s; try { s = localStorage.getItem(fogKey()); } catch (e) {} fogMerge(s); FOG.total = 0; FOG.seen = 0;
     if (NET.mode === 'server' && NET.uid && CHAR && !CHAR.isDM) api('kv/fog-' + CHAR.name.replace(/[^\w-]/g, '').slice(0, 40)).then(function (j) { var v = j && (j.value !== undefined ? j.value : j.v); if (typeof v === 'string' && v) { fogMerge(v); FOG.total = 0; FOG.seen = 0; refreshFog(); fogSave(); } }).catch(function () {});
   }
   var lastSavedPos = '';
-  function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); var pp = FLOOR === 2 ? CHAR.pos2 : CHAR.pos; if (pp && heroTo(pp.x, pp.z)) { refreshFog(); enterRoom(); } else { heroTo(LEVEL.start.x, LEVEL.start.z); refreshFog(); enterRoom(); } }
-  function posStash() { if (!CHAR) return; CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; fogSave(); saveChar(CHAR); worldSave(); }
+  function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); var pp = FLOOR === 2 ? CHAR.pos2 : (CHAR.posL === LAYOUT_VER ? CHAR.pos : null); if (pp && heroTo(pp.x, pp.z)) { refreshFog(); enterRoom(); } else { heroTo(LEVEL.start.x, LEVEL.start.z); refreshFog(); enterRoom(); } }
+  function posStash() { if (!CHAR) return; CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; if (FLOOR !== 2) CHAR.posL = LAYOUT_VER; fogSave(); saveChar(CHAR); worldSave(); }
   function posSave(force) {
     if (!CHAR || CB.on) return; var k = P.x + ',' + P.z; if (!force && k === lastSavedPos) return; lastSavedPos = k;
-    CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; fogSave(); saveChar(CHAR); worldSave();
+    CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; if (FLOOR !== 2) CHAR.posL = LAYOUT_VER; fogSave(); saveChar(CHAR); worldSave();
   }
   setInterval(function () { posSave(false); }, 30000);
   if (CHAR) setTimeout(posRestore, 0);
@@ -52,7 +54,7 @@
   }
   var visNow = {}, tmp = new THREE.Color();
   var FOG = { total: 0, seen: 0 };
-  var LIT = { bazaar: 4, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1, lot: 4, dirt: 4, porch: 4, lawn: 4, green: 4, store: 2, house: 2, tent: 2, stage: 2, ship: 3 }; // well-lit places let you see farther
+  var LIT = { bazaar: 4, metro: 2, arena: 4, blvd: 3, studio: 2, office: 1, garden: 1, lot: 4, dirt: 4, porch: 4, lawn: 4, green: 4, store: 2, house: 2, tent: 2, stage: 2, ship: 3 }; // well-lit places let you see farther
   function roomLit(r) { return r.type === 'safe' || r.type === 'boss' || r.type === 'stairs' || r.lit || (r.type !== 'corridor' && (LIT[r.theme] || 0) >= 2); }
   function refreshFog() {
     streamChunks();

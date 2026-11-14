@@ -45,7 +45,7 @@
       quirks: ['counts its bottle caps out loud', 'thinks it is much taller than it is', 'sings while it fights, badly', 'is secretly vegetarian', 'keeps a pet beetle in its pocket', 'repeats the last word anyone says', 'licks things to identify them', 'apologizes after every hit', 'tells everyone it will be king one day', 'is terrified of its own reflection'],
       wants: [['more bottle caps', 'cap|caps|bottle|shiny|coin|gold|treasure'], ['snacks', 'snack|food|eat|chip|candy|sandwich|jerky|hungry'], ['to beat its rival in a duel', 'rival|duel|beat|win|fight him'], ['a better spot in the pecking order', 'rank|chief|king|promot|boss|respect|strong'], ['Grik\'s approval', 'grik|king|throne']],
       fears: ['Grik', 'deep water', 'losing its caps', 'being the first to die on camera'],
-      secrets: ['stole a cap from Grik\'s pile', 'can actually read', 'plans to run away to the Underbazaar', 'lost its last duel and lied about it'],
+      secrets: ['stole a cap from Grik\'s pile', 'can actually read', 'plans to run away to Underline Station', 'lost its last duel and lied about it'],
       greet: ['Grub see you. Grub count caps first. Then hit.', '*sniffs* Soap-man. You got snacks?', 'This Warren tunnel. You pay toll or you get bonked.'] },
     bog: { species: 'puglin', title: 'Bog puglin of the Drowned Gardens',
       who: 'A feral puglin of the Drowned Gardens. Its tribe worships the Gardener and the holy compost under the Rotting Gazebo.',

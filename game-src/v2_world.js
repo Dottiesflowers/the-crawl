@@ -139,6 +139,8 @@
     bazaar: { name: 'Underbazaar', floor: [0x8a7a62, 0x94836a, 0x7f7058], wall: 0x6e6253 },
     garden: { name: 'Drowned Gardens', floor: [0x4f7a3a, 0x5a8442, 0x476f34], wall: 0x5e5a4e },
     arena:  { name: 'The Arena', floor: [0xc2a46c, 0xccae76, 0xb89a62], wall: 0x7a6a5a },
+    metro:  { name: 'Underline Station', floor: [0x6e6f72, 0x77787b, 0x67686b], wall: 0x8c8a84 },
+    tunnel: { name: 'Service tunnel', floor: [0x5e5a52, 0x66625a, 0x57534c], wall: 0x6e665a },
     blvd:   { name: 'Boulevard', floor: [0x8c8577, 0x958e80, 0x837c6e], wall: 0x9a8f7c },
     lot:    { name: 'Backlot street', floor: [0x3e3f42, 0x444549, 0x393a3d], wall: 0x8a8378 },
     dirt:   { name: 'Frontier Town', floor: [0xa8865a, 0xb08e60, 0x9e7e52], wall: 0x7a5a3a },
