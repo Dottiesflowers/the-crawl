@@ -49,9 +49,24 @@
     'Fridge': [{ label: 'Raid the fridge', auto: 'fridge' }, { label: 'Examine', text: 'A humming fridge covered in magnets from places that no longer exist.' }],
     'Bunk bed': [{ label: 'Take a nap', auto: 'nap' }, { label: 'Examine', text: 'A narrow bunk with a scratchy blanket. Someone carved a tally into the frame. They stopped at 41.' }],
     'Sink': [{ label: 'Splash your face', auto: 'sink' }],
-    'TV': [{ label: 'Watch the replay', auto: 'tv' }]
+    'TV': [{ label: 'Watch the replay', auto: 'tv' }],
+    'Coffee cart': [{ label: 'Get a coffee', auto: 'coffee' }],
+    'Taco truck': [{ label: 'Examine', text: 'A taco truck with a hand-painted menu. Today\'s special is listed as "crawler". The cook swears that means a style.' }],
+    'BBQ smoker': [{ label: 'Examine', text: 'A smoker the size of a car, trailing sweet smoke across Base Camp. Brisket for the crew, if the crew ever comes back.' }],
+    'Generator': [{ label: 'Examine', text: 'The generator that feeds every set on the lot. It hums like it knows something.' }],
+    'Tram bench': [{ label: 'Examine', text: 'A bench on the tour tram. Someone left a souvenir map and half a churro.' }]
   };
-  function actsOf(t) { var lk = LEVEL.links && LEVEL.links[t.key]; if (lk) return [{ label: lk.label, auto: 'link', link: lk }, { label: 'Examine', text: 'A creaky staircase. Every step has its own opinion.' }]; if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; } return woodActs(t, ACTS[t.c]); }
+  // ---- the Floor 2 tour tram: tap a stop to mark it found; once the crew on the tram is beaten, ride between found stops ----
+  function tramClear() { return !CB.enemies.some(function (e) { return e.tram && !e.dead; }); }
+  function tramActs(t) {
+    var st = (LEVEL.tram.stops || []).filter(function (q) { return q.x + ',' + q.z === t.key; })[0]; if (!st) return null;
+    if (CHAR) { CHAR.tramSeen = CHAR.tramSeen || []; if (CHAR.tramSeen.indexOf(st.name) < 0) { CHAR.tramSeen.push(st.name); saveChar(CHAR); } }
+    if (!tramClear()) return [{ label: 'Read the sign', text: st.name + '. The studio tour tram stops here, or it did until the crew took it over. It is parked on the south straight below Base Camp, and nobody is driving it anywhere until someone clears them off. This stop is now marked on your tram map.' }];
+    var seen = (CHAR && CHAR.tramSeen) || [], acts = (LEVEL.tram.stops || []).filter(function (q) { return q.name !== st.name && seen.indexOf(q.name) >= 0; }).map(function (q) { return { label: 'Ride to ' + q.name, auto: 'tram', to: q }; });
+    if (!acts.length) acts.push({ label: 'Read the sign', text: st.name + '. The tram is yours now, but you have not found any other stops yet. Tap the sign at another stop and you can ride there.' });
+    return acts;
+  }
+  function actsOf(t) { var lk = LEVEL.links && LEVEL.links[t.key]; if (lk) return [{ label: lk.label, auto: 'link', link: lk }, { label: 'Examine', text: 'A creaky staircase. Every step has its own opinion.' }]; if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (nm === 'Tram stop' && LEVEL.tram) { var ta = tramActs(t); if (ta) return ta; } if (nm === 'Call sheet board' && FLOOR === 2) return [{ label: 'Read the call sheet', auto: 'callsheet' }]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; if (/'s trailer$/.test(nm || '')) return [{ label: 'Examine', text: 'A star trailer with ' + nm.replace(/'s trailer$/, '') + ' on a paper sign taped to the door. The System assigned these. The air conditioning works, which is more than can be said for the plot.' }]; } return woodActs(t, ACTS[t.c]); }
   // anything wooden can be broken down for arrow shafts (once each)
   var WOODY = /chair|table|desk|shelf|shelving|bookcase|book|crate|barrel|bench|cabinet|pallet|bed|bunk|dresser|stool|cart|wagon|fence|rack|box|drawer|wardrobe|counter|piano|coffin|sign|post|trough|ladder|door/i, NOTWOOD = /lamp|boulder|bars|metal|steel|iron|fridge|refrigerator|stove|oven|tv|television|computer|monitor|washer|dryer|sink|toilet|locker|vending|machine|filing|safe/i;
   function isWoody(t) { if (t.c === 'T' || t.c === 'h' || t.c === 'K' || t.c === 'W') return true; if (t.c !== 'o') return false; var nm = (LEVEL.dname[t.key] || '') + ' ' + ((LEVEL.decor && LEVEL.decor[t.key] && (LEVEL.decor[t.key].m || LEVEL.decor[t.key].model)) || ''); return WOODY.test(nm) && !NOTWOOD.test(nm); }
@@ -60,6 +75,9 @@
     var c = CHAR, now = Date.now(); if (!c) { say('Not yet', 'Create a character first.', 2500); return true; }
     c.cool = c.cool || {};
     if (a.auto === 'link') { takeLink(a.link); return true; }
+    if (a.auto === 'tram') { if (CB.on) { say('Not now', 'Finish the fight first.', 2500); return true; } if (takeLink({ x: a.to.ax, z: a.to.az })) say('All aboard', 'The tram whirs round the loop with you as its only passenger. ' + a.to.name + '. Please keep your hands inside the vehicle.', 4000); return true; }
+    if (a.auto === 'callsheet') { var sl = (c.slates || []), left = Math.max(0, 3 - sl.length);
+      say('Call sheet', sl.length ? 'Scenes wrapped: ' + sl.join(', ') + '. ' + (left ? left + ' more slate' + (left > 1 ? 's' : '') + ' and Soundstage 9 opens.' : 'Soundstage 9 is open to you. The Director is waiting.') : 'Six sets are shooting: Frontier Town, the Jungle Set (two bosses), Starship Valiant, Maple Lane, Blackwood Manor and the Writers\' Building. Beat a set boss and you get its slate. Three slates open Soundstage 9, and the way down.', 9000); return true; }
     if (a.auto === 'wood') {
       if (done[t.key + 'wood']) { say('Already stripped', 'You already took everything useful off this one.', 2600); return true; }
       var r = d20(), tot = r + MOD.STR + (skillLv('Athletics') || 0), ok = r === 20 || (r !== 1 && tot >= 10); kitOneShot('Punch_Jab');

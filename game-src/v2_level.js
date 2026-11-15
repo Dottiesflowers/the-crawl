@@ -818,7 +818,7 @@
       }
 
     // ===================== Floor 2: The Backlot =====================
-    // A studio backlot: Catering Village (the one safe hub) in the middle, ringed by the Backlot Loop, with six sets
+    // A studio backlot: Base Camp (the one safe hub) in the middle, ringed by the Backlot Loop, with six sets
     // round it, each one short street away. Studio Drive North and South cross the lot. Soundstage 9 (the gate) is
     // north of the hub, up Director's Row. Every building is stamped from a hand-drawn template (TPL); upper floors
     // and the roof live in a strip below the lot (z 240 and down) and the stairs take you there.
@@ -1006,7 +1006,7 @@
           'r==============r',
           'r==============r']
         },
-        // ---- Catering Village: canvas tents ----
+        // ---- Base Camp: canvas tents ----
         craft: { pal: { m: 0xeeeae0, z: 0xd8d0c0, c: 0xd8d0c0 }, name: 'Craft Services', type: 'safe', wall: 'canvas', stripe: 0xc8302a, theme: 'tent', line: 'The craft services tent. Free food, hot coffee and a crew that has seen things.', rows: [
           '##W######W######W##',
           '#zzOicZ...........#',
@@ -1145,23 +1145,48 @@
         stage: { name: 'Soundstage 9', type: 'boss', wall: 'stage', theme: 'stage', line: 'A cavernous stage, half a western street and half a starship. A crane in the middle. The Director is watching.', rows: GEN_STAGE,
           areas: [{ name: 'Control Booth', c0: 2, r0: 2, c1: 13, r1: 8, type: 'room' }, { name: 'The Freight Elevator', c0: 48, r0: 2, c1: 59, r1: 10, type: 'stairs', line: 'A freight elevator to the floor below. It only runs when the Director says cut.' }] }
       };
-      // ---------- streets ----------
-      var ST = Zn({ name: 'The Backlot Streets', theme: 'lot', line: 'Studio streets between the sets. Golf carts, cables, cones and patrols. Keep moving.' });
-      var nDrive = area({ name: 'Studio Drive North', type: 'corridor', x0: 3, z0: 56, x1: 236, z1: 62 }, ST);
-      var sDrive = area({ name: 'Studio Drive South', type: 'corridor', x0: 3, z0: 160, x1: 236, z1: 166 }, ST);
-      var loop = [area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 66, x1: 176, z1: 72 }, ST), area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 152, x1: 176, z1: 158 }, ST),
-        area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 73, x1: 68, z1: 151 }, ST), area({ name: 'The Backlot Loop', type: 'corridor', x0: 170, z0: 73, x1: 176, z1: 151 }, ST)];
-      area({ name: 'Director\'s Row', type: 'corridor', x0: 116, z0: 46, x1: 121, z1: 65, line: 'A short, important street. Every parking space has a name on it, and every name is the Director\'s.' }, ST);
-      area({ name: 'Studio Drive South', type: 'corridor', x0: 116, z0: 159, x1: 121, z1: 159 }, ST);
-      area({ name: 'Maple Avenue', type: 'corridor', x0: 116, z0: 167, x1: 121, z1: 213 }, ST);
-      area({ name: 'Frontier Spur', type: 'corridor', x0: 57, z0: 108, x1: 61, z1: 113 }, ST);
-      area({ name: 'Jungle Spur', type: 'corridor', x0: 177, z0: 108, x1: 181, z1: 113 }, ST);
+      // ---------- the tram loop: one winding road round Base Camp, every set opens onto it ----------
+      // (the old grid of Studio Drive North/South and a square loop is gone; neighbours also link backstage, below)
+      var ST = Zn({ name: 'The Tram Loop', theme: 'lot', line: 'The studio tour road. It winds round Base Camp past every set: golf carts, cables, cones and patrols. Keep moving.' });
+      var LCX = 119, LCZ = 112, LRX = 50, LRZ = 37;
+      function loopAt(t) { // a boxy, wobbling ring (a superellipse with a slow wave in it)
+        var c = Math.cos(t), s2 = Math.sin(t), wob = 2.6 * Math.sin(t * 5 + 0.7);
+        return [LCX + (LRX + wob) * (c < 0 ? -1 : 1) * Math.pow(Math.abs(c), 0.55), LCZ + (LRZ + wob * 0.7) * (s2 < 0 ? -1 : 1) * Math.pow(Math.abs(s2), 0.55)]; }
+      var loopR = room({ name: 'The Tram Loop', type: 'corridor', x0: LCX - LRX - 6, z0: LCZ - LRZ - 6, x1: LCX + LRX + 6, z1: LCZ + LRZ + 6 }, ST);
+      for (var lt = 0; lt < Math.PI * 2; lt += 0.004) { var lp = loopAt(lt); for (var oz = -2; oz <= 2; oz++) for (var ox = -2; ox <= 2; ox++) if (ox * ox + oz * oz <= 6.5) put(Math.round(lp[0] + ox), Math.round(lp[1] + oz), '.', loopR.id); }
+      for (xx = 98; xx <= 152; xx++) for (zz = 147; zz <= 151; zz++) put(xx, zz, '.', loopR.id); // the south straight, where the tram is parked
+      function onLoop(x, z) { return inb(x, z) && reg[z][x] === loopR.id; }
+      // a straight road from (x, z), a band w wide across the direction of travel, until it meets the loop
+      function toLoop(x, z, w, dx, dz, o) { var r = room(o, ST);
+        for (var st = 0; st < 70; st++) { var hit = false;
+          for (var b = 0; b < w; b++) { var tx = x + dx * st + (dz ? b : 0), tz = z + dz * st + (dx ? b : 0); if (onLoop(tx, tz)) hit = true; }
+          if (hit) break;
+          for (b = 0; b < w; b++) { var tx2 = x + dx * st + (dz ? b : 0), tz2 = z + dz * st + (dx ? b : 0); put(tx2, tz2, '.', r.id); r.x0 = Math.min(r.x0, tx2); r.x1 = Math.max(r.x1, tx2); r.z0 = Math.min(r.z0, tz2); r.z1 = Math.max(r.z1, tz2); } }
+        return r; }
+      function band(o) { return area(o, ST); }
+      toLoop(116, 46, 6, 0, 1, { name: 'Director\'s Row', type: 'corridor', x0: 116, z0: 46, x1: 121, z1: 46, line: 'A short, important street up to Soundstage 9. Every parking space has a name on it, and every name is the Director\'s.' });
+      band({ name: 'Writers\' Walk', type: 'corridor', x0: 75, z0: 45, x1: 79, z1: 52 }); toLoop(75, 53, 5, 0, 1, { name: 'Writers\' Walk', type: 'corridor', x0: 75, z0: 53, x1: 79, z1: 53 });
+      band({ name: 'Hangar Road', type: 'corridor', x0: 158, z0: 44, x1: 164, z1: 52 }); toLoop(159, 53, 5, 0, 1, { name: 'Hangar Road', type: 'corridor', x0: 159, z0: 53, x1: 163, z1: 53 });
+      toLoop(57, 108, 6, 1, 0, { name: 'Frontier Spur', type: 'corridor', x0: 57, z0: 108, x1: 57, z1: 113 });
+      toLoop(181, 108, 6, -1, 0, { name: 'Jungle Spur', type: 'corridor', x0: 181, z0: 108, x1: 181, z1: 113 });
+      area({ name: 'Maple Avenue', type: 'corridor', x0: 116, z0: 167, x1: 121, z1: 213 }, ST); toLoop(116, 166, 6, 0, -1, { name: 'Maple Avenue', type: 'corridor', x0: 116, z0: 166, x1: 121, z1: 166 });
+      band({ name: 'Manor Drive', type: 'corridor', x0: 180, z0: 160, x1: 184, z1: 166 }); band({ name: 'Manor Drive', type: 'corridor', x0: 160, z0: 160, x1: 179, z1: 164 }); toLoop(160, 159, 5, 0, -1, { name: 'Manor Drive', type: 'corridor', x0: 160, z0: 159, x1: 164, z1: 159 });
+      // ---------- backstage: narrow scaffold alleys behind the sets, linking each set to its neighbours ----------
+      var BK = Zn({ name: 'Backstage', theme: 'stage', line: 'Behind the fake fronts: scaffolding, sandbags, cable runs and light stands. The crew uses these to get between sets without the tourists seeing.' });
+      var backs = [
+        area({ name: 'Backstage: Writers to Frontier', type: 'corridor', x0: 3, z0: 57, x1: 56, z1: 59 }, BK), area({ name: 'Backstage: Writers to Frontier', type: 'corridor', x0: 3, z0: 53, x1: 5, z1: 56 }, BK), area({ name: 'Backstage: Writers to Frontier', type: 'corridor', x0: 31, z0: 60, x1: 33, z1: 62 }, BK), area({ name: 'Backstage: Writers to Frontier', type: 'corridor', x0: 39, z0: 56, x1: 41, z1: 56 }, BK),
+        area({ name: 'Backstage: Starship to Jungle', type: 'corridor', x0: 182, z0: 57, x1: 236, z1: 59 }, BK), area({ name: 'Backstage: Starship to Jungle', type: 'corridor', x0: 199, z0: 53, x1: 201, z1: 56 }, BK), area({ name: 'Backstage: Starship to Jungle', type: 'corridor', x0: 206, z0: 60, x1: 208, z1: 62 }, BK),
+        area({ name: 'Backstage: Frontier to Maple Lane', type: 'corridor', x0: 3, z0: 161, x1: 56, z1: 163 }, BK), area({ name: 'Backstage: Frontier to Maple Lane', type: 'corridor', x0: 31, z0: 160, x1: 33, z1: 160 }, BK), area({ name: 'Backstage: Frontier to Maple Lane', type: 'corridor', x0: 31, z0: 164, x1: 33, z1: 170 }, BK),
+        area({ name: 'Backstage: Jungle to the Manor', type: 'corridor', x0: 186, z0: 161, x1: 236, z1: 163 }, BK), area({ name: 'Backstage: Jungle to the Manor', type: 'corridor', x0: 206, z0: 160, x1: 208, z1: 160 }, BK), area({ name: 'Backstage: Jungle to the Manor', type: 'corridor', x0: 206, z0: 164, x1: 208, z1: 170 }, BK)];
 
-      // ---------- Catering Village: the one safe hub, a ring of canvas tents ----------
-      var CV = Zn({ name: 'Catering Village', theme: 'lawn', line: 'Tents, string lights and the smell of craft services. No fighting of any kind. The System means it.' });
-      var vil = area({ name: 'Catering Village', type: 'safe', x0: 76, z0: 80, x1: 162, z1: 144 }, CV);
-      [[117, 73, 120, 79], [117, 145, 120, 151], [69, 110, 75, 113], [163, 110, 169, 113]].forEach(function (q) { area({ name: 'Village Gate', type: 'safe', theme: 'lot', x0: q[0], z0: q[1], x1: q[2], z1: q[3] }, CV); });
-      area({ name: 'Village Path', type: 'safe', theme: 'lot', x0: 76, z0: 110, x1: 162, z1: 113, line: 'The main path through Catering Village.' }, CV); area({ name: 'Village Path', type: 'safe', theme: 'lot', x0: 117, z0: 80, x1: 120, z1: 144 }, CV);
+      // ---------- Base Camp: the one safe hub, a ring of canvas tents ----------
+      var CV = Zn({ name: 'Base Camp', theme: 'lawn', line: 'Where the crew sleeps, eats and complains: tents, trailers, food trucks, string lights and the smell of craft services. No fighting of any kind. The System means it.' });
+      var vil = area({ name: 'Base Camp', type: 'safe', x0: 76, z0: 80, x1: 162, z1: 144 }, CV);
+      [[117, 79, 4, 0, -1], [117, 145, 4, 0, 1], [75, 110, 4, -1, 0], [163, 110, 4, 1, 0]].forEach(function (q) { // gates: from the camp edge out to the loop
+        var r = room({ name: 'Camp Gate', type: 'safe', theme: 'lot', x0: q[0], z0: q[1], x1: q[0], z1: q[1] }, CV);
+        for (var st = 0; st < 20; st++) { var hit = false, b2; for (b2 = 0; b2 < q[2]; b2++) if (onLoop(q[0] + q[3] * st + (q[4] ? b2 : 0), q[1] + q[4] * st + (q[3] ? b2 : 0))) hit = true; if (hit) break;
+          for (b2 = 0; b2 < q[2]; b2++) { var gx = q[0] + q[3] * st + (q[4] ? b2 : 0), gz = q[1] + q[4] * st + (q[3] ? b2 : 0); put(gx, gz, '.', r.id); r.x0 = Math.min(r.x0, gx); r.x1 = Math.max(r.x1, gx); r.z0 = Math.min(r.z0, gz); r.z1 = Math.max(r.z1, gz); } } });
+      area({ name: 'Camp Path', type: 'safe', theme: 'lot', x0: 76, z0: 110, x1: 162, z1: 113, line: 'The main path through Base Camp.' }, CV); area({ name: 'Camp Path', type: 'safe', theme: 'lot', x0: 117, z0: 80, x1: 120, z1: 144 }, CV);
       stamp(TPL.craft, 84, 88, 0, CV); stamp(TPL.bunk, 132, 90, 0, CV);
       stamp(TPL.shop, 82, 121, 2, CV); stamp(TPL.ward, 99, 121, 2, CV); stamp(TPL.prod, 123, 121, 2, CV); stamp(TPL.fx, 141, 121, 2, CV);
       put(159, 82, 'X', vil.id); put(160, 82, 'X', vil.id); put(161, 82, 'X', vil.id);
@@ -1258,7 +1283,16 @@
       var jclear = area({ name: 'The Groundskeeper\'s Clearing', type: 'boss', theme: 'garden', x0: 214, z0: 138, x1: 231, z1: 154, line: 'A clearing with a tool shed and a very large hedge trimmer. The Groundskeeper keeps this jungle tidy.' }, JS);
       stamp(TPL.shed, 219, 139, 0, JS); stamp(TPL.temple, 190, 80, 0, JS);
       spawnIn(jclear, 'truffle', { sub: 'groundskeeper', name: 'The Groundskeeper', boss: true });
-      trees(jung, 220, ['CommonTree_1', 'CommonTree_3', 'Pine_2']); greens(jung, 260, ['Fern_1', 'Plant_1', 'Plant_7', 'Bush_Common', 'Mushroom_Laetiporus', 'Grass_Wispy_Tall']);
+      // the jungle is thick: nothing walks or sees through it except along three winding paths (plus the river and the clearings)
+      var JP = [[[182, 111], [192, 106], [200, 100], [208, 97], [218, 96], [228, 102], [232, 112]], [[207, 68], [204, 78], [203, 90], [207, 98], [207, 112], [207, 121]], [[207, 141], [209, 146], [214, 147]],
+        [[207, 156], [211, 151], [216, 148]], [[228, 102], [229, 116], [226, 126], [222, 138], [219, 143]], [[192, 106], [188, 116], [190, 124], [194, 132], [192, 144], [198, 150], [207, 152]]];
+      var jclr = {}; function jc(x, z, r) { for (var dz3 = -r; dz3 <= r; dz3++) for (var dx3 = -r; dx3 <= r; dx3++) if (dx3 * dx3 + dz3 * dz3 <= r * r + 1) jclr[(x + dx3) + ',' + (z + dz3)] = 1; }
+      JP.forEach(function (pl) { for (var a4 = 0; a4 < pl.length - 1; a4++) { var p0 = pl[a4], p1 = pl[a4 + 1], n4 = Math.max(Math.abs(p1[0] - p0[0]), Math.abs(p1[1] - p0[1])) * 2; for (var s4 = 0; s4 <= n4; s4++) { var f4 = s4 / n4; jc(Math.round(p0[0] + (p1[0] - p0[0]) * f4), Math.round(p0[1] + (p1[1] - p0[1]) * f4), 2); } } });
+      jc(200, 96, 6); jc(196, 102, 4); jc(207, 66, 3); jc(207, 158, 3); jc(183, 111, 3); // the Big Animatronic's patch and the three ways in
+      for (zz = jung.z0; zz <= jung.z1; zz++) for (xx = jung.x0; xx <= jung.x1; xx++) { if (reg[zz][xx] !== jung.id || (g[zz][xx] !== '.' && g[zz][xx] !== ',') || jclr[xx + ',' + zz]) continue;
+        var nearW = false; for (var dz5 = -1; dz5 <= 1 && !nearW; dz5++) for (var dx5 = -1; dx5 <= 1; dx5++) { var q5 = g[zz + dz5] && g[zz + dz5][xx + dx5]; if (q5 === '~' || (reg[zz + dz5] && reg[zz + dz5][xx + dx5] >= 0 && reg[zz + dz5][xx + dx5] !== jung.id)) nearW = true; }
+        if (nearW) continue; g[zz][xx] = '#'; reg[zz][xx] = -1; wstyle[xx + ',' + zz] = 'foliage'; }
+      trees(jung, 40, ['CommonTree_1', 'CommonTree_3', 'Pine_2']); greens(jung, 120, ['Fern_1', 'Plant_1', 'Plant_7', 'Bush_Common', 'Mushroom_Laetiporus', 'Grass_Wispy_Tall']);
       for (k = 0; k < 7; k++) { // little patches of truffle men scattered through the trees, not one crowd
         for (var tt = 0, tp = null; tt < 40 && !tp; tt++) { var qx = ri(jung.x0 + 3, jung.x1 - 3), qz = ri(jung.z0 + 3, jung.z1 - 3); if (reg[qz] && reg[qz][qx] === jung.id && (g[qz][qx] === '.' || g[qz][qx] === ',') && !taken[qx + ',' + qz]) tp = [qx, qz]; }
         if (!tp) continue; for (var tn = ri(1, 3), dd = 0; tn > 0 && dd < 12; dd++) { var ax = tp[0] + ri(-2, 2), az = tp[1] + ri(-2, 2); if (reg[az] && reg[az][ax] === jung.id && (g[az][ax] === '.' || g[az][ax] === ',') && !taken[ax + ',' + az]) { taken[ax + ',' + az] = 1; spawns.push({ kind: 'truffle', tier: rnd() < 0.12 ? 3 : rnd() < 0.35 ? 2 : 1, x: ax, z: az, room: jung.id }); tn--; } }
@@ -1268,7 +1302,7 @@
         var rc = jspot(); if (!rc) continue; spawns.push({ kind: 'dino', tier: k < 2 ? 3 : 1, x: rc[0], z: rc[1], room: jung.id });
         for (var rn = ri(1, 2); rn > 0; rn--) { var rq = jspot(rc, 2); if (rq) spawns.push({ kind: 'dino', tier: 1, x: rq[0], z: rq[1], room: jung.id }); }
       }
-      var tr = jspot([200, 96], 8) || jspot(); if (tr) spawns.push({ kind: 'trex', name: 'The Big Animatronic', x: tr[0], z: tr[1], room: jung.id }); // the big one, in front of the temple
+      var tr = jspot([200, 96], 8) || jspot(); if (tr) spawns.push({ kind: 'trex', name: 'The Big Animatronic', boss: true, x: tr[0], z: tr[1], room: jung.id }); // the big one, in front of the temple
 
       // ---------- Maple Lane (southwest): six sitcom houses, front yards, the Showrunner's house ----------
       var ML = Zn({ name: 'Maple Lane', theme: 'lawn', line: 'A sitcom street. Six identical houses, perfect lawns and a laugh track that never stops.' });
@@ -1309,13 +1343,45 @@
       for (zz = 181; zz <= 205; zz += 3) for (xx = 214; xx <= 228; xx += 3) if (rnd() < 0.85 && freeT(xx, zz)) obj(xx, zz, '#grave', { rot: (rnd() - 0.5) * 0.3, seed: xx * 31 + zz }, 'Headstone');
       trees(grounds, 50, ['DeadTree_2', 'Pine_2']); greens(grounds, 60, ['Mushroom_Common', 'Grass_Wispy_Tall', 'Rock_Medium_1']);
 
-      // ---------- parked vehicles ----------
-      [[20, 57, 'rustyCar'], [96, 57, 'rustyCar2'], [140, 61, 'hatchback'], [210, 57, 'rustyCar'], [30, 165, 'rustyCar2'], [150, 161, 'rustyCar'], [200, 165, 'hatchback']].forEach(function (q) { park(q[0], q[1], q[2], 'x', q[2] === 'hatchback' ? 'Hatchback' : 'Classic car'); });
+      // ---------- the tour tram: parked on the south straight and taken over by crew. Clear it and it runs between the stops ----------
+      var tramR = room({ name: 'The Tour Tram', type: 'corridor', theme: 'lot', x0: 124, z0: 148, x1: 143, z1: 150, line: 'The studio tour tram: three open cars with striped canopies. The crew has taken it over and they are not giving tours.' }, ST);
+      [124, 131, 138].forEach(function (x0, ci) {
+        for (var x = x0; x < x0 + 6; x++) { [148, 150].forEach(function (z) { g[z][x] = 'o'; reg[z][x] = tramR.id; dname[x + ',' + z] = 'Tram bench'; }); put(x, 149, '.', tramR.id); taken[x + ',148'] = taken[x + ',150'] = 1; }
+        dec(x0, 149, '#tram', { len: 6, n: ci });
+      });
+      put(130, 149, '.', tramR.id); put(137, 149, '.', tramR.id);
+      [[125, 1], [128, 1], [133, 3], [135, 1], [141, 1]].forEach(function (q) { spawns.push({ kind: 'crew', tier: q[1], x: q[0], z: 149, room: tramR.id, tram: true, name: q[1] === 3 ? 'Head tour guide' : 'Tram crew' }); taken[q[0] + ',149'] = 1; });
+      // the stops: a sign on the inner edge of the road. Tap one to mark it found; once the tram is clear, ride between found stops
+      var tramStops = [];
+      function tramStop(name, t, fixed) {
+        var c = fixed || loopAt(t), cx = Math.round(c[0]), cz = Math.round(c[1]), ux = LCX - c[0], uz = LCZ - c[1], ul = Math.sqrt(ux * ux + uz * uz) || 1;
+        var sx = fixed ? fixed[2] : Math.round(c[0] + ux / ul * 2), sz = fixed ? fixed[3] : Math.round(c[1] + uz / ul * 2);
+        if (!onLoop(sx, sz)) { sx = cx; sz = cz; }
+        g[sz][sx] = 'o'; dname[sx + ',' + sz] = 'Tram stop'; dec(sx, sz, '#tramstop', { text: name }); taken[sx + ',' + sz] = 1;
+        tramStops.push({ name: name, x: sx, z: sz, ax: cx, az: cz });
+      }
+      tramStop('Stage stop', -Math.PI / 2); tramStop('Frontier stop', Math.PI); tramStop('Jungle stop', 0); tramStop('South stop', 0, [121, 149, 122, 147]);
+      // ---------- the stage door: closed until you hold three slates (one from each set boss you beat) ----------
+      var gate = {}; for (xx = 117; xx <= 120; xx++) gate[xx + ',45'] = 1;
+      dec(115, 46, '#sign', { text: 'CLOSED SET', rot: 0, y: 1.9 });
+      // ---------- Base Camp: trailers, food trucks and a generator fill the empty south lawn ----------
+      function rig(x0, z0, len, kind, name, o) { for (var x = x0; x < x0 + len; x++) for (var z = z0; z <= z0 + 1; z++) { if (!inb(x, z) || reg[z][x] !== vil.id || (g[z][x] !== '.' && g[z][x] !== ',')) return false; }
+        for (x = x0; x < x0 + len; x++) for (z = z0; z <= z0 + 1; z++) { g[z][x] = 'o'; dname[x + ',' + z] = name; taken[x + ',' + z] = 1; }
+        var d = { len: len }; for (var k3 in o || {}) d[k3] = o[k3]; dec(x0, z0, kind, d); return true; }
+      ['Ari', 'Ben', 'Dusty', 'Monty', 'Michael'].forEach(function (nm, ti) { rig(82 + ti * 7, 134, 5, '#trailer', nm + '\'s trailer', { col: [0xe8e0d0, 0xd8dce4, 0xe4d8c8, 0xd4e0d4, 0xe8d8d8][ti] }); });
+      rig(122, 133, 4, '#foodtruck', 'Taco truck', { col: 0xc24b3a }); rig(128, 133, 3, '#foodtruck', 'Coffee cart', { col: 0x3f6f95 }); rig(133, 133, 4, '#foodtruck', 'BBQ smoker', { col: 0xc9a24a });
+      rig(152, 136, 3, '#generator', 'Generator', {});
+      // ---------- backstage dressing: scaffold, sandbags, light stands and cable runs ----------
+      backs.forEach(function (r) { for (var zz2 = r.z0; zz2 <= r.z1; zz2++) for (var xx2 = r.x0; xx2 <= r.x1; xx2++) {
+        if (reg[zz2][xx2] !== r.id || decor[xx2 + ',' + zz2]) continue; var w4 = wallOf(xx2, zz2), hh = (xx2 * 7 + zz2 * 13) % 11;
+        if (w4 && hh === 0) obj(xx2, zz2, '#scaffold', hug(w4, {}), 'Scaffolding'); else if (w4 && hh === 5) obj(xx2, zz2, pick(['lampSquareFloor', 'Crate_Wooden', 'cardboardBoxClosed']), hug(w4, { fit: 0.7 }), 'Gear');
+        else if (hh === 3) dec(xx2, zz2, '#cable', { rot: (xx2 + zz2) % 2 ? 0 : Math.PI / 2, ns: true }); } });
+      backs.forEach(function (r, bi) { if (bi % 3 === 0) { spawnIn(r, 'rat', { sub: 'rat' }); spawnIn(r, 'rat', { sub: 'rat' }); } });
+      // ---------- parked vehicles and dressing for the loop ----------
       park(172, 172, 'rustyCar', 'x', 'Rusted car'); park(72, 30, 'motorcycle', 'z', 'Motorbike'); park(100, 40, 'motorcycle', 'x', 'Stunt bike'); park(160, 47, 'motorcycle', 'x', 'Motorbike');
-      // ---------- dressing for the streets ----------
-      [nDrive, sDrive].concat(loop).forEach(function (r) { lamps(r, 11); });
-      for (k = 0; k < 30; k++) { var sr2 = pick([nDrive, sDrive].concat(loop)), qx = ri(sr2.x0, sr2.x1), qz = ri(sr2.z0, sr2.z1); if (freeT(qx, qz, sr2) && wallOf(qx, qz)) { var w3 = wallOf(qx, qz); obj(qx, qz, pick(['Crate_Metal', 'Crate_Wooden', 'Barrel', 'cardboardBoxClosed']), hug(w3, { fit: 0.7 }), 'Gear'); } }
-      [nDrive, sDrive].concat(loop).forEach(function (r) { for (k = 0; k < 3; k++) spawnIn(r, 'rat', { sub: 'rat' }); });
+      lamps(loopR, 9);
+      for (k = 0; k < 30; k++) { var qx = ri(loopR.x0, loopR.x1), qz = ri(loopR.z0, loopR.z1); if (freeT(qx, qz, loopR) && wallOf(qx, qz)) { var w3 = wallOf(qx, qz); obj(qx, qz, pick(['Crate_Metal', 'Crate_Wooden', 'Barrel', 'cardboardBoxClosed']), hug(w3, { fit: 0.7 }), 'Gear'); } }
+      for (k = 0; k < 8; k++) spawnIn(loopR, 'rat', { sub: 'rat' });
 
       // ---------- stairs: each pair of stair blocks links to the other's landing ----------
       function landing(ts) { for (var a2 = 0; a2 < ts.length; a2++) for (var q = 0; q < 4; q++) { var lx = ts[a2][0] + D4[q][0], lz = ts[a2][1] + D4[q][1]; if ((g[lz][lx] === '.' || g[lz][lx] === ',') && !ts.some(function (t3) { return t3[0] === lx && t3[1] === lz; })) return [lx, lz]; } return null; }
@@ -1344,6 +1410,6 @@
       zones.forEach(function (Z) { var b = null; Z.rooms.forEach(function (r) { if (r.z0 >= UPZ) return; if (!b) b = { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 }; else { b.x0 = Math.min(b.x0, r.x0); b.z0 = Math.min(b.z0, r.z0); b.x1 = Math.max(b.x1, r.x1); b.z1 = Math.max(b.z1, r.z1); } }); if (b) { Z.x0 = b.x0; Z.z0 = b.z0; Z.x1 = b.x1; Z.z1 = b.z1; } });
       var map = g.map(function (row) { return row.join(''); });
       for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
-      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle, links: links, upZ: UPZ };
+      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle, links: links, upZ: UPZ, tram: { stops: tramStops, room: tramR.id }, gate: gate };
     }
   }

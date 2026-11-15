@@ -946,7 +946,7 @@
       }
 
     // ===================== Floor 2: The Backlot =====================
-    // A studio backlot: Catering Village (the one safe hub) in the middle, ringed by the Backlot Loop, with six sets
+    // A studio backlot: Base Camp (the one safe hub) in the middle, ringed by the Backlot Loop, with six sets
     // round it, each one short street away. Studio Drive North and South cross the lot. Soundstage 9 (the gate) is
     // north of the hub, up Director's Row. Every building is stamped from a hand-drawn template (TPL); upper floors
     // and the roof live in a strip below the lot (z 240 and down) and the stairs take you there.
@@ -1134,7 +1134,7 @@
           'r==============r',
           'r==============r']
         },
-        // ---- Catering Village: canvas tents ----
+        // ---- Base Camp: canvas tents ----
         craft: { pal: { m: 0xeeeae0, z: 0xd8d0c0, c: 0xd8d0c0 }, name: 'Craft Services', type: 'safe', wall: 'canvas', stripe: 0xc8302a, theme: 'tent', line: 'The craft services tent. Free food, hot coffee and a crew that has seen things.', rows: [
           '##W######W######W##',
           '#zzOicZ...........#',
@@ -1273,23 +1273,48 @@
         stage: { name: 'Soundstage 9', type: 'boss', wall: 'stage', theme: 'stage', line: 'A cavernous stage, half a western street and half a starship. A crane in the middle. The Director is watching.', rows: GEN_STAGE,
           areas: [{ name: 'Control Booth', c0: 2, r0: 2, c1: 13, r1: 8, type: 'room' }, { name: 'The Freight Elevator', c0: 48, r0: 2, c1: 59, r1: 10, type: 'stairs', line: 'A freight elevator to the floor below. It only runs when the Director says cut.' }] }
       };
-      // ---------- streets ----------
-      var ST = Zn({ name: 'The Backlot Streets', theme: 'lot', line: 'Studio streets between the sets. Golf carts, cables, cones and patrols. Keep moving.' });
-      var nDrive = area({ name: 'Studio Drive North', type: 'corridor', x0: 3, z0: 56, x1: 236, z1: 62 }, ST);
-      var sDrive = area({ name: 'Studio Drive South', type: 'corridor', x0: 3, z0: 160, x1: 236, z1: 166 }, ST);
-      var loop = [area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 66, x1: 176, z1: 72 }, ST), area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 152, x1: 176, z1: 158 }, ST),
-        area({ name: 'The Backlot Loop', type: 'corridor', x0: 62, z0: 73, x1: 68, z1: 151 }, ST), area({ name: 'The Backlot Loop', type: 'corridor', x0: 170, z0: 73, x1: 176, z1: 151 }, ST)];
-      area({ name: 'Director\'s Row', type: 'corridor', x0: 116, z0: 46, x1: 121, z1: 65, line: 'A short, important street. Every parking space has a name on it, and every name is the Director\'s.' }, ST);
-      area({ name: 'Studio Drive South', type: 'corridor', x0: 116, z0: 159, x1: 121, z1: 159 }, ST);
-      area({ name: 'Maple Avenue', type: 'corridor', x0: 116, z0: 167, x1: 121, z1: 213 }, ST);
-      area({ name: 'Frontier Spur', type: 'corridor', x0: 57, z0: 108, x1: 61, z1: 113 }, ST);
-      area({ name: 'Jungle Spur', type: 'corridor', x0: 177, z0: 108, x1: 181, z1: 113 }, ST);
+      // ---------- the tram loop: one winding road round Base Camp, every set opens onto it ----------
+      // (the old grid of Studio Drive North/South and a square loop is gone; neighbours also link backstage, below)
+      var ST = Zn({ name: 'The Tram Loop', theme: 'lot', line: 'The studio tour road. It winds round Base Camp past every set: golf carts, cables, cones and patrols. Keep moving.' });
+      var LCX = 119, LCZ = 112, LRX = 50, LRZ = 37;
+      function loopAt(t) { // a boxy, wobbling ring (a superellipse with a slow wave in it)
+        var c = Math.cos(t), s2 = Math.sin(t), wob = 2.6 * Math.sin(t * 5 + 0.7);
+        return [LCX + (LRX + wob) * (c < 0 ? -1 : 1) * Math.pow(Math.abs(c), 0.55), LCZ + (LRZ + wob * 0.7) * (s2 < 0 ? -1 : 1) * Math.pow(Math.abs(s2), 0.55)]; }
+      var loopR = room({ name: 'The Tram Loop', type: 'corridor', x0: LCX - LRX - 6, z0: LCZ - LRZ - 6, x1: LCX + LRX + 6, z1: LCZ + LRZ + 6 }, ST);
+      for (var lt = 0; lt < Math.PI * 2; lt += 0.004) { var lp = loopAt(lt); for (var oz = -2; oz <= 2; oz++) for (var ox = -2; ox <= 2; ox++) if (ox * ox + oz * oz <= 6.5) put(Math.round(lp[0] + ox), Math.round(lp[1] + oz), '.', loopR.id); }
+      for (xx = 98; xx <= 152; xx++) for (zz = 147; zz <= 151; zz++) put(xx, zz, '.', loopR.id); // the south straight, where the tram is parked
+      function onLoop(x, z) { return inb(x, z) && reg[z][x] === loopR.id; }
+      // a straight road from (x, z), a band w wide across the direction of travel, until it meets the loop
+      function toLoop(x, z, w, dx, dz, o) { var r = room(o, ST);
+        for (var st = 0; st < 70; st++) { var hit = false;
+          for (var b = 0; b < w; b++) { var tx = x + dx * st + (dz ? b : 0), tz = z + dz * st + (dx ? b : 0); if (onLoop(tx, tz)) hit = true; }
+          if (hit) break;
+          for (b = 0; b < w; b++) { var tx2 = x + dx * st + (dz ? b : 0), tz2 = z + dz * st + (dx ? b : 0); put(tx2, tz2, '.', r.id); r.x0 = Math.min(r.x0, tx2); r.x1 = Math.max(r.x1, tx2); r.z0 = Math.min(r.z0, tz2); r.z1 = Math.max(r.z1, tz2); } }
+        return r; }
+      function band(o) { return area(o, ST); }
+      toLoop(116, 46, 6, 0, 1, { name: 'Director\'s Row', type: 'corridor', x0: 116, z0: 46, x1: 121, z1: 46, line: 'A short, important street up to Soundstage 9. Every parking space has a name on it, and every name is the Director\'s.' });
+      band({ name: 'Writers\' Walk', type: 'corridor', x0: 75, z0: 45, x1: 79, z1: 52 }); toLoop(75, 53, 5, 0, 1, { name: 'Writers\' Walk', type: 'corridor', x0: 75, z0: 53, x1: 79, z1: 53 });
+      band({ name: 'Hangar Road', type: 'corridor', x0: 158, z0: 44, x1: 164, z1: 52 }); toLoop(159, 53, 5, 0, 1, { name: 'Hangar Road', type: 'corridor', x0: 159, z0: 53, x1: 163, z1: 53 });
+      toLoop(57, 108, 6, 1, 0, { name: 'Frontier Spur', type: 'corridor', x0: 57, z0: 108, x1: 57, z1: 113 });
+      toLoop(181, 108, 6, -1, 0, { name: 'Jungle Spur', type: 'corridor', x0: 181, z0: 108, x1: 181, z1: 113 });
+      area({ name: 'Maple Avenue', type: 'corridor', x0: 116, z0: 167, x1: 121, z1: 213 }, ST); toLoop(116, 166, 6, 0, -1, { name: 'Maple Avenue', type: 'corridor', x0: 116, z0: 166, x1: 121, z1: 166 });
+      band({ name: 'Manor Drive', type: 'corridor', x0: 180, z0: 160, x1: 184, z1: 166 }); band({ name: 'Manor Drive', type: 'corridor', x0: 160, z0: 160, x1: 179, z1: 164 }); toLoop(160, 159, 5, 0, -1, { name: 'Manor Drive', type: 'corridor', x0: 160, z0: 159, x1: 164, z1: 159 });
+      // ---------- backstage: narrow scaffold alleys behind the sets, linking each set to its neighbours ----------
+      var BK = Zn({ name: 'Backstage', theme: 'stage', line: 'Behind the fake fronts: scaffolding, sandbags, cable runs and light stands. The crew uses these to get between sets without the tourists seeing.' });
+      var backs = [
+        area({ name: 'Backstage: Writers to Frontier', type: 'corridor', x0: 3, z0: 57, x1: 56, z1: 59 }, BK), area({ name: 'Backstage: Writers to Frontier', type: 'corridor', x0: 3, z0: 53, x1: 5, z1: 56 }, BK), area({ name: 'Backstage: Writers to Frontier', type: 'corridor', x0: 31, z0: 60, x1: 33, z1: 62 }, BK), area({ name: 'Backstage: Writers to Frontier', type: 'corridor', x0: 39, z0: 56, x1: 41, z1: 56 }, BK),
+        area({ name: 'Backstage: Starship to Jungle', type: 'corridor', x0: 182, z0: 57, x1: 236, z1: 59 }, BK), area({ name: 'Backstage: Starship to Jungle', type: 'corridor', x0: 199, z0: 53, x1: 201, z1: 56 }, BK), area({ name: 'Backstage: Starship to Jungle', type: 'corridor', x0: 206, z0: 60, x1: 208, z1: 62 }, BK),
+        area({ name: 'Backstage: Frontier to Maple Lane', type: 'corridor', x0: 3, z0: 161, x1: 56, z1: 163 }, BK), area({ name: 'Backstage: Frontier to Maple Lane', type: 'corridor', x0: 31, z0: 160, x1: 33, z1: 160 }, BK), area({ name: 'Backstage: Frontier to Maple Lane', type: 'corridor', x0: 31, z0: 164, x1: 33, z1: 170 }, BK),
+        area({ name: 'Backstage: Jungle to the Manor', type: 'corridor', x0: 186, z0: 161, x1: 236, z1: 163 }, BK), area({ name: 'Backstage: Jungle to the Manor', type: 'corridor', x0: 206, z0: 160, x1: 208, z1: 160 }, BK), area({ name: 'Backstage: Jungle to the Manor', type: 'corridor', x0: 206, z0: 164, x1: 208, z1: 170 }, BK)];
 
-      // ---------- Catering Village: the one safe hub, a ring of canvas tents ----------
-      var CV = Zn({ name: 'Catering Village', theme: 'lawn', line: 'Tents, string lights and the smell of craft services. No fighting of any kind. The System means it.' });
-      var vil = area({ name: 'Catering Village', type: 'safe', x0: 76, z0: 80, x1: 162, z1: 144 }, CV);
-      [[117, 73, 120, 79], [117, 145, 120, 151], [69, 110, 75, 113], [163, 110, 169, 113]].forEach(function (q) { area({ name: 'Village Gate', type: 'safe', theme: 'lot', x0: q[0], z0: q[1], x1: q[2], z1: q[3] }, CV); });
-      area({ name: 'Village Path', type: 'safe', theme: 'lot', x0: 76, z0: 110, x1: 162, z1: 113, line: 'The main path through Catering Village.' }, CV); area({ name: 'Village Path', type: 'safe', theme: 'lot', x0: 117, z0: 80, x1: 120, z1: 144 }, CV);
+      // ---------- Base Camp: the one safe hub, a ring of canvas tents ----------
+      var CV = Zn({ name: 'Base Camp', theme: 'lawn', line: 'Where the crew sleeps, eats and complains: tents, trailers, food trucks, string lights and the smell of craft services. No fighting of any kind. The System means it.' });
+      var vil = area({ name: 'Base Camp', type: 'safe', x0: 76, z0: 80, x1: 162, z1: 144 }, CV);
+      [[117, 79, 4, 0, -1], [117, 145, 4, 0, 1], [75, 110, 4, -1, 0], [163, 110, 4, 1, 0]].forEach(function (q) { // gates: from the camp edge out to the loop
+        var r = room({ name: 'Camp Gate', type: 'safe', theme: 'lot', x0: q[0], z0: q[1], x1: q[0], z1: q[1] }, CV);
+        for (var st = 0; st < 20; st++) { var hit = false, b2; for (b2 = 0; b2 < q[2]; b2++) if (onLoop(q[0] + q[3] * st + (q[4] ? b2 : 0), q[1] + q[4] * st + (q[3] ? b2 : 0))) hit = true; if (hit) break;
+          for (b2 = 0; b2 < q[2]; b2++) { var gx = q[0] + q[3] * st + (q[4] ? b2 : 0), gz = q[1] + q[4] * st + (q[3] ? b2 : 0); put(gx, gz, '.', r.id); r.x0 = Math.min(r.x0, gx); r.x1 = Math.max(r.x1, gx); r.z0 = Math.min(r.z0, gz); r.z1 = Math.max(r.z1, gz); } } });
+      area({ name: 'Camp Path', type: 'safe', theme: 'lot', x0: 76, z0: 110, x1: 162, z1: 113, line: 'The main path through Base Camp.' }, CV); area({ name: 'Camp Path', type: 'safe', theme: 'lot', x0: 117, z0: 80, x1: 120, z1: 144 }, CV);
       stamp(TPL.craft, 84, 88, 0, CV); stamp(TPL.bunk, 132, 90, 0, CV);
       stamp(TPL.shop, 82, 121, 2, CV); stamp(TPL.ward, 99, 121, 2, CV); stamp(TPL.prod, 123, 121, 2, CV); stamp(TPL.fx, 141, 121, 2, CV);
       put(159, 82, 'X', vil.id); put(160, 82, 'X', vil.id); put(161, 82, 'X', vil.id);
@@ -1386,7 +1411,16 @@
       var jclear = area({ name: 'The Groundskeeper\'s Clearing', type: 'boss', theme: 'garden', x0: 214, z0: 138, x1: 231, z1: 154, line: 'A clearing with a tool shed and a very large hedge trimmer. The Groundskeeper keeps this jungle tidy.' }, JS);
       stamp(TPL.shed, 219, 139, 0, JS); stamp(TPL.temple, 190, 80, 0, JS);
       spawnIn(jclear, 'truffle', { sub: 'groundskeeper', name: 'The Groundskeeper', boss: true });
-      trees(jung, 220, ['CommonTree_1', 'CommonTree_3', 'Pine_2']); greens(jung, 260, ['Fern_1', 'Plant_1', 'Plant_7', 'Bush_Common', 'Mushroom_Laetiporus', 'Grass_Wispy_Tall']);
+      // the jungle is thick: nothing walks or sees through it except along three winding paths (plus the river and the clearings)
+      var JP = [[[182, 111], [192, 106], [200, 100], [208, 97], [218, 96], [228, 102], [232, 112]], [[207, 68], [204, 78], [203, 90], [207, 98], [207, 112], [207, 121]], [[207, 141], [209, 146], [214, 147]],
+        [[207, 156], [211, 151], [216, 148]], [[228, 102], [229, 116], [226, 126], [222, 138], [219, 143]], [[192, 106], [188, 116], [190, 124], [194, 132], [192, 144], [198, 150], [207, 152]]];
+      var jclr = {}; function jc(x, z, r) { for (var dz3 = -r; dz3 <= r; dz3++) for (var dx3 = -r; dx3 <= r; dx3++) if (dx3 * dx3 + dz3 * dz3 <= r * r + 1) jclr[(x + dx3) + ',' + (z + dz3)] = 1; }
+      JP.forEach(function (pl) { for (var a4 = 0; a4 < pl.length - 1; a4++) { var p0 = pl[a4], p1 = pl[a4 + 1], n4 = Math.max(Math.abs(p1[0] - p0[0]), Math.abs(p1[1] - p0[1])) * 2; for (var s4 = 0; s4 <= n4; s4++) { var f4 = s4 / n4; jc(Math.round(p0[0] + (p1[0] - p0[0]) * f4), Math.round(p0[1] + (p1[1] - p0[1]) * f4), 2); } } });
+      jc(200, 96, 6); jc(196, 102, 4); jc(207, 66, 3); jc(207, 158, 3); jc(183, 111, 3); // the Big Animatronic's patch and the three ways in
+      for (zz = jung.z0; zz <= jung.z1; zz++) for (xx = jung.x0; xx <= jung.x1; xx++) { if (reg[zz][xx] !== jung.id || (g[zz][xx] !== '.' && g[zz][xx] !== ',') || jclr[xx + ',' + zz]) continue;
+        var nearW = false; for (var dz5 = -1; dz5 <= 1 && !nearW; dz5++) for (var dx5 = -1; dx5 <= 1; dx5++) { var q5 = g[zz + dz5] && g[zz + dz5][xx + dx5]; if (q5 === '~' || (reg[zz + dz5] && reg[zz + dz5][xx + dx5] >= 0 && reg[zz + dz5][xx + dx5] !== jung.id)) nearW = true; }
+        if (nearW) continue; g[zz][xx] = '#'; reg[zz][xx] = -1; wstyle[xx + ',' + zz] = 'foliage'; }
+      trees(jung, 40, ['CommonTree_1', 'CommonTree_3', 'Pine_2']); greens(jung, 120, ['Fern_1', 'Plant_1', 'Plant_7', 'Bush_Common', 'Mushroom_Laetiporus', 'Grass_Wispy_Tall']);
       for (k = 0; k < 7; k++) { // little patches of truffle men scattered through the trees, not one crowd
         for (var tt = 0, tp = null; tt < 40 && !tp; tt++) { var qx = ri(jung.x0 + 3, jung.x1 - 3), qz = ri(jung.z0 + 3, jung.z1 - 3); if (reg[qz] && reg[qz][qx] === jung.id && (g[qz][qx] === '.' || g[qz][qx] === ',') && !taken[qx + ',' + qz]) tp = [qx, qz]; }
         if (!tp) continue; for (var tn = ri(1, 3), dd = 0; tn > 0 && dd < 12; dd++) { var ax = tp[0] + ri(-2, 2), az = tp[1] + ri(-2, 2); if (reg[az] && reg[az][ax] === jung.id && (g[az][ax] === '.' || g[az][ax] === ',') && !taken[ax + ',' + az]) { taken[ax + ',' + az] = 1; spawns.push({ kind: 'truffle', tier: rnd() < 0.12 ? 3 : rnd() < 0.35 ? 2 : 1, x: ax, z: az, room: jung.id }); tn--; } }
@@ -1396,7 +1430,7 @@
         var rc = jspot(); if (!rc) continue; spawns.push({ kind: 'dino', tier: k < 2 ? 3 : 1, x: rc[0], z: rc[1], room: jung.id });
         for (var rn = ri(1, 2); rn > 0; rn--) { var rq = jspot(rc, 2); if (rq) spawns.push({ kind: 'dino', tier: 1, x: rq[0], z: rq[1], room: jung.id }); }
       }
-      var tr = jspot([200, 96], 8) || jspot(); if (tr) spawns.push({ kind: 'trex', name: 'The Big Animatronic', x: tr[0], z: tr[1], room: jung.id }); // the big one, in front of the temple
+      var tr = jspot([200, 96], 8) || jspot(); if (tr) spawns.push({ kind: 'trex', name: 'The Big Animatronic', boss: true, x: tr[0], z: tr[1], room: jung.id }); // the big one, in front of the temple
 
       // ---------- Maple Lane (southwest): six sitcom houses, front yards, the Showrunner's house ----------
       var ML = Zn({ name: 'Maple Lane', theme: 'lawn', line: 'A sitcom street. Six identical houses, perfect lawns and a laugh track that never stops.' });
@@ -1437,13 +1471,45 @@
       for (zz = 181; zz <= 205; zz += 3) for (xx = 214; xx <= 228; xx += 3) if (rnd() < 0.85 && freeT(xx, zz)) obj(xx, zz, '#grave', { rot: (rnd() - 0.5) * 0.3, seed: xx * 31 + zz }, 'Headstone');
       trees(grounds, 50, ['DeadTree_2', 'Pine_2']); greens(grounds, 60, ['Mushroom_Common', 'Grass_Wispy_Tall', 'Rock_Medium_1']);
 
-      // ---------- parked vehicles ----------
-      [[20, 57, 'rustyCar'], [96, 57, 'rustyCar2'], [140, 61, 'hatchback'], [210, 57, 'rustyCar'], [30, 165, 'rustyCar2'], [150, 161, 'rustyCar'], [200, 165, 'hatchback']].forEach(function (q) { park(q[0], q[1], q[2], 'x', q[2] === 'hatchback' ? 'Hatchback' : 'Classic car'); });
+      // ---------- the tour tram: parked on the south straight and taken over by crew. Clear it and it runs between the stops ----------
+      var tramR = room({ name: 'The Tour Tram', type: 'corridor', theme: 'lot', x0: 124, z0: 148, x1: 143, z1: 150, line: 'The studio tour tram: three open cars with striped canopies. The crew has taken it over and they are not giving tours.' }, ST);
+      [124, 131, 138].forEach(function (x0, ci) {
+        for (var x = x0; x < x0 + 6; x++) { [148, 150].forEach(function (z) { g[z][x] = 'o'; reg[z][x] = tramR.id; dname[x + ',' + z] = 'Tram bench'; }); put(x, 149, '.', tramR.id); taken[x + ',148'] = taken[x + ',150'] = 1; }
+        dec(x0, 149, '#tram', { len: 6, n: ci });
+      });
+      put(130, 149, '.', tramR.id); put(137, 149, '.', tramR.id);
+      [[125, 1], [128, 1], [133, 3], [135, 1], [141, 1]].forEach(function (q) { spawns.push({ kind: 'crew', tier: q[1], x: q[0], z: 149, room: tramR.id, tram: true, name: q[1] === 3 ? 'Head tour guide' : 'Tram crew' }); taken[q[0] + ',149'] = 1; });
+      // the stops: a sign on the inner edge of the road. Tap one to mark it found; once the tram is clear, ride between found stops
+      var tramStops = [];
+      function tramStop(name, t, fixed) {
+        var c = fixed || loopAt(t), cx = Math.round(c[0]), cz = Math.round(c[1]), ux = LCX - c[0], uz = LCZ - c[1], ul = Math.sqrt(ux * ux + uz * uz) || 1;
+        var sx = fixed ? fixed[2] : Math.round(c[0] + ux / ul * 2), sz = fixed ? fixed[3] : Math.round(c[1] + uz / ul * 2);
+        if (!onLoop(sx, sz)) { sx = cx; sz = cz; }
+        g[sz][sx] = 'o'; dname[sx + ',' + sz] = 'Tram stop'; dec(sx, sz, '#tramstop', { text: name }); taken[sx + ',' + sz] = 1;
+        tramStops.push({ name: name, x: sx, z: sz, ax: cx, az: cz });
+      }
+      tramStop('Stage stop', -Math.PI / 2); tramStop('Frontier stop', Math.PI); tramStop('Jungle stop', 0); tramStop('South stop', 0, [121, 149, 122, 147]);
+      // ---------- the stage door: closed until you hold three slates (one from each set boss you beat) ----------
+      var gate = {}; for (xx = 117; xx <= 120; xx++) gate[xx + ',45'] = 1;
+      dec(115, 46, '#sign', { text: 'CLOSED SET', rot: 0, y: 1.9 });
+      // ---------- Base Camp: trailers, food trucks and a generator fill the empty south lawn ----------
+      function rig(x0, z0, len, kind, name, o) { for (var x = x0; x < x0 + len; x++) for (var z = z0; z <= z0 + 1; z++) { if (!inb(x, z) || reg[z][x] !== vil.id || (g[z][x] !== '.' && g[z][x] !== ',')) return false; }
+        for (x = x0; x < x0 + len; x++) for (z = z0; z <= z0 + 1; z++) { g[z][x] = 'o'; dname[x + ',' + z] = name; taken[x + ',' + z] = 1; }
+        var d = { len: len }; for (var k3 in o || {}) d[k3] = o[k3]; dec(x0, z0, kind, d); return true; }
+      ['Ari', 'Ben', 'Dusty', 'Monty', 'Michael'].forEach(function (nm, ti) { rig(82 + ti * 7, 134, 5, '#trailer', nm + '\'s trailer', { col: [0xe8e0d0, 0xd8dce4, 0xe4d8c8, 0xd4e0d4, 0xe8d8d8][ti] }); });
+      rig(122, 133, 4, '#foodtruck', 'Taco truck', { col: 0xc24b3a }); rig(128, 133, 3, '#foodtruck', 'Coffee cart', { col: 0x3f6f95 }); rig(133, 133, 4, '#foodtruck', 'BBQ smoker', { col: 0xc9a24a });
+      rig(152, 136, 3, '#generator', 'Generator', {});
+      // ---------- backstage dressing: scaffold, sandbags, light stands and cable runs ----------
+      backs.forEach(function (r) { for (var zz2 = r.z0; zz2 <= r.z1; zz2++) for (var xx2 = r.x0; xx2 <= r.x1; xx2++) {
+        if (reg[zz2][xx2] !== r.id || decor[xx2 + ',' + zz2]) continue; var w4 = wallOf(xx2, zz2), hh = (xx2 * 7 + zz2 * 13) % 11;
+        if (w4 && hh === 0) obj(xx2, zz2, '#scaffold', hug(w4, {}), 'Scaffolding'); else if (w4 && hh === 5) obj(xx2, zz2, pick(['lampSquareFloor', 'Crate_Wooden', 'cardboardBoxClosed']), hug(w4, { fit: 0.7 }), 'Gear');
+        else if (hh === 3) dec(xx2, zz2, '#cable', { rot: (xx2 + zz2) % 2 ? 0 : Math.PI / 2, ns: true }); } });
+      backs.forEach(function (r, bi) { if (bi % 3 === 0) { spawnIn(r, 'rat', { sub: 'rat' }); spawnIn(r, 'rat', { sub: 'rat' }); } });
+      // ---------- parked vehicles and dressing for the loop ----------
       park(172, 172, 'rustyCar', 'x', 'Rusted car'); park(72, 30, 'motorcycle', 'z', 'Motorbike'); park(100, 40, 'motorcycle', 'x', 'Stunt bike'); park(160, 47, 'motorcycle', 'x', 'Motorbike');
-      // ---------- dressing for the streets ----------
-      [nDrive, sDrive].concat(loop).forEach(function (r) { lamps(r, 11); });
-      for (k = 0; k < 30; k++) { var sr2 = pick([nDrive, sDrive].concat(loop)), qx = ri(sr2.x0, sr2.x1), qz = ri(sr2.z0, sr2.z1); if (freeT(qx, qz, sr2) && wallOf(qx, qz)) { var w3 = wallOf(qx, qz); obj(qx, qz, pick(['Crate_Metal', 'Crate_Wooden', 'Barrel', 'cardboardBoxClosed']), hug(w3, { fit: 0.7 }), 'Gear'); } }
-      [nDrive, sDrive].concat(loop).forEach(function (r) { for (k = 0; k < 3; k++) spawnIn(r, 'rat', { sub: 'rat' }); });
+      lamps(loopR, 9);
+      for (k = 0; k < 30; k++) { var qx = ri(loopR.x0, loopR.x1), qz = ri(loopR.z0, loopR.z1); if (freeT(qx, qz, loopR) && wallOf(qx, qz)) { var w3 = wallOf(qx, qz); obj(qx, qz, pick(['Crate_Metal', 'Crate_Wooden', 'Barrel', 'cardboardBoxClosed']), hug(w3, { fit: 0.7 }), 'Gear'); } }
+      for (k = 0; k < 8; k++) spawnIn(loopR, 'rat', { sub: 'rat' });
 
       // ---------- stairs: each pair of stair blocks links to the other's landing ----------
       function landing(ts) { for (var a2 = 0; a2 < ts.length; a2++) for (var q = 0; q < 4; q++) { var lx = ts[a2][0] + D4[q][0], lz = ts[a2][1] + D4[q][1]; if ((g[lz][lx] === '.' || g[lz][lx] === ',') && !ts.some(function (t3) { return t3[0] === lx && t3[1] === lz; })) return [lx, lz]; } return null; }
@@ -1472,7 +1538,7 @@
       zones.forEach(function (Z) { var b = null; Z.rooms.forEach(function (r) { if (r.z0 >= UPZ) return; if (!b) b = { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 }; else { b.x0 = Math.min(b.x0, r.x0); b.z0 = Math.min(b.z0, r.z0); b.x1 = Math.max(b.x1, r.x1); b.z1 = Math.max(b.z1, r.z1); } }); if (b) { Z.x0 = b.x0; Z.z0 = b.z0; Z.x1 = b.x1; Z.z1 = b.z1; } });
       var map = g.map(function (row) { return row.join(''); });
       for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
-      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle, links: links, upZ: UPZ };
+      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle, links: links, upZ: UPZ, tram: { stops: tramStops, room: tramR.id }, gate: gate };
     }
   }
 
@@ -1633,7 +1699,7 @@
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
   var SOLID = { 'o': 1, 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
   function stairsOpen() { if (typeof CB === 'undefined') return false; var gk = CB.enemies.filter(function (e) { return e.kind === 'gatekeeper'; })[0]; return !!gk && !!gk.dead; }
-  function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z); }
+  function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z) || !!(LEVEL.gate && LEVEL.gate[x + ',' + z] && typeof gateOpen === 'function' && !gateOpen()); }
   function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P' || c === 'H'; }
 
   function floorTex(id, v) {
@@ -1957,6 +2023,13 @@
       if (ax) rb.mesh.rotation.z = -sg * 0.4; else rb.mesh.rotation.x = sg * 0.4; rb.roof = true;
       return;
     }
+    if (sty === 'foliage') { // dense jungle you can't walk or see through: ground, a trunk or two and a heap of leaves
+      floorQuad(floorTex('garden', v), x, 0, z); var hs = hash(x * 3 + 1, z * 5 + 2), hs2 = hash(x + 9, z + 4), lc = [0x2f5a35, 0x3e7a45, 0x356b3c, 0x4a8a4f][Math.floor(hs * 4)];
+      if (hs2 > 0.45) pcyl(0.09, 1.6, 0x4a3420, x + (hs - 0.5) * 0.4, 0.8, z + (hs2 - 0.5) * 0.4, x, z, { kind: 'wood' });
+      var lf = box(1, 1, 1, lc, x + (hs2 - 0.5) * 0.2, 0.75 + hs * 0.9, z + (hs - 0.5) * 0.2, x, z, { geo: new THREE.SphereGeometry(0.5, 7, 5), kind: 'cloth', seed: v, wall: true }); lf.mesh.scale.set(1.35 + hs * 0.4, 1.1 + hs2 * 0.9, 1.35 + hs2 * 0.4); lf.h = 1.6;
+      if (hs > 0.6) { var lf2 = box(1, 1, 1, lc - 0x081008, x - 0.25, 0.45, z + 0.3, x, z, { geo: new THREE.SphereGeometry(0.5, 6, 4), kind: 'cloth', seed: v + 1 }); lf2.mesh.scale.set(0.9, 0.8, 0.9); }
+      return;
+    }
     var S = WSTY[sty] || WSTY.timber, col = o.c ? parseInt(o.c, 16) : S.col;
     // the floor under a thin wall: borrow the inside of the building if there is one
     var fid = null; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (q) { var rr = LEVEL.reg[z + q[1]] && LEVEL.reg[z + q[1]][x + q[0]]; if (rr >= 0) { var t = LEVEL.rooms[rr].theme; if (!fid || /store|house|office|tent|manor|ship|stage/.test(t)) fid = t; } });
@@ -2047,6 +2120,36 @@
       box(0.08, 0.08, 1.2, 0x3a3a40, x + 0.95, 2.6, z + 0.6, tx, tz, { kind: 'metal' }); },
     '#rut': function (x, z, d, tx, tz) { box(0.22, 0.004, 1.0, 0x7a5a36, x, 0.003, z, tx, tz, { kind: 'stone', noShadow: true }); },
     '#prints': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); for (var i = 0; i < 4; i++) B(0.1, 0.004, 0.09, 0x6e5030, (i % 2 ? 0.12 : -0.12), 0.004, -0.4 + i * 0.26, { noShadow: true }); },
+    // ---- Floor 2 backlot: the tour tram, its stops, Base Camp's trailers and trucks, backstage gear ----
+    '#tram': function (x, z, d, tx, tz) { var L = d.len || 6, cx = x + (L - 1) / 2, stripe = [0xc24b3a, 0x3f6f95, 0xc9a24a][(d.n || 0) % 3];
+      box(L - 0.1, 0.14, 2.9, 0x2a2a30, cx, 0.12, z, tx, tz, { kind: 'metal', noShadow: true }); // the deck you walk on
+      [-1, 1].forEach(function (sd) { box(L - 0.2, 0.45, 0.62, 0x8a6a40, cx, 0.42, z + sd * 1.05, tx, tz, { kind: 'wood' }); box(L - 0.2, 0.5, 0.1, 0x6a4a2a, cx, 0.75, z + sd * 1.38, tx, tz, { kind: 'wood' }); // benches
+        box(L - 0.1, 0.16, 0.06, stripe, cx, 0.35, z + sd * 1.47, tx, tz, { kind: 'metal' });
+        for (var i = 0; i <= 2; i++) box(0.07, 1.9, 0.07, 0xd8d8dc, x + i * (L - 1) / 2, 1.2, z + sd * 1.42, tx, tz, { kind: 'metal' });
+        for (var j = 0; j < L; j++) box(0.98, 0.06, 0.9, j % 2 ? 0xf3e9d2 : stripe, x + j, 2.18, z + sd * 1.05, tx, tz, { kind: 'cloth', noShadow: true }); }); // canopy over the benches only, so you can see the aisle
+      [0.7, L - 1.7].forEach(function (o) { [-1.3, 1.3].forEach(function (q) { var w = pcyl(0.28, 0.12, 0x1e1e22, x + o, 0.24, z + q, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; }); }); },
+    '#tramstop': function (x, z, d, tx, tz) { pcyl(0.06, 2.2, 0xd8d8dc, x, 1.1, z, tx, tz, { kind: 'metal' }); box(0.62, 0.62, 0.06, 0xf3e9d2, x, 2.0, z, tx, tz, { tex: signTexture('T'), wall: true });
+      var sg = box(1.4, 0.34, 0.05, 0x2a2b30, x, 1.45, z, tx, tz, { tex: signTexture(d.text || 'TRAM'), wall: true }); sg.h = 0.34; box(0.9, 0.08, 0.4, 0x8a6a40, x, 0.45, z + 0.3, tx, tz, { kind: 'wood' }); },
+    '#trailer': function (x, z, d, tx, tz) { var L = d.len || 5, cx = x + (L - 1) / 2, cz = z + 0.5, col = d.col || 0xe8e0d0;
+      box(L - 0.2, 1.7, 1.8, col, cx, 1.15, cz, tx, tz, { kind: 'metal' }); box(L - 0.1, 0.14, 1.9, 0x8a8a90, cx, 2.06, cz, tx, tz, { kind: 'metal', noShadow: true });
+      box(L - 0.4, 0.16, 0.02, 0xc24b3a, cx, 1.3, cz + 0.91, tx, tz, { kind: 'metal' });
+      for (var i = 0; i < L - 2; i++) box(0.5, 0.36, 0.02, 0x5e7a8c, x + 0.6 + i * 1.1, 1.6, cz + 0.91, tx, tz, { glow: i === 1 });
+      box(0.55, 1.15, 0.03, 0x6a5a48, x + L - 1.4, 0.92, cz + 0.91, tx, tz, { kind: 'wood' }); box(0.7, 0.2, 0.45, 0x6a6a70, x + L - 1.4, 0.12, cz + 1.12, tx, tz, { kind: 'metal' });
+      [0.9, L - 2].forEach(function (o) { var w = pcyl(0.3, 0.2, 0x1e1e22, x + o, 0.3, cz + 0.86, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; }); },
+    '#foodtruck': function (x, z, d, tx, tz) { var L = d.len || 4, cx = x + (L - 1) / 2, cz = z + 0.5, col = d.col || 0xc24b3a;
+      box(L - 0.2, 1.9, 1.7, col, cx, 1.25, cz, tx, tz, { kind: 'metal' }); box(L * 0.55, 0.7, 0.04, 0x1e1e22, cx + 0.2, 1.55, cz + 0.86, tx, tz, {}); // serving window
+      var aw = box(L * 0.6, 0.06, 0.7, 0xf3e9d2, cx + 0.2, 2.0, cz + 1.15, tx, tz, { kind: 'cloth' }); aw.mesh.rotation.x = 0.35;
+      box(L * 0.5, 0.08, 0.32, 0xb8b0a0, cx + 0.2, 1.15, cz + 1.0, tx, tz, { kind: 'metal' }); box(0.9, 1.0, 1.6, 0xd8d8dc, x + L - 0.6, 0.85, cz, tx, tz, { kind: 'metal' });
+      [0.6, L - 1.4].forEach(function (o) { var w = pcyl(0.32, 0.2, 0x1e1e22, x + o, 0.3, cz + 0.8, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; }); },
+    '#generator': function (x, z, d, tx, tz) { var L = d.len || 3, cx = x + (L - 1) / 2, cz = z + 0.5;
+      box(L - 0.3, 1.2, 1.5, 0xd9a23a, cx, 0.8, cz, tx, tz, { kind: 'metal' }); box(L - 0.5, 0.3, 1.3, 0x3a3a40, cx, 1.55, cz, tx, tz, { kind: 'metal' });
+      for (var i = 0; i < 4; i++) box(0.04, 0.6, 1.2, 0x2a2a30, x + 0.4 + i * 0.4, 0.85, cz, tx, tz, { kind: 'metal' });
+      pcyl(0.09, 0.7, 0x2a2a30, x + L - 0.9, 1.9, cz - 0.3, tx, tz, { kind: 'metal' }); box(0.08, 0.05, 2.2, 0x1e1e22, x - 0.3, 0.03, cz + 1.3, tx, tz, { noShadow: true }); },
+    '#scaffold': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz);
+      [[-0.42, -0.3], [0.42, -0.3], [-0.42, 0.3], [0.42, 0.3]].forEach(function (q) { B(0.05, 2.6, 0.05, 0x9a9ca3, q[0], 1.3, q[1], { kind: 'metal' }); });
+      [0.9, 1.8, 2.55].forEach(function (y) { B(0.92, 0.04, 0.04, 0x9a9ca3, 0, y, -0.3, { kind: 'metal' }); B(0.92, 0.04, 0.04, 0x9a9ca3, 0, y, 0.3, { kind: 'metal' }); });
+      B(0.9, 0.05, 0.62, 0x8a6a40, 0, 1.8, 0, { kind: 'wood' }); var x2 = B(1.15, 0.04, 0.04, 0x8a8c93, 0, 1.35, -0.3, { kind: 'metal' }); x2.mesh.rotation.z = 0.9; },
+    '#cable': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.06, 0.03, 1.0, 0x1e1e22, -0.12, 0.015, 0, { noShadow: true }); B(0.05, 0.03, 1.0, 0x2a2a30, 0.06, 0.015, 0, { noShadow: true }); },
     '#sign': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); var sg = B(1.9, 0.48, 0.06, 0xe8d9b4, 0, d.y || 1.7, 0, { tex: signTexture(d.text || ''), wall: true }); sg.h = 0.48; sg.wy = (d.y || 1.7) - 0.24; }
   };
 
@@ -8078,7 +8181,7 @@
   BEAST.automaton = own('robot', { vuln: ['lightning'],  name: 'Animatronic', ac: 13, hp: 12, speed: 5, atk: 3, dmg: [1, 6, 1], weapon: 'brass fists', str: 2, dex: 0, xp: 60, h: 1.75, lines: ['A clockwork servant from the haunted-manor set. It is still serving. You are the course.'] });
   BEAST.automaton_big = own('robot', { vuln: ['lightning'],  name: 'Footman unit', ac: 15, hp: 22, speed: 5, atk: 4, dmg: [1, 8, 2], weapon: 'brass fists', str: 3, dex: 0, xp: 140, h: 2.0, tint: 0xd0d8e0, lines: ['Polished, upright, and programmed to remove guests who overstay.'] });
   BEAST.butler = own('robot', { vuln: ['lightning'],  name: 'The Butler Unit', ac: 16, hp: 64, speed: 5, atk: 6, dmg: [2, 8, 3], weapon: 'silver tray', str: 4, dex: 1, init: 2, pp: 14, xp: 700, h: 2.5, tint: 0xffd890, boss: true, lines: ['Head of the manor staff. Its manners are flawless. So is its right hook.'] });
-  // practical-effect dinosaurs of the Jungle Set, costume goblins of Starship Valiant, a stunt ronin, and two Catering Village regulars
+  // practical-effect dinosaurs of the Jungle Set, costume goblins of Starship Valiant, a stunt ronin, and two Base Camp regulars
   BEAST.raptor = own('raptor', { name: 'Velociraptor', ac: 13, hp: 12, speed: 8, atk: 4, dmg: [1, 6, 2], weapon: 'sickle claws', str: 1, dex: 3, init: 3, pp: 14, xp: 70, h: 1.05, lines: ['A practical-effect raptor from the jungle picture. The puppeteers went home. It did not need them.'] });
   BEAST.raptor_alpha = own('raptor', { name: 'Raptor pack leader', ac: 14, hp: 22, speed: 8, atk: 5, dmg: [2, 6, 2], weapon: 'sickle claws', str: 2, dex: 3, init: 4, pp: 15, xp: 150, h: 1.2, tint: 0xd8a070, lines: ['The clever one. It tests the fences. It also tests you.'] });
   BEAST.trex = own('trex', { name: 'The Big Animatronic', ac: 13, hp: 70, speed: 7, atk: 7, dmg: [3, 8, 4], weapon: 'jaws', str: 5, dex: 0, init: 1, pp: 13, xp: 800, h: 2.2, lines: ['Forty feet of hydraulics and latex, built for one scene. The System gave it the rest of the movie.'] });
@@ -8309,7 +8412,7 @@
     mobParts.length = 0; SOLID.M = 0;
     SPAWNS.forEach(function (sp, n) {
       var B = BEAST[sp.kind], holder = new THREE.Group(); holder.visible = false; scene.add(holder);
-      var e = { kind: sp.kind, def: B, name: sp.name || B.name, x: sp.x, z: sp.z, sx: sp.x, sz: sp.z, px: sp.x, pz: sp.z, hp: B.hp, max: B.hp, dead: false, calm: !!sp.npc || !!B.tame, npc: sp.npc || null, guard: !!sp.guard,
+      var e = { kind: sp.kind, def: B, name: sp.name || B.name, x: sp.x, z: sp.z, sx: sp.x, sz: sp.z, px: sp.x, pz: sp.z, hp: B.hp, max: B.hp, dead: false, calm: !!sp.npc || !!B.tame, npc: sp.npc || null, tram: !!sp.tram, guard: !!sp.guard,
         obj: holder, mixer: null, clips: {}, sp: sp, n: n, path: null, act: null, cur: '' };
       holder.position.set(sp.x, 0, sp.z); holder.rotation.y = Math.PI * 0.75;
       e.bar = document.createElement('div'); e.bar.className = 'ebar'; e.bar.innerHTML = '<i></i><span></span>'; document.body.appendChild(e.bar);
@@ -8366,7 +8469,7 @@
     var dead = [], eaten = [], calm = [], hp = {};
     var rats = []; CB.enemies.forEach(function (e) { if (e.npc) return; if (e.def.base === 'rat' && !e.boss) { if (e.dead) rats.push([e.n, e.diedAt || Date.now()]); return; } if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
     var calmK = CB.enemies.filter(function (e) { return e.calm && !e.dead && !e.npc; }).map(spawnKey);
-    return { lv: FLOOR === 2 ? undefined : LAYOUT_VER, dead: dead, eaten: eaten, calm: calm, calmK: calmK, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
+    return { lv: curLV(), dead: dead, eaten: eaten, calm: calm, calmK: calmK, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
   }
   function spawnKey(e) { return (e.kind || '') + '@' + e.sx + ',' + e.sz; }
   function calmSave(e) { if (!e || e.npc) return; e.calm = true; setTimeout(worldSave, 50); } // a truce lasts until you break it, across reloads too
@@ -8390,7 +8493,7 @@
     if (any) worldSave();
   }, 20000);
   function worldApply(st) {
-    if (FLOOR !== 2 && st.lv !== LAYOUT_VER) return; // saved against an older Floor 1 layout
+    if (st.lv !== curLV()) return; // saved against an older layout of this floor
     var byN = {}; CB.enemies.forEach(function (e) { byN[e.n] = e; });
     (st.dead || []).concat(st.eaten || []).forEach(function (n) { var e = byN[n]; if (!e) return; e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; }); // bodies from earlier sessions are gone
     if (st.calmK) { var byK = {}; CB.enemies.forEach(function (e) { byK[spawnKey(e)] = e; }); st.calmK.forEach(function (k) { var e = byK[k]; if (e && !e.dead) e.calm = true; }); }
@@ -8665,6 +8768,11 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
+  // ---- Floor 2 slates: every set boss you beat wraps its scene and hands you a slate; three open Soundstage 9 ----
+  function slatesOf() { return (CHAR && CHAR.slates) || []; }
+  function gateOpen() { return slatesOf().length >= 3 || (typeof DM !== 'undefined' && DM.as === 'dm'); }
+  function slateWin(e, n) { if (!CHAR) return; CHAR.slates = CHAR.slates || []; if (CHAR.slates.indexOf(e.name) >= 0) return; CHAR.slates.push(e.name); saveChar(CHAR);
+    var k = CHAR.slates.length; setTimeout(function () { say('SCENE WRAPPED · slate ' + k + (k < 3 ? '/3' : ''), e.name + ' is done. You pocket the slate (a clapperboard with the scene chalked on it). ' + (k < 3 ? (3 - k) + ' more and the Soundstage 9 door opens.' : k === 3 ? 'That is three: the stage door on Director\'s Row will open for you now.' : 'Soundstage 9 is already open to you.'), 7000); }, 1200 + 2600 * n); }
   function cbEnd(win) { (CHAR && CHAR.gear || []).forEach(function (g) { g.unloaded = false; var GB = ITEMS[g.name] && ITEMS[g.name].bow; if (GB && GB.cyl) { g.loaded = GB.cyl; g.jammed = false; } }); // between fights you reload and clear any jam CB.enemies.forEach(function (q) { q.pinned = 0; q.surprised = false; q.blind = 0; q.poisoned = null; q.doused = 0; }); PC.burning = 0; CB.dmSolo = false; CB.allyFell = false; CB.enemies.forEach(function (e) { e.rallied = false; e.rally = 0; e.furious = false; e.fleeing = false; e.tauntedThisFight = 0; }); PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
@@ -8685,6 +8793,7 @@
       if (talked && !(CHAR && CHAR.ach && CHAR.ach.talker)) ach('talker', 'Use Your Words', 'You talked a monster out of a fight. The System finds this personally refreshing.', 50);
       if (beaten.some(function (e) { return e.dead && e.def.base === 'shrub'; }) && !(CHAR && CHAR.ach && CHAR.ach.weed)) ach('weed', 'Weed Whacker', 'You killed a shrub. Gardeners everywhere salute you.', 10);
       if (beaten.some(function (e) { return e.dead && e.def.lvl === 4; })) ach('thornmaw', 'Should Have Stepped On It', 'You killed a Thornmaw. Somebody let it get that big.', 150);
+      if (FLOOR === 2) beaten.forEach(function (e) { if (e.dead && e.boss && e.kind !== 'director') slateWin(e, later++); });
       if (beaten.some(function (e) { return e.dead && e.boss; })) ach('boss_' + beaten.filter(function (e) { return e.boss; })[0].kind, 'Boss Down', 'You beat ' + beaten.filter(function (e) { return e.boss; })[0].name + '. The System is, frankly, a little impressed.', 100);
     }
   }
@@ -10235,22 +10344,22 @@
       limits: 'Cannot be fought, harmed or bargained into sending anyone home ("the contract is very clear"). Will not reveal where Earth is now or what happened to it. Never breaks character to talk about being an AI or a game.',
       start: 'neutral', calmed: true },
     quib: { name: 'Associate Producer Quib, Floor 2 production', voice: 'frazzled and fast, juggling a headset and three coffees, film-set jargon ("we\'re losing the light", "that\'s a wrap", "hold the roll"), friendlier than the other producers but always half listening to someone else',
-      who: 'A grey alien, a junior producer of the dungeon-crawl show and one of the abduction crew that took the Strong Guys Club. Now in charge of Floor 2, the Backlot: a studio lot of film sets around Catering Village. It is stretched thin: the writers are on strike, the Director is impossible, and the Showrunner on Maple Lane keeps rewriting everything.',
+      who: 'A grey alien, a junior producer of the dungeon-crawl show and one of the abduction crew that took the Strong Guys Club. Now in charge of Floor 2, the Backlot: a studio lot of film sets around Base Camp. It is stretched thin: the writers are on strike, the Director is impossible, and the Showrunner on Maple Lane keeps rewriting everything.',
       wants: 'To get through the shoot. Good footage of the talent on the sets. The Director\'s approval, which it has never once received.',
-      knows: 'The Backlot: Catering Village is the one safe hub; Maple Lane and Frontier Town are the easiest sets, then Blackwood Manor and the Jungle Set, then Starship Valiant and the Writers\' Building. Soundstage 9 is the way down, and the Director is on the crane in there. Dermot Stoker, the head writer, lives on the roof of the Writers\' Building and is very touchy about his putting green.',
-      limits: 'Cannot be fought or harmed in Catering Village. Will not send anyone home. Never breaks character to talk about being an AI or a game.',
+      knows: 'The Backlot: Base Camp is the one safe hub; Maple Lane and Frontier Town are the easiest sets, then Blackwood Manor and the Jungle Set, then Starship Valiant and the Writers\' Building. Soundstage 9 is the way down, and the Director is on the crane in there. Dermot Stoker, the head writer, lives on the roof of the Writers\' Building and is very touchy about his putting green.',
+      limits: 'Cannot be fought or harmed in Base Camp. Will not send anyone home. Never breaks character to talk about being an AI or a game.',
       start: 'friendly', calmed: true },
     arthrav: { name: 'Arthrav, catfolk fixer', voice: 'low, dry and unhurried, few words, purrs when amused, calls the player "kitten" or "new blood", never answers a question directly the first time',
-      who: 'A catfolk crawler from an earlier season who got stuck on Floor 2 and decided she liked it. She runs odd jobs and trades out of Catering Village and knows every set on the Backlot. Catfolk are a real race of the dungeon; crawlers who reach the third floor can choose to become one.',
+      who: 'A catfolk crawler from an earlier season who got stuck on Floor 2 and decided she liked it. She runs odd jobs and trades out of Base Camp and knows every set on the Backlot. Catfolk are a real race of the dungeon; crawlers who reach the third floor can choose to become one.',
       wants: 'A good trade, a good story, and to see someone finally beat the Director. Fish, if anyone has any.',
       knows: 'The Backlot: which sets are easy (Maple Lane, Frontier Town), which are not (the Jungle Set has practical-effect raptors and one very large animatronic; Starship Valiant has Captain Zorr and his costume goblins). Furniture on the sets breaks down into wood if you hit it hard enough. The race choice comes on Floor 3, and she thinks catfolk is the obvious pick.',
-      limits: 'Cannot be fought or harmed in Catering Village. Will not join the party or leave the village. Never breaks character to talk about being an AI or a game.',
+      limits: 'Cannot be fought or harmed in Base Camp. Will not join the party or leave Base Camp. Never breaks character to talk about being an AI or a game.',
       start: 'neutral', calmed: true },
     aeson: { name: 'Aeson, birdfolk runner', voice: 'quick, chirpy and twitchy, talks in bursts, loves gossip, clicks its beak when nervous, calls everyone "friend-friend"',
       who: 'A birdfolk who runs messages, coffee and rumours between every set on the Backlot for the crew. Fast, nosy and always slightly out of breath. Birdfolk are a real race of the dungeon; crawlers who reach the third floor can choose to become one.',
       wants: 'Gossip. Shiny things. Never to be sent into the Jungle Set again.',
       knows: 'All the rumours: the writers are on strike, Dermot Stoker is on the roof of the Writers\' Building with his putting green, the Showrunner is rewriting Maple Lane, the raptors in the Jungle Set hunt in packs and follow the leader, the big animatronic hates fire. Soundstage 9 is the way down.',
-      limits: 'Cannot be fought or harmed in Catering Village. Will not join the party or leave the village. Never breaks character to talk about being an AI or a game.',
+      limits: 'Cannot be fought or harmed in Base Camp. Will not join the party or leave Base Camp. Never breaks character to talk about being an AI or a game.',
       start: 'friendly', calmed: true },
     puglin: { name: 'Puglin', voice: 'short grunting sentences, third person sometimes ("Grik hungry"), easily flattered, bad grammar',
       who: 'A small goblin-pug monster spawned two days ago for the show. Lives for snacks and approval from bigger monsters.',
@@ -11711,9 +11820,24 @@
     'Fridge': [{ label: 'Raid the fridge', auto: 'fridge' }, { label: 'Examine', text: 'A humming fridge covered in magnets from places that no longer exist.' }],
     'Bunk bed': [{ label: 'Take a nap', auto: 'nap' }, { label: 'Examine', text: 'A narrow bunk with a scratchy blanket. Someone carved a tally into the frame. They stopped at 41.' }],
     'Sink': [{ label: 'Splash your face', auto: 'sink' }],
-    'TV': [{ label: 'Watch the replay', auto: 'tv' }]
+    'TV': [{ label: 'Watch the replay', auto: 'tv' }],
+    'Coffee cart': [{ label: 'Get a coffee', auto: 'coffee' }],
+    'Taco truck': [{ label: 'Examine', text: 'A taco truck with a hand-painted menu. Today\'s special is listed as "crawler". The cook swears that means a style.' }],
+    'BBQ smoker': [{ label: 'Examine', text: 'A smoker the size of a car, trailing sweet smoke across Base Camp. Brisket for the crew, if the crew ever comes back.' }],
+    'Generator': [{ label: 'Examine', text: 'The generator that feeds every set on the lot. It hums like it knows something.' }],
+    'Tram bench': [{ label: 'Examine', text: 'A bench on the tour tram. Someone left a souvenir map and half a churro.' }]
   };
-  function actsOf(t) { var lk = LEVEL.links && LEVEL.links[t.key]; if (lk) return [{ label: lk.label, auto: 'link', link: lk }, { label: 'Examine', text: 'A creaky staircase. Every step has its own opinion.' }]; if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; } return woodActs(t, ACTS[t.c]); }
+  // ---- the Floor 2 tour tram: tap a stop to mark it found; once the crew on the tram is beaten, ride between found stops ----
+  function tramClear() { return !CB.enemies.some(function (e) { return e.tram && !e.dead; }); }
+  function tramActs(t) {
+    var st = (LEVEL.tram.stops || []).filter(function (q) { return q.x + ',' + q.z === t.key; })[0]; if (!st) return null;
+    if (CHAR) { CHAR.tramSeen = CHAR.tramSeen || []; if (CHAR.tramSeen.indexOf(st.name) < 0) { CHAR.tramSeen.push(st.name); saveChar(CHAR); } }
+    if (!tramClear()) return [{ label: 'Read the sign', text: st.name + '. The studio tour tram stops here, or it did until the crew took it over. It is parked on the south straight below Base Camp, and nobody is driving it anywhere until someone clears them off. This stop is now marked on your tram map.' }];
+    var seen = (CHAR && CHAR.tramSeen) || [], acts = (LEVEL.tram.stops || []).filter(function (q) { return q.name !== st.name && seen.indexOf(q.name) >= 0; }).map(function (q) { return { label: 'Ride to ' + q.name, auto: 'tram', to: q }; });
+    if (!acts.length) acts.push({ label: 'Read the sign', text: st.name + '. The tram is yours now, but you have not found any other stops yet. Tap the sign at another stop and you can ride there.' });
+    return acts;
+  }
+  function actsOf(t) { var lk = LEVEL.links && LEVEL.links[t.key]; if (lk) return [{ label: lk.label, auto: 'link', link: lk }, { label: 'Examine', text: 'A creaky staircase. Every step has its own opinion.' }]; if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (nm === 'Tram stop' && LEVEL.tram) { var ta = tramActs(t); if (ta) return ta; } if (nm === 'Call sheet board' && FLOOR === 2) return [{ label: 'Read the call sheet', auto: 'callsheet' }]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; if (/'s trailer$/.test(nm || '')) return [{ label: 'Examine', text: 'A star trailer with ' + nm.replace(/'s trailer$/, '') + ' on a paper sign taped to the door. The System assigned these. The air conditioning works, which is more than can be said for the plot.' }]; } return woodActs(t, ACTS[t.c]); }
   // anything wooden can be broken down for arrow shafts (once each)
   var WOODY = /chair|table|desk|shelf|shelving|bookcase|book|crate|barrel|bench|cabinet|pallet|bed|bunk|dresser|stool|cart|wagon|fence|rack|box|drawer|wardrobe|counter|piano|coffin|sign|post|trough|ladder|door/i, NOTWOOD = /lamp|boulder|bars|metal|steel|iron|fridge|refrigerator|stove|oven|tv|television|computer|monitor|washer|dryer|sink|toilet|locker|vending|machine|filing|safe/i;
   function isWoody(t) { if (t.c === 'T' || t.c === 'h' || t.c === 'K' || t.c === 'W') return true; if (t.c !== 'o') return false; var nm = (LEVEL.dname[t.key] || '') + ' ' + ((LEVEL.decor && LEVEL.decor[t.key] && (LEVEL.decor[t.key].m || LEVEL.decor[t.key].model)) || ''); return WOODY.test(nm) && !NOTWOOD.test(nm); }
@@ -11722,6 +11846,9 @@
     var c = CHAR, now = Date.now(); if (!c) { say('Not yet', 'Create a character first.', 2500); return true; }
     c.cool = c.cool || {};
     if (a.auto === 'link') { takeLink(a.link); return true; }
+    if (a.auto === 'tram') { if (CB.on) { say('Not now', 'Finish the fight first.', 2500); return true; } if (takeLink({ x: a.to.ax, z: a.to.az })) say('All aboard', 'The tram whirs round the loop with you as its only passenger. ' + a.to.name + '. Please keep your hands inside the vehicle.', 4000); return true; }
+    if (a.auto === 'callsheet') { var sl = (c.slates || []), left = Math.max(0, 3 - sl.length);
+      say('Call sheet', sl.length ? 'Scenes wrapped: ' + sl.join(', ') + '. ' + (left ? left + ' more slate' + (left > 1 ? 's' : '') + ' and Soundstage 9 opens.' : 'Soundstage 9 is open to you. The Director is waiting.') : 'Six sets are shooting: Frontier Town, the Jungle Set (two bosses), Starship Valiant, Maple Lane, Blackwood Manor and the Writers\' Building. Beat a set boss and you get its slate. Three slates open Soundstage 9, and the way down.', 9000); return true; }
     if (a.auto === 'wood') {
       if (done[t.key + 'wood']) { say('Already stripped', 'You already took everything useful off this one.', 2600); return true; }
       var r = d20(), tot = r + MOD.STR + (skillLv('Athletics') || 0), ok = r === 20 || (r !== 1 && tot >= 10); kitOneShot('Punch_Jab');
@@ -12649,7 +12776,7 @@
   function edEditable(x, z) { var c = ch(x, z); return !!(LEVEL.decor[x + ',' + z] && LEVEL.decor[x + ',' + z].length) || (!isFloorCh(c) && c !== '#' && c !== '~' && c !== '@' && c !== ' ' && c !== 'D' && c !== '?'); }
   // ---------- applying one operation (u = undo it) ----------
   function edApply(o, u) {
-    if (FLOOR !== 2 && (o.lv || 1) !== LAYOUT_VER) return false; // made on an older Floor 1 layout
+    if ((o.lv || 1) !== curLV()) return false; // made on an older layout of this floor
     var k, e;
     if (o.t === 'swap') {
       var a = o.a[0] + ',' + o.a[1], b = o.b[0] + ',' + o.b[1], ca = ch(o.a[0], o.a[1]), cb = ch(o.b[0], o.b[1]);
@@ -12719,7 +12846,7 @@
     document.getElementById('edUndo').onclick = edUndo;
     document.getElementById('edDone').onclick = function () { edToggle(false); };
   }
-  function edDo(o) { if (FLOOR !== 2) o.lv = LAYOUT_VER; if (!edApply(o)) { say('Editor', 'That did not work here.', 2200); return false; } EDIT.session.push(o); if (o.t !== 'mob' && o.t !== 'mobdel') edRebuild(); edBar(); return true; }
+  function edDo(o) { o.lv = curLV(); if (!edApply(o)) { say('Editor', 'That did not work here.', 2200); return false; } EDIT.session.push(o); if (o.t !== 'mob' && o.t !== 'mobdel') edRebuild(); edBar(); return true; }
   function edUndo() { var o = EDIT.session.pop(); if (!o) return; edApply(o, true); if (o.t !== 'mob' && o.t !== 'mobdel') edRebuild(); EDIT.sel = null; EDIT.move = false; edRing(null); edBar(); }
   // the selection ring
   function edRing(s) {
@@ -13149,7 +13276,9 @@
   }
   function fogKey() { return 'crawl-fog-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : '') + (FLOOR === 2 ? '-f2' : ''); }
   var LAYOUT_VER = 2; // Floor 1 layout version: bump when the map changes so old positions, fog and monster state are dropped
-  function lvTag() { return FLOOR === 2 ? '' : 'L' + LAYOUT_VER + ':'; }
+  var LAYOUT_VER2 = 2; // Floor 2 layout version (2: the tram-loop redesign, Nov 2026)
+  function curLV() { return FLOOR === 2 ? LAYOUT_VER2 : LAYOUT_VER; }
+  function lvTag() { return FLOOR === 2 ? (LAYOUT_VER2 > 1 ? 'B' + LAYOUT_VER2 + ':' : '') : 'L' + LAYOUT_VER + ':'; }
   function fogSave() { // explored tiles as runs: start,length;start,length...
     var out = [], i = 0; while (i < W * H) { if (tileState[i]) { var j = i; while (j < W * H && tileState[j]) j++; out.push(i.toString(36) + ',' + (j - i).toString(36)); i = j; } else i++; }
     var str = lvTag() + out.join(';'); try { localStorage.setItem(fogKey(), str); } catch (e) {}
@@ -13162,11 +13291,11 @@
     if (NET.mode === 'server' && NET.uid && CHAR && !CHAR.isDM) api('kv/fog-' + CHAR.name.replace(/[^\w-]/g, '').slice(0, 40)).then(function (j) { var v = j && (j.value !== undefined ? j.value : j.v); if (typeof v === 'string' && v) { fogMerge(v); FOG.total = 0; FOG.seen = 0; refreshFog(); fogSave(); } }).catch(function () {});
   }
   var lastSavedPos = '';
-  function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); var pp = FLOOR === 2 ? CHAR.pos2 : (CHAR.posL === LAYOUT_VER ? CHAR.pos : null); if (pp && heroTo(pp.x, pp.z)) { refreshFog(); enterRoom(); } else { heroTo(LEVEL.start.x, LEVEL.start.z); refreshFog(); enterRoom(); } }
-  function posStash() { if (!CHAR) return; CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; if (FLOOR !== 2) CHAR.posL = LAYOUT_VER; fogSave(); saveChar(CHAR); worldSave(); }
+  function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); var pp = FLOOR === 2 ? (CHAR.posL2 === LAYOUT_VER2 ? CHAR.pos2 : null) : (CHAR.posL === LAYOUT_VER ? CHAR.pos : null); if (pp && heroTo(pp.x, pp.z)) { refreshFog(); enterRoom(); } else { heroTo(LEVEL.start.x, LEVEL.start.z); refreshFog(); enterRoom(); } }
+  function posStash() { if (!CHAR) return; CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; if (FLOOR !== 2) CHAR.posL = LAYOUT_VER; else CHAR.posL2 = LAYOUT_VER2; fogSave(); saveChar(CHAR); worldSave(); }
   function posSave(force) {
     if (!CHAR || CB.on) return; var k = P.x + ',' + P.z; if (!force && k === lastSavedPos) return; lastSavedPos = k;
-    CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; if (FLOOR !== 2) CHAR.posL = LAYOUT_VER; fogSave(); saveChar(CHAR); worldSave();
+    CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; if (FLOOR !== 2) CHAR.posL = LAYOUT_VER; else CHAR.posL2 = LAYOUT_VER2; fogSave(); saveChar(CHAR); worldSave();
   }
   setInterval(function () { posSave(false); }, 30000);
   if (CHAR) setTimeout(posRestore, 0);
@@ -13487,6 +13616,7 @@
     var want = Math.atan2(wx, wz), d = want - hero.rotation.y;
     while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
     hero.rotation.y += d * Math.min(1, dt * 14);
+    if (!P.path && m >= 0.5 && LEVEL.gate && typeof gateOpen === 'function' && !gateOpen()) { var gk = Math.round(P.px + wx * 0.8) + ',' + Math.round(P.pz + wz * 0.8); if (LEVEL.gate[gk] && (!P.gateSaid || Date.now() - P.gateSaid > 5000)) { P.gateSaid = Date.now(); say('Closed set', 'Soundstage 9 is closed until you have wrapped three scenes. Beat three set bosses for their slates. You have ' + slatesOf().length + ' of 3.', 4500); } }
     if (!P.path && m >= 0.5 && LEVEL.links) { var lk2 = LEVEL.links[Math.round(P.px + wx * 0.8) + ',' + Math.round(P.pz + wz * 0.8)]; if (lk2) { P.bump = (P.bump || 0) + dt; if (P.bump > 0.35) { P.bump = 0; takeLink(lk2); return; } } else P.bump = 0; }
     var tx = Math.round(P.px), tz = Math.round(P.pz);
     if (tx !== P.x || tz !== P.z) { P.x = tx; P.z = tz; refreshFog(); enterRoom(); cbAggro(); stairsCheck(); }
@@ -13730,6 +13860,7 @@
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
   window.__crawl.dmTest = function () { DM.as = 'dm'; refreshFog(); return Array.prototype.filter.call(tileState, function (v) { return v; }).length; }; window.__crawl.dmJump = function (x, z) { dmJump(x, z); return [P.x, P.z]; };
   window.__crawl.strike = function (slow) { KIT.slow = slow || 1; var W = pcWeapon(); return [W.style, kitStrike(W)]; }; window.__crawl.face = function (r) { hero.rotation.y = r; };
+  window.__crawl.tram = { acts: function (k) { var q = k.split(','); return actsOf({ key: k, c: 'o', x: +q[0], z: +q[1] }); }, act: function (a, k) { return safeAct(a, { key: k, c: 'o' }); }, clear: function () { return tramClear(); }, slate: function (e) { slateWin(e, 0); }, open: function () { return gateOpen(); } };
   window.__crawl.ach = { achieve: achieve, ACH: ACH, state: worldState, apply: worldApply, calm: calmSave, key: spawnKey, talkFight: function (e) { e.talk = e.talk || { lines: [], facts: [], mood: 'neutral' }; } }; // test hooks
   charInit(); cbHUD();
   requestAnimationFrame(loop);

@@ -28,7 +28,7 @@
   BEAST.automaton = own('robot', { vuln: ['lightning'],  name: 'Animatronic', ac: 13, hp: 12, speed: 5, atk: 3, dmg: [1, 6, 1], weapon: 'brass fists', str: 2, dex: 0, xp: 60, h: 1.75, lines: ['A clockwork servant from the haunted-manor set. It is still serving. You are the course.'] });
   BEAST.automaton_big = own('robot', { vuln: ['lightning'],  name: 'Footman unit', ac: 15, hp: 22, speed: 5, atk: 4, dmg: [1, 8, 2], weapon: 'brass fists', str: 3, dex: 0, xp: 140, h: 2.0, tint: 0xd0d8e0, lines: ['Polished, upright, and programmed to remove guests who overstay.'] });
   BEAST.butler = own('robot', { vuln: ['lightning'],  name: 'The Butler Unit', ac: 16, hp: 64, speed: 5, atk: 6, dmg: [2, 8, 3], weapon: 'silver tray', str: 4, dex: 1, init: 2, pp: 14, xp: 700, h: 2.5, tint: 0xffd890, boss: true, lines: ['Head of the manor staff. Its manners are flawless. So is its right hook.'] });
-  // practical-effect dinosaurs of the Jungle Set, costume goblins of Starship Valiant, a stunt ronin, and two Catering Village regulars
+  // practical-effect dinosaurs of the Jungle Set, costume goblins of Starship Valiant, a stunt ronin, and two Base Camp regulars
   BEAST.raptor = own('raptor', { name: 'Velociraptor', ac: 13, hp: 12, speed: 8, atk: 4, dmg: [1, 6, 2], weapon: 'sickle claws', str: 1, dex: 3, init: 3, pp: 14, xp: 70, h: 1.05, lines: ['A practical-effect raptor from the jungle picture. The puppeteers went home. It did not need them.'] });
   BEAST.raptor_alpha = own('raptor', { name: 'Raptor pack leader', ac: 14, hp: 22, speed: 8, atk: 5, dmg: [2, 6, 2], weapon: 'sickle claws', str: 2, dex: 3, init: 4, pp: 15, xp: 150, h: 1.2, tint: 0xd8a070, lines: ['The clever one. It tests the fences. It also tests you.'] });
   BEAST.trex = own('trex', { name: 'The Big Animatronic', ac: 13, hp: 70, speed: 7, atk: 7, dmg: [3, 8, 4], weapon: 'jaws', str: 5, dex: 0, init: 1, pp: 13, xp: 800, h: 2.2, lines: ['Forty feet of hydraulics and latex, built for one scene. The System gave it the rest of the movie.'] });
@@ -259,7 +259,7 @@
     mobParts.length = 0; SOLID.M = 0;
     SPAWNS.forEach(function (sp, n) {
       var B = BEAST[sp.kind], holder = new THREE.Group(); holder.visible = false; scene.add(holder);
-      var e = { kind: sp.kind, def: B, name: sp.name || B.name, x: sp.x, z: sp.z, sx: sp.x, sz: sp.z, px: sp.x, pz: sp.z, hp: B.hp, max: B.hp, dead: false, calm: !!sp.npc || !!B.tame, npc: sp.npc || null, guard: !!sp.guard,
+      var e = { kind: sp.kind, def: B, name: sp.name || B.name, x: sp.x, z: sp.z, sx: sp.x, sz: sp.z, px: sp.x, pz: sp.z, hp: B.hp, max: B.hp, dead: false, calm: !!sp.npc || !!B.tame, npc: sp.npc || null, tram: !!sp.tram, guard: !!sp.guard,
         obj: holder, mixer: null, clips: {}, sp: sp, n: n, path: null, act: null, cur: '' };
       holder.position.set(sp.x, 0, sp.z); holder.rotation.y = Math.PI * 0.75;
       e.bar = document.createElement('div'); e.bar.className = 'ebar'; e.bar.innerHTML = '<i></i><span></span>'; document.body.appendChild(e.bar);
@@ -316,7 +316,7 @@
     var dead = [], eaten = [], calm = [], hp = {};
     var rats = []; CB.enemies.forEach(function (e) { if (e.npc) return; if (e.def.base === 'rat' && !e.boss) { if (e.dead) rats.push([e.n, e.diedAt || Date.now()]); return; } if (e.dead) (e.eaten ? eaten : dead).push(e.n); else { if (e.calm) calm.push(e.n); if (e.hp < e.max) hp[e.n] = e.hp; } });
     var calmK = CB.enemies.filter(function (e) { return e.calm && !e.dead && !e.npc; }).map(spawnKey);
-    return { lv: FLOOR === 2 ? undefined : LAYOUT_VER, dead: dead, eaten: eaten, calm: calm, calmK: calmK, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
+    return { lv: curLV(), dead: dead, eaten: eaten, calm: calm, calmK: calmK, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
   }
   function spawnKey(e) { return (e.kind || '') + '@' + e.sx + ',' + e.sz; }
   function calmSave(e) { if (!e || e.npc) return; e.calm = true; setTimeout(worldSave, 50); } // a truce lasts until you break it, across reloads too
@@ -340,7 +340,7 @@
     if (any) worldSave();
   }, 20000);
   function worldApply(st) {
-    if (FLOOR !== 2 && st.lv !== LAYOUT_VER) return; // saved against an older Floor 1 layout
+    if (st.lv !== curLV()) return; // saved against an older layout of this floor
     var byN = {}; CB.enemies.forEach(function (e) { byN[e.n] = e; });
     (st.dead || []).concat(st.eaten || []).forEach(function (n) { var e = byN[n]; if (!e) return; e.dead = true; e.eaten = true; e.counted = true; e.hp = 0; e.obj.visible = false; }); // bodies from earlier sessions are gone
     if (st.calmK) { var byK = {}; CB.enemies.forEach(function (e) { byK[spawnKey(e)] = e; }); st.calmK.forEach(function (k) { var e = byK[k]; if (e && !e.dead) e.calm = true; }); }
@@ -615,6 +615,11 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
+  // ---- Floor 2 slates: every set boss you beat wraps its scene and hands you a slate; three open Soundstage 9 ----
+  function slatesOf() { return (CHAR && CHAR.slates) || []; }
+  function gateOpen() { return slatesOf().length >= 3 || (typeof DM !== 'undefined' && DM.as === 'dm'); }
+  function slateWin(e, n) { if (!CHAR) return; CHAR.slates = CHAR.slates || []; if (CHAR.slates.indexOf(e.name) >= 0) return; CHAR.slates.push(e.name); saveChar(CHAR);
+    var k = CHAR.slates.length; setTimeout(function () { say('SCENE WRAPPED · slate ' + k + (k < 3 ? '/3' : ''), e.name + ' is done. You pocket the slate (a clapperboard with the scene chalked on it). ' + (k < 3 ? (3 - k) + ' more and the Soundstage 9 door opens.' : k === 3 ? 'That is three: the stage door on Director\'s Row will open for you now.' : 'Soundstage 9 is already open to you.'), 7000); }, 1200 + 2600 * n); }
   function cbEnd(win) { (CHAR && CHAR.gear || []).forEach(function (g) { g.unloaded = false; var GB = ITEMS[g.name] && ITEMS[g.name].bow; if (GB && GB.cyl) { g.loaded = GB.cyl; g.jammed = false; } }); // between fights you reload and clear any jam CB.enemies.forEach(function (q) { q.pinned = 0; q.surprised = false; q.blind = 0; q.poisoned = null; q.doused = 0; }); PC.burning = 0; CB.dmSolo = false; CB.allyFell = false; CB.enemies.forEach(function (e) { e.rallied = false; e.rally = 0; e.furious = false; e.fleeing = false; e.tauntedThisFight = 0; }); PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
@@ -635,6 +640,7 @@
       if (talked && !(CHAR && CHAR.ach && CHAR.ach.talker)) ach('talker', 'Use Your Words', 'You talked a monster out of a fight. The System finds this personally refreshing.', 50);
       if (beaten.some(function (e) { return e.dead && e.def.base === 'shrub'; }) && !(CHAR && CHAR.ach && CHAR.ach.weed)) ach('weed', 'Weed Whacker', 'You killed a shrub. Gardeners everywhere salute you.', 10);
       if (beaten.some(function (e) { return e.dead && e.def.lvl === 4; })) ach('thornmaw', 'Should Have Stepped On It', 'You killed a Thornmaw. Somebody let it get that big.', 150);
+      if (FLOOR === 2) beaten.forEach(function (e) { if (e.dead && e.boss && e.kind !== 'director') slateWin(e, later++); });
       if (beaten.some(function (e) { return e.dead && e.boss; })) ach('boss_' + beaten.filter(function (e) { return e.boss; })[0].kind, 'Boss Down', 'You beat ' + beaten.filter(function (e) { return e.boss; })[0].name + '. The System is, frankly, a little impressed.', 100);
     }
   }

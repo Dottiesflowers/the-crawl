@@ -156,7 +156,7 @@
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
   var SOLID = { 'o': 1, 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
   function stairsOpen() { if (typeof CB === 'undefined') return false; var gk = CB.enemies.filter(function (e) { return e.kind === 'gatekeeper'; })[0]; return !!gk && !!gk.dead; }
-  function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z); }
+  function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z) || !!(LEVEL.gate && LEVEL.gate[x + ',' + z] && typeof gateOpen === 'function' && !gateOpen()); }
   function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P' || c === 'H'; }
 
   function floorTex(id, v) {
@@ -480,6 +480,13 @@
       if (ax) rb.mesh.rotation.z = -sg * 0.4; else rb.mesh.rotation.x = sg * 0.4; rb.roof = true;
       return;
     }
+    if (sty === 'foliage') { // dense jungle you can't walk or see through: ground, a trunk or two and a heap of leaves
+      floorQuad(floorTex('garden', v), x, 0, z); var hs = hash(x * 3 + 1, z * 5 + 2), hs2 = hash(x + 9, z + 4), lc = [0x2f5a35, 0x3e7a45, 0x356b3c, 0x4a8a4f][Math.floor(hs * 4)];
+      if (hs2 > 0.45) pcyl(0.09, 1.6, 0x4a3420, x + (hs - 0.5) * 0.4, 0.8, z + (hs2 - 0.5) * 0.4, x, z, { kind: 'wood' });
+      var lf = box(1, 1, 1, lc, x + (hs2 - 0.5) * 0.2, 0.75 + hs * 0.9, z + (hs - 0.5) * 0.2, x, z, { geo: new THREE.SphereGeometry(0.5, 7, 5), kind: 'cloth', seed: v, wall: true }); lf.mesh.scale.set(1.35 + hs * 0.4, 1.1 + hs2 * 0.9, 1.35 + hs2 * 0.4); lf.h = 1.6;
+      if (hs > 0.6) { var lf2 = box(1, 1, 1, lc - 0x081008, x - 0.25, 0.45, z + 0.3, x, z, { geo: new THREE.SphereGeometry(0.5, 6, 4), kind: 'cloth', seed: v + 1 }); lf2.mesh.scale.set(0.9, 0.8, 0.9); }
+      return;
+    }
     var S = WSTY[sty] || WSTY.timber, col = o.c ? parseInt(o.c, 16) : S.col;
     // the floor under a thin wall: borrow the inside of the building if there is one
     var fid = null; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (q) { var rr = LEVEL.reg[z + q[1]] && LEVEL.reg[z + q[1]][x + q[0]]; if (rr >= 0) { var t = LEVEL.rooms[rr].theme; if (!fid || /store|house|office|tent|manor|ship|stage/.test(t)) fid = t; } });
@@ -570,6 +577,36 @@
       box(0.08, 0.08, 1.2, 0x3a3a40, x + 0.95, 2.6, z + 0.6, tx, tz, { kind: 'metal' }); },
     '#rut': function (x, z, d, tx, tz) { box(0.22, 0.004, 1.0, 0x7a5a36, x, 0.003, z, tx, tz, { kind: 'stone', noShadow: true }); },
     '#prints': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); for (var i = 0; i < 4; i++) B(0.1, 0.004, 0.09, 0x6e5030, (i % 2 ? 0.12 : -0.12), 0.004, -0.4 + i * 0.26, { noShadow: true }); },
+    // ---- Floor 2 backlot: the tour tram, its stops, Base Camp's trailers and trucks, backstage gear ----
+    '#tram': function (x, z, d, tx, tz) { var L = d.len || 6, cx = x + (L - 1) / 2, stripe = [0xc24b3a, 0x3f6f95, 0xc9a24a][(d.n || 0) % 3];
+      box(L - 0.1, 0.14, 2.9, 0x2a2a30, cx, 0.12, z, tx, tz, { kind: 'metal', noShadow: true }); // the deck you walk on
+      [-1, 1].forEach(function (sd) { box(L - 0.2, 0.45, 0.62, 0x8a6a40, cx, 0.42, z + sd * 1.05, tx, tz, { kind: 'wood' }); box(L - 0.2, 0.5, 0.1, 0x6a4a2a, cx, 0.75, z + sd * 1.38, tx, tz, { kind: 'wood' }); // benches
+        box(L - 0.1, 0.16, 0.06, stripe, cx, 0.35, z + sd * 1.47, tx, tz, { kind: 'metal' });
+        for (var i = 0; i <= 2; i++) box(0.07, 1.9, 0.07, 0xd8d8dc, x + i * (L - 1) / 2, 1.2, z + sd * 1.42, tx, tz, { kind: 'metal' });
+        for (var j = 0; j < L; j++) box(0.98, 0.06, 0.9, j % 2 ? 0xf3e9d2 : stripe, x + j, 2.18, z + sd * 1.05, tx, tz, { kind: 'cloth', noShadow: true }); }); // canopy over the benches only, so you can see the aisle
+      [0.7, L - 1.7].forEach(function (o) { [-1.3, 1.3].forEach(function (q) { var w = pcyl(0.28, 0.12, 0x1e1e22, x + o, 0.24, z + q, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; }); }); },
+    '#tramstop': function (x, z, d, tx, tz) { pcyl(0.06, 2.2, 0xd8d8dc, x, 1.1, z, tx, tz, { kind: 'metal' }); box(0.62, 0.62, 0.06, 0xf3e9d2, x, 2.0, z, tx, tz, { tex: signTexture('T'), wall: true });
+      var sg = box(1.4, 0.34, 0.05, 0x2a2b30, x, 1.45, z, tx, tz, { tex: signTexture(d.text || 'TRAM'), wall: true }); sg.h = 0.34; box(0.9, 0.08, 0.4, 0x8a6a40, x, 0.45, z + 0.3, tx, tz, { kind: 'wood' }); },
+    '#trailer': function (x, z, d, tx, tz) { var L = d.len || 5, cx = x + (L - 1) / 2, cz = z + 0.5, col = d.col || 0xe8e0d0;
+      box(L - 0.2, 1.7, 1.8, col, cx, 1.15, cz, tx, tz, { kind: 'metal' }); box(L - 0.1, 0.14, 1.9, 0x8a8a90, cx, 2.06, cz, tx, tz, { kind: 'metal', noShadow: true });
+      box(L - 0.4, 0.16, 0.02, 0xc24b3a, cx, 1.3, cz + 0.91, tx, tz, { kind: 'metal' });
+      for (var i = 0; i < L - 2; i++) box(0.5, 0.36, 0.02, 0x5e7a8c, x + 0.6 + i * 1.1, 1.6, cz + 0.91, tx, tz, { glow: i === 1 });
+      box(0.55, 1.15, 0.03, 0x6a5a48, x + L - 1.4, 0.92, cz + 0.91, tx, tz, { kind: 'wood' }); box(0.7, 0.2, 0.45, 0x6a6a70, x + L - 1.4, 0.12, cz + 1.12, tx, tz, { kind: 'metal' });
+      [0.9, L - 2].forEach(function (o) { var w = pcyl(0.3, 0.2, 0x1e1e22, x + o, 0.3, cz + 0.86, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; }); },
+    '#foodtruck': function (x, z, d, tx, tz) { var L = d.len || 4, cx = x + (L - 1) / 2, cz = z + 0.5, col = d.col || 0xc24b3a;
+      box(L - 0.2, 1.9, 1.7, col, cx, 1.25, cz, tx, tz, { kind: 'metal' }); box(L * 0.55, 0.7, 0.04, 0x1e1e22, cx + 0.2, 1.55, cz + 0.86, tx, tz, {}); // serving window
+      var aw = box(L * 0.6, 0.06, 0.7, 0xf3e9d2, cx + 0.2, 2.0, cz + 1.15, tx, tz, { kind: 'cloth' }); aw.mesh.rotation.x = 0.35;
+      box(L * 0.5, 0.08, 0.32, 0xb8b0a0, cx + 0.2, 1.15, cz + 1.0, tx, tz, { kind: 'metal' }); box(0.9, 1.0, 1.6, 0xd8d8dc, x + L - 0.6, 0.85, cz, tx, tz, { kind: 'metal' });
+      [0.6, L - 1.4].forEach(function (o) { var w = pcyl(0.32, 0.2, 0x1e1e22, x + o, 0.3, cz + 0.8, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; }); },
+    '#generator': function (x, z, d, tx, tz) { var L = d.len || 3, cx = x + (L - 1) / 2, cz = z + 0.5;
+      box(L - 0.3, 1.2, 1.5, 0xd9a23a, cx, 0.8, cz, tx, tz, { kind: 'metal' }); box(L - 0.5, 0.3, 1.3, 0x3a3a40, cx, 1.55, cz, tx, tz, { kind: 'metal' });
+      for (var i = 0; i < 4; i++) box(0.04, 0.6, 1.2, 0x2a2a30, x + 0.4 + i * 0.4, 0.85, cz, tx, tz, { kind: 'metal' });
+      pcyl(0.09, 0.7, 0x2a2a30, x + L - 0.9, 1.9, cz - 0.3, tx, tz, { kind: 'metal' }); box(0.08, 0.05, 2.2, 0x1e1e22, x - 0.3, 0.03, cz + 1.3, tx, tz, { noShadow: true }); },
+    '#scaffold': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz);
+      [[-0.42, -0.3], [0.42, -0.3], [-0.42, 0.3], [0.42, 0.3]].forEach(function (q) { B(0.05, 2.6, 0.05, 0x9a9ca3, q[0], 1.3, q[1], { kind: 'metal' }); });
+      [0.9, 1.8, 2.55].forEach(function (y) { B(0.92, 0.04, 0.04, 0x9a9ca3, 0, y, -0.3, { kind: 'metal' }); B(0.92, 0.04, 0.04, 0x9a9ca3, 0, y, 0.3, { kind: 'metal' }); });
+      B(0.9, 0.05, 0.62, 0x8a6a40, 0, 1.8, 0, { kind: 'wood' }); var x2 = B(1.15, 0.04, 0.04, 0x8a8c93, 0, 1.35, -0.3, { kind: 'metal' }); x2.mesh.rotation.z = 0.9; },
+    '#cable': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.06, 0.03, 1.0, 0x1e1e22, -0.12, 0.015, 0, { noShadow: true }); B(0.05, 0.03, 1.0, 0x2a2a30, 0.06, 0.015, 0, { noShadow: true }); },
     '#sign': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); var sg = B(1.9, 0.48, 0.06, 0xe8d9b4, 0, d.y || 1.7, 0, { tex: signTexture(d.text || ''), wall: true }); sg.h = 0.48; sg.wy = (d.y || 1.7) - 0.24; }
   };
 

@@ -21,7 +21,9 @@
   }
   function fogKey() { return 'crawl-fog-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : '') + (FLOOR === 2 ? '-f2' : ''); }
   var LAYOUT_VER = 2; // Floor 1 layout version: bump when the map changes so old positions, fog and monster state are dropped
-  function lvTag() { return FLOOR === 2 ? '' : 'L' + LAYOUT_VER + ':'; }
+  var LAYOUT_VER2 = 2; // Floor 2 layout version (2: the tram-loop redesign, Nov 2026)
+  function curLV() { return FLOOR === 2 ? LAYOUT_VER2 : LAYOUT_VER; }
+  function lvTag() { return FLOOR === 2 ? (LAYOUT_VER2 > 1 ? 'B' + LAYOUT_VER2 + ':' : '') : 'L' + LAYOUT_VER + ':'; }
   function fogSave() { // explored tiles as runs: start,length;start,length...
     var out = [], i = 0; while (i < W * H) { if (tileState[i]) { var j = i; while (j < W * H && tileState[j]) j++; out.push(i.toString(36) + ',' + (j - i).toString(36)); i = j; } else i++; }
     var str = lvTag() + out.join(';'); try { localStorage.setItem(fogKey(), str); } catch (e) {}
@@ -34,11 +36,11 @@
     if (NET.mode === 'server' && NET.uid && CHAR && !CHAR.isDM) api('kv/fog-' + CHAR.name.replace(/[^\w-]/g, '').slice(0, 40)).then(function (j) { var v = j && (j.value !== undefined ? j.value : j.v); if (typeof v === 'string' && v) { fogMerge(v); FOG.total = 0; FOG.seen = 0; refreshFog(); fogSave(); } }).catch(function () {});
   }
   var lastSavedPos = '';
-  function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); var pp = FLOOR === 2 ? CHAR.pos2 : (CHAR.posL === LAYOUT_VER ? CHAR.pos : null); if (pp && heroTo(pp.x, pp.z)) { refreshFog(); enterRoom(); } else { heroTo(LEVEL.start.x, LEVEL.start.z); refreshFog(); enterRoom(); } }
-  function posStash() { if (!CHAR) return; CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; if (FLOOR !== 2) CHAR.posL = LAYOUT_VER; fogSave(); saveChar(CHAR); worldSave(); }
+  function posRestore() { if (!CHAR) return; if (typeof worldLoad === 'function') worldLoad(); fogLoad(); var pp = FLOOR === 2 ? (CHAR.posL2 === LAYOUT_VER2 ? CHAR.pos2 : null) : (CHAR.posL === LAYOUT_VER ? CHAR.pos : null); if (pp && heroTo(pp.x, pp.z)) { refreshFog(); enterRoom(); } else { heroTo(LEVEL.start.x, LEVEL.start.z); refreshFog(); enterRoom(); } }
+  function posStash() { if (!CHAR) return; CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; if (FLOOR !== 2) CHAR.posL = LAYOUT_VER; else CHAR.posL2 = LAYOUT_VER2; fogSave(); saveChar(CHAR); worldSave(); }
   function posSave(force) {
     if (!CHAR || CB.on) return; var k = P.x + ',' + P.z; if (!force && k === lastSavedPos) return; lastSavedPos = k;
-    CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; if (FLOOR !== 2) CHAR.posL = LAYOUT_VER; fogSave(); saveChar(CHAR); worldSave();
+    CHAR[FLOOR === 2 ? 'pos2' : 'pos'] = { x: P.x, z: P.z }; if (FLOOR !== 2) CHAR.posL = LAYOUT_VER; else CHAR.posL2 = LAYOUT_VER2; fogSave(); saveChar(CHAR); worldSave();
   }
   setInterval(function () { posSave(false); }, 30000);
   if (CHAR) setTimeout(posRestore, 0);
@@ -359,6 +361,7 @@
     var want = Math.atan2(wx, wz), d = want - hero.rotation.y;
     while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
     hero.rotation.y += d * Math.min(1, dt * 14);
+    if (!P.path && m >= 0.5 && LEVEL.gate && typeof gateOpen === 'function' && !gateOpen()) { var gk = Math.round(P.px + wx * 0.8) + ',' + Math.round(P.pz + wz * 0.8); if (LEVEL.gate[gk] && (!P.gateSaid || Date.now() - P.gateSaid > 5000)) { P.gateSaid = Date.now(); say('Closed set', 'Soundstage 9 is closed until you have wrapped three scenes. Beat three set bosses for their slates. You have ' + slatesOf().length + ' of 3.', 4500); } }
     if (!P.path && m >= 0.5 && LEVEL.links) { var lk2 = LEVEL.links[Math.round(P.px + wx * 0.8) + ',' + Math.round(P.pz + wz * 0.8)]; if (lk2) { P.bump = (P.bump || 0) + dt; if (P.bump > 0.35) { P.bump = 0; takeLink(lk2); return; } } else P.bump = 0; }
     var tx = Math.round(P.px), tz = Math.round(P.pz);
     if (tx !== P.x || tz !== P.z) { P.x = tx; P.z = tz; refreshFog(); enterRoom(); cbAggro(); stairsCheck(); }
@@ -602,6 +605,7 @@
   window.__crawl.wieldTest = function (n) { var it = item(n); if (!it) return false; CHAR.gear.push(it); CHAR.wield = n; buildHero(); return true; }; // test hook: hold an item
   window.__crawl.dmTest = function () { DM.as = 'dm'; refreshFog(); return Array.prototype.filter.call(tileState, function (v) { return v; }).length; }; window.__crawl.dmJump = function (x, z) { dmJump(x, z); return [P.x, P.z]; };
   window.__crawl.strike = function (slow) { KIT.slow = slow || 1; var W = pcWeapon(); return [W.style, kitStrike(W)]; }; window.__crawl.face = function (r) { hero.rotation.y = r; };
+  window.__crawl.tram = { acts: function (k) { var q = k.split(','); return actsOf({ key: k, c: 'o', x: +q[0], z: +q[1] }); }, act: function (a, k) { return safeAct(a, { key: k, c: 'o' }); }, clear: function () { return tramClear(); }, slate: function (e) { slateWin(e, 0); }, open: function () { return gateOpen(); } };
   window.__crawl.ach = { achieve: achieve, ACH: ACH, state: worldState, apply: worldApply, calm: calmSave, key: spawnKey, talkFight: function (e) { e.talk = e.talk || { lines: [], facts: [], mood: 'neutral' }; } }; // test hooks
   charInit(); cbHUD();
   requestAnimationFrame(loop);
