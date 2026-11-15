@@ -13,7 +13,7 @@
     rat: { int: 'none', race: 'Dungeon rat', traits: { brave: [1, 2], greed: [4, 5], temper: [1, 3], wits: [1, 1], loyalty: [1, 1] } },
     shrub: { int: 'none', race: 'Shrub', traits: { brave: [1, 1], greed: [5, 5], temper: [1, 1], wits: [1, 1], loyalty: [1, 1] } },
     // Floor 2: the Backlot
-    kobold: { int: 'dim', race: 'Kobold', traits: { brave: [3, 5], greed: [2, 4], temper: [2, 5], wits: [1, 3], loyalty: [3, 5] } },
+    kobold: { int: 'average', race: 'Human (stunt performer)', traits: { brave: [3, 5], greed: [2, 4], temper: [2, 5], wits: [1, 3], loyalty: [3, 5] } },
     gremlin: { int: 'dim', race: 'Laugh-track gremlin', traits: { brave: [1, 3], greed: [2, 4], temper: [2, 4], wits: [1, 2], loyalty: [2, 4] } },
     goblin: { int: 'dim', race: 'Goblin', traits: { brave: [2, 4], greed: [2, 4], temper: [1, 4], wits: [2, 3], loyalty: [4, 5] } },
     animatronic: { int: 'dim', race: 'Animatronic', traits: { brave: [3, 5], greed: [1, 1], temper: [1, 3], wits: [1, 2], loyalty: [5, 5] } },
@@ -108,8 +108,8 @@
       secrets: ['let one crawler through once, for a price', 'is a former union member', 'is afraid of heights'],
       greet: ['File says you\'re a florist. File says you won\'t make it. Turn around.', 'Credentials. No? Then this conversation is a formality.', '*checks a tablet* You\'re early. Most of them die in the Warrens.'] },
     // ===================== Floor 2: the Backlot =====================
-    stunt: { species: 'kobold', title: 'Stunt kobold of Frontier Town',
-      who: 'A kobold on the stunt crew of Frontier Town, the western set on the Backlot. Kobolds fall off roofs, crash through saloon windows and get shot in slow motion for a living, and they are very proud of it.',
+    stunt: { species: 'kobold', title: 'Stunt cowboy of Frontier Town',
+      who: 'A cowboy on the stunt crew of Frontier Town, the western set on the Backlot. The stunt crew falls off roofs, crashes through saloon windows and gets shot in slow motion for a living, and they are very proud of it.',
       culture: 'Pain is the job and the job is sacred. A great fall earns respect; a safe one earns jeers. They rate everything out of ten, call each other by stunt names, and never back down from a dare. The Stunt Coordinator is their hero.',
       voice: 'cocky and loud, cowboy slang mixed with stunt jargon ("hit your mark", "that\'s a wrap", "ten outta ten"), rates everything',
       knows: 'Every building on Main Street, which roofs are safe to fall off, which saloon windows are sugar glass, where the pyro barrels are kept, and that the train never moves.',

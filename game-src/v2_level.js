@@ -990,7 +990,7 @@
           '#..T....#..T....d.##',
           '####W######W########']
         },
-        chapel: { name: 'The Chapel', sign: 'CHAPEL', line: 'A little chapel with pews and a bell rope. Quiet, for a set. The kobolds will not come in here.', rugs: [[7, 2, 8, 11, 0x6a1a1a]], rows: [
+        chapel: { name: 'The Chapel', sign: 'CHAPEL', line: 'A little chapel with pews and a bell rope. Quiet, for a set. The stunt crew will not come in here.', rugs: [[7, 2, 8, 11, 0x6a1a1a]], rows: [
           '#######WW#######',
           '#....p.AA.p....#',
           '#..............#',
@@ -1323,6 +1323,14 @@
         taken[la[0] + ',' + la[1]] = 1; taken[lb[0] + ',' + lb[1]] = 1;
         a3.forEach(function (t3) { links[t3[0] + ',' + t3[1]] = { x: la[0], z: la[1], label: u[2] }; }); b3.forEach(function (t3) { links[t3[0] + ',' + t3[1]] = { x: lb[0], z: lb[1], label: u[3] }; }); });
 
+      // ---------- Frontier Town extras: placed last, on dice of their own, so the layout doesn't shift ----------
+      (function () { var cs = 4721; function crnd() { cs = (cs * 1103515245 + 12345) & 0x7fffffff; return cs / 0x7fffffff; }
+        function freeSp(x, z) { return inb(x, z) && (g[z][x] === '.' || g[z][x] === ',') && !spawns.some(function (sp) { return sp.x === x && sp.z === z; }); }
+        function putIn(r, kind, o) { for (var t = 0; t < 80; t++) { var x = r.x0 + Math.floor(crnd() * (r.x1 - r.x0 + 1)), z = r.z0 + Math.floor(crnd() * (r.z1 - r.z0 + 1)); if (reg[z][x] === r.id && freeSp(x, z)) { var sp = { kind: kind, x: x, z: z, room: r.id }; for (var k in o || {}) sp[k] = o[k]; spawns.push(sp); return; } } }
+        putIn(built[4].room, 'sheriff'); // Sheriff Spud runs the jail
+        [[45, 151], [50, 153], [43, 153]].forEach(function (p) { if (freeSp(p[0], p[1])) spawns.push({ kind: 'horse', x: p[0], z: p[1], room: reg[p[1]][p[0]] }); }); // horses in the corral
+        var sb = built[1].room, mz = Math.round((sb.z0 + sb.z1) / 2); for (var dz2 = 0; dz2 < 6; dz2++) { var hz = mz + (dz2 % 2 ? -1 : 1) * Math.ceil(dz2 / 2); if (freeSp(30, hz)) { spawns.push({ kind: 'horse', x: 30, z: hz, room: reg[hz][30] }); break; } } // one hitched outside the saloon
+      })();
       // ---------- tidy up ----------
       var seen = new Uint8Array(Wd * Hd), q = [start2.x + start2.z * Wd]; seen[q[0]] = 1;
       for (var lk in links) { var lp = links[lk]; if (!seen[lp.x + lp.z * Wd]) { seen[lp.x + lp.z * Wd] = 1; q.push(lp.x + lp.z * Wd); } }

@@ -62,8 +62,17 @@
   BEAST.clerk_mid = variant('imp', { name: 'Records keeper', ac: 11, hp: 14, atk: 3, dmg: [1, 6, 1], str: 1, dex: 2, xp: 90, scale: 0.72, h: 1.15, tint: 0x7a9ad0, lines: ['Knows where every file is and resents everyone who asks.'] });
   BEAST.clerk_head = variant('imp', { name: 'Senior archivist', ac: 12, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0x5a7ac0, lines: ['Shushes you before it hits you. Both hurt.'] });
   // Floor 2 stand-ins on the puglin and imp rigs, until they get models of their own
-  BEAST.kobold = variant('puglin', { name: 'Stunt kobold', ac: 12, hp: 9, atk: 3, dmg: [1, 6, 1], weapon: 'breakaway bottle (it does not break away)', str: 1, dex: 2, init: 2, xp: 45, scale: 0.8, h: 0.7, tint: 0xd89060, lines: ['A kobold in a tiny cowboy hat. Falls off buildings for a living and lands on crawlers for fun.'] });
-  BEAST.kobold_boss = variant('puglin', { name: 'Kobold stunt boss', ac: 13, hp: 18, atk: 4, dmg: [1, 8, 2], weapon: 'stunt whip', str: 2, dex: 2, init: 3, xp: 110, scale: 0.95, h: 0.84, tint: 0xb86a40, lines: ['Runs the kobold stunt team. Calls every hit a "gag" and means it.'] });
+  // Frontier Town's stunt crew: cowboys now (they used to be kobolds; the IDs stayed, so drop tables still match)
+  BEAST.kobold = own('cowboy', { name: 'Stunt outlaw', base: 'kobold', ac: 12, hp: 11, atk: 3, dmg: [1, 6, 1], weapon: 'a pistol-whip with a prop revolver', str: 1, dex: 2, init: 2, xp: 50, h: 1.8,
+    lines: ['A stunt cowboy who falls off roofs for a living and lands on crawlers for fun.', 'Rates every punch out of ten. Yours was a four.'] });
+  BEAST.kobold_coat = own('coat', { name: 'Stunt bounty man', base: 'kobold', ac: 12, hp: 14, atk: 4, dmg: [1, 8, 1], weapon: 'a prop shotgun, used as a club', str: 2, dex: 1, init: 1, xp: 70, h: 1.85,
+    lines: ['Long coat, flat stare. Plays the bounty hunter in every take and has stopped breaking character.'] });
+  BEAST.kobold_boss = own('gunslinger', { name: 'Stunt gunslinger', base: 'kobold', ac: 13, hp: 22, atk: 5, dmg: [1, 8, 2], weapon: 'two prop revolvers, fanned', str: 1, dex: 3, init: 3, pp: 13, xp: 130, h: 1.85,
+    lines: ['Runs the stunt crew. Calls every hit a "gag" and means it.', 'The fastest draw on the Backlot. The guns are props. The pistol-whip is not.'] });
+  BEAST.sheriff = own('potato', { name: 'Sheriff Spud', lvl: 4, ac: 15, hp: 60, speed: 5, atk: 6, dmg: [2, 6, 3], weapon: 'two robot arms and a tin star', str: 3, dex: 1, init: 1, pp: 14, xp: 700, h: 1.6, boss: true,
+    lines: ['A potato in a cowboy hat, riding around in a robot suit. Runs Frontier Town from the jail, and the jail has your name on a cell.', 'Nobody remembers who cast a potato as the sheriff. Nobody is brave enough to recast it.'] });
+  BEAST.horse = own('horse', { name: 'Horse', tame: true, ac: 10, hp: 19, speed: 8, atk: 4, dmg: [2, 4, 2], weapon: 'a back kick', str: 4, dex: 0, xp: 50, h: 1.75,
+    lines: ['A real horse on a fake street. It has seen a lot of stunts and is not impressed by yours.', 'Leave it alone and it leaves you alone.'] });
   BEAST.gremlin = variant('puglin', { name: 'Laugh-track gremlin', ac: 11, hp: 7, atk: 3, dmg: [1, 6, 0], weapon: 'rubber chicken (lead-weighted)', dex: 2, init: 2, xp: 35, scale: 0.64, h: 0.56, tint: 0x9ad080, lines: ['A small green gremlin that laughs at the wrong moments. All of them.'] });
   BEAST.gremlin_big = variant('puglin', { name: 'Applause gremlin', ac: 12, hp: 14, atk: 4, dmg: [1, 8, 1], weapon: 'APPLAUSE sign', str: 1, dex: 2, init: 2, xp: 80, scale: 0.8, h: 0.7, tint: 0x70b0a0, lines: ['Holds up the APPLAUSE sign. Hits you with it when you do not clap.'] });
   BEAST.writer = variant('imp', { name: 'Striking writer', ac: 11, hp: 10, atk: 3, dmg: [1, 6, 0], weapon: 'picket sign', str: 1, xp: 45, scale: 0.62, h: 1.0, tint: 0xb8c0d0, lines: ['On strike since the System took over. The sign says FAIR PAY FOR FLOOR TWO. It is also a club.'] });
@@ -128,7 +137,7 @@
   BEAST.shrub3 = shrubDef({ lvl: 3, name: 'Bramble glutton', ac: 12, hp: 18, speed: 5, atk: 4, dmg: [1, 6, 2], str: 1, xp: 60, scale: 0.52, h: 0.9, prop: 'Bush_Common_Flowers', weapon: 'thorn lash', lines: ['A shrub the size of a dog that has eaten several crawlers\' worth of leftovers. It hunts now.'] });
   BEAST.shrub4 = shrubDef({ lvl: 4, name: 'Thornmaw', ac: 14, hp: 34, speed: 5, atk: 6, dmg: [2, 6, 3], str: 3, xp: 180, scale: 0.78, h: 1.3, prop: 'Bush_Common_Flowers', weapon: 'crushing roots', lines: ['Somebody should have stepped on this when it was small. Nobody did.'] });
   var TIER = { puglin: [null, 'puglin', 'puglin_brute', 'puglin_chief'], imp: [null, 'imp_intern', 'imp', 'imp_foreman'], bog: [null, 'bog', 'bog_brute', 'bog_chief'], clerk: [null, 'clerk', 'clerk_mid', 'clerk_head'],
-    knight: [null, 'extra', 'stuntdouble', 'stuntknight'], crew: [null, 'crew', 'crew', 'crew_lead'], truffle: [null, 'truffle', 'truffle_big', 'truffle_king'], robot: [null, 'automaton', 'automaton', 'automaton_big'], dino: [null, 'raptor', 'raptor', 'raptor_alpha'], goblin: [null, 'costume_goblin', 'costume_goblin', 'costume_officer'], kobold: [null, 'kobold', 'kobold', 'kobold_boss'], gremlin: [null, 'gremlin', 'gremlin', 'gremlin_big'], writer: [null, 'writer', 'writer', 'writer_lead'] };
+    knight: [null, 'extra', 'stuntdouble', 'stuntknight'], crew: [null, 'crew', 'crew', 'crew_lead'], truffle: [null, 'truffle', 'truffle_big', 'truffle_king'], robot: [null, 'automaton', 'automaton', 'automaton_big'], dino: [null, 'raptor', 'raptor', 'raptor_alpha'], goblin: [null, 'costume_goblin', 'costume_goblin', 'costume_officer'], kobold: [null, 'kobold', 'kobold_coat', 'kobold_boss'], gremlin: [null, 'gremlin', 'gremlin', 'gremlin_big'], writer: [null, 'writer', 'writer', 'writer_lead'] };
   var SPAWNS = LEVEL.spawns.map(function (sp) { var o = {}; for (var k in sp) o[k] = sp[k]; o.kind = sp.npc ? (sp.kind || 'imp') : (sp.sub || (sp.tier ? TIER[sp.kind][sp.tier] : sp.kind)); return o; });
   function inSafeRoom(x, z) { var r = roomInfo(x, z); return !!r && r.type === 'safe' && LEVEL.reg[z] && LEVEL.reg[z][x] >= 0; }
 
@@ -250,7 +259,7 @@
     mobParts.length = 0; SOLID.M = 0;
     SPAWNS.forEach(function (sp, n) {
       var B = BEAST[sp.kind], holder = new THREE.Group(); holder.visible = false; scene.add(holder);
-      var e = { kind: sp.kind, def: B, name: sp.name || B.name, x: sp.x, z: sp.z, sx: sp.x, sz: sp.z, px: sp.x, pz: sp.z, hp: B.hp, max: B.hp, dead: false, calm: !!sp.npc, npc: sp.npc || null, guard: !!sp.guard,
+      var e = { kind: sp.kind, def: B, name: sp.name || B.name, x: sp.x, z: sp.z, sx: sp.x, sz: sp.z, px: sp.x, pz: sp.z, hp: B.hp, max: B.hp, dead: false, calm: !!sp.npc || !!B.tame, npc: sp.npc || null, guard: !!sp.guard,
         obj: holder, mixer: null, clips: {}, sp: sp, n: n, path: null, act: null, cur: '' };
       holder.position.set(sp.x, 0, sp.z); holder.rotation.y = Math.PI * 0.75;
       e.bar = document.createElement('div'); e.bar.className = 'ebar'; e.bar.innerHTML = '<i></i><span></span>'; document.body.appendChild(e.bar);
@@ -325,7 +334,7 @@
     CB.enemies.forEach(function (e) {
       if (e.def.base !== 'rat' || e.boss || !e.dead || !e.diedAt || now - e.diedAt < ratBack(e) || inBag(e)) return;
       if (cheb(P.x, P.z, e.sx, e.sz) < 14 || cheb(P.x, P.z, e.x, e.z) < 10) return;
-      e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.looted = false; e.lootStore = null; e.calm = false; e.hp = e.max; e.diedAt = 0; e.path = null;
+      e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.looted = false; e.lootStore = null; e.calm = !!e.def.tame; e.hp = e.max; e.diedAt = 0; e.path = null;
       e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; any = true;
     });
     if (any) worldSave();
@@ -358,7 +367,7 @@
     var cands = CB.enemies.filter(function (e) { return e.dead && !e.npc && !e.boss && !e.guard && !inBag(e) && (WORLD.reserve[zoneOf(e)] || 0) > 0 && cheb(e.sx, e.sz, P.x, P.z) > 14 && visNow[e.sx + ',' + e.sz] === undefined && !enemyAt(e.sx, e.sz); });
     if (!cands.length) return; var e = cands[Math.floor(Math.random() * cands.length)], z = zoneOf(e);
     WORLD.reserve[z]--; if (e.def.base === 'shrub') { e.def = BEAST.shrub1; e.kind = 'shrub1'; e.lvl = 1; e.name = e.def.name; if (e.body) { e.obj.remove(e.body); e.body = null; e.mixer = null; } }
-    e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.fought = false; e.looted = false; e.lootStore = null; e.calm = false; e.hp = e.def.hp; e.max = e.def.hp;
+    e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.fought = false; e.looted = false; e.lootStore = null; e.calm = !!e.def.tame; e.hp = e.def.hp; e.max = e.def.hp;
     e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.rotation.set(0, Math.PI * 0.75, 0); e.path = null; if (e.mixer && e.mixer.stopAllAction) e.mixer.stopAllAction(); e.cur = ''; cbPlay(e, 'Idle_Loop');
     worldSave();
   }, 240000);
