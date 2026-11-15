@@ -132,6 +132,7 @@
     else if (kind === 'firebolt') { g = vfxOrb(0xff9a30, 0.42); speed = 15; trail = 'fire'; }
     else if (kind === 'fireball') { g = vfxOrb(0xffb040, 0.3); speed = 10; peak = 0.8 + d * 0.06; trail = 'fire'; }
     else if (kind === 'acid') { g = vfxOrb(0x9ae040, 0.3); speed = 12; peak = 0.6 + d * 0.07; trail = 0x7ac030; }
+    else if (kind === 'bullet') { g = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.025, 0.32), new THREE.MeshBasicMaterial({ color: 0xffe8a0 })); speed = 70; peak = 0; if (typeof vfxFlash === 'function') vfxFlash(x0, z0, 0xffd27a); }
     else if (kind === 'pebble') { g = new THREE.Mesh(new THREE.DodecahedronGeometry(0.045), new THREE.MeshLambertMaterial({ color: 0x8a8278 })); speed = 20; peak = d * 0.02; o.spin = true; }
     else if (kind === 'paint') { var pc0 = o.col || 0x9aff3a; g = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: pc0 })); speed = 18; peak = d * 0.015; trail = pc0; }
     else { g = vfxOrb(0xffffff, 0.25); }

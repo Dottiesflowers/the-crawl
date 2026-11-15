@@ -496,7 +496,9 @@
       { label: 'Shove: push away', tag: 'Athletics contest', ok: r.action && adj.length > 0, fn: function () { cbShove(true); } },
       { label: 'Grapple', tag: 'Athletics contest · speed 0', ok: r.action && adj.length > 0, fn: cbGrapple },
       { label: 'Hide', tag: 'Stealth vs their Perception', ok: r.action && adj.length === 0, fn: cbHide },
-      { label: (Wt.bow ? 'Shoot ' : 'Throw ') + Wt.name, tag: Wt.noAir ? 'screw a tank on' : Wt.empty ? 'craft or find some' : xbState() === 'crank' ? 'cranks first: bonus action, ends your move' : xbState() === 'blocked' ? 'needs cranking: no bonus action left' : Wt.n + 'd' + Wt.s + (Wt.acc ? ' · +' + Wt.acc + ' hit' : '') + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action && !Wt.empty && xbState() !== 'blocked', fn: function () { CB.aim = 'throw'; say(Wt.bow ? 'Shoot' : 'Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal ' + (Wt.bow ? 'shot' : 'throw') + '; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
+      (function () { var G = Wt.gun && !Wt.empty ? gunOf() : null; if (!G || (!G.w.jammed && gunLoaded(G) > 0)) return null; // an empty or jammed gun: this button reloads or clears it
+        var bon = gunLv() >= 2 && !G.w.jammed && r.bonus; return { label: G.w.jammed ? 'Clear the jam' : 'Reload ' + G.w.name, tag: G.w.jammed ? 'your action' : bon ? 'bonus action' : 'your action', ok: bon || r.action, fn: function () { if (gunReload(G, !!G.w.jammed) && !CB.res.action && !CB.res.bonus) cbAfterMyMove(); } }; })() ||
+      { label: (Wt.bow ? 'Shoot ' : 'Throw ') + Wt.name, tag: Wt.noAir ? 'screw a tank on' : Wt.empty ? 'craft or find some' : xbState() === 'crank' ? 'cranks first: bonus action, ends your move' : xbState() === 'blocked' ? 'needs cranking: no bonus action left' : (Wt.gun && gunOf() ? gunLoaded(gunOf()) + '/' + gunOf().B.cyl + ' loaded · ' : '') + Wt.n + 'd' + Wt.s + (Wt.acc ? ' · +' + Wt.acc + ' hit' : '') + ' · range ' + Wt.range + '/' + Wt.long, ok: r.action && !Wt.empty && xbState() !== 'blocked', fn: function () { CB.aim = 'throw'; say(Wt.bow ? 'Shoot' : 'Throw', 'Tap a target. Within ' + Wt.range + ' tiles is a normal ' + (Wt.bow ? 'shot' : 'throw') + '; up to ' + Wt.long + ' at disadvantage.', 3200); cbHUD(); } }
     ]);
   }
   function cbMenuToggle(which) {
@@ -542,7 +544,7 @@
   }
   function cbMyTurn() { return CB.on && CB.order[CB.idx] === 'pc'; }
   function cbAdjacent() { return CB.enemies.filter(function (e) { return !e.dead && !e.calm && cheb(P.x, P.z, e.x, e.z) <= 1; }); }
-  var AMMO_HINT = { arrow: 'Jury-rig some: wood + a tip (wood, rubble, scrap metal or imp horn).', pebble: 'Any Chunk of rubble or River stone works, or find ball bearings.', paintball: 'Find paintballs (stagehands and key grips carry them). Jury-rig them with a filling: acid, something toxic, grease or something flammable.' };
+  var AMMO_HINT = { bullet: 'Revolver rounds are rare. Bosses and lockboxes, mostly. Every shot is gone for good.', arrow: 'Jury-rig some: wood + a tip (wood, rubble, scrap metal or imp horn).', pebble: 'Any Chunk of rubble or River stone works, or find ball bearings.', paintball: 'Find paintballs (stagehands and key grips carry them). Jury-rig them with a filling: acid, something toxic, grease or something flammable.' };
   function bowHeld() { return !!(CHAR && CHAR.wield && launcherOf(CHAR.wield)); }
   // ammo for a launcher: the stack you picked (Inventory → Shoot these), else the hardest-hitting stack you carry
   function ammoPick(kind) {
@@ -555,7 +557,7 @@
     var wi = bw && wieldItem(); if (wi && wi.noTank) return { name: '(no air)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true, ammoKind: 'air', noAir: true };
     if (bw) { var am = ammoPick(bw.ammo || 'arrow');
       if (!am) return { name: '(no ' + (bw.ammo || 'arrow') + 's)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true, ammoKind: bw.ammo || 'arrow' };
-      var A = ITEMS[am.name].ammo; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: 1, s: bw.s ? Math.max(A.s, bw.s) : A.s, acc: (A.acc || 0) + (bw.acc || 0), onHit: A.onHit || null, edmg: A.edmg || null, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, ammo: am, ammoKind: bw.ammo || 'arrow', shots: bw.shots || 1, pose: bw.pose || 'bow', fly: bw.fly || 'arrow' }; }
+      var A = ITEMS[am.name].ammo, gl = bw.cyl ? gunLv() : 0; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: bw.n || 1, s: bw.s ? Math.max(A.s, bw.s) : A.s, acc: (A.acc || 0) + (bw.acc || 0) + (gl >= 3 ? 1 : 0), onHit: A.onHit || null, edmg: A.edmg || null, stat: 'DEX', prof: !bw.cyl || gl >= 1, range: bw.range, long: bw.long, bow: true, ammo: am, ammoKind: bw.ammo || 'arrow', shots: bw.cyl && gl >= 5 ? 2 : (bw.shots || 1), pose: bw.pose || 'bow', fly: bw.fly || 'arrow', gun: !!bw.cyl, crit: bw.cyl && gl >= 3 ? 19 : 0 }; }
     if (sty('off') === 3 || (KIT && !KIT.on && sty('main') === 0 && sty('off') === 3)) return { name: 'your dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', prof: true, range: 4, long: 12, dagger: true };
     return { name: 'a rock', n: 1, s: 4, stat: 'STR', prof: false, range: 4, long: 12 };
   }
@@ -613,7 +615,7 @@
       if (seesYou) cbJoin(e, 'sees you and charges in.'); else if (hears) cbJoin(e, 'hears the fighting and comes to help.');
     });
   }
-  function cbEnd(win) { (CHAR && CHAR.gear || []).forEach(function (g) { g.unloaded = false; }); CB.enemies.forEach(function (q) { q.pinned = 0; q.surprised = false; q.blind = 0; q.poisoned = null; q.doused = 0; }); PC.burning = 0; CB.dmSolo = false; CB.allyFell = false; CB.enemies.forEach(function (e) { e.rallied = false; e.rally = 0; e.furious = false; e.fleeing = false; e.tauntedThisFight = 0; }); PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
+  function cbEnd(win) { (CHAR && CHAR.gear || []).forEach(function (g) { g.unloaded = false; var GB = ITEMS[g.name] && ITEMS[g.name].bow; if (GB && GB.cyl) { g.loaded = GB.cyl; g.jammed = false; } }); // between fights you reload and clear any jam CB.enemies.forEach(function (q) { q.pinned = 0; q.surprised = false; q.blind = 0; q.poisoned = null; q.doused = 0; }); PC.burning = 0; CB.dmSolo = false; CB.allyFell = false; CB.enemies.forEach(function (e) { e.rallied = false; e.rally = 0; e.furious = false; e.fleeing = false; e.tauntedThisFight = 0; }); PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -727,8 +729,10 @@
     var oT = obscured(e.x, e.z), oA = obscured(P.x, P.z); if (oT && !oA) { dis = true; why.push('cannot see into the ' + (areaHas(e.x, e.z, ['darkness']) ? 'darkness' : 'smoke')); } else if (oA && !oT) { adv = true; why.push('they cannot see you'); }
     if (e.blind > 0) { adv = true; why.push('it is blinded'); } if (e.webbed) { adv = true; why.push('stuck in a web'); } if (PC.webbed) { dis = true; why.push('you are stuck'); } if (PC.prone) { dis = true; why.push('attacking from the floor'); }
     if (CB.advNext) { adv = true; why.push('opening'); CB.advNext = false; }
+    if (Wp.dis) { dis = true; why.push('untrained with guns'); }
     var cover = opt.ranged && hasCover(P.x, P.z, e.x, e.z) ? 2 : 0, ac = acOf(e) + cover;
     var R = roll20(adv, dis), tot = R.r + Wp.hit, crit = R.r >= (Wp.crit || 20), hit = crit || (R.r !== 1 && tot >= ac);
+    if (Wp.gun && Wp.jamOn && R.r <= Wp.jamOn) { var jg = gunOf(); if (jg) { jg.w.jammed = true; hit = false; crit = false; why.push('it jammed'); setTimeout(function () { say('Jammed', 'A natural ' + R.r + ': the gun jams. Shoot again to clear it (your action). Firearms training fixes this.', 4200); }, 900); } }
     var line = R.txt + ' + ' + Wp.hit + ' = ' + tot + ' vs AC ' + ac + (cover ? ' (half cover)' : '') + (why.length ? ' · ' + why.join(', ') : '');
     if (PC.hidden) { PC.hidden = false; }
     if (hit) {
@@ -802,6 +806,24 @@
     CB.busy = true; cbHUD(); var i = 0;
     (function next() { if (PC.down || PC.hp <= 0 || !CB.on) { CB.busy = false; cbHUD(); return; } var q = near[i++]; if (!q) { CB.busy = false; cbHUD(); if (after) setTimeout(after, 300); return; } if (q.dead) return next(); cbEnemyAttack(q, true, function () { setTimeout(next, 350); }); })();
   }
+  // ---- guns: a cylinder to reload, jams when untrained, and every shot is heard across the room (Firearms skill in v2_skills.js) ----
+  function gunLv() { return skillLv('Firearms'); }
+  function gunOf() { var w = wieldItem(), B = w && ITEMS[w.name] && ITEMS[w.name].bow; return B && B.cyl ? { w: w, B: B } : null; }
+  function gunLoaded(G) { if (G.w.loaded == null) G.w.loaded = G.B.cyl; return G.w.loaded; }
+  // reloading (or clearing a jam): your action, or your bonus action from Firearms 2
+  function gunReload(G, jam) {
+    var bonus = gunLv() >= 2 && !jam && CB.on && CB.res.bonus;
+    if (CB.on) { if (bonus) CB.res.bonus = 0; else if (CB.res.action) CB.res.action = 0; else { say('No action left', jam ? 'Clearing the jam takes your action. Next turn.' : 'Reloading takes your action' + (gunLv() >= 2 ? ' or bonus action' : '') + '. Next turn.', 3000); return false; } }
+    if (jam) { G.w.jammed = false; say('Jam cleared', 'You work the action until it moves again. ' + (CB.on ? 'That was your action.' : ''), 2400); }
+    else { G.w.loaded = G.B.cyl; say('Reloaded', 'You thumb ' + G.B.cyl + ' rounds into the ' + (G.B.cyl > 2 ? 'cylinder' : 'chambers') + '. ' + (CB.on ? (bonus ? 'Bonus action.' : 'That was your action.') : ''), 2400); }
+    if (typeof saveChar === 'function') saveChar(CHAR); if (CB.on) { cbHUD(); if (typeof cbShowMoves === 'function') cbShowMoves(); } return true;
+  }
+  // a gunshot: everything that can hear it within 12 tiles comes running
+  function gunNoise() {
+    if (!CB.on) return; var n = 0;
+    CB.enemies.forEach(function (q) { if (q.dead || q.calm || q.npc || q.def.timid || CB.order.indexOf(q) >= 0 || inSafeRoom(q.x, q.z)) return; if (cheb(q.x, q.z, P.x, P.z) <= 12) { cbJoin(q, 'heard the gunshot and came running.'); n++; } });
+    return n;
+  }
   function cbThrow(e) {
     var Wt = cbThrowable(), dist = cheb(P.x, P.z, e.x, e.z);
     if (dist > Wt.long) { say('Out of range', e.name + ' is ' + dist + ' tiles away. You can ' + (Wt.bow ? 'shoot' : 'throw') + ' up to ' + Wt.long + '.', 2600); return; }
@@ -809,6 +831,9 @@
     // a crossbow fires once, then has to be cranked (see cbCrank): Shoot cranks first if it can
     var xwi = Wt.bow && wieldItem(), xbow = !!(xwi && ITEMS[xwi.name] && ITEMS[xwi.name].bow && ITEMS[xwi.name].bow.crank), xlv = xbow ? skillLv('Crossbow') : 0;
     if (xbow && xwi.unloaded && !Wt.empty && !Wt.noAir) { if (xbState() === 'blocked') { say('Not loaded', 'Cranking takes your bonus action, and you have used it this turn. Next turn: crank, then shoot.', 3600); return; } cbCrank(function () { if (!PC.down && CB.res.action) cbThrow(e); }); return; }
+    var G = Wt.gun && !Wt.empty ? gunOf() : null;
+    if (G && G.w.jammed) { if (gunReload(G, true)) cbAfterMyMove(); return; } // a jammed gun: clearing it is the action
+    if (G && gunLoaded(G) <= 0) { if (gunReload(G, false) && !CB.res.action) cbAfterMyMove(); return; } // empty: Shoot reloads first
     CB.res.action = 0; CB.busy = true; cbFaceHero(e.x, e.z); if (!Wt.bow) kitOneShot('Spell_Simple_Shoot'); cbHUD();
     if (Wt.noAir) { say('No air', 'The tank is off. Inventory → the marker → Screw a CO2 tank on.', 3000); CB.busy = false; CB.res.action = 1; cbHUD(); return; }
     if (Wt.empty) { say('Out of ' + (Wt.ammoKind || 'arrow') + 's', AMMO_HINT[Wt.ammoKind] || 'Craft or find some.', 2600); CB.busy = false; CB.res.action = 1; cbHUD(); return; }
@@ -818,10 +843,14 @@
       if (!(ITEMS[A.name].ammo || {}).noRecover) { CB.shot = CB.shot || {}; CB.shot[A.name] = (CB.shot[A.name] || 0) + 1; }
       A.qty = (A.qty || 1) - 1; if (A.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(A), 1); saveChar(CHAR); if (typeof wsetDraw === 'function') wsetDraw(); return true; };
     var close = Wt.bow && Wt.pose !== 'gun' && cheb(P.x, P.z, e.x, e.z) <= 2;
-    var flyK = Wt.bow ? (Wt.fly === 'pebble' ? 'pebble' : Wt.fly === 'paint' ? 'paint' : (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow')) : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
+    var flyK = Wt.bow ? (Wt.fly === 'bullet' ? 'bullet' : Wt.fly === 'pebble' ? 'pebble' : Wt.fly === 'paint' ? 'paint' : (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow')) : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
     var AM = Wt.bow && Wt.ammo && ITEMS[Wt.ammo.name] ? ITEMS[Wt.ammo.name].ammo : null; if (AM && AM.plain) Wp.plain = true;
     var PCOL = AM && AM.splash ? (AM.splash.type === 'acid' ? 0x9aff3a : AM.splash.type === 'poison' ? 0xb050ff : AM.splash.area === 'grease' ? 0xd8a030 : AM.splash.douse ? 0x8a5a20 : 0xffffff) : 0;
     var shots = Math.max(1, Wt.shots || 1); spend();
+    if (G) { // a gunshot: untrained it rolls with disadvantage and can jam; it uses a round from the cylinder, and the whole room hears it
+      var gl = gunLv(); skillCount('firearm'); Wp.crit = Wt.crit || 20; Wp.gun = true; if (gl < 1) Wp.dis = true; Wp.jamOn = gl < 1 ? 2 : gl < 2 ? 1 : 0;
+      shots = Math.min(shots, gunLoaded(G)); G.w.loaded = Math.max(0, gunLoaded(G) - 1); kitGunKick(); if (typeof sfx === 'function') try { sfx('bang'); } catch (er) {}
+      setTimeout(gunNoise, 700); }
     if (xbow) { xwi.unloaded = true; skillCount('crossbow'); Wp.hit += xlv; Wp.pointBlank = true; if (xlv >= 3) Wp.pin = true; }
     var fly = function (x0, y0, z0, left) {
       var lx = e.px, lz = e.pz, PR = null; // a filled paintball: roll to hit. A hit coats them, a miss coats the floor at their feet, a natural 1 goes wild
@@ -830,7 +859,7 @@
       vfxBolt(flyK, x0, z0, lx, lz, function () {
       if (AM && AM.splash) paintSplash(e, AM.splash, Wp, PR, Math.round(lx), Math.round(lz)); else cbResolve(e, Wp, { ranged: true, close: close });
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }
-      if (left > 1 && !e.dead && CB.on && spend()) { setTimeout(function () { kitGunKick(); fly(x0, y0, z0, left - 1); }, 260); return; } // a second shot in the same action
+      if (left > 1 && !e.dead && CB.on && (!G || G.w.loaded > 0) && spend()) { if (G) G.w.loaded--; setTimeout(function () { kitGunKick(); fly(x0, y0, z0, left - 1); }, 260); return; } // a second shot in the same action
       cbAfterMyMove();
     }, { ty: (e.def.h || 1) * 0.6, y0: y0, col: flyK === 'paint' ? (PCOL || [0xff3a8a, 0x3ac8ff, 0xffd83a, 0xff8a2a, 0x8aff3a][Math.floor(Math.random() * 5)]) : undefined }); };
     if (Wt.bow) kitBowShot(function (x0, y0, z0) { fly(x0, y0, z0, shots); }, Wt.pose); else setTimeout(function () { fly(P.px, 1.15, P.pz, 1); }, 260);

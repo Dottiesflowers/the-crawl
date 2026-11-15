@@ -857,6 +857,8 @@
       }
       bx(0.03, 0.04, 0.02, MK.blk, 0, -0.03, -0.045); // ASA under the grip
       return; }
+    if (IB.model && IB.bow && IB.bow.pose === 'gun' && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.3 })) { // a gun model, already in the gun frame: +y down the barrel, +z the top, the hand at the origin
+      var GL = IB.len || 0.3; g0.userData.muzzle = new THREE.Vector3(0, GL * 0.84 * 1.35, GL * 0.22 * 1.35); return; }
     if (IB.model && typeof propInto === 'function' && propInto(g, IB.model, { s: IB.len || 0.5, gy: -(IB.len || 0.5) * (IB.bow ? 0.5 : 0.1) })) {
       if (/^w_axe/.test(IB.model)) g.rotation.y = AXE_YAW; // axe heads face away from you, not off to the side
       g.traverse(function (o) { if (!o.isMesh) return; if (IB.skin && WSKIN[IB.skin]) { o.material = wskinMat(IB.skin); return; } if (!o.material.userData.lit) { o.material.color.multiplyScalar(1.8); o.material.userData.lit = 1; } }); // the rust textures are dark: lift them so they read in hand

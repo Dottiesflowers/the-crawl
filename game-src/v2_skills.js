@@ -17,6 +17,7 @@
     ['Improvised Weapons', 'STR', 'Hitting things with things that are not weapons. +1 to hit per 2 levels.', 'wpn:improv'],
     ['Pugilism', 'STR', 'Fists, elbows, the occasional headbutt. +1 to hit per 2 levels.', 'wpn:fist'],
     ['Thrown Objects', 'DEX', 'Rocks, daggers, staplers, whatever is closest.', ''],
+    ['Firearms', 'DEX', 'Guns. Untrained you shoot with disadvantage and a natural 1 or 2 jams it. Level 1: no disadvantage, only a 1 jams. Level 2: it never jams, and reloading is a bonus action. Level 3: +1 to hit and a critical hit on 19-20. Level 5: fan the hammer (two shots per action).', ''],
     ['Crossbow', 'DEX', 'Cranking, loading and putting a bolt where you meant it: +1 to hit per level. At level 3 you crank on the move with no free swings, and a critical hit pins the target for a turn.', ''],
     ['Brawling', 'STR', 'Bar fights, grapples and dirty tricks.', ''],
     ['Athletics', 'STR', 'Shove, grapple, climb, swim.', ''],
@@ -122,7 +123,8 @@
     secret: [2, 'Trap Sense', 'you keep finding hidden things'],
     harvest: [3, 'Butchery', 'you keep cutting useful bits off corpses'],
     throw: [4, 'Thrown Objects', 'you keep throwing things at problems'],
-    crossbow: [4, 'Crossbow', 'you keep cranking that crossbow']
+    crossbow: [4, 'Crossbow', 'you keep cranking that crossbow'],
+    firearm: [3, 'Firearms', 'you keep pulling that trigger']
   };
   function skillCount(key) {
     var c = CHAR, t = SKILL_TRIGGERS[key]; if (!c || !t) return; c.counts = c.counts || {}; c.counts[key] = (c.counts[key] || 0) + 1;
