@@ -79,6 +79,7 @@
   // DCC-style achievements. The registry wins over whatever the caller passed, so wording lives in one place.
   // reward: an item name (a loot box, usually) or null for "Reward: none".
   var ACH = {
+    onair: ['Ratings Gold', 'A camera caught you winning and the audience loved it. Your agent has been notified. You do not have an agent.', 25, null],
     setpiece: ['Practical Effects', 'You used the scenery as a weapon. The effects department would be proud, if the effects department were not hiding in a trailer.', 25, null],
     talker: ['Use Your Words', 'You talked a monster out of a fight. The System finds this personally refreshing. The audience found it boring.', 50, 'Bronze loot box'],
     first_blood: ['First Blood', 'Your first kill on camera. Your mother would be so proud. She is watching, by the way.', 50, 'Bronze loot box'],

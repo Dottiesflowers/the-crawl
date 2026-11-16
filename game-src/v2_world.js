@@ -615,6 +615,14 @@
     '#megaphone_on': function (x, z, d, tx, tz) { box(0.7, 0.75, 0.5, 0x8a6a40, x, 0.38, z, tx, tz, { kind: 'wood' }); box(0.5, 0.02, 0.4, 0xf4f0e6, x, 0.77, z, tx, tz, { kind: 'cloth' }); },
     '#firealarm': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.3, 0.4, 0.12, 0xc8302a, 0, 1.3, 0, { kind: 'metal' }); B(0.12, 0.1, 0.05, 0xf4f0e6, 0, 1.28, 0.08, {}); },
     '#firealarm_on': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.3, 0.4, 0.12, 0xc8302a, 0, 1.3, 0, { kind: 'metal', glow: true }); B(0.12, 0.1, 0.05, 0xf4f0e6, 0, 1.2, 0.08, {}); },
+    '#camtripod': function (x, z, d, tx, tz) { [0, 2.1, 4.2].forEach(function (a) { var l = box(0.04, 1.3, 0.04, 0x2a2a2e, x + Math.cos(a) * 0.22, 0.62, z + Math.sin(a) * 0.22, tx, tz, { kind: 'metal' }); l.mesh.rotation.z = Math.cos(a) * 0.3; l.mesh.rotation.x = -Math.sin(a) * 0.3; });
+      pcyl(0.05, 0.25, 0x3a3a40, x, 1.2, z, tx, tz, { kind: 'metal' }); },
+    '#camtripod_dead': function (x, z, d, tx, tz) { [0.3, 1.4, 2.6].forEach(function (a, i) { var l = box(0.04, 1.2, 0.04, 0x2a2a2e, x + Math.cos(a) * 0.3, 0.03 + i * 0.03, z + Math.sin(a) * 0.3, tx, tz, { kind: 'metal', noShadow: true }); l.mesh.rotation.x = Math.PI / 2; l.mesh.rotation.z = a; });
+      var b = box(0.42, 0.28, 0.26, 0x1e1e22, x + 0.35, 0.14, z - 0.2, tx, tz, { kind: 'metal' }); b.mesh.rotation.y = 0.7; box(0.5, 0.01, 0.5, 0x101014, x + 0.2, 0.01, z, tx, tz, { noShadow: true }); },
+    '#campanel': function (x, z, d, tx, tz) { box(0.9, 0.95, 0.5, 0x3a3e46, x, 0.48, z, tx, tz, { kind: 'metal' }); for (var i = 0; i < 3; i++) box(0.26, 0.2, 0.02, 0x2a5a7a, x - 0.29 + i * 0.29, 1.1, z - 0.18, tx, tz, { glow: true });
+      box(0.9, 0.36, 0.06, 0x2a2a30, x, 1.1, z - 0.21, tx, tz, { kind: 'metal' }); box(0.06, 2.5, 0.06, 0x2a2a2e, x + 0.38, 1.25, z + 0.18, tx, tz, { kind: 'metal' }); },
+    '#campanel_on': function (x, z, d, tx, tz) { box(0.9, 0.95, 0.5, 0x3a3e46, x, 0.48, z, tx, tz, { kind: 'metal' }); box(0.9, 0.36, 0.06, 0x14141a, x, 1.1, z - 0.21, tx, tz, { kind: 'metal' });
+      for (var i = 0; i < 5; i++) { var c = box(0.03, 0.03, 0.6, [0xc8302a, 0x2a6aa8, 0xd8b030][i % 3], x - 0.3 + i * 0.15, 0.04, z - 0.5 - (i % 2) * 0.1, tx, tz, { noShadow: true }); c.mesh.rotation.y = (i - 2) * 0.3; } box(0.06, 2.5, 0.06, 0x2a2a2e, x + 0.38, 1.25, z + 0.18, tx, tz, { kind: 'metal' }); },
     '#scorch': function (x, z, d, tx, tz) { box(1.1, 0.02, 1.1, 0x14100c, x, 0.012, z, tx, tz, { noShadow: true }); },
     '#idol': function (x, z, d, tx, tz) { box(0.22, 0.32, 0.18, 0xe8b830, x, 1.16, z, tx, tz, { kind: 'metal', glow: true }); box(0.16, 0.12, 0.14, 0xe8b830, x, 1.38, z, tx, tz, { kind: 'metal', glow: true }); },
     '#idol_gone': function () {},

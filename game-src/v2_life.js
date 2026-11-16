@@ -75,7 +75,7 @@
     var c = CHAR, now = Date.now(); if (!c) { say('Not yet', 'Create a character first.', 2500); return true; }
     c.cool = c.cool || {};
     if (a.auto === 'link') { takeLink(a.link); return true; }
-    if (a.auto === 'setp') { spFire(a.sp); return true; }
+    if (a.auto === 'setp') { a.sp._cover = a.cover || null; spFire(a.sp); return true; }
     if (a.auto === 'tram') { if (CB.on) { say('Not now', 'Finish the fight first.', 2500); return true; } if (takeLink({ x: a.to.ax, z: a.to.az })) say('All aboard', 'The tram whirs round the loop with you as its only passenger. ' + a.to.name + '. Please keep your hands inside the vehicle.', 4000); return true; }
     if (a.auto === 'callsheet') { var sl = (c.slates || []), left = Math.max(0, 3 - sl.length);
       say('Call sheet', sl.length ? 'Scenes wrapped: ' + sl.join(', ') + '. ' + (left ? left + ' more slate' + (left > 1 ? 's' : '') + ' and Soundstage 9 opens.' : 'Soundstage 9 is open to you. The Director is waiting.') : 'Six sets are shooting: Frontier Town, the Jungle Set (two bosses), Starship Valiant, Maple Lane, Blackwood Manor and the Writers\' Building. Beat a set boss and you get its slate. Three slates open Soundstage 9, and the way down.', 9000); return true; }
@@ -236,6 +236,9 @@
     tower: 'A wooden water tower on four legs, full and sloshing. One good knock on a leg and it comes down across the street.', keg: 'A keg of black powder with DANGER painted on it and a long fuse. Real powder, on a fake set.', bridge: 'The ropes holding the bridge up are tied off here. Cut them and anything on the bridge goes in the river.',
     idol: 'A golden idol on the altar, the only real thing in the temple. Something about the stone it sits on says "pressure plate".', warpcore: 'The console for the warp core: a glowing column of prop plasma with a real transformer in it. Push it past the red line and everything in the engine room gets the full current.', fans: 'The controls for the giant fans behind the cargo bay doors, the ones that make it look like space. Hit the switch and everything in the bay goes flying.', gimbal: 'The ship sits on a hydraulic gimbal so it can rock for battle scenes. Rock it now and everyone aboard goes off their feet.', bookcase: 'One book sticks out further than the others. Classic.', pile: 'A tower of unread spec scripts, taller than you and leaning badly. Nobody has read one since the strike started. A good shove would bring the lot down on whoever is standing near it.', ride: 'The control box for the dinosaur ride, humming with far too much power. Overload it and the animatronics get all of it at once.' };
   function spActs(t) { var sp = LEVEL.setp && LEVEL.setp[t.key]; if (!sp) return null;
+    if (sp.kind === 'camera') { if (spDone(sp)) return [{ label: 'Examine', text: 'What is left of a studio camera. The tally light is dark for good.' }];
+      var cv = camCover(), on = camOn(sp), out = [{ label: 'Smash the camera', auto: 'setp', sp: sp }]; if (cv) out.push({ label: 'Cover the lens (' + cv.name + ')', auto: 'setp', sp: sp, cover: cv });
+      out.push({ label: 'Examine', text: on ? 'A studio camera on a tripod, sweeping slowly back and forth, red tally light blinking. If it catches you at the end of a move the whole set sees you on the monitors. If it catches you winning, the audience loves it. Crouch to sneak past, smash it (loud), or cover the lens with something sticky.' : 'A studio camera with its feed cut. It still sweeps out of habit, but nobody is watching.' }); return out; }
     if (spDone(sp)) return [{ label: 'Examine', text: sp.done || SP_DONE_TXT[sp.kind] || 'Already done.' }];
     return [{ label: sp.label, auto: 'setp', sp: sp }, { label: 'Examine', text: sp.look || SP_LOOK[sp.kind] || sp.name }]; }
   function spHurtPC(n, kind, save) { if (save) { var sv = d20() + (MOD.DEX || 0); if (sv >= save) n = Math.floor(n / 2); } if (n <= 0) return; PC.hp = Math.max(0, PC.hp - n); floater(P.px, 1.5, P.pz, '-' + n + ' ' + kind, 'pdmg'); cbHUD(); if (PC.hp <= 0 && CB.on) cbFall(); return n; }
@@ -274,13 +277,65 @@
       else notes.push(Object.keys(cnt).map(function (n) { return cnt[n] > 1 ? cnt[n] + ' × ' + n : n; }).join(', ') + ': distracted for ' + (sp.turns || 2) + ' turns' + '.'); }
     else if (sp.kind === 'pile') { title = 'AVALANCHE'; dmgKind = 'paper-cut'; hit = spFoes(function (e) { return cheb(e.x, e.z, sp.x, sp.z) <= (sp.r || 2); }); hit.forEach(function (e) { notes.push(fxApply([{ type: 'damage', dice: '2d6' }, { type: 'prone' }], e)); });
       if (cheb(P.x, P.z, sp.x, sp.z) <= 1) self = spHurtPC(rollDice('1d6'), 'bludgeoning', 12); spDecor(sp.x, sp.z, '#scripts', '#scripts_down'); notes.unshift('You give the tower of unread spec scripts one good shove. Ten years of somebody\'s dreams come down in a landslide.'); }
+    else if (sp.kind === 'camera') { title = sp._cover ? 'CAMERA DOWN (QUIETLY)' : 'CAMERA DOWN'; spDecor(sp.x, sp.z, '#camtripod', '#camtripod_dead');
+      if (sp._cover) { var cg = sp._cover, gear = CHAR.gear || []; if ((cg.qty || 1) > 1) cg.qty--; else if (gear.indexOf(cg) >= 0) gear.splice(gear.indexOf(cg), 1); notes.unshift('You smear ' + cg.name.toLowerCase() + ' over the lens. The tally light blinks, confused, and goes out. Nobody heard a thing.'); }
+      else { notes.unshift('You kick the camera off its tripod and stamp on it. It is not quiet.'); hit = spFoes(function (e) { return !e.calm && !e.def.timid && !inSafeRoom(e.x, e.z) && cheb(e.x, e.z, P.x, P.z) <= 8 && (!CB.on || CB.order.indexOf(e) < 0); }); if (hit.length) notes.push(hit.length + ' of the cast heard that.'); } }
+    if (sp.kind === 'distract' && sp.camoff != null) notes.push('Every camera on this set is blind now.');
     if (self) notes.push('You take ' + self + ' ' + dmgKind + ' damage.');
     CHAR.setp = CHAR.setp || {}; CHAR.setp[spKey(sp)] = Date.now(); saveChar(CHAR); try { rebuildChunks(); } catch (x) {}
-    setTimeout(function () { try { achieve('setpiece'); } catch (x) {} }, 3000);
+    if (sp.kind !== 'camera') setTimeout(function () { try { achieve('setpiece'); } catch (x) {} }, 3000);
     say(title, notes.filter(Boolean).join(' '), 7000); worldSave();
+    var loud = !sp._cover && sp.kind !== 'distract' && sp.kind !== 'bookcase', watched = sp.kind !== 'camera' && FLOOR === 2 && camWatching();
+    if (watched) setTimeout(function () { grantXP(25); say('AUDIENCE BONUS · +25 XP', pick(['That one is going in the highlight reel.', 'The audience is on its feet. The System clips it for the promo.', 'A camera caught the whole thing. The ratings tick up.']), 4500); }, 7300);
+    if (CB.on && sp.kind === 'camera' && hit.length) { hit.forEach(function (e) { cbJoin(e, 'heard the camera go and came running.'); }); hit = []; }
     var live = hit.filter(function (e) { return !e.dead && !e.calm; });
-    if (CB.on) cbAfterMyMove(); else if (live.length) cbStart('That got their attention.', live[0], { surprise: true });
+    if (CB.on) cbAfterMyMove(); else if (live.length) cbStart(sp.kind === 'camera' ? 'The crash brings the ' + live[0].name.replace(/ [ABC]$/, '') + ' running.' : 'That got their attention.', live[0], sp.kind === 'camera' ? {} : { surprise: true });
+    if (loud) setTimeout(function () { try { qosLoud('heard that through the Quiet on set and came running.'); } catch (x) {} }, 200);
   }
+  // ---------- Floor 2 phase 3: studio cameras and the Quiet on set lights ----------
+  // A camera sweeps a 60-degree cone 6 tiles deep. Caught in it at the end of a move (crouching gets a Stealth roll) and the nearest cast within 15 tiles come for you: ON AIR.
+  // Win a fight, or set off a set piece, where a working camera can see you and the audience pays: +25% XP and now and then a sponsor's loot box.
+  // Every minute or two one set's Quiet on set light comes on for 30 seconds: sneaking past cameras gets advantage, and anything loud there brings the whole set.
+  var CAM = { lv: null, list: [], panel: {}, lamps: [], qos: null, qosUntil: 0, qosNext: 0, chk: 0 };
+  function camCover() { return (CHAR && CHAR.gear || []).filter(function (g) { var it = ITEMS[g.name] || {}; return (it.tags || []).indexOf('sticky') >= 0 || /paint|tape|slime|grease|gum|glue|mud/i.test(g.name); })[0] || null; }
+  function camOn(sp) { if (!sp || spDone(sp)) return false; var pn = CAM.panel[sp.hood]; return !(pn && spDone(pn)); }
+  function camSees(c, x, z, sweep) { var dx = x - c.sp.x, dz = z - c.sp.z, d = Math.hypot(dx, dz); if (d > 6.5 || d < 0.5) return false;
+    if (sweep) { var df = Math.atan2(-dz, dx) - c.yaw; df = Math.atan2(Math.sin(df), Math.cos(df)); if (Math.abs(df) > 0.55) return false; } return los(c.sp.x, c.sp.z, x, z); }
+  function camWatching() { return CAM.list.some(function (c) { return camOn(c.sp) && camSees(c, P.x, P.z, false); }); }
+  function qosHere() { if (!CAM.qos) return false; var r = roomInfo(P.x, P.z); return !!r && r.hood === CAM.qos.hood; }
+  function qosLoud(why) { if (!CB.on || !qosHere()) return 0; var n = 0; CB.enemies.forEach(function (e) { if (e.dead || e.calm || e.npc || e.def.timid || CB.order.indexOf(e) >= 0 || inSafeRoom(e.x, e.z)) return; var r = roomInfo(e.x, e.z); if (r && r.hood === CAM.qos.hood) { cbJoin(e, why); n++; } });
+    if (n) cbLog('QUIET ON SET', n + ' more of the cast heard that.'); return n; }
+  function camBonus(beaten, xp) { if (FLOOR !== 2 || !beaten.some(function (e) { return e.dead; }) || !(CB.airFight || camWatching())) return 0; var b = Math.max(5, Math.ceil(xp * 0.25));
+    setTimeout(function () { var gift = Math.random() < 0.25 ? item('Bronze loot box', { from: 'a sponsor, for the ratings' }) : null; if (gift) invAdd(gift, true);
+      say('AUDIENCE BONUS · +' + b + ' XP', pick(['A camera caught the whole fight. The audience ate it up.', 'That fight went out live. The System says the numbers are good.', 'On camera, and you won. The studio audience goes wild.']) + (gift ? ' A sponsor sends over a Bronze loot box.' : ''), 5200);
+      setTimeout(function () { try { achieve('onair'); } catch (x) {} }, 5400); }, 1700); return b; }
+  function camAir(c) { var now = performance.now(); c.cool = now + 25000; c.hot = now + 4000;
+    var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && !e.npc && !e.def.timid && !inSafeRoom(e.x, e.z) && cheb(e.x, e.z, P.x, P.z) <= 15; }).sort(function (a, b) { return cheb(a.x, a.z, P.x, P.z) - cheb(b.x, b.z, P.x, P.z); }).slice(0, 3);
+    if (!foes.length) { say('ON AIR', 'A tally light goes solid red: that camera has you. Nobody is watching the monitors right now, but the audience saw.', 4200); return; }
+    cbStart('ON AIR. ' + foes[0].name.replace(/ [ABC]$/, '') + ' saw you on the monitor.', foes[0]); if (!CB.on) return; CB.airFight = true;
+    foes.slice(1).forEach(function (e) { if (CB.order.indexOf(e) < 0) cbJoin(e, 'saw you on the monitor and came running.'); }); }
+  function camCheck() { if (FLOOR !== 2 || CB.on || !CB.ready || (typeof DM !== 'undefined' && DM.peace) || isDM() || inSafeRoom(P.x, P.z) || (CHAR && CHAR.dead)) return; var now = performance.now();
+    for (var i = 0; i < CAM.list.length; i++) { var c = CAM.list[i]; if (!camOn(c.sp) || (c.cool || 0) > now || !camSees(c, P.x, P.z, true)) continue;
+      if (crouch) { var r1 = d20(), roll = qosHere() ? Math.max(r1, d20()) : r1, tot = roll + (MOD.DEX || 0) + skillLv('Stealth') - (hasTrait('Loudmouth') ? 2 : 0); if (tot >= 13) { c.cool = now + 6000; cbLog('Stealth', 'A camera sweeps over you: ' + tot + ' vs 13. Not seen.'); continue; } }
+      camAir(c); return; } }
+  function camInit() { if (CAM.lv === LEVEL) return; CAM.list.forEach(function (c) { scene.remove(c.g); scene.remove(c.cone); }); CAM.lamps.forEach(function (l) { scene.remove(l.m); }); CAM.list = []; CAM.lamps = []; CAM.panel = {}; CAM.qos = null; CAM.lv = LEVEL;
+    if (FLOOR !== 2 || !LEVEL.setp) return; var seen = {}, dark = new THREE.MeshLambertMaterial({ color: 0x1e1e24 }), lensM = new THREE.MeshLambertMaterial({ color: 0x0a0a0e }), coneG = new THREE.CircleGeometry(6.5, 18, -0.55, 1.1); coneG.rotateX(-Math.PI / 2);
+    Object.keys(LEVEL.setp).forEach(function (k) { var sp = LEVEL.setp[k]; if (seen[sp.id]) return; seen[sp.id] = 1; if (sp.camoff != null) CAM.panel[sp.camoff] = sp; });
+    (LEVEL.qos || []).forEach(function (q) { var m = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.22), new THREE.MeshBasicMaterial({ color: 0x3a0c0c })); m.position.set(q.x + 0.38, 2.55, q.z + 0.18); scene.add(m); CAM.lamps.push({ q: q, m: m }); });
+    seen = {}; Object.keys(LEVEL.setp).forEach(function (k) { var sp = LEVEL.setp[k]; if (seen[sp.id] || sp.kind !== 'camera') return; seen[sp.id] = 1;
+      var g = new THREE.Group(), head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.28), dark), lens = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.16, 10), lensM), tally = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: 0x551010 }));
+      lens.rotation.z = Math.PI / 2; lens.position.x = 0.32; tally.position.set(0.1, 0.2, 0); head.add(lens); head.add(tally); head.position.y = 1.45; g.add(head); g.position.set(sp.x, 0, sp.z); scene.add(g);
+      var cone = new THREE.Mesh(coneG, new THREE.MeshBasicMaterial({ color: 0xff3020, transparent: true, opacity: 0.1, depthWrite: false })); cone.position.set(sp.x, 0.05, sp.z); scene.add(cone);
+      CAM.list.push({ sp: sp, g: g, head: head, tally: tally, cone: cone, ph: (sp.x * 0.37 + sp.z * 0.71) % 6.28, yaw: sp.a0 }); });
+    CAM.qosNext = performance.now() + 45000; }
+  (function camTick() { requestAnimationFrame(camTick); if (typeof LEVEL === 'undefined' || !LEVEL || CAM.lv !== LEVEL || !CAM.list.length && !CAM.lamps.length) return; var now = performance.now(), t = now / 1000;
+    CAM.list.forEach(function (c) { var dead = spDone(c.sp), on = !dead && camOn(c.sp); c.g.visible = !dead; c.cone.visible = on; if (dead) return; c.yaw = c.sp.a0 + 0.6 * Math.sin(t * 0.45 + c.ph); c.head.rotation.y = c.yaw; c.cone.rotation.y = c.yaw;
+      var hot = (c.hot || 0) > now; c.tally.material.color.setHex(!on ? 0x221010 : hot ? 0xff2010 : (Math.floor(t * 1.5 + c.ph) % 2 ? 0xc81810 : 0x551010)); c.cone.material.opacity = hot ? 0.22 : 0.1; });
+    if (CAM.qos && now > CAM.qosUntil) CAM.qos = null;
+    if (!CAM.qos && CAM.lamps.length && now > CAM.qosNext && !CB.on) { var L = CAM.lamps[Math.floor(Math.random() * CAM.lamps.length)]; CAM.qos = L.q; CAM.qosUntil = now + 30000; CAM.qosNext = now + 90000 + Math.random() * 60000;
+      if (qosHere()) say('QUIET ON SET', 'The red light over ' + L.q.name + ' is on. Sneaking past the cameras is easier for a while (advantage on Stealth), but anything loud now brings the whole set.', 5500); }
+    CAM.lamps.forEach(function (l) { var lit = CAM.qos === l.q; l.m.material.color.setHex(lit ? (Math.floor(t * 2) % 2 ? 0xff2a1a : 0xc01a10) : 0x3a0c0c); });
+    if (now > CAM.chk) { CAM.chk = now + 300; try { camCheck(); } catch (x) {} } })();
   // little one-shot animations: a train sweeping through the crossing, a boulder down the temple
   function spSweep(mesh, x0, z0, x1, z1, secs, spin) { scene.add(mesh); var t0 = performance.now();
     (function step() { var f = Math.min(1, (performance.now() - t0) / 1000 / secs); mesh.position.x = x0 + (x1 - x0) * f; mesh.position.z = z0 + (z1 - z0) * f; if (spin) mesh.rotation.z -= 0.25; if (f < 1) requestAnimationFrame(step); else setTimeout(function () { scene.remove(mesh); }, 400); })(); }
@@ -289,10 +344,10 @@
   function spBridgeDown(sp) { for (var z = sp.z0; z <= sp.z1; z++) for (var x = sp.x0; x <= sp.x1; x++) { if (MAP[z] && MAP[z][x] !== '#') MAP[z] = MAP[z].substr(0, x) + '~' + MAP[z].substr(x + 1); var L = LEVEL.decor[x + ',' + z]; if (L) L.length = 0; } }
   function spOpenWall(sp) { if (MAP[sp.wz] && MAP[sp.wz][sp.wx] === '#') MAP[sp.wz] = MAP[sp.wz].substr(0, sp.wx) + 'D' + MAP[sp.wz].substr(sp.wx + 1); }
   // on load: put back what this character already set off, and lay the quicksand
-  function spInit() { if (!LEVEL.setp) return; var redo = false, seen = {};
+  function spInit() { try { camInit(); } catch (x) { console.warn('cams', x); } if (!LEVEL.setp) return; var redo = false, seen = {};
     Object.keys(LEVEL.setp).forEach(function (k) { var sp = LEVEL.setp[k]; if (seen[sp.id] || !spDone(sp)) return; seen[sp.id] = 1; redo = true;
       if (sp.kind === 'chandelier') spDecor(sp.cx, sp.cz, '#chandelier', '#chandelier_down'); if (sp.kind === 'tower') { [[50, 73], [51, 73], [50, 74], [51, 74]].forEach(function (q) { spDecor(q[0], q[1], '#tower', '#tower_down'); }); vfxArea('mud', sp.mx, sp.mz, 2.6, 1e9); }
-      if (sp.kind === 'keg') spDecor(sp.x, sp.z, sp.dec || '#keg', '#scorch'); if (sp.kind === 'pile') spDecor(sp.x, sp.z, '#scripts', '#scripts_down'); if (sp.kind === 'distract' && sp.dec) spDecor(sp.x, sp.z, sp.dec, sp.dec + '_on'); if (sp.kind === 'bridge') spBridgeDown(sp); if (sp.kind === 'idol') spDecor(sp.x, sp.z, '#idol', '#idol_gone'); if (sp.kind === 'ride') spDecor(sp.x, sp.z, '#ridebox', '#ridebox_dead'); if (sp.kind === 'warpcore') spDecor(sp.cx, sp.cz, '#warpcore', '#warpcore_dead'); if (sp.kind === 'bookcase') spOpenWall(sp); });
+      if (sp.kind === 'keg') spDecor(sp.x, sp.z, sp.dec || '#keg', '#scorch'); if (sp.kind === 'pile') spDecor(sp.x, sp.z, '#scripts', '#scripts_down'); if (sp.kind === 'distract' && sp.dec) spDecor(sp.x, sp.z, sp.dec, sp.dec + '_on'); if (sp.kind === 'camera') spDecor(sp.x, sp.z, '#camtripod', '#camtripod_dead'); if (sp.kind === 'bridge') spBridgeDown(sp); if (sp.kind === 'idol') spDecor(sp.x, sp.z, '#idol', '#idol_gone'); if (sp.kind === 'ride') spDecor(sp.x, sp.z, '#ridebox', '#ridebox_dead'); if (sp.kind === 'warpcore') spDecor(sp.cx, sp.cz, '#warpcore', '#warpcore_dead'); if (sp.kind === 'bookcase') spOpenWall(sp); });
     (LEVEL.mud || []).forEach(function (q) { vfxArea('mud', q[0], q[1], 1.4, 1e9); });
     if (redo) try { rebuildChunks(); } catch (x) {} }
   // the test server says so, so nobody mistakes it for the real game

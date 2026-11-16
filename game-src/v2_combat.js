@@ -572,7 +572,7 @@
     if (!foes.length) return;
     var sneaky = !!(crouch || PC.hidden);
     if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
-    CB.on = true; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
+    CB.on = true; CB.airFight = false; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true;
     foes.forEach(function (e) { e.react = true; e.prone = false; e.grappled = false; e.fought = true; });
     // surprise (5e, 2014): you started it and they had not spotted you. They lose their first turn and cannot react until it passes; from a sneak, your first attack has advantage
     var surp = opt.surprise ? foes.filter(function (e) { return !e.boss || sneaky; }) : []; surp.forEach(function (e) { e.surprised = true; e.react = false; fxTag(e, 'SURPRISED'); }); if (surp.length) setTimeout(function () { achieve('surprise'); }, 3000); 
@@ -631,6 +631,7 @@
     // XP for every monster beaten in this fight: killed, or talked into giving up
     var beaten = CB.enemies.filter(function (e) { return (e.dead || e.calm) && e.fought && !e.counted && !e.npc; }), xp = 0;
     beaten.forEach(function (e) { e.counted = true; xp += e.def.xp; });
+    if (xp && win && FLOOR === 2) try { xp += camBonus(beaten, xp); } catch (x) {}
     if (xp && !win) { grantXP(xp); }
     if (xp && win) {
       var talked = beaten.filter(function (e) { return !e.dead; }).length;
@@ -828,6 +829,7 @@
   function gunNoise() {
     if (!CB.on) return; var n = 0;
     CB.enemies.forEach(function (q) { if (q.dead || q.calm || q.npc || q.def.timid || CB.order.indexOf(q) >= 0 || inSafeRoom(q.x, q.z)) return; if (cheb(q.x, q.z, P.x, P.z) <= 12) { cbJoin(q, 'heard the gunshot and came running.'); n++; } });
+    try { n += qosLoud('heard the gunshot through the Quiet on set and came running.'); } catch (x) {}
     return n;
   }
   function cbThrow(e) {

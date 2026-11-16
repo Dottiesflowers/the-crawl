@@ -21,7 +21,7 @@
   }
   function fogKey() { return 'crawl-fog-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : '') + (FLOOR === 2 ? '-f2' : ''); }
   var LAYOUT_VER = 2; // Floor 1 layout version: bump when the map changes so old positions, fog and monster state are dropped
-  var LAYOUT_VER2 = 4; // Floor 2 layout version (2: the tram-loop redesign; 3: the hedge maze; 4: Maple Lane and Writers' set pieces, Nov 2026)
+  var LAYOUT_VER2 = 5; // Floor 2 layout version (2: the tram-loop redesign; 3: the hedge maze; 4: Maple Lane and Writers' set pieces; 5: cameras, Nov 2026)
   function curLV() { return FLOOR === 2 ? LAYOUT_VER2 : LAYOUT_VER; }
   function lvTag() { return FLOOR === 2 ? (LAYOUT_VER2 > 1 ? 'B' + LAYOUT_VER2 + ':' : '') : 'L' + LAYOUT_VER + ':'; }
   function fogSave() { // explored tiles as runs: start,length;start,length...
@@ -606,6 +606,7 @@
   window.__crawl.dmTest = function () { DM.as = 'dm'; refreshFog(); return Array.prototype.filter.call(tileState, function (v) { return v; }).length; }; window.__crawl.dmJump = function (x, z) { dmJump(x, z); return [P.x, P.z]; };
   window.__crawl.strike = function (slow) { KIT.slow = slow || 1; var W = pcWeapon(); return [W.style, kitStrike(W)]; }; window.__crawl.face = function (r) { hero.rotation.y = r; };
   window.__crawl.tram = { acts: function (k) { var q = k.split(','); return actsOf({ key: k, c: 'o', x: +q[0], z: +q[1] }); }, act: function (a, k) { return safeAct(a, { key: k, c: 'o' }); }, clear: function () { return tramClear(); }, slate: function (e) { slateWin(e, 0); }, open: function () { return gateOpen(); } };
+  window.__crawl.cam = { st: CAM, unpeace: function () { DM.peace = false; }, end: function (w) { cbEnd(w); }, dbg: function () { var c = CAM.list[0]; return { ready: CB.ready, peace: DM.peace, dm: isDM(), safe: inSafeRoom(P.x, P.z), n: CAM.list.length, lv: CAM.lv === LEVEL, crouch: crouch, sees: CAM.list.map(function (c) { return [c.sp.id, camOn(c.sp), camSees(c, P.x, P.z, false), camSees(c, P.x, P.z, true), +c.yaw.toFixed(2)]; }).filter(function (q) { return q[2]; }) }; } };
   window.__crawl.ach = { achieve: achieve, ACH: ACH, state: worldState, apply: worldApply, calm: calmSave, key: spawnKey, talkFight: function (e) { e.talk = e.talk || { lines: [], facts: [], mood: 'neutral' }; } }; // test hooks
   charInit(); cbHUD();
   requestAnimationFrame(loop);

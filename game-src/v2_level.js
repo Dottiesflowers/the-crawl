@@ -1484,6 +1484,22 @@
       zones.forEach(function (Z) { var b = null; Z.rooms.forEach(function (r) { if (r.z0 >= UPZ) return; if (!b) b = { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 }; else { b.x0 = Math.min(b.x0, r.x0); b.z0 = Math.min(b.z0, r.z0); b.x1 = Math.max(b.x1, r.x1); b.z1 = Math.max(b.z1, r.z1); } }); if (b) { Z.x0 = b.x0; Z.z0 = b.z0; Z.x1 = b.x1; Z.z1 = b.z1; } });
       var map = g.map(function (row) { return row.join(''); });
       for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
-      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle, links: links, upZ: UPZ, tram: { stops: tramStops, room: tramR.id }, gate: gate, setp: setps, mud: mudAt };
+      // ---------- phase 3: studio cameras that sweep the sets, a camera control panel per set, and its Quiet on set light ----------
+      var qosL = []; (function () { var sd = 90210, ncam = 0; function cr() { sd = (sd * 1103515245 + 12345) & 0x7fffffff; return sd / 0x7fffffff; }
+        function nearDoor(x, z) { for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) if (g[z + dz] && g[z + dz][x + dx] === 'D') return true; return false; }
+        [[SS, 4], [WB, 4], [SV, 3], [FT, 3], [ML, 3], [BM, 3], [JS, 1]].forEach(function (zn) { var Z = zn[0], rs = Z.rooms.filter(function (r) { return r.type !== 'safe' && r.type !== 'boss' && r.type !== 'corridor' && r.x1 - r.x0 >= 4 && r.z1 - r.z0 >= 4; }); if (!rs.length) return;
+          var mine = [], tries = 0; while (mine.length < zn[1] && tries++ < 60) { var r = rs[Math.floor(cr() * rs.length)], f = freeNear(r, r.x0 + Math.floor(cr() * (r.x1 - r.x0 + 1)), r.z0 + Math.floor(cr() * (r.z1 - r.z0 + 1)), 5, true); if (!f || nearDoor(f[0], f[1])) continue;
+            if (mine.some(function (c) { return Math.abs(c[0] - f[0]) + Math.abs(c[1] - f[1]) < 9; })) continue; var w = wallOf(f[0], f[1]); mine.push(f);
+            g[f[1]][f[0]] = 'o'; dname[f[0] + ',' + f[1]] = 'Studio camera'; taken[f[0] + ',' + f[1]] = 1; dec(f[0], f[1], '#camtripod', {});
+            setp('cam' + (ncam++), f[0], f[1], 'Studio camera', 'Smash the camera', { kind: 'camera', hood: Z.idx, a0: Math.atan2(w[1], -w[0]) }, true); }
+          var bigs = rs.slice().sort(function (a, b) { return (b.x1 - b.x0) * (b.z1 - b.z0) - (a.x1 - a.x0) * (a.z1 - a.z0); }), pf = null;
+          bigs.forEach(function (big) { for (var t2 = 0; t2 < 12 && !pf; t2++) { var q = freeNear(big, big.x0 + Math.floor(cr() * (big.x1 - big.x0 + 1)), big.z0 + Math.floor(cr() * (big.z1 - big.z0 + 1)), 6, t2 < 8); if (q && !nearDoor(q[0], q[1])) pf = q; } }); if (!pf) return;
+          var bx = { x0: 1e9, z0: 1e9, x1: -1, z1: -1 }; Z.rooms.forEach(function (r) { bx.x0 = Math.min(bx.x0, r.x0); bx.z0 = Math.min(bx.z0, r.z0); bx.x1 = Math.max(bx.x1, r.x1); bx.z1 = Math.max(bx.z1, r.z1); });
+          setp('campanel' + Z.idx, pf[0], pf[1], 'Camera control panel', 'Cut the camera feed', { kind: 'distract', camoff: Z.idx, dec: '#campanel', x0: bx.x0, z0: bx.z0, x1: bx.x1, z1: bx.z1, turns: 2, reach: 12, title: 'CUT!',
+            say: 'You yank every cable out of the panel. The cameras on this set die one after another, and the cast, suddenly off camera, stands around waiting for somebody to call action.', none: 'The cameras die. Nobody was close enough to notice.',
+            look: 'The camera control panel for ' + Z.name + ': a bank of monitors showing every camera on the set, and the red Quiet on set light on a pole above it. Pull the cables and the cameras here are blind for good.', done: 'Dead monitors and a nest of pulled cables. The cameras on this set are blind.' });
+          dec(pf[0], pf[1], '#campanel', {}); qosL.push({ name: Z.name, hood: Z.idx, x: pf[0], z: pf[1] }); });
+      })();
+      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle, links: links, upZ: UPZ, tram: { stops: tramStops, room: tramR.id }, gate: gate, setp: setps, mud: mudAt, qos: qosL };
     }
   }
