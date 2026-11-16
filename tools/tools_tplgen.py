@@ -103,81 +103,113 @@ bedroom(1, 11, 10, 15, double=False); bedroom(12, 11, 21, 15); u.put(23, 11, 'x'
 bedroom(34, 11, 43, 15, double=False); bedroom(45, 11, 54, 15)
 out['manorUp'] = u.rows()
 
-# ---------------- Starship Valiant (front at the bottom: the airlock) ----------------
+# ---------------- Starship Valiant: a ship-shaped hull, nose (the bridge) at the top, the main hatch at the bottom ----------------
 s = G(66, 38)
-s.box(0, 0, 65, 36)
-s.hwall(9, 0, 65); s.hwall(17, 0, 65); s.hwall(20, 0, 65); s.hwall(28, 0, 65)
-s.vwall(21, 0, 9); s.vwall(44, 0, 9)
-s.vwall(15, 9, 17); s.vwall(30, 9, 17); s.vwall(35, 9, 17); s.vwall(50, 9, 17)
-s.vwall(30, 20, 36); s.vwall(35, 20, 36); s.vwall(21, 20, 28)
-s.hwall(28, 0, 65)
-# the spine: a corridor down the middle from the bridge to the airlock, and the cross corridor
-s.fill(31, 9, 34, 36, '.'); s.fill(1, 18, 64, 19, '.')
-for c in (31, 34): pass
-s.hwall(17, 0, 30); s.hwall(17, 35, 65); s.hwall(20, 0, 30); s.hwall(20, 35, 65)
-s.vwall(30, 9, 17); s.vwall(35, 9, 17); s.vwall(30, 20, 36); s.vwall(35, 20, 36)
-s.fill(31, 9, 34, 9, 'D'); s.text(31, 36, 'DDDD')
-for c, r in [(8, 17), (22, 17), (42, 17), (57, 17), (10, 20), (25, 20), (45, 20), (55, 20), (30, 32), (35, 32), (30, 24), (35, 24), (21, 5), (44, 5), (30, 13), (35, 13)]: s.put(c, r, 'D')
-s.hwall(28, 0, 29); s.hwall(28, 36, 65)
-s.windows(6, rows=[0, 36], cols=[0, 65])
-# bridge (boss): consoles, the captain's chair, the viewscreen
-for c in (24, 26, 28, 37, 39, 41): s.put(c, 1, 'y')
-for c in (25, 27, 38, 40): s.put(c, 4, 'I')
-s.put(32, 6, '_'); s.put(29, 7, 'I'); s.put(36, 7, 'I'); s.put(23, 7, 'L'); s.put(42, 7, 'L')
-# briefing room and science lab
-for c in range(6, 15): s.put(c, 5, 'm')
-s.put(1, 4, 'y'); s.put(20, 2, 'p')
-s.put(48, 3, 'q'); s.put(52, 3, 'q'); s.put(56, 3, 'q'); s.put(60, 6, 'J'); s.text(46, 8, 'ttt'); s.put(64, 4, 'f')
-# med bay, captain's quarters, holodeck, transporter
-s.text(1, 10, 'e.e.e'); s.put(14, 10, 'C'); s.put(14, 16, 'C'); s.put(7, 14, 'q')
-s.put(16, 10, 'E'); s.put(18, 10, 'N'); s.put(25, 14, 'd'); s.put(28, 16, 'u'); s.put(29, 10, ';')
-for c in (39, 43, 47): s.put(c, 13, ' ') if False else None
-s.text(53, 11, '0.0.0'); s.text(55, 14, 'I')
-# mess hall with a kitchen, crew quarters
-s.text(1, 21, 'zZOicz'); s.put(4, 24, 'm'); s.put(8, 24, 'm'); s.put(12, 24, 'm'); s.put(16, 24, 'm'); s.put(20, 22, 'v')
-s.put(22, 21, 'u'); s.put(28, 21, 'y')
-for c in range(36, 65, 2): s.put(c, 21, 'b'); s.put(c, 27, 'b')
-# cargo hold and engine room
-for c, r in [(2, 30), (3, 30), (2, 31), (8, 30), (9, 30), (14, 34), (15, 34), (20, 30), (25, 33), (26, 33), (27, 33)]: s.put(c, r, 'x')
-for c, r in [(5, 34), (11, 30), (22, 34)]: s.put(c, r, '%')
-s.put(18, 34, 'R'); s.put(28, 30, 'R')
-s.put(50, 32, '9'); s.put(44, 30, 'I'); s.put(56, 30, 'I'); s.put(64, 34, 'h'); s.put(36, 34, 'h')
+def hull(c, r):
+    if r > 36: return False
+    hw = min(33.0, 12 + r * 2.7)
+    return abs(c + 0.5 - 33) <= hw
+for r in range(38):
+    for c in range(66):
+        if hull(c, r): s.g[r][c] = '.'
+for r in range(38):
+    for c in range(66):
+        if s.g[r][c] == '.' and any(not (0 <= c + dc < 66 and 0 <= r + dr < 38) or s.g[r + dr][c + dc] == ' ' for dc in (-1, 0, 1) for dr in (-1, 0, 1)): s.g[r][c] = '#'
+def hw_(r, c0, c1):
+    for c in range(c0, c1 + 1):
+        if s.g[r][c] != ' ': s.g[r][c] = '#'
+def vw_(c, r0, r1):
+    for r in range(r0, r1 + 1):
+        if s.g[r][c] != ' ': s.g[r][c] = '#'
+# decks: the bridge in the nose, the upper deck, the cross corridor, the mid deck, the lower deck
+hw_(9, 0, 65); hw_(17, 0, 65); hw_(20, 0, 65); hw_(28, 0, 65)
+vw_(19, 0, 9); vw_(46, 0, 9)                                  # bridge | briefing room, armory wedges
+vw_(30, 9, 17); vw_(35, 9, 17); vw_(30, 20, 36); vw_(35, 20, 36)  # the spine
+vw_(15, 9, 17); vw_(50, 9, 17); vw_(18, 20, 28); vw_(5, 28, 36)
+vw_(62, 9, 28)                                                 # the Jeffries tube runs inside the starboard hull
+s.fill(31, 10, 34, 35, '.'); s.fill(1, 18, 61, 19, '.'); s.fill(63, 10, 64, 27, '.')
+for r in (17, 20):
+    for c in (30, 35): s.put(c, r, '#')
+# sliding doors
+for c in range(31, 35): s.put(c, 9, 'D'); s.put(c, 36, 'D')
+for c, r in [(8, 17), (22, 17), (42, 17), (57, 17), (30, 13), (35, 13), (9, 20), (25, 20), (48, 20), (35, 24), (30, 32), (35, 32), (5, 32), (12, 28), (16, 9), (46, 6), (19, 6)]: s.put(c, r, 'D')
+s.put(0, 31, 'D'); s.put(0, 32, 'D')                           # the airlock's outer door, onto the hangar
+s.put(63, 9, 'D'); s.put(63, 28, 'D')                          # Jeffries tube: armory to engine room
+s.windows(6, rows=[], cols=[])
+# bridge: viewscreens in the nose, consoles, the captain's chair
+for c in (27, 30, 35, 38): s.put(c, 1, 'y')
+for c in (24, 27, 38, 41): s.put(c, 4, 'I')
+s.put(32, 6, '_'); s.put(29, 7, 'I'); s.put(36, 7, 'I'); s.put(21, 7, 'L'); s.put(44, 7, 'L')
+# briefing room (port wedge), armory (starboard wedge)
+for c in range(9, 16): s.put(c, 7, 'm')
+s.put(18, 4, 'y')
+for c in (50, 53, 56): s.put(c, 7, 'M')
+s.put(60, 8, 'V'); s.put(48, 5, 'x'); s.put(49, 5, 'x')
+s.put(63, 8, '.')
+# upper deck: captain's quarters, the holodeck, science lab, transporter room
+s.put(1, 10, 'E'); s.put(3, 10, 'N'); s.put(10, 12, 'd'); s.put(14, 16, 'u'); s.put(1, 16, ';'); s.put(14, 10, 'C')
+for c in (39, 43, 47): s.put(c, 10, 'J')
+s.text(37, 16, 'ttt'); s.put(49, 13, 'f'); s.put(42, 13, 'q')
+s.text(53, 12, '0.0.0'); s.text(53, 14, '0.0.0'); s.put(57, 16, 'I'); s.put(60, 16, 'I')
+# mid deck: mess hall and kitchen, med bay, crew quarters
+s.text(1, 21, 'zZOicz'); s.put(4, 24, 'm'); s.put(9, 24, 'm'); s.put(14, 24, 'm'); s.put(17, 27, 'v')
+s.text(20, 21, 'e.e.e.e'); s.put(29, 24, 'C'); s.put(29, 27, 'i'); s.put(20, 27, 'C')
+for c in range(37, 61, 3): s.put(c, 21, 'b'); s.put(c, 27, 'b')
+s.put(61, 24, 'f')
+# lower deck: the airlock, the cargo hold, the engine room
+for c, r in [(7, 30), (8, 30), (7, 31), (13, 30), (14, 30), (20, 34), (21, 34), (26, 30), (27, 33), (28, 33)]: s.put(c, r, 'x')
+for c, r in [(10, 34), (17, 30), (24, 34)]: s.put(c, r, '%')
+s.put(29, 30, 'R')
+for c in (38, 44, 54, 60): s.put(c, 30, 'I')
+s.put(62, 34, 'h'); s.put(37, 34, 'h'); s.put(62, 31, 'h')
 out['ship'] = s.rows()
 
-# ---------------- The Writers' Building (front at the bottom, onto the picket line) ----------------
+# ---------------- The Writers' Building, ground floor (front at the bottom, onto the picket line) ----------------
 w = G(62, 38)
 w.box(0, 0, 61, 37)
-w.hwall(11, 0, 61); w.hwall(14, 0, 61); w.hwall(24, 0, 61); w.hwall(27, 0, 61)
-w.fill(1, 12, 60, 13, '.'); w.fill(1, 25, 60, 26, '.')
-for c in (15, 30, 45): w.vwall(c, 0, 11)
-w.vwall(41, 14, 24); w.vwall(23, 27, 37); w.vwall(38, 27, 37)
+w.hwall(25, 0, 61); w.hwall(27, 0, 61); w.fill(1, 26, 60, 26, '.')
+w.vwall(43, 0, 25); w.hwall(12, 43, 61)
+w.vwall(21, 27, 37); w.vwall(40, 27, 37)
 w.windows(4, rows=[0, 37], cols=[0, 61])
-for c in (7, 22, 37, 53): w.put(c, 11, 'D')
-for c in (10, 30, 50): w.put(c, 14, 'D')
-for c in (12, 30, 50): w.put(c, 24, 'D')
-for c in (12, 50): w.put(c, 27, 'D')
-w.put(30, 27, 'D'); w.put(31, 27, 'D')
-w.text(29, 37, 'DDDD')
-w.put(0, 12, 'D'); w.put(61, 25, 'D')
-# writers' rooms, the script library, the head writer's office
-for c in range(4, 12): w.put(c, 5, 'm')
-for c in range(19, 27): w.put(c, 5, 'm')
-w.put(1, 2, 'y'); w.put(16, 2, 'y')
-for c in range(31, 45, 2): w.put(c, 1, 't'); w.put(c, 10, 't')
-w.put(38, 5, 'd')
-w.put(52, 4, 'q'); w.put(58, 2, 'f'); w.put(47, 9, 'u'); w.put(57, 9, 'p'); w.put(50, 8, '{')
-# cubicles
-for r in (16, 19, 22):
-    for c in range(3, 40, 4): w.put(c, r, 'q')
-w.put(1, 15, 'f'); w.put(1, 23, 'f'); w.put(40, 15, 'p')
-# break room
-w.text(42, 15, 'zZOicz'); w.put(46, 19, 'm'); w.put(50, 19, 'm'); w.put(56, 22, 'v'); w.put(57, 22, 'v'); w.put(60, 17, 'u')
-# strike headquarters, lobby with the stairs to the roof, mailroom
-for c in range(4, 20, 4): w.put(c, 31, 'm')
-w.put(1, 28, 'x'); w.put(2, 28, 'x'); w.put(22, 36, ';'); w.put(1, 36, 'x')
-w.text(26, 32, 'KKKKKK'); w.put(25, 35, 'u'); w.put(36, 35, 'u'); w.put(24, 28, 'p'); w.put(37, 28, 'p'); w.fill(34, 28, 35, 29, 'k')
-w.text(39, 28, 'fff'); w.text(55, 28, 'fff'); w.put(45, 32, 'q'); w.put(52, 32, 'q'); w.put(40, 36, 'x'); w.put(41, 36, '%'); w.put(60, 36, 'x')
+for c in (10, 30): w.put(c, 25, 'D')
+w.put(43, 6, 'D'); w.put(43, 18, 'D'); w.put(52, 25, 'D')
+w.put(10, 27, 'D'); w.put(30, 27, 'D'); w.put(31, 27, 'D'); w.put(50, 27, 'D')
+w.put(0, 26, 'D'); w.put(61, 26, 'D'); w.text(29, 37, 'DDDD')
+# the bullpen: one big open office, desks in pods of four, the strike's whiteboard
+for r0 in (3, 9, 15, 21):
+    for c0 in range(3, 40, 7):
+        if r0 == 21 and c0 > 30: continue
+        for dc, dr in [(0, 0), (1, 0), (0, 1), (1, 1)]: w.put(c0 + dc, r0 + dr, 'q')
+w.put(1, 1, 'f'); w.put(2, 1, 'f'); w.put(42, 1, 'p'); w.put(42, 24, 'v'); w.put(1, 24, 'p'); w.put(20, 1, 'y')
+# mailroom, the archive of rejected scripts
+w.text(45, 1, 'fff'); w.text(55, 1, 'fff'); w.put(48, 6, 'q'); w.put(53, 6, 'q'); w.put(60, 11, 'x'); w.put(59, 11, 'x'); w.put(44, 11, '%')
+for c in range(45, 61, 2): w.put(c, 13, 't')
+for c in (46, 50, 54, 58):
+    for r in (16, 17, 19, 20, 22): w.put(c, r, 't')
+w.put(60, 24, 'f'); w.put(44, 24, 'f')
+# strike headquarters, the lobby with the elevator, the copy room
+for c in range(4, 19, 5): w.put(c, 31, 'm')
+w.put(1, 28, 'x'); w.put(2, 28, 'x'); w.put(1, 36, 'x'); w.put(20, 36, ';'); w.put(20, 28, 'y')
+w.text(26, 33, 'KKKKK'); w.put(22, 35, 'u'); w.put(39, 35, 'u'); w.put(22, 28, 'p'); w.put(39, 28, 'p'); w.fill(36, 28, 37, 29, 'k')
+w.put(42, 28, 'v'); w.put(44, 28, 'v'); w.put(46, 32, 'q'); w.put(53, 32, 'q'); w.text(56, 36, 'xx%'); w.text(41, 36, 'ff')
 out['writers'] = w.rows()
+
+# ---------------- The Writers' Building, second floor: the Writers' Room, the coffee room, the head writer's office ----------------
+u = G(46, 22)
+u.box(0, 0, 45, 21)
+u.hwall(14, 0, 45); u.hwall(16, 0, 45); u.fill(1, 15, 44, 15, '.')
+u.vwall(30, 0, 14); u.vwall(22, 16, 21)
+u.windows(4, rows=[0], cols=[0, 45])
+u.put(14, 14, 'D'); u.put(38, 14, 'D'); u.put(10, 16, 'D'); u.put(33, 16, 'D')
+# the writers' room: one long table, whiteboards along the back wall (placed in code)
+for c in range(8, 22): u.put(c, 6, 'm'); u.put(c, 7, 'm')
+u.put(1, 1, 'f'); u.put(29, 1, 'f'); u.put(1, 13, 'p'); u.put(29, 13, 'v')
+# the coffee room
+u.text(31, 1, 'zZOiccz'); u.put(35, 7, 'm'); u.put(40, 7, 'm'); u.put(44, 12, 'u'); u.put(31, 13, 'v')
+# the head writer's office, and the stairs: the elevator down at the west end, the roof stairs at the east end
+u.put(2, 19, 'd'); u.put(1, 17, 'f'); u.put(8, 20, 'V'); u.put(17, 20, 'u'); u.put(20, 17, 'p')
+u.fill(23, 17, 24, 18, 'k'); u.fill(43, 17, 44, 18, 'k')
+out['writersUp'] = u.rows()
 
 # ---------------- The roof: Dermot Stoker's Penthouse Green ----------------
 r = G(40, 24)

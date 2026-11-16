@@ -66,7 +66,7 @@
     if (!acts.length) acts.push({ label: 'Read the sign', text: st.name + '. The tram is yours now, but you have not found any other stops yet. Tap the sign at another stop and you can ride there.' });
     return acts;
   }
-  function actsOf(t) { var spa = spActs(t); if (spa) return spa; var lk = LEVEL.links && LEVEL.links[t.key]; if (lk) return [{ label: lk.label, auto: 'link', link: lk }, { label: 'Examine', text: 'A creaky staircase. Every step has its own opinion.' }]; if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (nm === 'Tram stop' && LEVEL.tram) { var ta = tramActs(t); if (ta) return ta; } if (nm === 'Call sheet board' && FLOOR === 2) return [{ label: 'Read the call sheet', auto: 'callsheet' }]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; if (/'s trailer$/.test(nm || '')) return [{ label: 'Examine', text: 'A star trailer with ' + nm.replace(/'s trailer$/, '') + ' on a paper sign taped to the door. The System assigned these. The air conditioning works, which is more than can be said for the plot.' }]; } return woodActs(t, ACTS[t.c]); }
+  function actsOf(t) { var spa = spActs(t); if (spa) return spa; var lk = LEVEL.links && LEVEL.links[t.key]; if (lk) return [{ label: lk.label, auto: 'link', link: lk }, { label: 'Examine', text: lk.look || 'A creaky staircase. Every step has its own opinion.' }]; if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (nm === 'Tram stop' && LEVEL.tram) { var ta = tramActs(t); if (ta) return ta; } if (nm === 'Call sheet board' && FLOOR === 2) return [{ label: 'Read the call sheet', auto: 'callsheet' }]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; if (/'s trailer$/.test(nm || '')) return [{ label: 'Examine', text: 'A star trailer with ' + nm.replace(/'s trailer$/, '') + ' on a paper sign taped to the door. The System assigned these. The air conditioning works, which is more than can be said for the plot.' }]; } return woodActs(t, ACTS[t.c]); }
   // anything wooden can be broken down for arrow shafts (once each)
   var WOODY = /chair|table|desk|shelf|shelving|bookcase|book|crate|barrel|bench|cabinet|pallet|bed|bunk|dresser|stool|cart|wagon|fence|rack|box|drawer|wardrobe|counter|piano|coffin|sign|post|trough|ladder|door/i, NOTWOOD = /lamp|boulder|bars|metal|steel|iron|fridge|refrigerator|stove|oven|tv|television|computer|monitor|washer|dryer|sink|toilet|locker|vending|machine|filing|safe/i;
   function isWoody(t) { if (t.c === 'T' || t.c === 'h' || t.c === 'K' || t.c === 'W') return true; if (t.c !== 'o') return false; var nm = (LEVEL.dname[t.key] || '') + ' ' + ((LEVEL.decor && LEVEL.decor[t.key] && (LEVEL.decor[t.key].m || LEVEL.decor[t.key].model)) || ''); return WOODY.test(nm) && !NOTWOOD.test(nm); }
@@ -76,6 +76,7 @@
     c.cool = c.cool || {};
     if (a.auto === 'link') { takeLink(a.link); return true; }
     if (a.auto === 'setp') { a.sp._cover = a.cover || null; spFire(a.sp); return true; }
+    if (a.auto === 'jam') { jamToggle(a.key); return true; }
     if (a.auto === 'tram') { if (CB.on) { say('Not now', 'Finish the fight first.', 2500); return true; } if (takeLink({ x: a.to.ax, z: a.to.az })) say('All aboard', 'The tram whirs round the loop with you as its only passenger. ' + a.to.name + '. Please keep your hands inside the vehicle.', 4000); return true; }
     if (a.auto === 'callsheet') { var sl = (c.slates || []), left = Math.max(0, 3 - sl.length);
       say('Call sheet', sl.length ? 'Scenes wrapped: ' + sl.join(', ') + '. ' + (left ? left + ' more slate' + (left > 1 ? 's' : '') + ' and Soundstage 9 opens.' : 'Soundstage 9 is open to you. The Director is waiting.') : 'Six sets are shooting: Frontier Town, the Jungle Set (two bosses), Starship Valiant, Maple Lane, Blackwood Manor and the Writers\' Building. Beat a set boss and you get its slate. Three slates open Soundstage 9, and the way down.', 9000); return true; }
@@ -235,7 +236,8 @@
   var SP_LOOK = { chandelier: 'A rope runs up from this cleat to the big wagon-wheel chandelier over the middle of the saloon. Cut it and whatever is underneath has a very bad night.', train: 'The stunt train\'s brake lever. Let it off and the train rolls through the road crossing, whoever is standing on it.',
     tower: 'A wooden water tower on four legs, full and sloshing. One good knock on a leg and it comes down across the street.', keg: 'A keg of black powder with DANGER painted on it and a long fuse. Real powder, on a fake set.', bridge: 'The ropes holding the bridge up are tied off here. Cut them and anything on the bridge goes in the river.',
     idol: 'A golden idol on the altar, the only real thing in the temple. Something about the stone it sits on says "pressure plate".', warpcore: 'The console for the warp core: a glowing column of prop plasma with a real transformer in it. Push it past the red line and everything in the engine room gets the full current.', fans: 'The controls for the giant fans behind the cargo bay doors, the ones that make it look like space. Hit the switch and everything in the bay goes flying.', gimbal: 'The ship sits on a hydraulic gimbal so it can rock for battle scenes. Rock it now and everyone aboard goes off their feet.', bookcase: 'One book sticks out further than the others. Classic.', pile: 'A tower of unread spec scripts, taller than you and leaning badly. Nobody has read one since the strike started. A good shove would bring the lot down on whoever is standing near it.', ride: 'The control box for the dinosaur ride, humming with far too much power. Overload it and the animatronics get all of it at once.' };
-  function spActs(t) { var sp = LEVEL.setp && LEVEL.setp[t.key]; if (!sp) return null;
+  function spActs(t) { if (t.c === 'D' && FLOOR === 2 && LEVEL.slide && spInRect(LEVEL.slide, t.x, t.z)) return jamActs(t); var sp = LEVEL.setp && LEVEL.setp[t.key]; if (!sp) return null;
+    if (sp.kind === 'read') return [{ label: sp.label, text: sp.text }, { label: 'Examine', text: sp.text }];
     if (sp.kind === 'camera') { if (spDone(sp)) return [{ label: 'Examine', text: 'What is left of a studio camera. The tally light is dark for good.' }];
       var cv = camCover(), on = camOn(sp), out = [{ label: 'Smash the camera', auto: 'setp', sp: sp }]; if (cv) out.push({ label: 'Cover the lens (' + cv.name + ')', auto: 'setp', sp: sp, cover: cv });
       out.push({ label: 'Examine', text: on ? 'A studio camera on a tripod, sweeping slowly back and forth, red tally light blinking. If it catches you at the end of a move the whole set sees you on the monitors. If it catches you winning, the audience loves it. Crouch to sneak past, smash it (loud), or cover the lens with something sticky.' : 'A studio camera with its feed cut. It still sweeps out of habit, but nobody is watching.' }); return out; }
@@ -292,6 +294,27 @@
     if (CB.on) cbAfterMyMove(); else if (live.length) cbStart(sp.kind === 'camera' ? 'The crash brings the ' + live[0].name.replace(/ [ABC]$/, '') + ' running.' : 'That got their attention.', live[0], sp.kind === 'camera' ? {} : { surprise: true });
     if (loud) setTimeout(function () { try { qosLoud('heard that through the Quiet on set and came running.'); } catch (x) {} }, 200);
   }
+  // ---------- Starship Valiant: sliding doors you can jam shut (splits a fight in half); saved per character ----------
+  var JAM = { m: {} };
+  function jamKey(k) { return FLOOR + ':' + curLV() + ':' + k; }
+  function jamAt(x, z) { return FLOOR === 2 && !!(CHAR && CHAR.jam && CHAR.jam[jamKey(x + ',' + z)]); }
+  function jamActs(t) { var k = t.x + ',' + t.z, on = jamAt(t.x, t.z);
+    return on ? [{ label: 'Unjam the door', auto: 'jam', key: k }, { label: 'Examine', text: 'A sliding door with a prop phaser wedged in the track. It is not opening for anybody until someone pulls it out.' }]
+      : [{ label: 'Jam the door', auto: 'jam', key: k }, { label: 'Examine', text: 'A sliding door. It hisses open whenever anyone comes near, which is very convincing for plywood. Wedge something in the track and it stays shut: nothing gets through, from either side.' }]; }
+  function jamToggle(k) { var q = k.split(','), x = +q[0], z = +q[1]; if (CB.on && !CB.res.action) { say('No action left', 'Jamming a door takes your action. Next turn.', 2600); return; }
+    if (!CHAR.jam) CHAR.jam = {}; var kk = jamKey(k), on = !CHAR.jam[kk];
+    if (on && (x === P.x && z === P.z || CB.enemies.some(function (e) { return !e.dead && e.x === x && e.z === z; }))) { say('Something is in the way', 'Someone is standing in the doorway.', 2400); return; }
+    if (CB.on) CB.res.action = 0; if (on) CHAR.jam[kk] = 1; else delete CHAR.jam[kk]; jamMesh(x, z, on); saveChar(CHAR);
+    say(on ? 'DOOR JAMMED' : 'DOOR FREED', on ? 'You wedge a prop phaser into the track. The door shudders, sparks, and stays shut. Nothing is getting through here.' : 'You yank the phaser out. The door hisses open like nothing happened.', 3000);
+    try { refreshFog(); } catch (x2) {} if (CB.on) cbAfterMyMove(); }
+  function jamMesh(x, z, on) { var k = x + ',' + z; if (JAM.m[k]) { scene.remove(JAM.m[k]); delete JAM.m[k]; } if (!on) return;
+    var horiz = ch(x - 1, z) === '#' || ch(x + 1, z) === '#' || ch(x - 1, z) === 'D' || ch(x + 1, z) === 'D', g = new THREE.Group();
+    var pan = new THREE.Mesh(new THREE.BoxGeometry(horiz ? 0.96 : 0.12, 1.5, horiz ? 0.12 : 0.96), new THREE.MeshLambertMaterial({ color: 0x8a96a8 })); pan.position.y = 0.75; g.add(pan);
+    var st = new THREE.Mesh(new THREE.BoxGeometry(horiz ? 0.9 : 0.14, 0.08, horiz ? 0.14 : 0.9), new THREE.MeshBasicMaterial({ color: 0xffb020 })); st.position.y = 1.2; g.add(st);
+    var ph = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, 0.1), new THREE.MeshLambertMaterial({ color: 0x2a2a30 })); ph.position.set(horiz ? 0.3 : 0.12, 0.1, horiz ? 0.12 : 0.3); g.add(ph);
+    g.position.set(x, 0, z); scene.add(g); JAM.m[k] = g; }
+  function jamInit() { Object.keys(JAM.m).forEach(function (k) { scene.remove(JAM.m[k]); }); JAM.m = {}; if (FLOOR !== 2 || !CHAR || !CHAR.jam) return; var pre = FLOOR + ':' + curLV() + ':';
+    Object.keys(CHAR.jam).forEach(function (kk) { if (kk.indexOf(pre) !== 0) return; var q = kk.slice(pre.length).split(','); jamMesh(+q[0], +q[1], true); }); }
   // ---------- Floor 2 phase 3: studio cameras and the Quiet on set lights ----------
   // A camera sweeps a 60-degree cone 6 tiles deep. Caught in it at the end of a move (crouching gets a Stealth roll) and the nearest cast within 15 tiles come for you: ON AIR.
   // Win a fight, or set off a set piece, where a working camera can see you and the audience pays: +25% XP and now and then a sponsor's loot box.
@@ -344,7 +367,7 @@
   function spBridgeDown(sp) { for (var z = sp.z0; z <= sp.z1; z++) for (var x = sp.x0; x <= sp.x1; x++) { if (MAP[z] && MAP[z][x] !== '#') MAP[z] = MAP[z].substr(0, x) + '~' + MAP[z].substr(x + 1); var L = LEVEL.decor[x + ',' + z]; if (L) L.length = 0; } }
   function spOpenWall(sp) { if (MAP[sp.wz] && MAP[sp.wz][sp.wx] === '#') MAP[sp.wz] = MAP[sp.wz].substr(0, sp.wx) + 'D' + MAP[sp.wz].substr(sp.wx + 1); }
   // on load: put back what this character already set off, and lay the quicksand
-  function spInit() { try { camInit(); } catch (x) { console.warn('cams', x); } if (!LEVEL.setp) return; var redo = false, seen = {};
+  function spInit() { try { camInit(); jamInit(); } catch (x) { console.warn('cams', x); } if (!LEVEL.setp) return; var redo = false, seen = {};
     Object.keys(LEVEL.setp).forEach(function (k) { var sp = LEVEL.setp[k]; if (seen[sp.id] || !spDone(sp)) return; seen[sp.id] = 1; redo = true;
       if (sp.kind === 'chandelier') spDecor(sp.cx, sp.cz, '#chandelier', '#chandelier_down'); if (sp.kind === 'tower') { [[50, 73], [51, 73], [50, 74], [51, 74]].forEach(function (q) { spDecor(q[0], q[1], '#tower', '#tower_down'); }); vfxArea('mud', sp.mx, sp.mz, 2.6, 1e9); }
       if (sp.kind === 'keg') spDecor(sp.x, sp.z, sp.dec || '#keg', '#scorch'); if (sp.kind === 'pile') spDecor(sp.x, sp.z, '#scripts', '#scripts_down'); if (sp.kind === 'distract' && sp.dec) spDecor(sp.x, sp.z, sp.dec, sp.dec + '_on'); if (sp.kind === 'camera') spDecor(sp.x, sp.z, '#camtripod', '#camtripod_dead'); if (sp.kind === 'bridge') spBridgeDown(sp); if (sp.kind === 'idol') spDecor(sp.x, sp.z, '#idol', '#idol_gone'); if (sp.kind === 'ride') spDecor(sp.x, sp.z, '#ridebox', '#ridebox_dead'); if (sp.kind === 'warpcore') spDecor(sp.cx, sp.cz, '#warpcore', '#warpcore_dead'); if (sp.kind === 'bookcase') spOpenWall(sp); });

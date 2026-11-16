@@ -156,8 +156,8 @@
   function ch(x, z) { return (z < 0 || z >= H || x < 0 || x >= W) ? '#' : MAP[z].charAt(x); }
   var SOLID = { 'o': 1, 'F': 1, 'Y': 1, 'X': 1, '#': 1, 'H': 1, 'P': 1, 'B': 1, 'C': 1, 'M': 1, 'K': 1, 'R': 1, 'T': 1, 'W': 1, 'U': 1, 'b': 1, 'h': 1, 'c': 1, 'q': 1, 'k': 1, 'g': 1, 'v': 1 };
   function stairsOpen() { if (typeof CB === 'undefined') return false; var gk = CB.enemies.filter(function (e) { return e.kind === 'gatekeeper'; })[0]; return !!gk && !!gk.dead; }
-  function blocksMove(x, z) { return !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z) || !!(LEVEL.gate && LEVEL.gate[x + ',' + z] && typeof gateOpen === 'function' && !gateOpen()); }
-  function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P' || c === 'H'; }
+  function blocksMove(x, z) { return (typeof jamAt === 'function' && ch(x, z) === 'D' && jamAt(x, z)) || !!SOLID[ch(x, z)] || !!PROPBLOCK[x + ',' + z] || cbOcc(x, z) || !!(LEVEL.gate && LEVEL.gate[x + ',' + z] && typeof gateOpen === 'function' && !gateOpen()); }
+  function blocksSight(x, z) { var c = ch(x, z); return c === '#' || c === 'P' || c === 'H' || (c === 'D' && typeof jamAt === 'function' && jamAt(x, z)); }
 
   function floorTex(id, v) {
     return tex('fl' + id + v, 64, 64, function (g) {
@@ -369,9 +369,10 @@
     var dl = LEVEL.decor[x + ',' + z]; if (dl) dl.forEach(function (d) { if (d.m === '#throne') { throneAt(x, z, d.rot || 0); return; } if (typeof PROC !== 'undefined' && PROC[d.m]) { PROC[d.m](x + (d.dx || 0), z + (d.dz || 0), d, x, z); return; } if (d.m === '#rug') { box(d.w, 0.02, d.d, d.col, x + (d.w % 2 ? 0 : 0.5), 0.004, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', seed: 7, noShadow: true }); box(d.w + 0.12, 0.012, d.d + 0.12, 0xc9a227, x + (d.w % 2 ? 0 : 0.5), 0.0, z + (d.d % 2 ? 0 : 0.5), x, z, { kind: 'cloth', noShadow: true }); } });
     if (c === 'D') {
       var horiz = ch(x - 1, z) === '#' || ch(x + 1, z) === '#' || ch(x - 1, z) === 'D' || ch(x + 1, z) === 'D';
-      [-0.44, 0.44].forEach(function (o) { box(0.16, 1.5, 0.16, 0x4a3420, x + (horiz ? o : 0), 0.75, z + (horiz ? 0 : o), x, z, { fade: true, kind: 'wood' });
-        box(0.2, 0.12, 0.2, 0x3a2a1c, x + (horiz ? o : 0), 0.06, z + (horiz ? 0 : o), x, z, { kind: 'wood' }); });
-      box(horiz ? 1.04 : 0.18, 0.18, horiz ? 0.18 : 1.04, 0x4a3420, x, 1.56, z, x, z, { fade: true, kind: 'wood' });
+      var sld = LEVEL.slide && x >= LEVEL.slide.x0 && x <= LEVEL.slide.x1 && z >= LEVEL.slide.z0 && z <= LEVEL.slide.z1, dc1 = sld ? 0x5a6878 : 0x4a3420, dc2 = sld ? 0x3a4450 : 0x3a2a1c, dk = sld ? 'metal' : 'wood';
+      [-0.44, 0.44].forEach(function (o) { box(0.16, 1.5, 0.16, dc1, x + (horiz ? o : 0), 0.75, z + (horiz ? 0 : o), x, z, { fade: true, kind: dk });
+        box(0.2, 0.12, 0.2, dc2, x + (horiz ? o : 0), 0.06, z + (horiz ? 0 : o), x, z, { kind: dk }); });
+      box(horiz ? 1.04 : 0.18, 0.18, horiz ? 0.18 : 1.04, dc1, x, 1.56, z, x, z, { fade: true, kind: dk }); if (sld) box(horiz ? 0.5 : 0.04, 0.06, horiz ? 0.04 : 0.5, 0x7fd3ff, x, 1.56, z + (horiz ? 0.1 : 0), x, z, { glow: true });
       box(horiz ? 0.2 : 0.04, 0.1, horiz ? 0.04 : 0.2, 0x8a8f96, x + (horiz ? 0 : 0.1), 1.56, z + (horiz ? 0.1 : 0), x, z, { fade: true, kind: 'metal' });
       box(horiz ? 0.9 : 0.5, 0.02, horiz ? 0.5 : 0.9, 0x3a3630, x, 0.012, z, x, z, { noShadow: true });
     } else if (c === 'P') {
@@ -623,6 +624,15 @@
       box(0.9, 0.36, 0.06, 0x2a2a30, x, 1.1, z - 0.21, tx, tz, { kind: 'metal' }); box(0.06, 2.5, 0.06, 0x2a2a2e, x + 0.38, 1.25, z + 0.18, tx, tz, { kind: 'metal' }); },
     '#campanel_on': function (x, z, d, tx, tz) { box(0.9, 0.95, 0.5, 0x3a3e46, x, 0.48, z, tx, tz, { kind: 'metal' }); box(0.9, 0.36, 0.06, 0x14141a, x, 1.1, z - 0.21, tx, tz, { kind: 'metal' });
       for (var i = 0; i < 5; i++) { var c = box(0.03, 0.03, 0.6, [0xc8302a, 0x2a6aa8, 0xd8b030][i % 3], x - 0.3 + i * 0.15, 0.04, z - 0.5 - (i % 2) * 0.1, tx, tz, { noShadow: true }); c.mesh.rotation.y = (i - 2) * 0.3; } box(0.06, 2.5, 0.06, 0x2a2a2e, x + 0.38, 1.25, z + 0.18, tx, tz, { kind: 'metal' }); },
+    '#whiteboard': function (x, z, d, tx, tz) { var wl = null; [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(function (q) { if (!wl && ch(x + q[0], z + q[1]) === '#') wl = q; }); wl = wl || [0, -1];
+      var B = rotBox(x, z, Math.atan2(-wl[0], -wl[1]), tx, tz); B(0.95, 0.65, 0.04, 0xf4f4f0, 0, 1.25, -0.4, { kind: 'metal' }); B(1.0, 0.04, 0.08, 0x8a8f96, 0, 0.9, -0.38, { kind: 'metal' });
+      var cs = [0x2a5aa8, 0xc8302a, 0x2a8a4a]; for (var i = 0; i < 5; i++) B(0.2 + ((d.seed || 0) * 7 + i * 3) % 5 * 0.08, 0.025, 0.01, cs[(i + (d.seed || 0)) % 3], -0.3 + (i % 2) * 0.22, 1.45 - i * 0.09, -0.375, {}); },
+    '#fireescape': function (x, z, d, tx, tz) { for (var i = 0; i < 6; i++) { box(0.9, 0.04, 0.5, 0x3a3a40, x, 0.3 + i * 0.5, z, tx, tz, { kind: 'metal' }); }
+      [-0.43, 0.43].forEach(function (o) { box(0.05, 3.2, 0.05, 0x3a3a40, x + o, 1.6, z + 0.22, tx, tz, { kind: 'metal' }); box(0.05, 3.2, 0.05, 0x3a3a40, x + o, 1.6, z - 0.22, tx, tz, { kind: 'metal' }); }); },
+    '#fireescape_top': function (x, z, d, tx, tz) { [-0.3, 0.3].forEach(function (o) { box(0.05, 1.0, 0.05, 0x3a3a40, x + o, 0.5, z, tx, tz, { kind: 'metal' }); }); box(0.65, 0.05, 0.05, 0x3a3a40, x, 1.0, z, tx, tz, { kind: 'metal' }); box(0.65, 0.05, 0.05, 0x3a3a40, x, 0.6, z, tx, tz, { kind: 'metal' }); },
+    '#shuttle': function (x, z, d, tx, tz) { box(4.4, 1.2, 2.2, 0xd8dce0, x, 0.9, z, tx, tz, { kind: 'metal' }); box(3.6, 0.5, 1.8, 0xc8ccd2, x - 0.2, 1.75, z, tx, tz, { kind: 'metal' }); box(0.9, 0.5, 1.6, 0x2a3a5a, x + 1.7, 1.75, z, tx, tz, { glow: true });
+      box(1.6, 0.12, 4.4, 0xb8c0cc, x - 0.6, 1.0, z, tx, tz, { kind: 'metal' }); box(0.6, 0.6, 0.7, 0x5a6878, x - 2.35, 0.9, z - 0.5, tx, tz, { kind: 'metal' }); box(0.6, 0.6, 0.7, 0x5a6878, x - 2.35, 0.9, z + 0.5, tx, tz, { kind: 'metal' });
+      box(0.1, 0.5, 0.5, 0x7fd3ff, x - 2.66, 0.9, z - 0.5, tx, tz, { glow: true }); box(0.1, 0.5, 0.5, 0x7fd3ff, x - 2.66, 0.9, z + 0.5, tx, tz, { glow: true }); box(2.4, 0.3, 0.06, 0x2a5aa8, x, 1.0, z + 1.11, tx, tz, {}); },
     '#scorch': function (x, z, d, tx, tz) { box(1.1, 0.02, 1.1, 0x14100c, x, 0.012, z, tx, tz, { noShadow: true }); },
     '#idol': function (x, z, d, tx, tz) { box(0.22, 0.32, 0.18, 0xe8b830, x, 1.16, z, tx, tz, { kind: 'metal', glow: true }); box(0.16, 0.12, 0.14, 0xe8b830, x, 1.38, z, tx, tz, { kind: 'metal', glow: true }); },
     '#idol_gone': function () {},
