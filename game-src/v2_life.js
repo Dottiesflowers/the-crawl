@@ -66,7 +66,7 @@
     if (!acts.length) acts.push({ label: 'Read the sign', text: st.name + '. The tram is yours now, but you have not found any other stops yet. Tap the sign at another stop and you can ride there.' });
     return acts;
   }
-  function actsOf(t) { var lk = LEVEL.links && LEVEL.links[t.key]; if (lk) return [{ label: lk.label, auto: 'link', link: lk }, { label: 'Examine', text: 'A creaky staircase. Every step has its own opinion.' }]; if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (nm === 'Tram stop' && LEVEL.tram) { var ta = tramActs(t); if (ta) return ta; } if (nm === 'Call sheet board' && FLOOR === 2) return [{ label: 'Read the call sheet', auto: 'callsheet' }]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; if (/'s trailer$/.test(nm || '')) return [{ label: 'Examine', text: 'A star trailer with ' + nm.replace(/'s trailer$/, '') + ' on a paper sign taped to the door. The System assigned these. The air conditioning works, which is more than can be said for the plot.' }]; } return woodActs(t, ACTS[t.c]); }
+  function actsOf(t) { var spa = spActs(t); if (spa) return spa; var lk = LEVEL.links && LEVEL.links[t.key]; if (lk) return [{ label: lk.label, auto: 'link', link: lk }, { label: 'Examine', text: 'A creaky staircase. Every step has its own opinion.' }]; if (t.c === 'o') { var nm = LEVEL.dname[t.key]; if (nm === 'Tram stop' && LEVEL.tram) { var ta = tramActs(t); if (ta) return ta; } if (nm === 'Call sheet board' && FLOOR === 2) return [{ label: 'Read the call sheet', auto: 'callsheet' }]; if (SAFE_ACTS[nm]) return SAFE_ACTS[nm]; if (/'s trailer$/.test(nm || '')) return [{ label: 'Examine', text: 'A star trailer with ' + nm.replace(/'s trailer$/, '') + ' on a paper sign taped to the door. The System assigned these. The air conditioning works, which is more than can be said for the plot.' }]; } return woodActs(t, ACTS[t.c]); }
   // anything wooden can be broken down for arrow shafts (once each)
   var WOODY = /chair|table|desk|shelf|shelving|bookcase|book|crate|barrel|bench|cabinet|pallet|bed|bunk|dresser|stool|cart|wagon|fence|rack|box|drawer|wardrobe|counter|piano|coffin|sign|post|trough|ladder|door/i, NOTWOOD = /lamp|boulder|bars|metal|steel|iron|fridge|refrigerator|stove|oven|tv|television|computer|monitor|washer|dryer|sink|toilet|locker|vending|machine|filing|safe/i;
   function isWoody(t) { if (t.c === 'T' || t.c === 'h' || t.c === 'K' || t.c === 'W') return true; if (t.c !== 'o') return false; var nm = (LEVEL.dname[t.key] || '') + ' ' + ((LEVEL.decor && LEVEL.decor[t.key] && (LEVEL.decor[t.key].m || LEVEL.decor[t.key].model)) || ''); return WOODY.test(nm) && !NOTWOOD.test(nm); }
@@ -75,6 +75,7 @@
     var c = CHAR, now = Date.now(); if (!c) { say('Not yet', 'Create a character first.', 2500); return true; }
     c.cool = c.cool || {};
     if (a.auto === 'link') { takeLink(a.link); return true; }
+    if (a.auto === 'setp') { spFire(a.sp); return true; }
     if (a.auto === 'tram') { if (CB.on) { say('Not now', 'Finish the fight first.', 2500); return true; } if (takeLink({ x: a.to.ax, z: a.to.az })) say('All aboard', 'The tram whirs round the loop with you as its only passenger. ' + a.to.name + '. Please keep your hands inside the vehicle.', 4000); return true; }
     if (a.auto === 'callsheet') { var sl = (c.slates || []), left = Math.max(0, 3 - sl.length);
       say('Call sheet', sl.length ? 'Scenes wrapped: ' + sl.join(', ') + '. ' + (left ? left + ' more slate' + (left > 1 ? 's' : '') + ' and Soundstage 9 opens.' : 'Soundstage 9 is open to you. The Director is waiting.') : 'Six sets are shooting: Frontier Town, the Jungle Set (two bosses), Starship Valiant, Maple Lane, Blackwood Manor and the Writers\' Building. Beat a set boss and you get its slate. Three slates open Soundstage 9, and the way down.', 9000); return true; }
@@ -224,6 +225,62 @@
     }
     say('Blocked', 'Something is in the way at the other end. Try again in a moment.', 3000); return false;
   }
+  // ---- set pieces: one-time things you can set off (Floor 2 so far). Level data in LEVEL.setp (tile key -> piece) ----
+  function spKey(sp) { return FLOOR + ':' + curLV() + ':' + sp.id; }
+  function spDone(sp) { return !!(CHAR && CHAR.setp && CHAR.setp[spKey(sp)]); }
+  function spInRect(sp, x, z) { return x >= sp.x0 && x <= sp.x1 && z >= sp.z0 && z <= sp.z1; }
+  function spDecor(x, z, from, to) { var L = LEVEL.decor[x + ',' + z]; if (L) L.forEach(function (d) { if (d.m === from) d.m = to; }); }
+  var SP_DONE_TXT = { chandelier: 'The chandelier is on the floor in pieces. The rope hangs loose.', train: 'The stunt train sits past the crossing, ticking as it cools.', tower: 'The water tower lies across the street on its side. Everything smells like a wet barn.',
+    keg: 'A scorched ring on the floor where the keg was.', bridge: 'Two frayed ropes and a long drop into the river. No more bridge.', idol: 'An empty altar. The idol is in your bag and the boulder is in the wall.', ride: 'The ride\'s control box is a smoking ruin.' };
+  var SP_LOOK = { chandelier: 'A rope runs up from this cleat to the big wagon-wheel chandelier over the middle of the saloon. Cut it and whatever is underneath has a very bad night.', train: 'The stunt train\'s brake lever. Let it off and the train rolls through the road crossing, whoever is standing on it.',
+    tower: 'A wooden water tower on four legs, full and sloshing. One good knock on a leg and it comes down across the street.', keg: 'A keg of black powder with DANGER painted on it and a long fuse. Real powder, on a fake set.', bridge: 'The ropes holding the bridge up are tied off here. Cut them and anything on the bridge goes in the river.',
+    idol: 'A golden idol on the altar, the only real thing in the temple. Something about the stone it sits on says "pressure plate".', ride: 'The control box for the dinosaur ride, humming with far too much power. Overload it and the animatronics get all of it at once.' };
+  function spActs(t) { var sp = LEVEL.setp && LEVEL.setp[t.key]; if (!sp) return null;
+    if (spDone(sp)) return [{ label: 'Examine', text: SP_DONE_TXT[sp.kind] || 'Already done.' }];
+    return [{ label: sp.label, auto: 'setp', sp: sp }, { label: 'Examine', text: SP_LOOK[sp.kind] || sp.name }]; }
+  function spHurtPC(n, kind, save) { if (save) { var sv = d20() + (MOD.DEX || 0); if (sv >= save) n = Math.floor(n / 2); } if (n <= 0) return; PC.hp = Math.max(0, PC.hp - n); floater(P.px, 1.5, P.pz, '-' + n + ' ' + kind, 'pdmg'); cbHUD(); if (PC.hp <= 0 && CB.on) cbFall(); return n; }
+  function spFoes(test) { return CB.enemies.filter(function (e) { return !e.dead && !e.npc && test(e); }); }
+  function spFire(sp) {
+    if (spDone(sp)) return; if (CB.on && !CB.res.action) { say('No action left', 'Setting that off takes your action. Next turn.', 2600); return; }
+    if (CB.on) CB.res.action = 0;
+    var hit = [], notes = [], title = sp.name, dmgKind = 'bludgeoning', self = 0, inR = function (e) { return spInRect(sp, e.x, e.z); };
+    if (sp.kind === 'chandelier') { title = 'CRASH'; hit = spFoes(function (e) { return Math.abs(e.x - sp.cx) <= 1 && Math.abs(e.z - sp.cz) <= 1; }); hit.forEach(function (e) { notes.push(fxApply([{ type: 'damage', dice: '3d6' }, { type: 'prone' }], e)); });
+      if (Math.abs(P.x - sp.cx) <= 1 && Math.abs(P.z - sp.cz) <= 1) self = spHurtPC(rollDice('3d6'), 'bludgeoning', 13); spDecor(sp.cx, sp.cz, '#chandelier', '#chandelier_down'); vfxHit('steel', sp.cx, sp.cz, 0.5);
+      notes.unshift('You cut the rope. The chandelier comes down like a wagon wheel off a cliff.'); }
+    else if (sp.kind === 'train') { title = 'CHOO CHOO'; hit = spFoes(inR); hit.forEach(function (e) { notes.push(fxApply([{ type: 'damage', dice: '4d6' }, { type: 'prone' }], e)); }); if (spInRect(sp, P.x, P.z)) self = spHurtPC(rollDice('4d6'), 'bludgeoning', 14);
+      spTrainRun(sp); notes.unshift('The brake comes off with a clang. The stunt train lurches forward and thunders through the crossing.'); }
+    else if (sp.kind === 'tower') { title = 'TIMBER'; hit = spFoes(inR); hit.forEach(function (e) { notes.push(fxApply([{ type: 'damage', dice: '2d6' }, { type: 'prone' }], e)); }); if (spInRect(sp, P.x, P.z)) self = spHurtPC(rollDice('2d6'), 'bludgeoning', 12);
+      [[50, 73], [51, 73], [50, 74], [51, 74]].forEach(function (q) { spDecor(q[0], q[1], '#tower', '#tower_down'); }); vfxArea('mud', sp.mx, sp.mz, 2.6, 1e9); notes.unshift('A leg cracks, the tower leans, and a whole tank of water comes down across the street. The street is mud now.'); }
+    else if (sp.kind === 'keg') { title = 'BOOM'; dmgKind = 'fire'; hit = spFoes(function (e) { return cheb(e.x, e.z, sp.x, sp.z) <= sp.r; }); hit.forEach(function (e) { notes.push(fxApply([{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d4', turns: 2 }], e)); });
+      vfxArea('fire', sp.x, sp.z, 1.5, 25); vfxHit('fire', sp.x, sp.z, 1); spDecor(sp.x, sp.z, '#keg', '#scorch'); notes.unshift('You light the long fuse and step well back. It fizzes down and the keg goes up.'); }
+    else if (sp.kind === 'bridge') { title = 'SNAP'; hit = spFoes(inR); hit.forEach(function (e) { notes.push(fxApply([{ type: 'damage', dice: '2d6' }, { type: 'prone' }], e)); }); if (spInRect(sp, P.x, P.z)) self = spHurtPC(rollDice('1d6'), 'bludgeoning');
+      spBridgeDown(sp); notes.unshift('The ropes part. The bridge folds into the river, along with anything on it.'); }
+    else if (sp.kind === 'idol') { title = 'RUMBLE'; var gp = rollDice('4d10') + 10; CHAR.gold = (CHAR.gold || 0) + gp; spDecor(sp.x, sp.z, '#idol', '#idol_gone');
+      hit = spFoes(inR); hit.forEach(function (e) { notes.push(fxApply([{ type: 'damage', dice: '3d6' }, { type: 'prone' }], e)); }); if (spInRect(sp, P.x, P.z)) self = spHurtPC(rollDice('3d6'), 'bludgeoning', 13);
+      spBoulder(sp); notes.unshift('You lift the idol: gold paint over real gold, worth ' + gp + ' gold. Click. A foam-and-concrete boulder rolls out of the wall and down the temple.'); }
+    else if (sp.kind === 'ride') { title = 'ZZZAP'; dmgKind = 'lightning'; hit = spFoes(function (e) { return cheb(e.x, e.z, sp.x, sp.z) <= sp.r && (e.kind === 'trex' || /lightning/.test(JSON.stringify(e.def.vuln || ''))); });
+      hit.forEach(function (e) { var two = /lightning/.test(JSON.stringify(e.def.vuln || '')); notes.push(fxApply([{ type: 'damage', dice: two ? '8d6' : '4d6' }, { type: 'stun', turns: 2 }], e)); vfxHit('lightning', e.px, e.pz, e.def.h || 1); });
+      vfxHit('lightning', sp.x, sp.z, 1); spDecor(sp.x, sp.z, '#ridebox', '#ridebox_dead'); notes.unshift(hit.length ? 'You jam the dial to the stop. Every animatronic on the ride circuit gets the full current.' : 'You jam the dial to the stop. Sparks everywhere, but nothing on the circuit was close enough to fry.'); }
+    if (self) notes.push('You take ' + self + ' ' + dmgKind + ' damage.');
+    CHAR.setp = CHAR.setp || {}; CHAR.setp[spKey(sp)] = Date.now(); saveChar(CHAR); try { rebuildChunks(); } catch (x) {}
+    setTimeout(function () { try { achieve('setpiece'); } catch (x) {} }, 3000);
+    say(title, notes.filter(Boolean).join(' '), 7000); worldSave();
+    var live = hit.filter(function (e) { return !e.dead && !e.calm; });
+    if (CB.on) cbAfterMyMove(); else if (live.length) cbStart('That got their attention.', live[0], { surprise: true });
+  }
+  // little one-shot animations: a train sweeping through the crossing, a boulder down the temple
+  function spSweep(mesh, x0, z0, x1, z1, secs, spin) { scene.add(mesh); var t0 = performance.now();
+    (function step() { var f = Math.min(1, (performance.now() - t0) / 1000 / secs); mesh.position.x = x0 + (x1 - x0) * f; mesh.position.z = z0 + (z1 - z0) * f; if (spin) mesh.rotation.z -= 0.25; if (f < 1) requestAnimationFrame(step); else setTimeout(function () { scene.remove(mesh); }, 400); })(); }
+  function spTrainRun(sp) { var m = new THREE.Mesh(new THREE.BoxGeometry(6, 2.4, 2.2), new THREE.MeshLambertMaterial({ color: 0x2a2a30 })); m.position.y = 1.4; spSweep(m, sp.x0 - 8, (sp.z0 + sp.z1) / 2, sp.x1 + 8, (sp.z0 + sp.z1) / 2, 1.1); if (typeof shake === 'function') try { shake(0.5); } catch (x) {} }
+  function spBoulder(sp) { var m = new THREE.Mesh(new THREE.SphereGeometry(1.3, 14, 10), new THREE.MeshLambertMaterial({ color: 0x8a8070 })); m.position.y = 1.3; spSweep(m, sp.x1 + 1, (sp.z0 + sp.z1) / 2, sp.x0 - 1, (sp.z0 + sp.z1) / 2, 1.4, true); }
+  function spBridgeDown(sp) { for (var z = sp.z0; z <= sp.z1; z++) for (var x = sp.x0; x <= sp.x1; x++) { if (MAP[z] && MAP[z][x] !== '#') MAP[z] = MAP[z].substr(0, x) + '~' + MAP[z].substr(x + 1); var L = LEVEL.decor[x + ',' + z]; if (L) L.length = 0; } }
+  // on load: put back what this character already set off, and lay the quicksand
+  function spInit() { if (!LEVEL.setp) return; var redo = false, seen = {};
+    Object.keys(LEVEL.setp).forEach(function (k) { var sp = LEVEL.setp[k]; if (seen[sp.id] || !spDone(sp)) return; seen[sp.id] = 1; redo = true;
+      if (sp.kind === 'chandelier') spDecor(sp.cx, sp.cz, '#chandelier', '#chandelier_down'); if (sp.kind === 'tower') { [[50, 73], [51, 73], [50, 74], [51, 74]].forEach(function (q) { spDecor(q[0], q[1], '#tower', '#tower_down'); }); vfxArea('mud', sp.mx, sp.mz, 2.6, 1e9); }
+      if (sp.kind === 'keg') spDecor(sp.x, sp.z, '#keg', '#scorch'); if (sp.kind === 'bridge') spBridgeDown(sp); if (sp.kind === 'idol') spDecor(sp.x, sp.z, '#idol', '#idol_gone'); if (sp.kind === 'ride') spDecor(sp.x, sp.z, '#ridebox', '#ridebox_dead'); });
+    (LEVEL.mud || []).forEach(function (q) { vfxArea('mud', q[0], q[1], 1.4, 1e9); });
+    if (redo) try { rebuildChunks(); } catch (x) {} }
   // the test server says so, so nobody mistakes it for the real game
   (function () { if (!/staging/i.test(location.hostname)) return; var b = document.createElement('div'); b.textContent = 'TEST SERVER'; b.setAttribute('role', 'status');
     b.style.cssText = 'position:fixed;left:50%;bottom:4px;transform:translateX(-50%);z-index:90;padding:2px 10px;background:#7A1F1A;color:#F3E9D2;font:700 12px Cinzel,serif;letter-spacing:.14em;border-radius:3px;pointer-events:none;opacity:.9';

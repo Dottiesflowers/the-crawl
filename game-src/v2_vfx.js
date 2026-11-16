@@ -162,6 +162,7 @@
     else if (kind === 'ice') { m = vfxGround('ice', 0xcfeaff, r, 0.8); A.meshes.push(m); }
     else if (kind === 'web') { m = vfxGround('web', 0xffffff, r, 0.85, 0.06); A.meshes.push(m);
       for (var i = 0; i < 3; i++) { var w = new THREE.Mesh(new THREE.PlaneGeometry(r * 1.1, r * 0.9), new THREE.MeshBasicMaterial({ map: vfxTex('web'), color: 0xffffff, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false })); w.position.set((Math.random() - 0.5) * r, r * 0.45, (Math.random() - 0.5) * r); w.rotation.y = i * 1.05 + Math.random() * 0.4; w.renderOrder = 6; A.meshes.push(w); scene.add(w); } }
+    else if (kind === 'mud') { m = vfxGround('splat', 0x3a2a14, r, 0.9); A.meshes.push(m); m = vfxGround('splat', 0x6a5030, r * 0.75, 0.35, 0.045); A.meshes.push(m); }
     else if (kind === 'acid') { m = vfxGround('splat', 0x4a8a1a, r, 0.8); A.meshes.push(m); }
     else if (kind === 'darkness') { for (i = 0; i < 4; i++) { var dk = new THREE.Mesh(new THREE.SphereGeometry(r * (0.75 + i * 0.12), 16, 10, 0, 6.29, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x05030a, transparent: true, opacity: 0.32, depthWrite: false })); dk.renderOrder = 63; A.meshes.push(dk); scene.add(dk); } }
     else if (kind === 'spikes') { m = vfxGround('spike', 0xb08a5a, r, 0.95, 0.05); A.meshes.push(m); }

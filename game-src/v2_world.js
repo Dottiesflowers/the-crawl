@@ -572,6 +572,26 @@
       box(L - 0.2, 0.12, 1.55, 0x2a2a2e, cx, 2.0, z, tx, tz, { kind: 'metal' });
       for (var i = 0; i < L - 1; i++) [-0.69, 0.69].forEach(function (o) { box(0.42, 0.34, 0.02, 0xd8c890, x + 0.5 + i, 1.45, z + o, tx, tz, { glow: true }); });
       [0.8, L - 1.8].forEach(function (o) { [-0.62, 0.62].forEach(function (q) { var w = pcyl(0.3, 0.1, 0x2a2a30, x + o, 0.32, z + q, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; }); }); },
+    // ---- set pieces, before and after (v2_life.js spFire swaps one for the other) ----
+    '#tower_down': function (x, z, d, tx, tz) { [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7]].forEach(function (o) { box(0.14, 0.7, 0.14, 0x4e3420, x + o[0], 0.35, z + o[1], tx, tz, { kind: 'wood' }); });
+      var tk = pcyl(1.0, 1.3, 0x6a4a30, x + 0.3, 0.95, z + 3.2, tx, tz, { kind: 'wood' }); tk.mesh.rotation.x = Math.PI / 2; tk.mesh.rotation.z = 0.3;
+      var lg = box(0.14, 2.2, 0.14, 0x4e3420, x + 0.9, 0.1, z + 1.6, tx, tz, { kind: 'wood' }); lg.mesh.rotation.x = Math.PI / 2; lg.mesh.rotation.y = 0.4; },
+    '#chandelier': function (x, z, d, tx, tz) { var r = pcyl(0.95, 0.08, 0x4a3420, x, 2.75, z, tx, tz, { kind: 'wood', noShadow: true }); box(0.04, 0.6, 0.04, 0x2a2a2a, x, 3.1, z, tx, tz, { kind: 'metal', noShadow: true });
+      for (var i = 0; i < 8; i++) { var a = i / 8 * Math.PI * 2; box(0.06, 0.16, 0.06, 0xf3e9d2, x + Math.cos(a) * 0.9, 2.88, z + Math.sin(a) * 0.9, tx, tz, { glow: true, noShadow: true }); } },
+    '#chandelier_down': function (x, z, d, tx, tz) { var r = pcyl(0.95, 0.08, 0x3a2810, x + 0.1, 0.12, z - 0.1, tx, tz, { kind: 'wood' }); r.mesh.rotation.z = 0.12;
+      for (var i = 0; i < 6; i++) { var a = i / 6 * Math.PI * 2 + 0.3; box(0.06, 0.06, 0.16, 0xd8ccb0, x + Math.cos(a) * (0.6 + i * 0.12), 0.05, z + Math.sin(a) * (0.7 + i * 0.1), tx, tz, {}); }
+      box(0.9, 0.04, 0.12, 0x5a3a20, x - 0.6, 0.04, z + 0.5, tx, tz, { kind: 'wood' }); },
+    '#cleat': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.14, 0.4, 0.06, 0x3a3a40, 0, 1.1, -0.42, { kind: 'metal' }); B(0.04, 1.6, 0.04, 0xc8b080, 0.02, 1.9, -0.4, { kind: 'cloth' }); B(0.05, 0.5, 0.05, 0xc8b080, 0.06, 0.9, -0.38, { kind: 'cloth' }); },
+    '#brake': function (x, z, d, tx, tz) { box(0.3, 0.5, 0.3, 0x3a3a40, x, 0.25, z, tx, tz, { kind: 'metal' }); var l = box(0.06, 0.9, 0.06, 0xc24b3a, x, 0.85, z, tx, tz, { kind: 'metal' }); l.mesh.rotation.z = 0.35; box(0.14, 0.14, 0.14, 0x1e1e22, x + 0.16, 1.27, z, tx, tz, { kind: 'metal' }); },
+    '#keg': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); var k = pcyl(0.28, 0.6, 0x6a4a2a, x + (d.dx || 0), 0.3, z + (d.dz || 0), tx, tz, { kind: 'wood' });
+      pcyl(0.29, 0.05, 0x3a3a40, x + (d.dx || 0), 0.12, z + (d.dz || 0), tx, tz, { kind: 'metal' }); pcyl(0.29, 0.05, 0x3a3a40, x + (d.dx || 0), 0.5, z + (d.dz || 0), tx, tz, { kind: 'metal' });
+      box(0.3, 0.12, 0.02, 0xc8302a, x + (d.dx || 0), 0.32, z + (d.dz || 0) + 0.28, tx, tz, { glow: false }); box(0.02, 0.3, 0.02, 0xd8c8a0, x + (d.dx || 0) + 0.1, 0.72, z + (d.dz || 0), tx, tz, { kind: 'cloth' }); },
+    '#scorch': function (x, z, d, tx, tz) { box(1.1, 0.02, 1.1, 0x14100c, x, 0.012, z, tx, tz, { noShadow: true }); },
+    '#idol': function (x, z, d, tx, tz) { box(0.22, 0.32, 0.18, 0xe8b830, x, 1.16, z, tx, tz, { kind: 'metal', glow: true }); box(0.16, 0.12, 0.14, 0xe8b830, x, 1.38, z, tx, tz, { kind: 'metal', glow: true }); },
+    '#idol_gone': function () {},
+    '#ridebox': function (x, z, d, tx, tz) { box(0.8, 1.3, 0.5, 0xd9a23a, x, 0.65, z, tx, tz, { kind: 'metal' }); box(0.5, 0.3, 0.02, 0x1e1e22, x, 1.0, z + 0.26, tx, tz, { glow: true }); box(0.06, 0.4, 0.06, 0xc24b3a, x + 0.3, 1.45, z, tx, tz, { kind: 'metal' });
+      box(0.06, 0.06, 1.6, 0x1e1e22, x, 0.03, z - 1.0, tx, tz, { noShadow: true }); },
+    '#ridebox_dead': function (x, z, d, tx, tz) { var b = box(0.8, 1.3, 0.5, 0x3a2a14, x, 0.6, z, tx, tz, { kind: 'metal' }); b.mesh.rotation.z = 0.2; box(1.0, 0.02, 1.0, 0x14100c, x, 0.012, z, tx, tz, { noShadow: true }); },
     '#tower': function (x, z, d, tx, tz) { [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]].forEach(function (o) { box(0.14, 2.4, 0.14, 0x4e3420, x + o[0], 1.2, z + o[1], tx, tz, { kind: 'wood' }); });
       pcyl(1.0, 1.3, 0x7a5638, x, 3.05, z, tx, tz, { kind: 'wood' }); var cn = box(1, 1, 1, 0x4a3a2a, x, 3.95, z, tx, tz, { geo: new THREE.ConeGeometry(0.5, 1, 12), kind: 'wood' }); cn.mesh.scale.set(2.3, 0.5, 2.3);
       box(0.08, 0.08, 1.2, 0x3a3a40, x + 0.95, 2.6, z + 0.6, tx, tz, { kind: 'metal' }); },

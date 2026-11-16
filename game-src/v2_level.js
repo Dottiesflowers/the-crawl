@@ -823,6 +823,7 @@
     // north of the hub, up Director's Row. Every building is stamped from a hand-drawn template (TPL); upper floors
     // and the roof live in a strip below the lot (z 240 and down) and the stairs take you there.
     function backlot() {
+      var setps = {}, mudAt = []; // set pieces (see setp() below) and quicksand
       decor = {}; dname = {}; D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]]; TOP = 0.36;
       STYLE = mkStyle(); MODERN = mkModern(); for (var mk2 in MODERN) STYLE[mk2] = MODERN[mk2];
       wstyle = {}; links = {}; var upstairs = [], UPZ = 240, xx, zz, k, i;
@@ -1237,6 +1238,13 @@
       for (xx = 40; xx <= 54; xx++) { [149, 155].forEach(function (z) { if (freeT(xx, z)) obj(xx, z, '#rail', { ax: 'x' }, 'Corral fence'); }); }
       for (zz = 150; zz <= 154; zz++) { [40, 54].forEach(function (x) { if (x === 40 && (zz === 152)) return; if (freeT(x, zz)) obj(x, zz, '#rail', { ax: 'z' }, 'Corral fence'); }); }
       obj(47, 152, '#trough', { ax: 'x' }, 'Water trough'); obj(51, 151, 'Bucket_Wooden_1', { fit: 0.4 }, 'Bucket'); dec(44, 153, 'Grass_Wispy_Tall', { fit: 0.8, ns: true });
+      // ---- Frontier Town set pieces ----
+      (function () { var sal = built[1].room, cx = Math.round((sal.x0 + sal.x1) / 2), cz = Math.round((sal.z0 + sal.z1) / 2);
+        dec(cx, cz, '#chandelier', { ns: true }); var rp = freeNear(sal, sal.x1, cz, 6, true); if (rp) { setp('chandelier', rp[0], rp[1], 'Chandelier rope', 'Cut the chandelier rope', { kind: 'chandelier', cx: cx, cz: cz }); dec(rp[0], rp[1], '#cleat', hug(wallOf(rp[0], rp[1]), {})); }
+        var lv = freeNear(null, 27, 71, 3); if (lv) { setp('train', lv[0], lv[1], 'Brake lever', 'Release the train brake', { kind: 'train', x0: 28, x1: 36, z0: 67, z1: 71 }); dec(lv[0], lv[1], '#brake', {}); }
+        [[50, 73], [51, 73], [50, 74], [51, 74]].forEach(function (p) { setp('tower', p[0], p[1], 'Water tower', 'Knock out a leg of the water tower', { kind: 'tower', x0: 47, x1: 54, z0: 75, z1: 82, mx: 50.5, mz: 78 }, true); });
+        [built[2].room, built[3].room, built[5].room].forEach(function (r, i) { var k = freeNear(r, Math.round((r.x0 + r.x1) / 2), Math.round((r.z0 + r.z1) / 2), 5, true); if (k) { setp('keg' + i, k[0], k[1], 'Powder keg', 'Light the fuse', { kind: 'keg', r: 2 }); dec(k[0], k[1], '#keg', hug(wallOf(k[0], k[1]), {})); } });
+      })();
       // the street: wheel ruts, hoof prints, crates and barrels in the alleys
       for (zz = 72; zz <= 156; zz++) { [30, 34].forEach(function (x) { if (g[zz][x] === '.' && !decor[x + ',' + zz]) dec(x, zz, '#rut', { ns: true }); }); }
       for (k = 0; k < 70; k++) { var hx2 = ri(29, 35), hz2 = ri(72, 156); if (g[hz2][hx2] === '.') dec(hx2, hz2, '#prints', { rot: rnd() * 6, ns: true }); }
@@ -1302,7 +1310,14 @@
         var rc = jspot(); if (!rc) continue; spawns.push({ kind: 'dino', tier: k < 2 ? 3 : 1, x: rc[0], z: rc[1], room: jung.id });
         for (var rn = ri(1, 2); rn > 0; rn--) { var rq = jspot(rc, 2); if (rq) spawns.push({ kind: 'dino', tier: 1, x: rq[0], z: rq[1], room: jung.id }); }
       }
-      var tr = jspot([200, 96], 8) || jspot(); if (tr) spawns.push({ kind: 'trex', name: 'The Big Animatronic', boss: true, x: tr[0], z: tr[1], room: jung.id }); // the big one, in front of the temple
+      var tr = jspot([200, 96], 8) || jspot(); if (tr) spawns.push({ kind: 'trex', name: 'The Big Animatronic', boss: true, x: tr[0], z: tr[1], room: jung.id });
+      // ---- Jungle set pieces: the rope bridge, the idol, the ride's control box, quicksand on the paths ----
+      (function () { var bp = freeNear(null, 207, 118, 3); if (bp) { setp('bridge', bp[0], bp[1], 'Bridge ropes', 'Cut the rope bridge', { kind: 'bridge', x0: 206, x1: 209, z0: 120, z1: 140 }); dec(bp[0], bp[1], '#cleat', { rot: 0 }); }
+        for (xx = 190; xx <= 203; xx++) for (zz = 80; zz <= 88; zz++) if (dname[xx + ',' + zz] === 'Altar' && !setps['idol']) { setp('idol', xx, zz, 'Golden idol', 'Lift the golden idol', { kind: 'idol', x0: 190, x1: 203, z0: 83, z1: 85 }, true); setps.idol = 1; dec(xx, zz, '#idol', { dx: 0.5, y: 0 }); }
+        delete setps.idol;
+        var rp2 = freeNear(jung, 206, 92, 5); if (rp2) { setp('ride', rp2[0], rp2[1], 'Ride control box', 'Overload the ride controls', { kind: 'ride', r: 16 }); dec(rp2[0], rp2[1], '#ridebox', {}); }
+        [[203, 88], [190, 120], [227, 120]].forEach(function (p) { mudAt.push(p); });
+      })(); // the big one, in front of the temple
 
       // ---------- Maple Lane (southwest): six sitcom houses, front yards, the Showrunner's house ----------
       var ML = Zn({ name: 'Maple Lane', theme: 'lawn', line: 'A sitcom street. Six identical houses, perfect lawns and a laugh track that never stops.' });
@@ -1343,6 +1358,10 @@
       for (zz = 181; zz <= 205; zz += 3) for (xx = 214; xx <= 228; xx += 3) if (rnd() < 0.85 && freeT(xx, zz)) obj(xx, zz, '#grave', { rot: (rnd() - 0.5) * 0.3, seed: xx * 31 + zz }, 'Headstone');
       trees(grounds, 50, ['DeadTree_2', 'Pine_2']); greens(grounds, 60, ['Mushroom_Common', 'Grass_Wispy_Tall', 'Rock_Medium_1']);
 
+      // ---------- set pieces: things you can set off once (a chandelier, a train, a water tower, kegs, a bridge, an idol, a ride) ----------
+      function setp(id, x, z, name, label, o, keep) { var sp = { id: id, x: x, z: z, name: name, label: label }; for (var k6 in o || {}) sp[k6] = o[k6];
+        if (!keep) { g[z][x] = 'o'; dname[x + ',' + z] = name; taken[x + ',' + z] = 1; } setps[x + ',' + z] = sp; return sp; }
+      function freeNear(r, x, z, rad, needWall) { var best = null, bd = 1e9; for (var zz7 = z - rad; zz7 <= z + rad; zz7++) for (var xx7 = x - rad; xx7 <= x + rad; xx7++) { if (!inb(xx7, zz7) || (r && reg[zz7][xx7] !== r.id) || (g[zz7][xx7] !== '.' && g[zz7][xx7] !== ',') || taken[xx7 + ',' + zz7] || decor[xx7 + ',' + zz7]) continue; if (needWall && !wallOf(xx7, zz7)) continue; var dd = Math.abs(xx7 - x) + Math.abs(zz7 - z); if (dd < bd) { bd = dd; best = [xx7, zz7]; } } return best; }
       // ---------- the tour tram: parked on the south straight and taken over by crew. Clear it and it runs between the stops ----------
       var tramR = room({ name: 'The Tour Tram', type: 'corridor', theme: 'lot', x0: 124, z0: 148, x1: 143, z1: 150, line: 'The studio tour tram: three open cars with striped canopies. The crew has taken it over and they are not giving tours.' }, ST);
       [124, 131, 138].forEach(function (x0, ci) {
@@ -1410,6 +1429,6 @@
       zones.forEach(function (Z) { var b = null; Z.rooms.forEach(function (r) { if (r.z0 >= UPZ) return; if (!b) b = { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 }; else { b.x0 = Math.min(b.x0, r.x0); b.z0 = Math.min(b.z0, r.z0); b.x1 = Math.max(b.x1, r.x1); b.z1 = Math.max(b.z1, r.z1); } }); if (b) { Z.x0 = b.x0; Z.z0 = b.z0; Z.x1 = b.x1; Z.z1 = b.z1; } });
       var map = g.map(function (row) { return row.join(''); });
       for (var dk in decor) { var dp = dk.split(','), dc = g[+dp[1]][+dp[0]]; if (dc === '#') delete decor[dk]; }
-      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle, links: links, upZ: UPZ, tram: { stops: tramStops, room: tramR.id }, gate: gate };
+      return { W: Wd, H: Hd, map: map, reg: reg, rooms: rooms, spawns: spawns, start: start2, hoods: zones, stairs: stairs2, lost: lost, decor: decor, dname: dname, floor: 2, wstyle: wstyle, links: links, upZ: UPZ, tram: { stops: tramStops, room: tramR.id }, gate: gate, setp: setps, mud: mudAt };
     }
   }

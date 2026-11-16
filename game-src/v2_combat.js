@@ -357,7 +357,7 @@
     // replacements per zone: about a third of its regular monsters, never bosses
     var res = {}; CB.enemies.forEach(function (e) { if (e.npc || e.boss || e.guard) return; var z = zoneOf(e); res[z] = (res[z] || 0) + 1; }); Object.keys(res).forEach(function (z) { res[z] = Math.ceil(res[z] / 3); }); WORLD.reserve = res;
     var local = null; try { local = JSON.parse(localStorage.getItem(k) || 'null'); } catch (x) {}
-    var done = function (st) { if (st) worldApply(st); WORLD.loaded = true; refreshFog(); };
+    var done = function (st) { if (st) worldApply(st); WORLD.loaded = true; try { spInit(); } catch (x) { console.warn('setpieces', x); } refreshFog(); };
     if (NET.mode === 'server' && NET.uid) api('kv/world').then(function (j) { var sv = j.value; done(sv && (!local || sv.at >= local.at) ? sv : local); }, function () { done(local); });
     else done(local);
   }
@@ -1106,9 +1106,9 @@
         if (sv < dc) { stop = true; if (who === 'pc') { PC.prone = true; say('You slip', (A.kind === 'ice' ? 'Ice' : 'Grease') + ': DEX save ' + sv + ' vs ' + dc + '. You go down. Standing up costs half your movement.', 3200); } else { who.prone = true; cbPlay(who, 'Death01'); fxTag(who, 'PRONE'); say(who.name + ' slips', 'DEX save ' + sv + ' vs ' + dc + '. Down it goes.', 2400); } }
         else if (who === 'pc') say('Steady', 'DEX save ' + sv + ' vs ' + dc + '. You keep your feet on the ' + A.kind + '.', 2000);
       }
-      else if (A.kind === 'web' && (moving || start) && once(A)) {
+      else if ((A.kind === 'web' || A.kind === 'mud') && (moving || start) && once(A)) {
         var o = who === 'pc' ? PC : who; if (o.webbed) return; var sw = areaSave(who, 'DEX');
-        if (sw < 12) { o.webbed = true; stop = true; if (who === 'pc') say('Stuck in the web', 'DEX save ' + sw + ' vs 12. You cannot move until you tear free (a STR save at the start of your turn).', 3600); else { fxTag(who, 'WEBBED'); say(who.name + ' is stuck', 'DEX save ' + sw + ' vs 12. It is caught in the web.', 2400); } }
+        if (sw < 12) { o.webbed = true; stop = true; if (who === 'pc') say(A.kind === 'mud' ? 'Stuck in the mud' : 'Stuck in the web', 'DEX save ' + sw + ' vs 12. You cannot move until you tear free (a STR save at the start of your turn).', 3600); else { fxTag(who, 'WEBBED'); say(who.name + ' is stuck', 'DEX save ' + sw + ' vs 12. It is caught in the web.', 2400); } }
       }
     });
     return stop;
