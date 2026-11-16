@@ -8359,11 +8359,11 @@
   // Floor 2 casts with their own models and animations. Each family shares a rig; tiers get bigger, tougher, tinted.
   // Clips a model lacks (attack, hit, death, sometimes walk) are done in code: a lunge, a flinch, a fall, a bob.
   function own(k, o) { var v = { own: k, file: 'm_' + k, scale: 1, init: 1, str: 1, dex: 1, pp: 11, attackClip: 'Sword_Attack' }; for (var q in o) v[q] = o[q]; return v; }
-  BEAST.extra = own('soldier', { name: 'Background extra', ac: 11, hp: 8, speed: 5, atk: 3, dmg: [1, 6, 0], weapon: 'prop sword (it is real)', xp: 35, h: 1.7, lines: ['A costumed extra from the fantasy epic on Stage 9. Nobody told it the swords are real now.'] });
-  BEAST.stuntdouble = own('swordman', { name: 'Stunt double', ac: 12, hp: 14, speed: 6, atk: 4, dmg: [1, 8, 1], weapon: 'longsword', dex: 2, xp: 80, h: 1.75, lines: ['Does the hero\'s fights for him. Has started doing them for real, and for itself.'] });
+  BEAST.extra = own('soldier', { wpn: { model: 'w_sword1', len: 0.85 }, name: 'Background extra', ac: 11, hp: 8, speed: 5, atk: 3, dmg: [1, 6, 0], weapon: 'prop sword (it is real)', xp: 35, h: 1.7, lines: ['A costumed extra from the fantasy epic on Stage 9. Nobody told it the swords are real now.'] });
+  BEAST.stuntdouble = own('swordman', { wpn: { model: 'w_sword2', len: 0.95, hide: /Sword/ }, name: 'Stunt double', ac: 12, hp: 14, speed: 6, atk: 4, dmg: [1, 8, 1], weapon: 'longsword', dex: 2, xp: 80, h: 1.75, lines: ['Does the hero\'s fights for him. Has started doing them for real, and for itself.'] });
   BEAST.stuntknight = own('knight', { name: 'Stunt knight', ac: 15, hp: 24, speed: 5, atk: 5, dmg: [1, 10, 2], weapon: 'arming sword and shield', str: 3, xp: 160, h: 1.85, lines: ['Full plate, a shield, and a choreographer it stopped listening to.'] });
-  BEAST.crew = own('crew', { name: 'Stagehand', ac: 10, hp: 7, speed: 6, atk: 2, dmg: [1, 4, 1], weapon: 'wrench', xp: 25, h: 1.7, lines: ['Wears all black so the camera can\'t see it. You can.'] });
-  BEAST.crew_lead = own('crew', { name: 'Key grip', ac: 12, hp: 15, speed: 6, atk: 4, dmg: [1, 6, 2], weapon: 'C-stand', str: 2, xp: 75, h: 1.85, tint: 0xc0b0a0, lines: ['Runs the grips. Swings a C-stand like it owes him money.'] });
+  BEAST.crew = own('crew', { wpn: { name: 'Wrench' }, name: 'Stagehand', ac: 10, hp: 7, speed: 6, atk: 2, dmg: [1, 4, 1], weapon: 'wrench', xp: 25, h: 1.7, lines: ['Wears all black so the camera can\'t see it. You can.'] });
+  BEAST.crew_lead = own('crew', { wpn: { name: 'Crowbar' }, name: 'Key grip', ac: 12, hp: 15, speed: 6, atk: 4, dmg: [1, 6, 2], weapon: 'C-stand', str: 2, xp: 75, h: 1.85, tint: 0xc0b0a0, lines: ['Runs the grips. Swings a C-stand like it owes him money.'] });
   BEAST.truffle = own('truffle', { vuln: ['fire'],  name: 'Truffle man', ac: 10, hp: 9, speed: 4, atk: 3, dmg: [1, 6, 0], weapon: 'mossy fists', str: 2, dex: 0, xp: 35, h: 1.25, lines: ['A walking mushroom with a scarf. Smells incredible. Hits like a log.'] });
   BEAST.truffle_big = own('truffle', { vuln: ['fire'],  name: 'Old-growth truffle', ac: 12, hp: 18, speed: 4, atk: 4, dmg: [1, 8, 2], weapon: 'mossy fists', str: 3, dex: 0, xp: 90, h: 1.6, tint: 0xb8c8a0, lines: ['Older, wider, and covered in its own grandchildren.'] });
   BEAST.truffle_king = own('truffle', { vuln: ['fire'],  name: 'Morel monarch', ac: 13, hp: 28, speed: 4, atk: 5, dmg: [2, 6, 2], weapon: 'mossy fists', str: 4, dex: 0, xp: 170, h: 1.95, tint: 0xd0a080, lines: ['It has a crown of smaller mushrooms. They are all watching you.'] });
@@ -8406,11 +8406,11 @@
   BEAST.clerk_head = variant('imp', { name: 'Senior archivist', ac: 12, hp: 22, atk: 4, dmg: [1, 8, 1], str: 3, xp: 150, scale: 0.86, h: 1.35, tint: 0x5a7ac0, lines: ['Shushes you before it hits you. Both hurt.'] });
   // Floor 2 stand-ins on the puglin and imp rigs, until they get models of their own
   // Frontier Town's stunt crew: cowboys now (they used to be kobolds; the IDs stayed, so drop tables still match)
-  BEAST.kobold = own('cowboy', { name: 'Stunt outlaw', base: 'kobold', ac: 12, hp: 11, atk: 3, dmg: [1, 6, 1], weapon: 'a pistol-whip with a prop revolver', str: 1, dex: 2, init: 2, xp: 50, h: 1.8,
+  BEAST.kobold = own('cowboy', { wpn: { model: 'w_revolver', len: 0.34, gun: true }, name: 'Stunt outlaw', base: 'kobold', ac: 12, hp: 11, atk: 3, dmg: [1, 6, 1], weapon: 'a pistol-whip with a prop revolver', str: 1, dex: 2, init: 2, xp: 50, h: 1.8,
     lines: ['A stunt cowboy who falls off roofs for a living and lands on crawlers for fun.', 'Rates every punch out of ten. Yours was a four.'] });
-  BEAST.kobold_coat = own('coat', { name: 'Stunt bounty man', base: 'kobold', ac: 12, hp: 14, atk: 4, dmg: [1, 8, 1], weapon: 'a prop shotgun, used as a club', str: 2, dex: 1, init: 1, xp: 70, h: 1.85,
+  BEAST.kobold_coat = own('coat', { wpn: { model: 'w_revolver', len: 0.34, gun: true }, name: 'Stunt bounty man', base: 'kobold', ac: 12, hp: 14, atk: 4, dmg: [1, 8, 1], weapon: 'a prop shotgun, used as a club', str: 2, dex: 1, init: 1, xp: 70, h: 1.85,
     lines: ['Long coat, flat stare. Plays the bounty hunter in every take and has stopped breaking character.'] });
-  BEAST.kobold_boss = own('gunslinger', { name: 'Stunt gunslinger', base: 'kobold', ac: 13, hp: 22, atk: 5, dmg: [1, 8, 2], weapon: 'two prop revolvers, fanned', str: 1, dex: 3, init: 3, pp: 13, xp: 130, h: 1.85,
+  BEAST.kobold_boss = own('gunslinger', { wpn: { model: 'w_revolver', len: 0.34, gun: true, both: true }, name: 'Stunt gunslinger', base: 'kobold', ac: 13, hp: 22, atk: 5, dmg: [1, 8, 2], weapon: 'two prop revolvers, fanned', str: 1, dex: 3, init: 3, pp: 13, xp: 130, h: 1.85,
     lines: ['Runs the stunt crew. Calls every hit a "gag" and means it.', 'The fastest draw on the Backlot. The guns are props. The pistol-whip is not.'] });
   BEAST.sheriff = own('potato', { name: 'Sheriff Spud', lvl: 4, ac: 15, hp: 60, speed: 5, atk: 6, dmg: [2, 6, 3], weapon: 'two robot arms and a tin star', str: 3, dex: 1, init: 1, pp: 14, xp: 700, h: 1.6, boss: true,
     lines: ['A potato in a cowboy hat, riding around in a robot suit. Runs Frontier Town from the jail, and the jail has your name on a cell.', 'Nobody remembers who cast a potato as the sheriff. Nobody is brave enough to recast it.'] });
@@ -8555,7 +8555,7 @@
     MODELS.forEach(function (mk) { var k = mk[0];
       fetch(KDIR + mk[1] + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         var bin = atob(j.glb), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-        L.parse(u.buffer, KDIR, function (g) { CB.defs[k] = g.scene; CB.anims[k] = (g.animations || []).map(inPlace); g.scene.updateMatrixWorld(true); CB.hgt[k] = new THREE.Box3().setFromObject(g.scene).getSize(new THREE.Vector3()).y || 1; one(); }, function (e) { console.warn('monster failed', k, e); one(); });
+        CB.grip = CB.grip || {}; CB.grip[k] = { r: j.grip || null, l: j.gripL || null }; L.parse(u.buffer, KDIR, function (g) { CB.defs[k] = g.scene; CB.anims[k] = (g.animations || []).map(inPlace); g.scene.updateMatrixWorld(true); CB.hgt[k] = new THREE.Box3().setFromObject(g.scene).getSize(new THREE.Vector3()).y || 1; one(); }, function (e) { console.warn('monster failed', k, e); one(); });
       }).catch(function (e) { console.warn('monster failed', k, e); one(); });
     });
   }
@@ -8579,6 +8579,12 @@
       e.obj.add(m); m.position.copy(e.obj.worldToLocal(wp)); m.updateMatrixWorld(true); bone.attach(m);
     });
   }
+  // a monster's weapon in its hand, held the way the player holds one (the grip comes from tools/assets retarget.mjs)
+  function mobWeapon(e, ro, B) { var W = B.wpn, G = CB.grip && CB.grip[B.own]; if (!W || !G) return; if (W.hide) ro.traverse(function (o) { if (o.isMesh && !o.isSkinnedMesh && W.hide.test(o.name)) o.visible = false; });
+    (W.both ? ['r', 'l'] : ['r']).forEach(function (sd) { var gp = G[sd]; if (!gp) return; var bn = THREE.PropertyBinding.sanitizeNodeName(gp.bone), bone = null; ro.traverse(function (o) { if (!bone && o.isBone && (o.name === bn || o.name === gp.bone)) bone = o; }); if (!bone) return;
+      var hold = new THREE.Group(); hold.position.fromArray(gp.p); hold.quaternion.fromArray(gp.q); hold.scale.setScalar(gp.s); bone.add(hold);
+      try { gearModel(hold, { name: W.name || 'Monster weapon', cat: 'weapon', model: W.model, len: W.len, skin: W.skin, bow: W.gun ? { pose: 'gun' } : undefined }); } catch (x) { console.warn('mob weapon', x); }
+      hold.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } }); }); }
   function ownFx(e, dt) {
     var w = e.wrap; if (!w) return; e.pt = (e.pt || 0) + dt; var t = e.pt, n = e.pfx;
     w.position.set(0, e.def.lift ? e.def.lift + Math.sin(performance.now() / 1000 * 2.2 + e.n) * 0.08 : 0, 0); w.rotation.set(0, 0, 0); // fliers hover and bob
@@ -8631,7 +8637,7 @@
       if (!CB.hgtBones) CB.hgtBones = {};
       if (!CB.hgtBones[B.own]) { ro.updateMatrixWorld(true); var lo = 1e9, hi = -1e9, v = new THREE.Vector3(); ro.traverse(function (o) { if (o.isBone) { o.getWorldPosition(v); var c = B.fit === 'len' ? Math.max(Math.abs(v.x), Math.abs(v.z)) * 2 : v.y; lo = Math.min(lo, B.fit === 'len' ? 0 : c); hi = Math.max(hi, c); } }); CB.hgtBones[B.own] = hi > lo ? (hi - lo) * 1.12 : (CB.hgt[B.own] || 1); } // fit 'len': h is its length (long, low creatures)
       if (!CB.anims[B.own] || !CB.anims[B.own].length) { var hasBone = false; ro.traverse(function (o) { if (o.isBone) hasBone = true; }); if (!hasBone) { ro.updateMatrixWorld(true); var bb = new THREE.Box3().setFromObject(ro), cc = bb.getCenter(new THREE.Vector3()); ro.position.x -= cc.x; ro.position.z -= cc.z; ro.position.y -= bb.min.y; if (B.yaw) ro.rotation.y = B.yaw; } } // a statue model: feet on the floor, centred on its tile
-      var wrap = new THREE.Group(); wrap.add(ro); wrap.scale.setScalar(B.h / CB.hgtBones[B.own]); e.obj.add(wrap); ownProps(e, ro, B); // (not e.body: that is for rats and shrubs, which animate in code) the wrapper takes the scale: the model's own tracks may animate its root
+      var wrap = new THREE.Group(); wrap.add(ro); wrap.scale.setScalar(B.h / CB.hgtBones[B.own]); e.obj.add(wrap); ownProps(e, ro, B); mobWeapon(e, ro, B); // (not e.body: that is for rats and shrubs, which animate in code) the wrapper takes the scale: the model's own tracks may animate its root
       var mx = new THREE.AnimationMixer(ro), up = mx.update.bind(mx); e.wrap = wrap; e.clips = {};
       e.mixer = { update: function (dt) { up(dt); ownFx(e, dt); }, clipAction: function (c) { return mx.clipAction(c); }, stopAllAction: function () { mx.stopAllAction(); } };
       (CB.anims[B.own] || []).forEach(function (cl) { var nm = cl.name; if (/idle/i.test(nm)) e.clips.Idle_Loop = cl; else if (/walk|run|crawl/i.test(nm)) e.clips.Walk_Loop = cl; else if (/attack|bite|swipe/i.test(nm)) e.clips[B.attackClip] = cl; else if (/hit|hurt|damage/i.test(nm)) e.clips.Hit_Chest = cl; else if (/death|die/i.test(nm)) e.clips.Death01 = cl; });
@@ -9556,7 +9562,8 @@
   // ---------- every frame ----------
   function cbUpdate(dt) {
     CB.enemies.forEach(function (e) {
-      if (cheb(e.x, e.z, P.x, P.z) > 16 && !e.path) { if (e.obj.visible) { e.obj.visible = false; e.bar.style.display = 'none'; } return; }
+      var dmLook = isDM(), dmR = dmLook ? Math.min(50, Math.max(30, 30 / (CAMV.uz || 1))) : 0, farP = cheb(e.x, e.z, P.x, P.z) > 16, farC = !dmLook || cheb(e.x, e.z, CAMV.fx, CAMV.fz) > dmR; // the DM sees monsters wherever the camera is looking
+      if (farP && farC && !e.path) { if (e.obj.visible) { e.obj.visible = false; e.bar.style.display = 'none'; } return; }
       if (!e.mixer) cbMaterialize(e);
       if (!e.mixer) return;
       e.mixer.update(dt);
@@ -9571,7 +9578,7 @@
         e.obj.position.set(e.px, 0, e.pz);
         if (!e.path.length) { e.path = null; var f = e.afterWalk; e.afterWalk = null; if (f) f(); }
       }
-      var seen = visNow[e.x + ',' + e.z] !== undefined || visNow[Math.round(e.px) + ',' + Math.round(e.pz)] !== undefined || (isDM() && (cheb(e.x, e.z, P.x, P.z) <= 24 || cheb(e.x, e.z, CAMV.fx, CAMV.fz) <= 30));
+      var seen = visNow[e.x + ',' + e.z] !== undefined || visNow[Math.round(e.px) + ',' + Math.round(e.pz)] !== undefined || (dmLook && (cheb(e.x, e.z, P.x, P.z) <= 24 || cheb(e.x, e.z, CAMV.fx, CAMV.fz) <= dmR));
       e.obj.visible = !e.eaten && (seen || (e.dead && !!tileState[e.z * W + e.x]));
       if (!e.dead && !e.npc && seen && (CB.on || e.hp < e.max)) {
         var s = toScreen(e.px, e.def.h + 0.32, e.pz); e.bar.style.display = 'block'; e.bar.style.left = s.x + 'px'; e.bar.style.top = s.y + 'px';
