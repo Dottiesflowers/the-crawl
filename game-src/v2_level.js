@@ -1266,6 +1266,15 @@
       spawnIn(roof.room, 'clerk', { tier: 3, name: 'Dermot Stoker', boss: true });
       for (xx = 10; xx <= 72; xx += 6) if (freeT(xx, 49, plaza)) obj(xx, 49, '#picket', { rot: rnd() - 0.5 }, 'Picket sign');
       pack(plaza, 'writer', 3, 1, 'Picketing writer');
+      // ---- Writers' Building set pieces: the megaphone on the picket line, the fire alarm, the tower of spec scripts ----
+      (function () { var mg = freeNear(plaza, 40, 47, 4); if (mg) { setp('megaphone', mg[0], mg[1], 'Strike megaphone', 'Read out the studio\'s offer', { kind: 'distract', dec: '#megaphone', x0: 3, z0: 45, x1: 74, z1: 52, turns: 3, title: 'THE STUDIO\'S FINAL OFFER',
+          say: 'You read out the studio\'s latest offer through the megaphone. The writers stop dead, then start arguing about the wording, then about each other.', none: 'Nobody is on the line right now to hear it.',
+          look: 'The strike captain\'s megaphone, sitting on a crate next to a sheet of paper headed FINAL OFFER (REVISED) (REVISED). Reading it aloud would start an argument nobody could walk away from.', done: 'The offer is face down on the crate. Somebody has written "NO" across it in very nice handwriting.' }); dec(mg[0], mg[1], '#megaphone', {}); }
+        var br = roomsOf(wb, /Break/)[0] || roomsOf(wb, /Cubicle/)[0]; if (br) { var fa = freeNear(br, br.x0, Math.round((br.z0 + br.z1) / 2), 5, true); if (fa) { var wl = wallOf(fa[0], fa[1]); setp('alarm', fa[0], fa[1], 'Fire alarm', 'Pull the fire alarm', { kind: 'distract', dec: '#firealarm', x0: wb.box.x0, z0: wb.box.z0, x1: wb.box.x1, z1: wb.box.z1, turns: 2, title: 'BRRRRING',
+          say: 'You pull the alarm. Bells, strobes, sprinklers. Every writer in the building drops what they are doing and files towards the exits in an orderly, union-approved fashion.', none: 'The bells ring through an empty building.',
+          look: 'A fire alarm. PULL DOWN. Writers are very good at fire drills; the contract says so.', done: 'The alarm is still blinking. Everything is damp.' }); dec(fa[0], fa[1], '#firealarm', wl ? hug(wl, {}) : {}); } }
+        var mr = roomsOf(wb, /Mailroom/)[0] || roomsOf(wb, /Library|Cubicle/)[0]; if (mr) { var pl = freeNear(mr, Math.round((mr.x0 + mr.x1) / 2), Math.round((mr.z0 + mr.z1) / 2), 5); if (pl) { setp('scripts', pl[0], pl[1], 'Tower of spec scripts', 'Shove the tower over', { kind: 'pile', r: 2 }); dec(pl[0], pl[1], '#scripts', {}); } }
+      })();
 
       // ---------- Soundstage 9 (north): the gate, up Director's Row ----------
       var SS = Zn({ name: 'Soundstage 9', theme: 'stage', line: 'The biggest stage on the lot. The Director is up on the crane, and the sets change when he says so.' });
@@ -1341,7 +1350,17 @@
         if (freeT(hx + 9, 194, lane)) obj(hx + 9, 194, '#mailbox', { rot: 0 }, 'Mailbox');
         if (freeT(hx + 2, 190, lane)) obj(hx + 2, 190, 'CommonTree_3', { fit: 2.0, rot: rnd() * 6 }, 'Tree');
         park(hx + 11, 188, ['hatchback', 'rustyCar', 'rustyCar2'][i % 3], 'z', ['Hatchback', 'Classic car', 'Classic car'][i % 3]);
+        if (i === 1 || i === 4) { var gl = freeNear(lane, hx + 4, 190, 2); if (gl) { setp('grill' + i, gl[0], gl[1], 'Backyard grill', 'Crank the propane', { kind: 'keg', r: 2, dec: '#grill', say: 'You turn every knob to HIGH, wait a beat and throw a match. The grill goes up like a sitcom Fourth of July.',
+          look: 'A gas grill with a full propane tank under it, set up for a cookout that never happens. Every knob turned to high and one match would do it.', done: 'A blackened grill frame and a smell of burnt hot dogs.' }); dec(gl[0], gl[1], '#grill', { rot: Math.PI }); } }
       }
+      // the cul-de-sac at the west end of the street, with its little island
+      for (zz = 193; zz <= 203; zz++) for (xx = 8; xx <= 18; xx++) if (Math.hypot(xx - 13, zz - 198) <= 4.6 && (g[zz][xx] === '.' || g[zz][xx] === ',') && !taken[xx + ',' + zz]) put(xx, zz, '.', mstreet.id);
+      obj(13, 198, 'CommonTree_3', { fit: 2.4, rot: 1 }, 'Cul-de-sac island tree'); greens({ x0: 12, z0: 197, x1: 14, z1: 199, id: mstreet.id }, 3, ['Bush_Common_Flowers']);
+      // the studio audience: bleachers of cardboard people across the street, and the APPLAUSE sign
+      for (zz = 206; zz <= 209; zz++) for (xx = 74; xx <= 106; xx++) { if ((xx - 74) % 8 === 0) continue; if (g[zz][xx] !== '.' && g[zz][xx] !== ',') continue; g[zz][xx] = 'o'; dname[xx + ',' + zz] = 'Bleachers'; taken[xx + ',' + zz] = 1; dec(xx, zz, '#bleacher', { tier: zz - 206 }); }
+      setp('applause', 90, 204, 'APPLAUSE sign', 'Flip on the APPLAUSE sign', { kind: 'distract', dec: '#applause', x0: 8, z0: 171, x1: 115, z1: 213, only: 'gremlin', turns: 2, reach: 14, title: 'APPLAUSE',
+        say: 'The sign blazes red and the laugh track becomes a standing ovation. Every gremlin in earshot stops dead to soak it in and take a bow.', none: 'The cardboard audience goes wild for nobody.',
+        look: 'Bleachers full of cardboard people, all facing the houses, and a big unlit sign that says APPLAUSE. The switch is right there. The laugh-track gremlins live for this.', done: 'APPLAUSE, in red, forever. The gremlins keep glancing up at it.' }); dec(90, 204, '#applause', {});
       var srh = stamp(TPL.showrunner, 40, 203, 2, ML); spawnIn(srh.room, 'puglin', { sub: 'showrunner', name: 'The Showrunner', boss: true });
       for (xx = 44; xx <= 64; xx++) for (zz = 211; zz <= 212; zz++) put(xx, zz, '~', lane.id);
       [[42, 212], [66, 212], [42, 211]].forEach(function (p) { if (freeT(p[0], p[1], lane)) dec(p[0], p[1], 'loungeChairRelax', { fit: 0.7, rot: Math.PI / 2 }); });

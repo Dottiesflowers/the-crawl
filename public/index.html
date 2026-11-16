@@ -1394,6 +1394,15 @@
       spawnIn(roof.room, 'clerk', { tier: 3, name: 'Dermot Stoker', boss: true });
       for (xx = 10; xx <= 72; xx += 6) if (freeT(xx, 49, plaza)) obj(xx, 49, '#picket', { rot: rnd() - 0.5 }, 'Picket sign');
       pack(plaza, 'writer', 3, 1, 'Picketing writer');
+      // ---- Writers' Building set pieces: the megaphone on the picket line, the fire alarm, the tower of spec scripts ----
+      (function () { var mg = freeNear(plaza, 40, 47, 4); if (mg) { setp('megaphone', mg[0], mg[1], 'Strike megaphone', 'Read out the studio\'s offer', { kind: 'distract', dec: '#megaphone', x0: 3, z0: 45, x1: 74, z1: 52, turns: 3, title: 'THE STUDIO\'S FINAL OFFER',
+          say: 'You read out the studio\'s latest offer through the megaphone. The writers stop dead, then start arguing about the wording, then about each other.', none: 'Nobody is on the line right now to hear it.',
+          look: 'The strike captain\'s megaphone, sitting on a crate next to a sheet of paper headed FINAL OFFER (REVISED) (REVISED). Reading it aloud would start an argument nobody could walk away from.', done: 'The offer is face down on the crate. Somebody has written "NO" across it in very nice handwriting.' }); dec(mg[0], mg[1], '#megaphone', {}); }
+        var br = roomsOf(wb, /Break/)[0] || roomsOf(wb, /Cubicle/)[0]; if (br) { var fa = freeNear(br, br.x0, Math.round((br.z0 + br.z1) / 2), 5, true); if (fa) { var wl = wallOf(fa[0], fa[1]); setp('alarm', fa[0], fa[1], 'Fire alarm', 'Pull the fire alarm', { kind: 'distract', dec: '#firealarm', x0: wb.box.x0, z0: wb.box.z0, x1: wb.box.x1, z1: wb.box.z1, turns: 2, title: 'BRRRRING',
+          say: 'You pull the alarm. Bells, strobes, sprinklers. Every writer in the building drops what they are doing and files towards the exits in an orderly, union-approved fashion.', none: 'The bells ring through an empty building.',
+          look: 'A fire alarm. PULL DOWN. Writers are very good at fire drills; the contract says so.', done: 'The alarm is still blinking. Everything is damp.' }); dec(fa[0], fa[1], '#firealarm', wl ? hug(wl, {}) : {}); } }
+        var mr = roomsOf(wb, /Mailroom/)[0] || roomsOf(wb, /Library|Cubicle/)[0]; if (mr) { var pl = freeNear(mr, Math.round((mr.x0 + mr.x1) / 2), Math.round((mr.z0 + mr.z1) / 2), 5); if (pl) { setp('scripts', pl[0], pl[1], 'Tower of spec scripts', 'Shove the tower over', { kind: 'pile', r: 2 }); dec(pl[0], pl[1], '#scripts', {}); } }
+      })();
 
       // ---------- Soundstage 9 (north): the gate, up Director's Row ----------
       var SS = Zn({ name: 'Soundstage 9', theme: 'stage', line: 'The biggest stage on the lot. The Director is up on the crane, and the sets change when he says so.' });
@@ -1469,7 +1478,17 @@
         if (freeT(hx + 9, 194, lane)) obj(hx + 9, 194, '#mailbox', { rot: 0 }, 'Mailbox');
         if (freeT(hx + 2, 190, lane)) obj(hx + 2, 190, 'CommonTree_3', { fit: 2.0, rot: rnd() * 6 }, 'Tree');
         park(hx + 11, 188, ['hatchback', 'rustyCar', 'rustyCar2'][i % 3], 'z', ['Hatchback', 'Classic car', 'Classic car'][i % 3]);
+        if (i === 1 || i === 4) { var gl = freeNear(lane, hx + 4, 190, 2); if (gl) { setp('grill' + i, gl[0], gl[1], 'Backyard grill', 'Crank the propane', { kind: 'keg', r: 2, dec: '#grill', say: 'You turn every knob to HIGH, wait a beat and throw a match. The grill goes up like a sitcom Fourth of July.',
+          look: 'A gas grill with a full propane tank under it, set up for a cookout that never happens. Every knob turned to high and one match would do it.', done: 'A blackened grill frame and a smell of burnt hot dogs.' }); dec(gl[0], gl[1], '#grill', { rot: Math.PI }); } }
       }
+      // the cul-de-sac at the west end of the street, with its little island
+      for (zz = 193; zz <= 203; zz++) for (xx = 8; xx <= 18; xx++) if (Math.hypot(xx - 13, zz - 198) <= 4.6 && (g[zz][xx] === '.' || g[zz][xx] === ',') && !taken[xx + ',' + zz]) put(xx, zz, '.', mstreet.id);
+      obj(13, 198, 'CommonTree_3', { fit: 2.4, rot: 1 }, 'Cul-de-sac island tree'); greens({ x0: 12, z0: 197, x1: 14, z1: 199, id: mstreet.id }, 3, ['Bush_Common_Flowers']);
+      // the studio audience: bleachers of cardboard people across the street, and the APPLAUSE sign
+      for (zz = 206; zz <= 209; zz++) for (xx = 74; xx <= 106; xx++) { if ((xx - 74) % 8 === 0) continue; if (g[zz][xx] !== '.' && g[zz][xx] !== ',') continue; g[zz][xx] = 'o'; dname[xx + ',' + zz] = 'Bleachers'; taken[xx + ',' + zz] = 1; dec(xx, zz, '#bleacher', { tier: zz - 206 }); }
+      setp('applause', 90, 204, 'APPLAUSE sign', 'Flip on the APPLAUSE sign', { kind: 'distract', dec: '#applause', x0: 8, z0: 171, x1: 115, z1: 213, only: 'gremlin', turns: 2, reach: 14, title: 'APPLAUSE',
+        say: 'The sign blazes red and the laugh track becomes a standing ovation. Every gremlin in earshot stops dead to soak it in and take a bow.', none: 'The cardboard audience goes wild for nobody.',
+        look: 'Bleachers full of cardboard people, all facing the houses, and a big unlit sign that says APPLAUSE. The switch is right there. The laugh-track gremlins live for this.', done: 'APPLAUSE, in red, forever. The gremlins keep glancing up at it.' }); dec(90, 204, '#applause', {});
       var srh = stamp(TPL.showrunner, 40, 203, 2, ML); spawnIn(srh.room, 'puglin', { sub: 'showrunner', name: 'The Showrunner', boss: true });
       for (xx = 44; xx <= 64; xx++) for (zz = 211; zz <= 212; zz++) put(xx, zz, '~', lane.id);
       [[42, 212], [66, 212], [42, 211]].forEach(function (p) { if (freeT(p[0], p[1], lane)) dec(p[0], p[1], 'loungeChairRelax', { fit: 0.7, rot: Math.PI / 2 }); });
@@ -2196,6 +2215,23 @@
     '#keg': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); var k = pcyl(0.28, 0.6, 0x6a4a2a, x + (d.dx || 0), 0.3, z + (d.dz || 0), tx, tz, { kind: 'wood' });
       pcyl(0.29, 0.05, 0x3a3a40, x + (d.dx || 0), 0.12, z + (d.dz || 0), tx, tz, { kind: 'metal' }); pcyl(0.29, 0.05, 0x3a3a40, x + (d.dx || 0), 0.5, z + (d.dz || 0), tx, tz, { kind: 'metal' });
       box(0.3, 0.12, 0.02, 0xc8302a, x + (d.dx || 0), 0.32, z + (d.dz || 0) + 0.28, tx, tz, { glow: false }); box(0.02, 0.3, 0.02, 0xd8c8a0, x + (d.dx || 0) + 0.1, 0.72, z + (d.dz || 0), tx, tz, { kind: 'cloth' }); },
+    '#grill': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.9, 0.4, 0.5, 0x2a2a2e, 0, 0.75, 0, { kind: 'metal' }); B(0.9, 0.08, 0.5, 0x3a3a40, 0, 1.0, -0.08, { kind: 'metal' });
+      [-0.38, 0.38].forEach(function (lx) { B(0.05, 0.6, 0.05, 0x5a5a60, lx, 0.3, 0.18, { kind: 'metal' }); B(0.05, 0.6, 0.05, 0x5a5a60, lx, 0.3, -0.18, { kind: 'metal' }); });
+      pcyl(0.14, 0.45, 0xd8d8d0, x + 0.25, 0.23, z + 0.35, tx, tz, { kind: 'metal' }); },
+    '#scripts': function (x, z, d, tx, tz) { for (var i = 0; i < 9; i++) { var t = box(0.32, 0.18, 0.42, i % 3 ? 0xf4f0e6 : 0xe8dcc0, x + Math.sin(i * 1.7) * 0.05 + i * 0.012, 0.09 + i * 0.19, z + Math.cos(i * 2.3) * 0.05, tx, tz, { kind: 'cloth' }); t.mesh.rotation.y = i * 0.37; }
+      for (var j = 0; j < 6; j++) box(0.32, 0.2, 0.42, 0xf4f0e6, x - 0.3 + (j % 2) * 0.55, 0.1 + Math.floor(j / 2) * 0.21, z + 0.25, tx, tz, { kind: 'cloth' }); },
+    '#scripts_down': function (x, z, d, tx, tz) { for (var i = 0; i < 16; i++) { var t = box(0.32, 0.04, 0.42, i % 3 ? 0xf4f0e6 : 0xe8dcc0, x + Math.sin(i * 2.1) * 0.9, 0.03 + (i % 3) * 0.04, z + Math.cos(i * 1.3) * 0.9, tx, tz, { kind: 'cloth', noShadow: true }); t.mesh.rotation.y = i * 0.9; } },
+    '#bleacher': function (x, z, d, tx, tz) { var tier = d.tier || 0, hgt = 0.35 + tier * 0.45; box(1.0, hgt, 1.0, 0x6a6a72, x, hgt / 2, z, tx, tz, { kind: 'metal' }); box(1.0, 0.06, 0.5, 0x8a6a40, x, hgt + 0.03, z - 0.1, tx, tz, { kind: 'wood' });
+      if (hash(x * 3 + 1, z * 5 + 2) > 0.35) { var c = [0xc8452a, 0x2a6aa8, 0xd8b030, 0x3a8a4a, 0x8a4a9a, 0xe8e0d0][Math.floor(hash(x, z) * 6)]; box(0.36, 0.55, 0.03, c, x + (hash(z, x) - 0.5) * 0.3, hgt + 0.33, z + 0.1, tx, tz, { kind: 'cloth' });
+        box(0.2, 0.22, 0.03, 0xe0b890, x + (hash(z, x) - 0.5) * 0.3, hgt + 0.72, z + 0.1, tx, tz, { kind: 'cloth' }); } },
+    '#applause': function (x, z, d, tx, tz) { box(0.08, 2.2, 0.08, 0x3a3a40, x, 1.1, z, tx, tz, { kind: 'metal' }); box(1.6, 0.5, 0.25, 0x1a1a1e, x, 2.45, z, tx, tz, { kind: 'metal' }); box(1.4, 0.32, 0.02, 0x5a1a14, x, 2.45, z - 0.13, tx, tz, { kind: 'cloth' });
+      box(0.6, 0.9, 0.4, 0x5a6878, x + 0.6, 0.45, z - 0.2, tx, tz, { kind: 'metal' }); },
+    '#applause_on': function (x, z, d, tx, tz) { box(0.08, 2.2, 0.08, 0x3a3a40, x, 1.1, z, tx, tz, { kind: 'metal' }); box(1.6, 0.5, 0.25, 0x1a1a1e, x, 2.45, z, tx, tz, { kind: 'metal' }); box(1.4, 0.32, 0.02, 0xff3a24, x, 2.45, z - 0.13, tx, tz, { kind: 'cloth', glow: true });
+      box(0.6, 0.9, 0.4, 0x5a6878, x + 0.6, 0.45, z - 0.2, tx, tz, { kind: 'metal' }); },
+    '#megaphone': function (x, z, d, tx, tz) { box(0.7, 0.75, 0.5, 0x8a6a40, x, 0.38, z, tx, tz, { kind: 'wood' }); var m = pcyl(0.12, 0.4, 0xe8e0d0, x, 0.95, z, tx, tz, { kind: 'metal' }); },
+    '#megaphone_on': function (x, z, d, tx, tz) { box(0.7, 0.75, 0.5, 0x8a6a40, x, 0.38, z, tx, tz, { kind: 'wood' }); box(0.5, 0.02, 0.4, 0xf4f0e6, x, 0.77, z, tx, tz, { kind: 'cloth' }); },
+    '#firealarm': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.3, 0.4, 0.12, 0xc8302a, 0, 1.3, 0, { kind: 'metal' }); B(0.12, 0.1, 0.05, 0xf4f0e6, 0, 1.28, 0.08, {}); },
+    '#firealarm_on': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.3, 0.4, 0.12, 0xc8302a, 0, 1.3, 0, { kind: 'metal', glow: true }); B(0.12, 0.1, 0.05, 0xf4f0e6, 0, 1.2, 0.08, {}); },
     '#scorch': function (x, z, d, tx, tz) { box(1.1, 0.02, 1.1, 0x14100c, x, 0.012, z, tx, tz, { noShadow: true }); },
     '#idol': function (x, z, d, tx, tz) { box(0.22, 0.32, 0.18, 0xe8b830, x, 1.16, z, tx, tz, { kind: 'metal', glow: true }); box(0.16, 0.12, 0.14, 0xe8b830, x, 1.38, z, tx, tz, { kind: 'metal', glow: true }); },
     '#idol_gone': function () {},
@@ -12090,13 +12126,13 @@
   function spInRect(sp, x, z) { return x >= sp.x0 && x <= sp.x1 && z >= sp.z0 && z <= sp.z1; }
   function spDecor(x, z, from, to) { var L = LEVEL.decor[x + ',' + z]; if (L) L.forEach(function (d) { if (d.m === from) d.m = to; }); }
   var SP_DONE_TXT = { chandelier: 'The chandelier is on the floor in pieces. The rope hangs loose.', train: 'The stunt train sits past the crossing, ticking as it cools.', tower: 'The water tower lies across the street on its side. Everything smells like a wet barn.',
-    keg: 'A scorched ring on the floor where the keg was.', bridge: 'Two frayed ropes and a long drop into the river. No more bridge.', idol: 'An empty altar. The idol is in your bag and the boulder is in the wall.', ride: 'The ride\'s control box is a smoking ruin.', warpcore: 'The warp core is dark and cracked. The ship is very quiet now.', fans: 'The big fans have spun down. Everything that was in the cargo bay is now somewhere else.', gimbal: 'The gimbal controls are jammed at full tilt. Nobody is rocking this ship again.', bookcase: 'The bookcase stands open: a door into the foyer.' };
+    keg: 'A scorched ring on the floor where the keg was.', bridge: 'Two frayed ropes and a long drop into the river. No more bridge.', idol: 'An empty altar. The idol is in your bag and the boulder is in the wall.', ride: 'The ride\'s control box is a smoking ruin.', warpcore: 'The warp core is dark and cracked. The ship is very quiet now.', fans: 'The big fans have spun down. Everything that was in the cargo bay is now somewhere else.', gimbal: 'The gimbal controls are jammed at full tilt. Nobody is rocking this ship again.', bookcase: 'The bookcase stands open: a door into the foyer.', pile: 'Spec scripts all over the floor. Somebody\'s cop show about a dog is face up on top.' };
   var SP_LOOK = { chandelier: 'A rope runs up from this cleat to the big wagon-wheel chandelier over the middle of the saloon. Cut it and whatever is underneath has a very bad night.', train: 'The stunt train\'s brake lever. Let it off and the train rolls through the road crossing, whoever is standing on it.',
     tower: 'A wooden water tower on four legs, full and sloshing. One good knock on a leg and it comes down across the street.', keg: 'A keg of black powder with DANGER painted on it and a long fuse. Real powder, on a fake set.', bridge: 'The ropes holding the bridge up are tied off here. Cut them and anything on the bridge goes in the river.',
-    idol: 'A golden idol on the altar, the only real thing in the temple. Something about the stone it sits on says "pressure plate".', warpcore: 'The console for the warp core: a glowing column of prop plasma with a real transformer in it. Push it past the red line and everything in the engine room gets the full current.', fans: 'The controls for the giant fans behind the cargo bay doors, the ones that make it look like space. Hit the switch and everything in the bay goes flying.', gimbal: 'The ship sits on a hydraulic gimbal so it can rock for battle scenes. Rock it now and everyone aboard goes off their feet.', bookcase: 'One book sticks out further than the others. Classic.', ride: 'The control box for the dinosaur ride, humming with far too much power. Overload it and the animatronics get all of it at once.' };
+    idol: 'A golden idol on the altar, the only real thing in the temple. Something about the stone it sits on says "pressure plate".', warpcore: 'The console for the warp core: a glowing column of prop plasma with a real transformer in it. Push it past the red line and everything in the engine room gets the full current.', fans: 'The controls for the giant fans behind the cargo bay doors, the ones that make it look like space. Hit the switch and everything in the bay goes flying.', gimbal: 'The ship sits on a hydraulic gimbal so it can rock for battle scenes. Rock it now and everyone aboard goes off their feet.', bookcase: 'One book sticks out further than the others. Classic.', pile: 'A tower of unread spec scripts, taller than you and leaning badly. Nobody has read one since the strike started. A good shove would bring the lot down on whoever is standing near it.', ride: 'The control box for the dinosaur ride, humming with far too much power. Overload it and the animatronics get all of it at once.' };
   function spActs(t) { var sp = LEVEL.setp && LEVEL.setp[t.key]; if (!sp) return null;
-    if (spDone(sp)) return [{ label: 'Examine', text: SP_DONE_TXT[sp.kind] || 'Already done.' }];
-    return [{ label: sp.label, auto: 'setp', sp: sp }, { label: 'Examine', text: SP_LOOK[sp.kind] || sp.name }]; }
+    if (spDone(sp)) return [{ label: 'Examine', text: sp.done || SP_DONE_TXT[sp.kind] || 'Already done.' }];
+    return [{ label: sp.label, auto: 'setp', sp: sp }, { label: 'Examine', text: sp.look || SP_LOOK[sp.kind] || sp.name }]; }
   function spHurtPC(n, kind, save) { if (save) { var sv = d20() + (MOD.DEX || 0); if (sv >= save) n = Math.floor(n / 2); } if (n <= 0) return; PC.hp = Math.max(0, PC.hp - n); floater(P.px, 1.5, P.pz, '-' + n + ' ' + kind, 'pdmg'); cbHUD(); if (PC.hp <= 0 && CB.on) cbFall(); return n; }
   function spFoes(test) { return CB.enemies.filter(function (e) { return !e.dead && !e.npc && test(e); }); }
   function spFire(sp) {
@@ -12111,7 +12147,7 @@
     else if (sp.kind === 'tower') { title = 'TIMBER'; hit = spFoes(inR); hit.forEach(function (e) { notes.push(fxApply([{ type: 'damage', dice: '2d6' }, { type: 'prone' }], e)); }); if (spInRect(sp, P.x, P.z)) self = spHurtPC(rollDice('2d6'), 'bludgeoning', 12);
       [[50, 73], [51, 73], [50, 74], [51, 74]].forEach(function (q) { spDecor(q[0], q[1], '#tower', '#tower_down'); }); vfxArea('mud', sp.mx, sp.mz, 2.6, 1e9); notes.unshift('A leg cracks, the tower leans, and a whole tank of water comes down across the street. The street is mud now.'); }
     else if (sp.kind === 'keg') { title = 'BOOM'; dmgKind = 'fire'; hit = spFoes(function (e) { return cheb(e.x, e.z, sp.x, sp.z) <= sp.r; }); hit.forEach(function (e) { notes.push(fxApply([{ type: 'damage', dice: '2d6' }, { type: 'burn', dice: '1d4', turns: 2 }], e)); });
-      vfxArea('fire', sp.x, sp.z, 1.5, 25); vfxHit('fire', sp.x, sp.z, 1); spDecor(sp.x, sp.z, '#keg', '#scorch'); notes.unshift('You light the long fuse and step well back. It fizzes down and the keg goes up.'); }
+      vfxArea('fire', sp.x, sp.z, 1.5, 25); vfxHit('fire', sp.x, sp.z, 1); spDecor(sp.x, sp.z, sp.dec || '#keg', '#scorch'); notes.unshift(sp.say || 'You light the long fuse and step well back. It fizzes down and the keg goes up.'); }
     else if (sp.kind === 'bridge') { title = 'SNAP'; hit = spFoes(inR); hit.forEach(function (e) { notes.push(fxApply([{ type: 'damage', dice: '2d6' }, { type: 'prone' }], e)); }); if (spInRect(sp, P.x, P.z)) self = spHurtPC(rollDice('1d6'), 'bludgeoning');
       spBridgeDown(sp); notes.unshift('The ropes part. The bridge folds into the river, along with anything on it.'); }
     else if (sp.kind === 'idol') { title = 'RUMBLE'; var gp = rollDice('4d10') + 10; CHAR.gold = (CHAR.gold || 0) + gp; spDecor(sp.x, sp.z, '#idol', '#idol_gone');
@@ -12127,6 +12163,12 @@
       if (spInRect(sp, P.x, P.z)) { var sv3 = d20() + (MOD.DEX || 0); if (sv3 < 12) { PC.prone = true; notes.push('DEX save ' + sv3 + ' vs 12: you go down too.'); } else notes.push('DEX save ' + sv3 + ' vs 12: you keep your feet.'); }
       if (typeof shake === 'function') try { shake(0.8); } catch (x) {} notes.unshift('You throw the gimbal to full tilt. The whole ship lurches sideways, then back, then sideways again.'); }
     else if (sp.kind === 'bookcase') { title = 'CREEEAK'; spOpenWall(sp); notes.unshift('You pull the book. Somewhere a latch clicks, and the whole bookcase swings round into the foyer.'); }
+    else if (sp.kind === 'distract') { title = sp.title || sp.name; var only = sp.only ? new RegExp(sp.only) : null; hit = spFoes(function (e) { return inR(e) && (!only || only.test(e.kind || '')) && (CB.on || cheb(e.x, e.z, P.x, P.z) <= (sp.reach || 10)); });
+      var cnt = {}; hit.forEach(function (e) { fxApply([{ type: 'distract', turns: sp.turns || 2 }], e); cnt[e.name] = (cnt[e.name] || 0) + 1; }); if (sp.dec) spDecor(sp.x, sp.z, sp.dec, sp.dec + '_on');
+      notes.unshift(sp.say || 'Everyone stops what they are doing.'); if (!hit.length) notes.push(sp.none || 'Nobody was close enough to notice.');
+      else notes.push(Object.keys(cnt).map(function (n) { return cnt[n] > 1 ? cnt[n] + ' × ' + n : n; }).join(', ') + ': distracted for ' + (sp.turns || 2) + ' turns' + '.'); }
+    else if (sp.kind === 'pile') { title = 'AVALANCHE'; dmgKind = 'paper-cut'; hit = spFoes(function (e) { return cheb(e.x, e.z, sp.x, sp.z) <= (sp.r || 2); }); hit.forEach(function (e) { notes.push(fxApply([{ type: 'damage', dice: '2d6' }, { type: 'prone' }], e)); });
+      if (cheb(P.x, P.z, sp.x, sp.z) <= 1) self = spHurtPC(rollDice('1d6'), 'bludgeoning', 12); spDecor(sp.x, sp.z, '#scripts', '#scripts_down'); notes.unshift('You give the tower of unread spec scripts one good shove. Ten years of somebody\'s dreams come down in a landslide.'); }
     if (self) notes.push('You take ' + self + ' ' + dmgKind + ' damage.');
     CHAR.setp = CHAR.setp || {}; CHAR.setp[spKey(sp)] = Date.now(); saveChar(CHAR); try { rebuildChunks(); } catch (x) {}
     setTimeout(function () { try { achieve('setpiece'); } catch (x) {} }, 3000);
@@ -12145,7 +12187,7 @@
   function spInit() { if (!LEVEL.setp) return; var redo = false, seen = {};
     Object.keys(LEVEL.setp).forEach(function (k) { var sp = LEVEL.setp[k]; if (seen[sp.id] || !spDone(sp)) return; seen[sp.id] = 1; redo = true;
       if (sp.kind === 'chandelier') spDecor(sp.cx, sp.cz, '#chandelier', '#chandelier_down'); if (sp.kind === 'tower') { [[50, 73], [51, 73], [50, 74], [51, 74]].forEach(function (q) { spDecor(q[0], q[1], '#tower', '#tower_down'); }); vfxArea('mud', sp.mx, sp.mz, 2.6, 1e9); }
-      if (sp.kind === 'keg') spDecor(sp.x, sp.z, '#keg', '#scorch'); if (sp.kind === 'bridge') spBridgeDown(sp); if (sp.kind === 'idol') spDecor(sp.x, sp.z, '#idol', '#idol_gone'); if (sp.kind === 'ride') spDecor(sp.x, sp.z, '#ridebox', '#ridebox_dead'); if (sp.kind === 'warpcore') spDecor(sp.cx, sp.cz, '#warpcore', '#warpcore_dead'); if (sp.kind === 'bookcase') spOpenWall(sp); });
+      if (sp.kind === 'keg') spDecor(sp.x, sp.z, sp.dec || '#keg', '#scorch'); if (sp.kind === 'pile') spDecor(sp.x, sp.z, '#scripts', '#scripts_down'); if (sp.kind === 'distract' && sp.dec) spDecor(sp.x, sp.z, sp.dec, sp.dec + '_on'); if (sp.kind === 'bridge') spBridgeDown(sp); if (sp.kind === 'idol') spDecor(sp.x, sp.z, '#idol', '#idol_gone'); if (sp.kind === 'ride') spDecor(sp.x, sp.z, '#ridebox', '#ridebox_dead'); if (sp.kind === 'warpcore') spDecor(sp.cx, sp.cz, '#warpcore', '#warpcore_dead'); if (sp.kind === 'bookcase') spOpenWall(sp); });
     (LEVEL.mud || []).forEach(function (q) { vfxArea('mud', q[0], q[1], 1.4, 1e9); });
     if (redo) try { rebuildChunks(); } catch (x) {} }
   // the test server says so, so nobody mistakes it for the real game
@@ -13430,7 +13472,7 @@
   }
   function fogKey() { return 'crawl-fog-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : '') + (FLOOR === 2 ? '-f2' : ''); }
   var LAYOUT_VER = 2; // Floor 1 layout version: bump when the map changes so old positions, fog and monster state are dropped
-  var LAYOUT_VER2 = 3; // Floor 2 layout version (2: the tram-loop redesign; 3: the hedge maze, Nov 2026)
+  var LAYOUT_VER2 = 4; // Floor 2 layout version (2: the tram-loop redesign; 3: the hedge maze; 4: Maple Lane and Writers' set pieces, Nov 2026)
   function curLV() { return FLOOR === 2 ? LAYOUT_VER2 : LAYOUT_VER; }
   function lvTag() { return FLOOR === 2 ? (LAYOUT_VER2 > 1 ? 'B' + LAYOUT_VER2 + ':' : '') : 'L' + LAYOUT_VER + ':'; }
   function fogSave() { // explored tiles as runs: start,length;start,length...

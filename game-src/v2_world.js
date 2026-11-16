@@ -598,6 +598,23 @@
     '#keg': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); var k = pcyl(0.28, 0.6, 0x6a4a2a, x + (d.dx || 0), 0.3, z + (d.dz || 0), tx, tz, { kind: 'wood' });
       pcyl(0.29, 0.05, 0x3a3a40, x + (d.dx || 0), 0.12, z + (d.dz || 0), tx, tz, { kind: 'metal' }); pcyl(0.29, 0.05, 0x3a3a40, x + (d.dx || 0), 0.5, z + (d.dz || 0), tx, tz, { kind: 'metal' });
       box(0.3, 0.12, 0.02, 0xc8302a, x + (d.dx || 0), 0.32, z + (d.dz || 0) + 0.28, tx, tz, { glow: false }); box(0.02, 0.3, 0.02, 0xd8c8a0, x + (d.dx || 0) + 0.1, 0.72, z + (d.dz || 0), tx, tz, { kind: 'cloth' }); },
+    '#grill': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.9, 0.4, 0.5, 0x2a2a2e, 0, 0.75, 0, { kind: 'metal' }); B(0.9, 0.08, 0.5, 0x3a3a40, 0, 1.0, -0.08, { kind: 'metal' });
+      [-0.38, 0.38].forEach(function (lx) { B(0.05, 0.6, 0.05, 0x5a5a60, lx, 0.3, 0.18, { kind: 'metal' }); B(0.05, 0.6, 0.05, 0x5a5a60, lx, 0.3, -0.18, { kind: 'metal' }); });
+      pcyl(0.14, 0.45, 0xd8d8d0, x + 0.25, 0.23, z + 0.35, tx, tz, { kind: 'metal' }); },
+    '#scripts': function (x, z, d, tx, tz) { for (var i = 0; i < 9; i++) { var t = box(0.32, 0.18, 0.42, i % 3 ? 0xf4f0e6 : 0xe8dcc0, x + Math.sin(i * 1.7) * 0.05 + i * 0.012, 0.09 + i * 0.19, z + Math.cos(i * 2.3) * 0.05, tx, tz, { kind: 'cloth' }); t.mesh.rotation.y = i * 0.37; }
+      for (var j = 0; j < 6; j++) box(0.32, 0.2, 0.42, 0xf4f0e6, x - 0.3 + (j % 2) * 0.55, 0.1 + Math.floor(j / 2) * 0.21, z + 0.25, tx, tz, { kind: 'cloth' }); },
+    '#scripts_down': function (x, z, d, tx, tz) { for (var i = 0; i < 16; i++) { var t = box(0.32, 0.04, 0.42, i % 3 ? 0xf4f0e6 : 0xe8dcc0, x + Math.sin(i * 2.1) * 0.9, 0.03 + (i % 3) * 0.04, z + Math.cos(i * 1.3) * 0.9, tx, tz, { kind: 'cloth', noShadow: true }); t.mesh.rotation.y = i * 0.9; } },
+    '#bleacher': function (x, z, d, tx, tz) { var tier = d.tier || 0, hgt = 0.35 + tier * 0.45; box(1.0, hgt, 1.0, 0x6a6a72, x, hgt / 2, z, tx, tz, { kind: 'metal' }); box(1.0, 0.06, 0.5, 0x8a6a40, x, hgt + 0.03, z - 0.1, tx, tz, { kind: 'wood' });
+      if (hash(x * 3 + 1, z * 5 + 2) > 0.35) { var c = [0xc8452a, 0x2a6aa8, 0xd8b030, 0x3a8a4a, 0x8a4a9a, 0xe8e0d0][Math.floor(hash(x, z) * 6)]; box(0.36, 0.55, 0.03, c, x + (hash(z, x) - 0.5) * 0.3, hgt + 0.33, z + 0.1, tx, tz, { kind: 'cloth' });
+        box(0.2, 0.22, 0.03, 0xe0b890, x + (hash(z, x) - 0.5) * 0.3, hgt + 0.72, z + 0.1, tx, tz, { kind: 'cloth' }); } },
+    '#applause': function (x, z, d, tx, tz) { box(0.08, 2.2, 0.08, 0x3a3a40, x, 1.1, z, tx, tz, { kind: 'metal' }); box(1.6, 0.5, 0.25, 0x1a1a1e, x, 2.45, z, tx, tz, { kind: 'metal' }); box(1.4, 0.32, 0.02, 0x5a1a14, x, 2.45, z - 0.13, tx, tz, { kind: 'cloth' });
+      box(0.6, 0.9, 0.4, 0x5a6878, x + 0.6, 0.45, z - 0.2, tx, tz, { kind: 'metal' }); },
+    '#applause_on': function (x, z, d, tx, tz) { box(0.08, 2.2, 0.08, 0x3a3a40, x, 1.1, z, tx, tz, { kind: 'metal' }); box(1.6, 0.5, 0.25, 0x1a1a1e, x, 2.45, z, tx, tz, { kind: 'metal' }); box(1.4, 0.32, 0.02, 0xff3a24, x, 2.45, z - 0.13, tx, tz, { kind: 'cloth', glow: true });
+      box(0.6, 0.9, 0.4, 0x5a6878, x + 0.6, 0.45, z - 0.2, tx, tz, { kind: 'metal' }); },
+    '#megaphone': function (x, z, d, tx, tz) { box(0.7, 0.75, 0.5, 0x8a6a40, x, 0.38, z, tx, tz, { kind: 'wood' }); var m = pcyl(0.12, 0.4, 0xe8e0d0, x, 0.95, z, tx, tz, { kind: 'metal' }); },
+    '#megaphone_on': function (x, z, d, tx, tz) { box(0.7, 0.75, 0.5, 0x8a6a40, x, 0.38, z, tx, tz, { kind: 'wood' }); box(0.5, 0.02, 0.4, 0xf4f0e6, x, 0.77, z, tx, tz, { kind: 'cloth' }); },
+    '#firealarm': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.3, 0.4, 0.12, 0xc8302a, 0, 1.3, 0, { kind: 'metal' }); B(0.12, 0.1, 0.05, 0xf4f0e6, 0, 1.28, 0.08, {}); },
+    '#firealarm_on': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.3, 0.4, 0.12, 0xc8302a, 0, 1.3, 0, { kind: 'metal', glow: true }); B(0.12, 0.1, 0.05, 0xf4f0e6, 0, 1.2, 0.08, {}); },
     '#scorch': function (x, z, d, tx, tz) { box(1.1, 0.02, 1.1, 0x14100c, x, 0.012, z, tx, tz, { noShadow: true }); },
     '#idol': function (x, z, d, tx, tz) { box(0.22, 0.32, 0.18, 0xe8b830, x, 1.16, z, tx, tz, { kind: 'metal', glow: true }); box(0.16, 0.12, 0.14, 0xe8b830, x, 1.38, z, tx, tz, { kind: 'metal', glow: true }); },
     '#idol_gone': function () {},
