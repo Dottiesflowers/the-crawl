@@ -1281,6 +1281,13 @@
       roomsOf(sv, /Quarters|Mess|Lab|Med|Cargo|Engine|Transporter|Holodeck|Rec|Briefing/).forEach(function (r) { pack(r, 'goblin', ri(1, 2)); });
       var bridge = roomsOf(sv, /Bridge/)[0]; if (bridge) { spawnIn(bridge, 'goblin', { sub: 'zorr', name: 'Captain Zorr', boss: true }); pack(bridge, 'goblin', 2, 3); }
       for (k = 0; k < 6; k++) { var hx3 = ri(168, 232), hz3 = ri(45, 51); if (freeT(hx3, hz3)) obj(hx3, hz3, pick(['Crate_Metal', 'Barrel', 'cardboardBoxClosed']), { fit: 0.7, rot: rnd() }, 'Equipment'); }
+      // ---- Starship set pieces: the warp core, the cargo bay fans, the gimbal that rocks the whole ship ----
+      (function () { var eng = roomsOf(sv, /Engine/)[0], cg = roomsOf(sv, /Cargo/)[0], bb = sv.box;
+        if (eng) { var ex = Math.round((eng.x0 + eng.x1) / 2), ez = Math.round((eng.z0 + eng.z1) / 2), wc = freeNear(eng, ex, ez, 4); if (wc) { g[wc[1]][wc[0]] = 'o'; dname[wc[0] + ',' + wc[1]] = 'Warp core'; taken[wc[0] + ',' + wc[1]] = 1; dec(wc[0], wc[1], '#warpcore', {});
+          var cs2 = freeNear(eng, wc[0] + 2, wc[1], 3); if (cs2) { setp('warpcore', cs2[0], cs2[1], 'Warp core console', 'Overload the warp core', { kind: 'warpcore', x0: eng.x0, x1: eng.x1, z0: eng.z0, z1: eng.z1, cx: wc[0], cz: wc[1] }); dec(cs2[0], cs2[1], '#console', {}); } } }
+        if (cg) { var fp = freeNear(cg, cg.x0, Math.round((cg.z0 + cg.z1) / 2), 4, true); if (fp) { setp('fans', fp[0], fp[1], 'Cargo bay fan controls', 'Hit the BIG FANS switch', { kind: 'fans', x0: cg.x0, x1: cg.x1, z0: cg.z0, z1: cg.z1 }); dec(fp[0], fp[1], '#console', hug(wallOf(fp[0], fp[1]), {})); } }
+        var gp2 = freeNear(null, 194, 49, 4); if (gp2) { setp('gimbal', gp2[0], gp2[1], 'Gimbal controls', 'Rock the ship', { kind: 'gimbal', x0: bb.x0, x1: bb.x1, z0: bb.z0, z1: bb.z1 }); dec(gp2[0], gp2[1], '#ridebox', {}); }
+      })();
 
       // ---------- The Jungle Set (east): trees, a river with a bridge, a temple, the Groundskeeper's shed ----------
       var JS = Zn({ name: 'The Jungle Set', theme: 'garden', line: 'A jungle under studio lights. Real plants, fake rocks and things that bite either way.' });
@@ -1356,6 +1363,35 @@
       for (xx = 211; xx <= 231; xx++) [178, 208].forEach(function (z) { if (xx !== 221 && freeT(xx, z)) obj(xx, z, '#rail', { ax: 'x', col: 0x26262c, iron: true }, 'Iron fence'); });
       for (zz = 179; zz <= 207; zz++) [211, 231].forEach(function (x) { if (zz !== 193 && freeT(x, zz)) obj(x, zz, '#rail', { ax: 'z', col: 0x26262c, iron: true }, 'Iron fence'); });
       for (zz = 181; zz <= 205; zz += 3) for (xx = 214; xx <= 228; xx += 3) if (rnd() < 0.85 && freeT(xx, zz)) obj(xx, zz, '#grave', { rot: (rnd() - 0.5) * 0.3, seed: xx * 31 + zz }, 'Headstone');
+      // ---- the hedge maze on the west lawn: you can't see over it; the fountain in the middle hides the good stuff ----
+      (function () { var mx0 = 128, mz0 = 172, CW = 7, CH = 13, cs3 = 5813; function mr() { cs3 = (cs3 * 1103515245 + 12345) & 0x7fffffff; return cs3 / 0x7fffffff; }
+        var maze = room({ name: 'The Hedge Maze', type: 'room', theme: 'lawn', x0: mx0, z0: mz0, x1: mx0 + CW * 3, z1: mz0 + CH * 3, line: 'A hedge maze, taller than you, kept trimmed by something mechanical you can hear but not see.' }, BM);
+        for (var zz8 = mz0; zz8 <= mz0 + CH * 3; zz8++) for (var xx8 = mx0; xx8 <= mx0 + CW * 3; xx8++) { if (!inb(xx8, zz8) || reg[zz8][xx8] !== grounds.id) continue; g[zz8][xx8] = '#'; reg[zz8][xx8] = -1; wstyle[xx8 + ',' + zz8] = 'hedge'; }
+        function open(x, z) { if (inb(x, z) && wstyle[x + ',' + z] === 'hedge') { g[z][x] = '.'; reg[z][x] = maze.id; delete wstyle[x + ',' + z]; } }
+        var vis = {}, stack = [[0, 0]]; vis['0,0'] = 1;
+        function cellOpen(c, r) { for (var a8 = 1; a8 <= 2; a8++) for (var b8 = 1; b8 <= 2; b8++) open(mx0 + c * 3 + a8, mz0 + r * 3 + b8); }
+        cellOpen(0, 0);
+        while (stack.length) { var cur = stack[stack.length - 1], nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(function (d8) { var nc = cur[0] + d8[0], nr = cur[1] + d8[1]; return nc >= 0 && nr >= 0 && nc < CW && nr < CH && !vis[nc + ',' + nr]; });
+          if (!nb.length) { stack.pop(); continue; } var dd8 = nb[Math.floor(mr() * nb.length)], nc2 = cur[0] + dd8[0], nr2 = cur[1] + dd8[1]; vis[nc2 + ',' + nr2] = 1; cellOpen(nc2, nr2);
+          // knock through the wall between the two cells
+          for (var a9 = 1; a9 <= 2; a9++) { if (dd8[0]) open(mx0 + (dd8[0] > 0 ? cur[0] * 3 + 3 : cur[0] * 3), mz0 + cur[1] * 3 + a9); else open(mx0 + cur[0] * 3 + a9, mz0 + (dd8[1] > 0 ? cur[1] * 3 + 3 : cur[1] * 3)); }
+          stack.push([nc2, nr2]); }
+        for (var lp8 = 0; lp8 < 6; lp8++) { var rc = 1 + Math.floor(mr() * (CW - 2)), rr = 1 + Math.floor(mr() * (CH - 2)); for (var a10 = 1; a10 <= 2; a10++) open(mx0 + rc * 3 + 3, mz0 + rr * 3 + a10); } // a few loops so it isn't one long corridor
+        for (var a11 = 1; a11 <= 2; a11++) { open(mx0, mz0 + 8 * 3 + a11); open(mx0 + 5 * 3 + a11, mz0); open(mx0 + 1 * 3 + a11, mz0 + CH * 3); } // ways in: west (from Maple Avenue), north and south onto the lawn round the manor
+        for (zz8 = 196; zz8 <= 200; zz8++) for (xx8 = mx0; xx8 <= mx0 + 1; xx8++) open(xx8, zz8);
+        var fc = [mx0 + 3 * 3 + 1, mz0 + 6 * 3 + 1]; for (var fz = 0; fz <= 1; fz++) for (var fx = 0; fx <= 1; fx++) open(fc[0] + fx, fc[1] + fz);
+        if (freeT(fc[0], fc[1])) obj(fc[0], fc[1], '#fountain', { dx: 0.5, dz: 0.5 }, 'Fountain');
+        var ch8 = freeNear(maze, fc[0] + 1, fc[1] + 1, 2); if (ch8) obj(ch8[0], ch8[1], 'Chest_Wood', { fit: 0.6, rot: 0 }, 'Old chest');
+        for (var k9 = 0; k9 < 4; k9++) spawnIn(maze, 'robot', { tier: 1, name: 'Hedge trimmer unit' });
+      })();
+      // ---- Manor set pieces: the ballroom chandelier and the library bookcase that swings open into the foyer ----
+      (function () { var ball2 = roomsOf(bm, /Ballroom/)[0], lib = roomsOf(bm, /Library/)[0], foy = roomsOf(bm, /Foyer/)[0];
+        if (ball2) { var bx = Math.round((ball2.x0 + ball2.x1) / 2), bz = Math.round((ball2.z0 + ball2.z1) / 2); dec(bx, bz, '#chandelier', { ns: true }); var br = freeNear(ball2, ball2.x0, bz, 8, true); if (br) { setp('chandelier2', br[0], br[1], 'Chandelier rope', 'Cut the chandelier rope', { kind: 'chandelier', cx: bx, cz: bz }); dec(br[0], br[1], '#cleat', hug(wallOf(br[0], br[1]), {})); } }
+        if (lib && foy) { var wl = null; for (var z9 = lib.z0; z9 <= lib.z1 && !wl; z9++) for (var x9 = lib.x0 - 1; x9 <= lib.x1 + 1 && !wl; x9++) { if (g[z9][x9] !== '#') continue;
+            [[1, 0], [0, 1]].forEach(function (d9) { if (wl) return; var a = [x9 - d9[0], z9 - d9[1]], b = [x9 + d9[0], z9 + d9[1]]; if (!inb(a[0], a[1]) || !inb(b[0], b[1])) return; var ra = reg[a[1]][a[0]], rb = reg[b[1]][b[0]];
+              if ((ra === lib.id && rb === foy.id) || (ra === foy.id && rb === lib.id)) { var side = ra === lib.id ? a : b; if (!taken[side[0] + ',' + side[1]] && (g[side[1]][side[0]] === '.' || g[side[1]][side[0]] === ',') && !decor[side[0] + ',' + side[1]]) wl = { wx: x9, wz: z9, sx: side[0], sz: side[1] }; } }); }
+          if (wl) { setp('bookcase', wl.sx, wl.sz, 'Bookcase', 'Pull the one book that sticks out', { kind: 'bookcase', wx: wl.wx, wz: wl.wz }); dec(wl.sx, wl.sz, 'bookcaseOpen', { fit: 1.0, rot: Math.atan2(wl.sx - wl.wx, wl.sz - wl.wz) }); } }
+      })();
       trees(grounds, 50, ['DeadTree_2', 'Pine_2']); greens(grounds, 60, ['Mushroom_Common', 'Grass_Wispy_Tall', 'Rock_Medium_1']);
 
       // ---------- set pieces: things you can set off once (a chandelier, a train, a water tower, kegs, a bridge, an idol, a ride) ----------

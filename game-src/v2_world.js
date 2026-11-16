@@ -480,6 +480,11 @@
       if (ax) rb.mesh.rotation.z = -sg * 0.4; else rb.mesh.rotation.x = sg * 0.4; rb.roof = true;
       return;
     }
+    if (sty === 'hedge') { // a clipped hedge wall, taller than you
+      floorQuad(floorTex('lawn', v), x, 0, z); var hh2 = hash(x * 5 + 3, z * 7 + 1), hc = hh2 > 0.5 ? 0x2f5a30 : 0x2a5229;
+      var hd = box(1.0, 1.9, 1.0, hc, x, 0.95, z, x, z, { kind: 'cloth', seed: v, wall: true }); hd.h = 1.9; box(0.92, 0.12, 0.92, hc + 0x081008, x, 1.94, z, x, z, { kind: 'cloth', noShadow: true });
+      return;
+    }
     if (sty === 'foliage') { // dense jungle you can't walk or see through: ground, a trunk or two and a heap of leaves
       floorQuad(floorTex('garden', v), x, 0, z); var hs = hash(x * 3 + 1, z * 5 + 2), hs2 = hash(x + 9, z + 4), lc = [0x2f5a35, 0x3e7a45, 0x356b3c, 0x4a8a4f][Math.floor(hs * 4)];
       if (hs2 > 0.45) pcyl(0.09, 1.6, 0x4a3420, x + (hs - 0.5) * 0.4, 0.8, z + (hs2 - 0.5) * 0.4, x, z, { kind: 'wood' });
@@ -573,6 +578,13 @@
       for (var i = 0; i < L - 1; i++) [-0.69, 0.69].forEach(function (o) { box(0.42, 0.34, 0.02, 0xd8c890, x + 0.5 + i, 1.45, z + o, tx, tz, { glow: true }); });
       [0.8, L - 1.8].forEach(function (o) { [-0.62, 0.62].forEach(function (q) { var w = pcyl(0.3, 0.1, 0x2a2a30, x + o, 0.32, z + q, tx, tz, { kind: 'metal' }); w.mesh.rotation.x = Math.PI / 2; }); }); },
     // ---- set pieces, before and after (v2_life.js spFire swaps one for the other) ----
+    '#fountain': function (x, z, d, tx, tz) { pcyl(1.0, 0.45, 0x8a8a84, x, 0.22, z, tx, tz, { kind: 'stone' }); pcyl(0.85, 0.05, 0x3f6f95, x, 0.44, z, tx, tz, { kind: 'metal', noShadow: true });
+      pcyl(0.18, 1.1, 0x8a8a84, x, 0.9, z, tx, tz, { kind: 'stone' }); pcyl(0.45, 0.1, 0x8a8a84, x, 1.45, z, tx, tz, { kind: 'stone' }); pcyl(0.06, 0.35, 0x9fc3da, x, 1.65, z, tx, tz, { kind: 'metal', glow: true }); },
+    '#warpcore': function (x, z, d, tx, tz) { pcyl(0.55, 0.3, 0x3a3a44, x, 0.15, z, tx, tz, { kind: 'metal' }); pcyl(0.32, 2.4, 0x7fd3ff, x, 1.5, z, tx, tz, { kind: 'metal', glow: true });
+      for (var i = 0; i < 4; i++) pcyl(0.4, 0.08, 0x2a2a34, x, 0.6 + i * 0.6, z, tx, tz, { kind: 'metal' }); pcyl(0.55, 0.3, 0x3a3a44, x, 2.8, z, tx, tz, { kind: 'metal' }); },
+    '#warpcore_dead': function (x, z, d, tx, tz) { pcyl(0.55, 0.3, 0x3a3a44, x, 0.15, z, tx, tz, { kind: 'metal' }); pcyl(0.32, 1.2, 0x2a3a44, x, 0.9, z, tx, tz, { kind: 'metal' }); box(1.3, 0.02, 1.3, 0x14100c, x, 0.012, z, tx, tz, { noShadow: true }); },
+    '#console': function (x, z, d, tx, tz) { var B = rotBox(x, z, d.rot || 0, tx, tz); B(0.8, 0.9, 0.45, 0x5a6878, 0, 0.45, 0, { kind: 'metal' }); var t = B(0.7, 0.05, 0.4, 0x1e2a3a, 0, 0.95, 0.04, { glow: true }); t.mesh.rotation.x = -0.4;
+      B(0.08, 0.08, 0.08, 0xc24b3a, 0.25, 1.0, 0.1, { glow: true }); },
     '#tower_down': function (x, z, d, tx, tz) { [[-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7]].forEach(function (o) { box(0.14, 0.7, 0.14, 0x4e3420, x + o[0], 0.35, z + o[1], tx, tz, { kind: 'wood' }); });
       var tk = pcyl(1.0, 1.3, 0x6a4a30, x + 0.3, 0.95, z + 3.2, tx, tz, { kind: 'wood' }); tk.mesh.rotation.x = Math.PI / 2; tk.mesh.rotation.z = 0.3;
       var lg = box(0.14, 2.2, 0.14, 0x4e3420, x + 0.9, 0.1, z + 1.6, tx, tz, { kind: 'wood' }); lg.mesh.rotation.x = Math.PI / 2; lg.mesh.rotation.y = 0.4; },
