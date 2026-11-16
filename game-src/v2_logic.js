@@ -21,7 +21,7 @@
   }
   function fogKey() { return 'crawl-fog-' + (NET.mode === 'server' ? NET.uid : 'local') + '-' + (CHAR ? CHAR.name : '') + (FLOOR === 2 ? '-f2' : ''); }
   var LAYOUT_VER = 2; // Floor 1 layout version: bump when the map changes so old positions, fog and monster state are dropped
-  var LAYOUT_VER2 = 2; // Floor 2 layout version (2: the tram-loop redesign, Nov 2026)
+  var LAYOUT_VER2 = 3; // Floor 2 layout version (2: the tram-loop redesign; 3: the hedge maze, Nov 2026)
   function curLV() { return FLOOR === 2 ? LAYOUT_VER2 : LAYOUT_VER; }
   function lvTag() { return FLOOR === 2 ? (LAYOUT_VER2 > 1 ? 'B' + LAYOUT_VER2 + ':' : '') : 'L' + LAYOUT_VER + ':'; }
   function fogSave() { // explored tiles as runs: start,length;start,length...
