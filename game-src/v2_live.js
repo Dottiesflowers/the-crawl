@@ -20,7 +20,7 @@
   function liveClose() { if (LIVE.ws) { var w = LIVE.ws; LIVE.ws = null; try { w.close(); } catch (x) {} } LIVE.on = false; liveClearGhosts(); }
   function liveSendRaw(o) { if (LIVE.ws && LIVE.ws.readyState === 1) try { LIVE.ws.send(JSON.stringify(o)); return true; } catch (x) {} return false; }
   function liveDM() { return !!(CHAR && CHAR.isDM) || isDM(); }
-  function livePos() { return { x: P.x, z: P.z, px: +P.px.toFixed(2), pz: +P.pz.toFixed(2), ry: +hero.rotation.y.toFixed(2), mv: P.path || (P.moving) ? 1 : 0, cr: crouch ? 1 : 0, dn: PC.down ? 1 : 0 }; }
+  function livePos() { return { x: P.x, z: P.z, px: +P.px.toFixed(2), pz: +P.pz.toFixed(2), ry: +hero.rotation.y.toFixed(2), mv: P.path || (P.moving) ? 1 : 0, cr: crouch ? 1 : 0, dn: PC.down ? 1 : 0, hp: PC.hp, mx: PC.max, ac: (function () { try { return pcAC().ac; } catch (x) { return 0; } })() }; }
   // a world event happened here: tell everyone (queued until the connection is up)
   function liveEv(k, v) { if (LIVE.applying || NET.mode !== 'server' || liveDM()) return; /* DM-mode testing never changes the shared floor */ LIVE.queue.push([k, v === undefined ? 1 : v]); clearTimeout(liveEv.t); liveEv.t = setTimeout(liveFlush, 60); }
   function liveFlush() { if (!LIVE.queue.length || !LIVE.on) return; if (liveSendRaw({ t: 'ev', evs: LIVE.queue.slice(0, 50) })) LIVE.queue.splice(0, 50); if (LIVE.queue.length) setTimeout(liveFlush, 100); }
@@ -104,8 +104,31 @@
     if (m) { inner.add(m); var h = (q.look.height || [1])[0]; inner.scale.set(1, [0.92, 1, 1.08][h] || 1, 1); gh.mixer = new THREE.AnimationMixer(m); gh.acts = {}; liveGhostPlay(gh, 'Idle_Loop'); }
     else { var b = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 1.5, 10), new THREE.MeshLambertMaterial({ color: 0x6aa8ff })); b.position.y = 0.75; inner.add(b); }
     gh.g.add(inner); scene.add(gh.g); if (q.p) gh.g.position.set(q.p.px, 0, q.p.pz);
-    var tag = document.createElement('div'); tag.className = 'liveTag'; tag.textContent = gh.name; tag.style.cssText = 'position:absolute;transform:translate(-50%,-100%);color:#bfe3ff;font:600 12px system-ui,sans-serif;text-shadow:0 1px 3px #000,0 0 2px #000;pointer-events:none;white-space:nowrap;z-index:5;display:none';
+    var tag = document.createElement('div'); tag.className = 'liveTag'; tag.textContent = gh.name; tag.style.cssText = 'position:absolute;transform:translate(-50%,-100%);color:#bfe3ff;font:600 12px system-ui,sans-serif;text-shadow:0 1px 3px #000,0 0 2px #000;pointer-events:auto;cursor:pointer;white-space:nowrap;z-index:5;display:none';
+    tag.title = 'Examine ' + gh.name; tag.addEventListener('click', function (ev) { ev.stopPropagation(); liveExamine(q.id); });
     document.body.appendChild(tag); gh.tag = tag;
+  }
+  // Examine a friend: tap their name tag to see their sheet
+  function liveExamine(uid) {
+    var g = LIVE.ghosts[uid]; var el = document.getElementById('friendSheet');
+    if (!el) { el = document.createElement('div'); el.id = 'friendSheet'; el.setAttribute('role', 'dialog'); el.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;width:min(420px,92vw);max-height:84vh;overflow:auto;padding:14px 16px;border-radius:12px;background:rgba(14,10,12,.95);border:1px solid #8a6a4a;color:#efe4d4;font-size:14px;line-height:1.35'; document.body.appendChild(el); }
+    el.innerHTML = '<p>Looking them over…</p>'; el.style.display = 'block';
+    api('sheet?id=' + uid).then(function (j) {
+      var c = j.sheet, p = (g && g.p) || {}, mods = function (v) { var m = Math.floor(((v || 10) - 10) / 2); return (m >= 0 ? '+' : '') + m; };
+      var sk = Object.keys(c.skills || {}).filter(function (k) { return c.skills[k] > 0; }).sort(function (a, b) { return c.skills[b] - c.skills[a]; });
+      var worn = c.gear.filter(function (x) { return x.worn; }), rest = c.gear.filter(function (x) { return !x.worn; });
+      el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">' + esc(c.name) + ' <small style="opacity:.7">(' + esc(c.username) + ')</small></h3><button type="button" class="ccBtn" id="fsX">Close</button></div>' +
+        '<p>Level ' + c.level + ' · ' + c.xp + ' XP' + (p.mx ? ' · HP ' + Math.max(0, p.hp) + ' / ' + p.mx : '') + (p.ac ? ' · AC ' + p.ac : '') + (p.dn ? ' · <b style="color:#ff6a80">down</b>' : '') + (c.dead ? ' · <b style="color:#ff6a80">dead</b>' : '') + '</p>' +
+        '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;text-align:center;margin:6px 0">' + ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'].map(function (k) { return '<div style="border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:3px"><small>' + k + '</small><br><b>' + (c.stats[k] || 10) + '</b><br><small>' + mods(c.stats[k]) + '</small></div>'; }).join('') + '</div>' +
+        (c.trait ? '<p><b>Trait:</b> ' + esc(c.trait) + (c.traitDesc ? ' <small>· ' + esc(c.traitDesc) + '</small>' : '') + '</p>' : '') +
+        (c.flaw ? '<p><b>Flaw:</b> ' + esc(c.flaw) + (c.flawDesc ? ' <small>· ' + esc(c.flawDesc) + '</small>' : '') + '</p>' : '') +
+        (sk.length ? '<p><b>Skills:</b> ' + sk.map(function (k) { return esc(k) + ' ' + c.skills[k]; }).join(', ') + '</p>' : '') +
+        '<p><b>Holding:</b> ' + esc(c.wield || 'nothing') + (c.back ? ' · on their back: ' + esc(c.back) : '') + '</p>' +
+        (worn.length ? '<p><b>Wearing:</b> ' + worn.map(function (x) { return esc(x.name); }).join(', ') + '</p>' : '') +
+        (rest.length ? '<p><b>Bag:</b> ' + rest.map(function (x) { return esc(x.name) + (x.qty > 1 ? ' ×' + x.qty : '') + (x.dmg ? ' <small>(' + esc(x.dmg) + ')</small>' : ''); }).join(', ') + '</p>' : '') +
+        '<p><small>' + (c.gold || 0) + ' gold' + (c.kit ? ' · ' + esc(c.kit) + '\'s kit' : '') + '</small></p>';
+      document.getElementById('fsX').onclick = function () { el.style.display = 'none'; };
+    }, function (e) { el.innerHTML = '<p>' + esc(e.message || 'Could not load their sheet.') + '</p><button type="button" class="ccBtn" onclick="this.parentNode.style.display=\'none\'">Close</button>'; });
   }
   function liveGhostDrop(id) { var g = LIVE.ghosts[id]; if (!g) return; if (g.g.parent) scene.remove(g.g); if (g.tag) g.tag.remove(); if (g.bub) g.bub.remove(); delete LIVE.ghosts[id]; }
   function liveClearGhosts() { Object.keys(LIVE.ghosts).forEach(liveGhostDrop); }

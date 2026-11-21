@@ -138,7 +138,7 @@ export class Campaign extends DurableObject {
       const out = JSON.stringify({ t: 'look', id: a.id, look: a.look, cname: a.cname }); this.liveOthers(fk, ws).forEach(w => this.liveSend(w, out)); return;
     }
     if (msg.t === 'pos') { // where I am and what I'm doing; passed straight on
-      a.p = { x: +msg.x || 0, z: +msg.z || 0, px: +msg.px || 0, pz: +msg.pz || 0, ry: +msg.ry || 0, mv: msg.mv ? 1 : 0, cr: msg.cr ? 1 : 0, dn: msg.dn ? 1 : 0 }; ws.serializeAttachment(a);
+      a.p = { x: +msg.x || 0, z: +msg.z || 0, px: +msg.px || 0, pz: +msg.pz || 0, ry: +msg.ry || 0, mv: msg.mv ? 1 : 0, cr: msg.cr ? 1 : 0, dn: msg.dn ? 1 : 0, hp: +msg.hp || 0, mx: +msg.mx || 0, ac: +msg.ac || 0 }; ws.serializeAttachment(a);
       const out = JSON.stringify({ t: 'pos', id: a.id, ...a.p }); this.liveOthers(fk, ws).forEach(w => this.liveSend(w, out)); return;
     }
     if (msg.t === 'act' || msg.t === 'say') {
@@ -192,6 +192,13 @@ export class Campaign extends DurableObject {
         const s = JSON.stringify(body.character || null); if (s.length > 200000) return json({ error: 'too_big' }, 413);
         this.sql.exec('INSERT INTO characters (user_id, data, updated) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated = excluded.updated', u.id, s, Date.now());
         return json({ ok: true });
+      }
+      if (p === '/api/sheet' && m === 'GET') { // a friend's character sheet, for Examine
+        const r = this.one('SELECT u.username, c.data FROM users u LEFT JOIN characters c ON c.user_id = u.id WHERE u.id = ?', parseInt(url.searchParams.get('id') || '0', 10));
+        if (!r || !r.data) return json({ error: 'none', message: 'No character yet.' }, 404);
+        const c = JSON.parse(r.data);
+        return json({ sheet: { username: r.username, name: c.name, level: c.level || 1, xp: c.xp || 0, stats: c.stats || {}, skills: c.skills || {}, trait: c.trait, traitDesc: c.traitDesc || '', flaw: c.flaw, flawDesc: c.flawDesc || '', wield: c.wield || null, back: c.back || null, kit: c.kit || null, gold: c.gold || 0, dead: !!c.dead,
+          gear: (c.gear || []).filter(g => g && g.cat !== 'body').map(g => ({ name: g.name, qty: g.qty || 1, dmg: g.dmg || '', cat: g.cat || '', worn: !!g.worn, rarity: g.rarity || '' })) } });
       }
       if (p === '/api/party' && m === 'GET') {
         const rows = this.all('SELECT u.id, u.username, u.role, c.data, c.updated FROM users u LEFT JOIN characters c ON c.user_id = u.id ORDER BY u.id');
