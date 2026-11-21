@@ -198,7 +198,36 @@
     'Plain white tee': { cat: 'clothing', slot: 'kTop', style: 'T-shirt', color: 0, level: 1, desc: 'Clean. Suspiciously clean.' },
     'Grey hoodie': { cat: 'clothing', slot: 'kTop', style: 'Hoodie', color: 2, level: 1, desc: 'Somebody\'s. Not anymore.' },
     'Black jeans': { cat: 'clothing', slot: 'kPants', style: 'Jeans', color: 1, level: 1, desc: 'Slim fit. You will make it work.' },
-    'Work boots': { cat: 'clothing', slot: 'kBoots', style: 'Work boots', color: 7, level: 1, desc: 'Steel toe. Good for kicking.' }
+    'Work boots': { cat: 'clothing', slot: 'kBoots', style: 'Work boots', color: 7, level: 1, desc: 'Steel toe. Good for kicking.' },
+    // ---- the SGC's personal starting kits (systems chat, Nov 21, at Michael's request; from the Item Catalog proposals). kit: who starts with it. level 99 keeps them out of random loot.
+    // Simplified for now: special powers from the catalog are carried as +skill checks or a throw until the engine has them (see the overview doc).
+    'Burner phone': { kit: 'Ari', cat: 'valuable', throw: { fx: [{ type: 'distract', turns: 2 }], area: 2 }, tags: ['electronics', 'battery'], level: 99, desc: 'Prepaid. Paid in cash. Obviously. Throw it as a decoy: it rings, and everything nearby looks.' },
+    'Faraday pouch': { kit: 'Ari', cat: 'tool', checks: { Stealth: 1 }, tags: ['container', 'metal'], level: 99, desc: 'They can\'t track what they can\'t ping. +1 Stealth.' },
+    'Redacted folder': { kit: 'Ari', cat: 'misc', checks: { Investigation: 2 }, tags: ['paper', 'office'], level: 99, desc: 'Most of it is black bars. The rest is worse. +2 Investigation.' },
+    'American University hoodie': { kit: 'Ari', cat: 'clothing', slot: 'kTop', style: 'Hoodie', col: 0x1a3a7a, level: 99, desc: 'Go Eagles. Smells like a server room.' },
+    'Conference lanyard': { kit: 'Ari', cat: 'valuable', checks: { Deception: 2 }, tags: ['office'], level: 99, desc: 'Eleven badges deep. SPEAKER on four of them. +2 Deception.' },
+    'Lockpick set': { kit: 'Ari', cat: 'tool', checks: { Lockpicking: 3 }, tags: ['metal', 'tool'], level: 99, desc: 'From a DEF CON village. Strictly for educational purposes. +3 to locks.' },
+    'Kibu Prototype': { kit: 'Ari', cat: 'tool', checks: { 'Electrical Tinkering': 2, Lockpicking: 1 }, tags: ['electronics'], level: 99, desc: 'Two-factor authentication. The dungeon has one factor. +2 Electrical Tinkering, +1 to locks.' },
+    'Half-finished book series': { kit: 'Ben', cat: 'misc', checks: { Lore: 2 }, tags: ['book', 'paper', 'flammable'], level: 99, desc: 'Book four of seven. He will not finish book five. +2 Lore.' },
+    'UCLA hoodie': { kit: 'Ben', cat: 'clothing', slot: 'kTop', style: 'Hoodie', col: 0x3a6ec8, level: 99, desc: 'Blue and gold. Washed so many times it is soft as a cloud.' },
+    'Volleyball knee pads': { kit: 'Ben', cat: 'tool', checks: { Acrobatics: 2 }, tags: ['sports'], level: 99, desc: 'Black, broken in, extremely sweaty. +2 Acrobatics.' },
+    'Commander deck': { kit: 'Ben', cat: 'tool', checks: { 'Monster Whisperer': 1 }, tags: ['paper'], level: 99, desc: 'A 100-card deck Michael talked him into. Sleeved. +1 Monster Whisperer (monsters respect a sleeved deck).' },
+    'Session notepad': { kit: 'Ben', cat: 'tool', checks: { 'De-escalation': 2, Perception: 1 }, tags: ['paper', 'office'], level: 99, desc: '"And how does that make you feel?" It works on imps. +2 De-escalation, +1 Perception.' },
+    'Box of tissues': { kit: 'Ben', cat: 'consumable', heal: '1', uses: 5, tags: ['paper', 'absorbent', 'medical', 'flammable'], level: 99, desc: 'Always within reach. Always. Five pulls; each patches 1 HP.' },
+    'Volleyball': { kit: 'Ben', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '1d4' }, { type: 'distract', turns: 1 }] }, uses: 20, tags: ['sports'], level: 99, desc: 'Signed by nobody. Spiked by Ben. Throw it: 1d4 and a moment of confusion. It gets spiked a lot before it pops.' },
+    'Back brace': { kit: 'Dusty', cat: 'tool', checks: { Athletics: 2 }, tags: ['sports'], level: 99, desc: 'Old football damage. He never mentions it. He always wears it. +2 Athletics.' },
+    'TI-84 calculator': { kit: 'Dusty', cat: 'tool', checks: { Investigation: 1, Appraisal: 2 }, tags: ['electronics', 'battery'], level: 99, desc: 'Masters in math. This is still his favorite tool. +2 Appraisal, +1 Investigation.' },
+    'Scout drone': { kit: 'Dusty', cat: 'tool', checks: { Perception: 2, Cartography: 2 }, tags: ['electronics', 'battery'], level: 99, desc: 'Built it himself. The startup never shipped this one. +2 Perception, +2 Cartography.' },
+    'Football': { kit: 'Dusty', cat: 'consumable', throw: { fx: [{ type: 'damage', dice: '1d6' }] }, uses: 20, tags: ['sports'], level: 99, desc: 'A spiral that once had scouts in the stands. Throw it: 1d6.' },
+    'Homestead machete': { kit: 'Dusty', cat: 'weapon', dmg: '1d6', tags: ['sharp', 'metal', 'garden', 'long'], level: 99, desc: 'For clearing sixty acres of Texas, one bush at a time.' },
+    'Multitool': { kit: 'Dusty', cat: 'tool', checks: { 'Jury-Rig': 2, Lockpicking: 1 }, tags: ['metal', 'tool', 'sharp'], level: 99, desc: 'Pliers, saw, file, three screwdrivers. Homestead standard. +2 Jury-Rig, +1 to locks.' },
+    'Seed packets': { kit: 'Dusty', cat: 'consumable', heal: '1d4', tags: ['food', 'garden'], qty: 3, level: 99, desc: 'Heirloom tomatoes, squash, and one unlabeled packet. Eat a handful in a pinch: 1d4.' },
+    'Resistance band': { kit: 'Monty', cat: 'tool', checks: { Athletics: 1, Brawling: 1 }, tags: ['stringy', 'sports', 'binding'], level: 99, desc: 'Heavy resistance. Red, so it means business. +1 Athletics, +1 Brawling.' },
+    'Kettlebell': { kit: 'Monty', cat: 'weapon', dmg: '1d8', tags: ['metal', 'heavy', 'sports'], level: 99, desc: '35 pounds. Monty carries it like a purse.' },
+    'Protein shake': { kit: 'Monty', cat: 'consumable', heal: '1d6+1', tags: ['drink', 'food'], qty: 2, level: 99, desc: 'Vanilla. Thirty grams. Shaken, not stirred.' },
+    'Stopwatch': { kit: 'Monty', cat: 'tool', checks: { 'Quick Draw': 2 }, tags: ['electronics'], level: 99, desc: '"Thirty seconds rest, let\'s go." +2 Quick Draw.' },
+    'Coach\'s whistle': { kit: 'Monty', cat: 'tool', checks: { Intimidation: 2 }, tags: ['metal', 'loud'], level: 99, desc: 'Silver. Shrill. Effective. +2 Intimidation.' },
+    'Baby wipes': { kit: 'Monty', cat: 'consumable', heal: '1d2', uses: 6, tags: ['household', 'wet', 'absorbent', 'medical'], level: 99, desc: 'New-dad survival kit, item one. Six wipes; each cleans up 1d2 HP of grime.' }
   };
 
   // ---------- where items come from ----------
