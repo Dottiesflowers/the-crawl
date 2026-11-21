@@ -182,7 +182,7 @@
   }
   function kitAct(name) { if (!KIT.acts[name]) KIT.acts[name] = KIT.mixer.clipAction(KIT.clips[name]); return KIT.acts[name]; }
   function kitOver(name) { if (!KIT.over[name]) KIT.over[name] = KIT.overMixer.clipAction(KIT.overClips[name]); return KIT.over[name]; }
-  function kitOneShot(name, hold) { if (!KIT || !KIT.on || !KIT.clips[name]) return; KIT.shot = name; KIT.shotT = hold ? 1e9 : KIT.clips[name].duration; var a = kitAct(name); a.reset(); a.setLoop(THREE.LoopOnce); a.clampWhenFinished = true; a.play(); if (KIT.curA && KIT.curA !== a) a.crossFadeFrom(KIT.curA, 0.15, false); KIT.cur = name; KIT.curA = a; }
+  function kitOneShot(name, hold) { if (!KIT || !KIT.on || !KIT.clips[name]) return; try { liveAct(name); } catch (x) {} KIT.shot = name; KIT.shotT = hold ? 1e9 : KIT.clips[name].duration; var a = kitAct(name); a.reset(); a.setLoop(THREE.LoopOnce); a.clampWhenFinished = true; a.play(); if (KIT.curA && KIT.curA !== a) a.crossFadeFrom(KIT.curA, 0.15, false); KIT.cur = name; KIT.curA = a; }
 
   // called at the end of buildHero: dress the kit figure as the builder says, or fall back to the hand-made one
   function kitApply(attach) {
@@ -314,6 +314,7 @@
   // ---------- melee: the clip set only has a sword slash, so stabs and overhead smashes are posed in code ----------
   // kitStrike starts one and returns when the blow lands (ms), so the dice wait for the hit
   function kitStrike(Wp) {
+    try { liveAct(Wp && Wp.bow ? 'Idle_Loop' : 'Sword_Attack'); } catch (x) {}
     var st = Wp && Wp.style;
     if (!KIT || !KIT.on || (st !== 'stab' && st !== 'smash')) { kitOneShot(Wp ? Wp.clip : 'Sword_Attack'); return 420; }
     KIT.strike = { t: 0, style: st, two: !!Wp.twoHand }; KIT.shot = null; return st === 'stab' ? 330 : 470;

@@ -105,6 +105,7 @@
   <button class="act" id="aSight" type="button">Torch</button>
   <button class="act big" id="aJump" type="button">Jump</button>
   <button class="act" id="aTry" type="button" title="Try something: describe any plan and the System rules on it">Try</button>
+  <button class="act" id="aSay" type="button" title="Say something to everyone on this floor" style="display:none">Say</button>
 </div>
 <div id="menu"></div>
 
@@ -7580,7 +7581,7 @@
   }
   function kitAct(name) { if (!KIT.acts[name]) KIT.acts[name] = KIT.mixer.clipAction(KIT.clips[name]); return KIT.acts[name]; }
   function kitOver(name) { if (!KIT.over[name]) KIT.over[name] = KIT.overMixer.clipAction(KIT.overClips[name]); return KIT.over[name]; }
-  function kitOneShot(name, hold) { if (!KIT || !KIT.on || !KIT.clips[name]) return; KIT.shot = name; KIT.shotT = hold ? 1e9 : KIT.clips[name].duration; var a = kitAct(name); a.reset(); a.setLoop(THREE.LoopOnce); a.clampWhenFinished = true; a.play(); if (KIT.curA && KIT.curA !== a) a.crossFadeFrom(KIT.curA, 0.15, false); KIT.cur = name; KIT.curA = a; }
+  function kitOneShot(name, hold) { if (!KIT || !KIT.on || !KIT.clips[name]) return; try { liveAct(name); } catch (x) {} KIT.shot = name; KIT.shotT = hold ? 1e9 : KIT.clips[name].duration; var a = kitAct(name); a.reset(); a.setLoop(THREE.LoopOnce); a.clampWhenFinished = true; a.play(); if (KIT.curA && KIT.curA !== a) a.crossFadeFrom(KIT.curA, 0.15, false); KIT.cur = name; KIT.curA = a; }
 
   // called at the end of buildHero: dress the kit figure as the builder says, or fall back to the hand-made one
   function kitApply(attach) {
@@ -7712,6 +7713,7 @@
   // ---------- melee: the clip set only has a sword slash, so stabs and overhead smashes are posed in code ----------
   // kitStrike starts one and returns when the blow lands (ms), so the dice wait for the hit
   function kitStrike(Wp) {
+    try { liveAct(Wp && Wp.bow ? 'Idle_Loop' : 'Sword_Attack'); } catch (x) {}
     var st = Wp && Wp.style;
     if (!KIT || !KIT.on || (st !== 'stab' && st !== 'smash')) { kitOneShot(Wp ? Wp.clip : 'Sword_Attack'); return 420; }
     KIT.strike = { t: 0, style: st, two: !!Wp.twoHand }; KIT.shot = null; return st === 'stab' ? 330 : 470;
@@ -8668,7 +8670,7 @@
     return { lv: curLV(), dead: dead, eaten: eaten, calm: calm, calmK: calmK, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
   }
   function spawnKey(e) { return (e.kind || '') + '@' + e.sx + ',' + e.sz; }
-  function calmSave(e) { if (!e || e.npc) return; e.calm = true; setTimeout(worldSave, 50); } // a truce lasts until you break it, across reloads too
+  function calmSave(e) { if (!e || e.npc) return; e.calm = true; setTimeout(worldSave, 50); try { liveEv('c:' + spawnKey(e), 1); } catch (x) {} } // a truce lasts until you break it, across reloads too
   function worldSave() {
     if (!CB.ready || !WORLD.loaded) return; var st = worldState();
     try { localStorage.setItem(worldKey(), JSON.stringify(st)); } catch (x) {}
@@ -8679,12 +8681,12 @@
   function inBag(e) { return !!(CHAR && (CHAR.gear || []).some(function (g) { return g.cat === 'body' && g.body === e.n; })); } // a body folded into your bag does not come back to life
   function ratBack(e) { return e && e.sp && e.sp.bz ? (e.n % 2 ? 30 : 60) * 60000 : RAT_BACK; }
   setInterval(function () {
-    if (!CB.ready || CB.on) return; var now = Date.now(), any = false;
+    if (!CB.ready || CB.on || liveFollower()) return; var now = Date.now(), any = false;
     CB.enemies.forEach(function (e) {
       if (e.def.base !== 'rat' || e.boss || !e.dead || !e.diedAt || now - e.diedAt < ratBack(e) || inBag(e)) return;
       if (cheb(P.x, P.z, e.sx, e.sz) < 14 || cheb(P.x, P.z, e.x, e.z) < 10) return;
       e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.looted = false; e.lootStore = null; e.calm = !!e.def.tame; e.hp = e.max; e.diedAt = 0; e.path = null;
-      e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; any = true;
+      e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; any = true; liveEv('d:' + e.n, null);
     });
     if (any) worldSave();
   }, 20000);
@@ -8712,12 +8714,12 @@
   }
   // every few minutes one dead regular monster in a zone with replacements left comes back, out of sight
   setInterval(function () {
-    if (!CB.ready || !WORLD.loaded || CB.on || !WORLD.reserve) return;
+    if (!CB.ready || !WORLD.loaded || CB.on || !WORLD.reserve || liveFollower()) return;
     var cands = CB.enemies.filter(function (e) { return e.dead && !e.npc && !e.boss && !e.guard && !inBag(e) && (WORLD.reserve[zoneOf(e)] || 0) > 0 && cheb(e.sx, e.sz, P.x, P.z) > 14 && visNow[e.sx + ',' + e.sz] === undefined && !enemyAt(e.sx, e.sz); });
     if (!cands.length) return; var e = cands[Math.floor(Math.random() * cands.length)], z = zoneOf(e);
     WORLD.reserve[z]--; if (e.def.base === 'shrub') { e.def = BEAST.shrub1; e.kind = 'shrub1'; e.lvl = 1; e.name = e.def.name; if (e.body) { e.obj.remove(e.body); e.body = null; e.mixer = null; } }
     e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.fought = false; e.looted = false; e.lootStore = null; e.calm = !!e.def.tame; e.hp = e.def.hp; e.max = e.def.hp;
-    e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.rotation.set(0, Math.PI * 0.75, 0); e.path = null; if (e.mixer && e.mixer.stopAllAction) e.mixer.stopAllAction(); e.cur = ''; cbPlay(e, 'Idle_Loop');
+    e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.rotation.set(0, Math.PI * 0.75, 0); e.path = null; if (e.mixer && e.mixer.stopAllAction) e.mixer.stopAllAction(); e.cur = ''; cbPlay(e, 'Idle_Loop'); liveEv('d:' + e.n, null);
     worldSave();
   }, 240000);
   function nearestSafe(x, z) { // the closest safe-room tile to a spot
@@ -9288,7 +9290,7 @@
     if (CB.on) try { personaAllyFell(e); } catch (x) {}
     if (/shrub/.test(e.def.base || e.kind || '')) skillCount('shrub');
     if (e.boss) logEvent('Killed ' + e.name + ', boss of ' + ((LEVEL.hoods[(roomInfo(e.x, e.z) || {}).hood] || {}).name || 'the floor'), 'boss'); else if (/chief|foreman|head|warden/.test(e.kind)) logEvent('Killed a ' + e.name, 'kill');
-    e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
+    e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none'; try { liveEv('d:' + e.n, 1); } catch (x) {}
     say('Enemy down · ' + e.name, e.def.xp + ' XP. ' + (e.kind === 'imp' ? 'The stairwell is unguarded.' : 'Its stick rolls away.'), 4200);
     if (e.kind === 'gatekeeper') setTimeout(function () { refreshFog(); logEvent('The stairs to Floor 2 are open', 'boss'); say('SYSTEM · The stairwell is open', 'The Gatekeeper is down, and somewhere to the east a stone floor slides aside. The stairs to Floor 2 are in the Stairwell. Bring your party.', 9000); }, 2600);
     if (PROPS && PROPS.ready) setTimeout(function () { place('Coin_Pile', e.px + 0.25, e.pz + 0.2, { s: 0.6 }); refreshFog(); }, 1600);
@@ -9926,10 +9928,12 @@
         '<p><button type="button" class="ccBtn" id="dmTalk">Read recent NPC conversations</button></p><div id="dmLogs"></div>' +
         (CHAR && !NET.live ? '<p><button type="button" class="ccBtn" id="dmWard">' + (CHAR.freeWardrobe ? 'Lock my wardrobe again' : 'Unlock all clothes for me (DM testing)') + '</button></p>' : '') +
         (NET.party.filter(function (p) { return p.dead; }).length ? '<h3>Fallen crawlers</h3>' + NET.party.filter(function (p) { return p.dead; }).map(function (p) { return '<p>' + esc(p.name || p.username) + ' is dead. <button type="button" class="ccBtn" data-rev="' + p.id + '">Revive</button></p>'; }).join('') + '<p><small>Stand-in until party members can revive each other.</small></p>' : '') +
+        '<h3>Shared world</h3><p>Everyone on a floor shares it: kills, truces, set pieces, jammed doors and searched loot. ' + (LIVE.on ? Object.keys(LIVE.ghosts).length + ' other' + (Object.keys(LIVE.ghosts).length === 1 ? '' : 's') + ' on this floor right now.' : 'Not connected on this floor.') + '</p><p><button type="button" class="ccBtn" id="dmWorldReset">Reset this floor for everyone</button></p>' +
         '<h3>Campaign</h3><p>' + (NET.live ? 'Live. Testing tools are locked for everyone (re-dressing, free wardrobe).' : 'Testing. Players can re-dress from their description and the DM can unlock clothes.') + '</p><p><button type="button" class="ccBtn" id="dmLive">' + (NET.live ? 'Back to testing mode' : 'Start the campaign (lock testing tools)') + '</button></p>';
       box.querySelectorAll('[data-rev]').forEach(function (b) { b.onclick = function () { api('dm/revive', { method: 'POST', body: { user_id: +b.dataset.rev } }).then(function () { if (+b.dataset.rev === NET.uid) reviveMe(); partyPoll(); say('Revived', 'They are back, with 1 HP.', 3000); }, function (e) { say('Failed', e.message); }); }; });
       document.getElementById('dmLive').onclick = function () { if (!NET.live && !confirm('Start the campaign? Re-dressing and the free wardrobe lock for everyone.')) return; api('dm/campaign', { method: 'PUT', body: { live: !NET.live } }).then(function () { NET.live = !NET.live; if (NET.live && CHAR && CHAR.freeWardrobe) { CHAR.freeWardrobe = false; saveChar(CHAR); } drawRows(); }, function (e) { say('Failed', e.message); }); };
       if (document.getElementById('dmWard')) document.getElementById('dmWard').onclick = function () { CHAR.freeWardrobe = !CHAR.freeWardrobe; saveChar(CHAR); drawRows(); };
+      document.getElementById('dmWorldReset').onclick = function () { var fk = liveFk(); if (!confirm('Reset ' + fk + ' for everyone? Every monster, set piece and searched spot on this floor comes back.')) return; api('dm/world?fk=' + encodeURIComponent(fk), { method: 'DELETE' }).then(function () { say('Floor reset', 'Everyone on this floor will reload.', 3000); }, function (e) { say('Reset failed', e.message); }); };
       document.getElementById('dmNew').onclick = function () { var note = prompt('Who is this invite for? (optional)') || ''; api('dm/invites', { method: 'POST', body: { note: note } }).then(sheetAfter, function (e) { say('Invite failed', e.message); }); };
       document.getElementById('dmTalk').onclick = function () {
         api('dm/talk').then(function (t) {
@@ -10991,7 +10995,7 @@
     if (!CHAR || !e || !e.dead || e.eaten || e.npc) return;
     var L = e.lootStore ? e.lootStore : rollDrops(e.kind, e.def.base), RD = DROPS.monsters[e.kind] || {};
     if (!e.lootStore && RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); }
-    e.eaten = true; e.claimed = false; e.obj.visible = false; e.bar.style.display = 'none'; e.looted = true;
+    e.eaten = true; e.claimed = false; e.obj.visible = false; e.bar.style.display = 'none'; e.looted = true; liveEv('g:' + e.n, 1);
     (L.items || []).forEach(function (it) { it.from = it.from || e.name; invAdd(it, true); }); CHAR.gold = (CHAR.gold || 0) + (L.gold || 0);
     CHAR.gear.push({ name: e.name + ' (body)', cat: 'body', body: e.n, desc: 'A whole ' + e.name.toLowerCase() + ', folded to fit. Shrubs would kill for it. Someone in Underline Station might pay for it. Drop it to use it as bait.' });
     kitOneShot('PickUp_Table'); skillCount('stash'); saveChar(CHAR); if (typeof worldSave === 'function') worldSave();
@@ -11260,8 +11264,9 @@
       if (RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); } // elites and bosses: one guaranteed pick from their table
       L.gold += skillLv('Scavenger'); skillCount('loot');
       if (e.boss) { L.gold += d(10, 6); L.items.push({ name: e.name.split(',')[0] + '\'s trophy', cat: 'valuable', desc: 'Proof you beat a zone boss. Heavier than it looks.' }); }
-      L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true;
+      L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true; liveEv('b:' + e.n, 1);
     }
+    if (e.lootStore.note && !(e.lootStore.items || []).length && !e.lootStore.gold) { say('Already searched', e.lootStore.note, 2800); return; }
     lootWindow(e.lootStore);
   }
   // ---------- credits (CC-BY assets must credit their authors) ----------
@@ -11597,7 +11602,7 @@
 
   // ---------- loot from containers and secret doors ----------
   // container pools live in items.js (DROPS.containers); rollContainer() reads them
-  function lootSpot(x, z, kind) { var st = lootPrep(x, z, kind); passiveClear(x + ',' + z); lootWindow(st); }
+  function lootSpot(x, z, kind) { var st = lootPrep(x, z, kind); passiveClear(x + ',' + z); if (st.note && !(st.items || []).length && !st.gold) { say('Already searched', st.note, 2800); return; } lootWindow(st); }
   // roll what is in a spot (once): searching shows it, and passive perception peeks at it
   function lootPrep(x, z, kind) {
     var key = 'loot' + x + ',' + z, st = lootSpot.done[key];
@@ -11605,7 +11610,7 @@
       var fnm = (LEVEL.dname[x + ',' + z] || '') + ' ' + ({ h: 'Shelf', k: 'Book stand', K: 'Crate', R: 'Barrel', b: 'Sack', T: 'Table', v: 'Vase' }[ch(x, z)] || '') + ' ' + ((LEVEL.decor[x + ',' + z] || []).map(function (d) { return d.m; }).join(' '));
       var R = rollLoot(kind, (roomInfo(x, z) || {}).theme, fnm.trim(), LEVEL.dname[x + ',' + z] || { h: 'shelf', k: 'book stand', K: 'crate', R: 'barrel', b: 'sack', v: 'vase' }[ch(x, z)] || '');
       if (kind === 'chest') { skillCount('box'); if (Math.random() < skillLv('Box Cracker') * 0.12) { var ex = rollLoot(kind).items[0]; if (ex) { ex.from = 'a loot box (Box Cracker)'; R.items.push(ex); } } }
-      st = lootSpot.done[key] = { title: kind === 'chest' ? 'Loot box' : 'You found', items: R.items, gold: R.gold };
+      st = lootSpot.done[key] = { title: kind === 'chest' ? 'Loot box' : 'You found', items: R.items, gold: R.gold }; liveEv('L:' + x + ',' + z, 1);
     }
     return st;
   }
@@ -12256,7 +12261,7 @@
       else { notes.unshift('You kick the camera off its tripod and stamp on it. It is not quiet.'); hit = spFoes(function (e) { return !e.calm && !e.def.timid && !inSafeRoom(e.x, e.z) && cheb(e.x, e.z, P.x, P.z) <= 8 && (!CB.on || CB.order.indexOf(e) < 0); }); if (hit.length) notes.push(hit.length + ' of the cast heard that.'); } }
     if (sp.kind === 'distract' && sp.camoff != null) notes.push('Every camera on this set is blind now.');
     if (self) notes.push('You take ' + self + ' ' + dmgKind + ' damage.');
-    CHAR.setp = CHAR.setp || {}; CHAR.setp[spKey(sp)] = Date.now(); saveChar(CHAR); try { rebuildChunks(); } catch (x) {}
+    CHAR.setp = CHAR.setp || {}; CHAR.setp[spKey(sp)] = Date.now(); saveChar(CHAR); liveEv('sp:' + sp.id, 1); try { rebuildChunks(); } catch (x) {}
     if (sp.kind !== 'camera') setTimeout(function () { try { achieve('setpiece'); } catch (x) {} }, 3000);
     say(title, notes.filter(Boolean).join(' '), 7000); worldSave();
     var loud = !sp._cover && sp.kind !== 'distract' && sp.kind !== 'bookcase', watched = sp.kind !== 'camera' && FLOOR === 2 && camWatching();
@@ -12276,7 +12281,7 @@
   function jamToggle(k) { var q = k.split(','), x = +q[0], z = +q[1]; if (CB.on && !CB.res.action) { say('No action left', 'Jamming a door takes your action. Next turn.', 2600); return; }
     if (!CHAR.jam) CHAR.jam = {}; var kk = jamKey(k), on = !CHAR.jam[kk];
     if (on && (x === P.x && z === P.z || CB.enemies.some(function (e) { return !e.dead && e.x === x && e.z === z; }))) { say('Something is in the way', 'Someone is standing in the doorway.', 2400); return; }
-    if (CB.on) CB.res.action = 0; if (on) CHAR.jam[kk] = 1; else delete CHAR.jam[kk]; jamMesh(x, z, on); saveChar(CHAR);
+    if (CB.on) CB.res.action = 0; if (on) CHAR.jam[kk] = 1; else delete CHAR.jam[kk]; jamMesh(x, z, on); saveChar(CHAR); liveEv('j:' + k, on ? 1 : null);
     say(on ? 'DOOR JAMMED' : 'DOOR FREED', on ? 'You wedge a prop phaser into the track. The door shudders, sparks, and stays shut. Nothing is getting through here.' : 'You yank the phaser out. The door hisses open like nothing happened.', 3000);
     try { refreshFog(); } catch (x2) {} if (CB.on) cbAfterMyMove(); }
   function jamMesh(x, z, on) { var k = x + ',' + z; if (JAM.m[k]) { scene.remove(JAM.m[k]); delete JAM.m[k]; } if (!on) return;
@@ -13605,6 +13610,126 @@
       creditsHTML() + '</div></div>';
   }
 
+  // ---------- the shared world (stages 1 and 2): see each other on your floor, and share what happens there ----------
+  // One live connection per player per floor (fk = F<floor>:<layout>). Friends show as their own characters, walking where they walk.
+  // World events are small keys: d:<monster n> dead, c:<spawn> truce, sp:<set piece> set off, j:<x,z> door jammed,
+  // b:<n> body searched, g:<n> body carried off, L:<x,z> spot searched. The server keeps them for the floor and replays them on join.
+  // Monster comebacks happen on one machine only (the host: the lowest player id on the floor) and are shared from there.
+  var LIVE = { ws: null, fk: null, on: false, you: null, ghosts: {}, retry: 0, lastSent: '', sentAt: 0, queue: [], applying: false, warned: false, st: null };
+  function liveFk() { return 'F' + FLOOR + ':' + curLV(); }
+  function liveWanted() { return NET.mode === 'server' && !!NET.uid && CB.ready && WORLD.loaded && typeof CHAR !== 'undefined' && !!CHAR; }
+  function liveConnect() {
+    if (!liveWanted()) return; var fk = liveFk(); if (LIVE.ws && LIVE.fk === fk && LIVE.ws.readyState <= 1) return;
+    liveClose(); LIVE.fk = fk;
+    var ws; try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/live?fk=' + encodeURIComponent(fk)); } catch (x) { return; }
+    LIVE.ws = ws;
+    ws.onopen = function () { LIVE.retry = 0; liveSendRaw({ t: 'hello', cname: CHAR.name || NET.user, look: liveDM() ? null : JSON.parse(JSON.stringify(look)), p: livePos() }); };
+    ws.onmessage = function (m) { var j; try { j = JSON.parse(m.data); } catch (x) { return; } try { liveOn(j); } catch (x) { console.warn('live', x); } };
+    ws.onclose = function () { if (LIVE.ws !== ws) return; LIVE.on = false; LIVE.ws = null; liveClearGhosts(); LIVE.retry = Math.min(30000, (LIVE.retry || 1000) * 2); setTimeout(liveConnect, LIVE.retry); };
+    ws.onerror = function () {};
+  }
+  function liveClose() { if (LIVE.ws) { var w = LIVE.ws; LIVE.ws = null; try { w.close(); } catch (x) {} } LIVE.on = false; liveClearGhosts(); }
+  function liveSendRaw(o) { if (LIVE.ws && LIVE.ws.readyState === 1) try { LIVE.ws.send(JSON.stringify(o)); return true; } catch (x) {} return false; }
+  function liveDM() { return !!(CHAR && CHAR.isDM) || isDM(); }
+  function livePos() { return { x: P.x, z: P.z, px: +P.px.toFixed(2), pz: +P.pz.toFixed(2), ry: +hero.rotation.y.toFixed(2), mv: P.path || (P.moving) ? 1 : 0, cr: crouch ? 1 : 0 }; }
+  // a world event happened here: tell everyone (queued until the connection is up)
+  function liveEv(k, v) { if (LIVE.applying || NET.mode !== 'server' || liveDM()) return; // DM-mode testing never changes the shared floor LIVE.queue.push([k, v === undefined ? 1 : v]); clearTimeout(liveEv.t); liveEv.t = setTimeout(liveFlush, 60); }
+  function liveFlush() { if (!LIVE.queue.length || !LIVE.on) return; if (liveSendRaw({ t: 'ev', evs: LIVE.queue.slice(0, 50) })) LIVE.queue.splice(0, 50); if (LIVE.queue.length) setTimeout(liveFlush, 100); }
+  function liveFollower() { if (!LIVE.on) return false; var ids = Object.keys(LIVE.ghosts).map(Number).filter(function (id) { return !LIVE.ghosts[id].dm; }); return ids.some(function (id) { return id < LIVE.you; }); }
+  function liveOn(j) {
+    if (j.t === 'state') { LIVE.on = true; LIVE.you = j.you; liveApplyState(j.items || []); (j.roster || []).forEach(liveGhostAdd); liveFlush(); if (j.roster && j.roster.length) say('On this floor', j.roster.map(function (q) { return q.cname || q.name; }).join(', ') + (j.roster.length > 1 ? ' are' : ' is') + ' here too.', 3600); return; }
+    if (j.t === 'join') { liveGhostAdd(j.p); if (!j.p.look) return; say((j.p.cname || j.p.name) + ' is here', 'They just arrived on this floor.', 2600); return; }
+    if (j.t === 'leave') { liveGhostDrop(j.id); return; }
+    if (j.t === 'pos') { var g = LIVE.ghosts[j.id]; if (g) { g.p = j; if (!g.seen) { g.seen = true; g.g.position.set(j.px, 0, j.pz); } } return; }
+    if (j.t === 'say') { liveBubble(j.id, j.text); try { cbLog(j.name, j.text); } catch (x) {} return; }
+    if (j.t === 'act') { var g2 = LIVE.ghosts[j.id]; if (g2 && g2.mixer && /^[A-Za-z_]+$/.test(j.a)) liveGhostShot(g2, j.a); return; }
+    if (j.t === 'ev') { LIVE.applying = true; try { (j.evs || []).forEach(function (e) { liveApply(e[0], e[1], j.name); }); } finally { LIVE.applying = false; } worldSave(); return; }
+    if (j.t === 'reset') { say('The floor resets', 'The DM has reset this floor. Everything is back.', 4000); setTimeout(function () { location.reload(); }, 1800); }
+  }
+  // ---- world events ----
+  function liveByN(n) { n = +n; for (var i = 0; i < CB.enemies.length; i++) if (CB.enemies[i].n === n) return CB.enemies[i]; return null; }
+  function liveApplyState(items) {
+    LIVE.applying = true; var dead = {};
+    try {
+      items.forEach(function (e) { if (/^d:/.test(e[0])) dead[e[0].slice(2)] = 1; });
+      // the shared record decides who is dead: bring back anything this player killed alone before the floor went shared
+      CB.enemies.forEach(function (e) { if (e.npc || !e.dead || dead[e.n] || inBag(e) || e.gone) return; if (e.def.base === 'rat' && !e.boss && e.diedAt && Date.now() - e.diedAt < ratBack(e)) return; liveRevive(e); });
+      items.forEach(function (e) { liveApply(e[0], e[1], null, true); });
+    } finally { LIVE.applying = false; }
+    worldSave(); try { refreshFog(); } catch (x) {}
+  }
+  function liveApply(k, v, who, quiet) {
+    var i = k.indexOf(':'), kind = k.slice(0, i), id = k.slice(i + 1);
+    if (kind === 'd') { var e = liveByN(id); if (!e) return; if (v === null) { if (e.dead && !inBag(e)) liveRevive(e); return; } if (!e.dead) liveKill(e, who, quiet); return; }
+    if (kind === 'g') { var e2 = liveByN(id); if (e2 && v) { e2.dead = true; e2.eaten = true; e2.looted = true; e2.counted = true; e2.hp = 0; e2.obj.visible = false; if (e2.bar) e2.bar.style.display = 'none'; } return; }
+    if (kind === 'b') { var e3 = liveByN(id); if (e3 && v && !e3.lootStore) { e3.looted = true; e3.lootStore = { title: 'Searching ' + e3.name, items: [], gold: 0, note: (who ? who + ' already' : 'Someone already') + ' went through this one.' }; } return; }
+    if (kind === 'c') { CB.enemies.forEach(function (e) { if (!e.dead && spawnKey(e) === id) e.calm = !!v; }); return; }
+    if (kind === 'sp') { var sp = null; Object.keys(LEVEL.setp || {}).some(function (kk) { if (LEVEL.setp[kk].id === id) { sp = LEVEL.setp[kk]; return true; } }); if (!sp || !v) return;
+      CHAR.setp = CHAR.setp || {}; if (CHAR.setp[spKey(sp)]) return; CHAR.setp[spKey(sp)] = Date.now(); saveChar(CHAR); try { spInit(); rebuildChunks(); } catch (x) {}
+      if (!quiet) say((who || 'Someone') + ' · ' + sp.name, 'Somewhere on the floor, ' + (who || 'someone') + ' set off the ' + sp.name.toLowerCase() + '.', 3200); return; }
+    if (kind === 'j') { var q = id.split(','); CHAR.jam = CHAR.jam || {}; var kk = jamKey(id); if (v) CHAR.jam[kk] = 1; else delete CHAR.jam[kk]; try { jamMesh(+q[0], +q[1], !!v); refreshFog(); } catch (x) {} return; }
+    if (kind === 'L') { var key = 'loot' + id; if (v && !lootSpot.done[key]) lootSpot.done[key] = { title: 'You found', items: [], gold: 0, note: (who ? who + ' already' : 'Someone already') + ' cleared this out.' }; return; }
+  }
+  function liveKill(e, who, quiet) {
+    var mine = CB.on && CB.order.indexOf(e) >= 0;
+    if (mine) { e.hp = 0; cbKill(e); if (!CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) setTimeout(function () { if (CB.on) cbEnd(true); }, 600); return; }
+    e.dead = true; e.counted = true; e.hp = 0; e.grappled = false; if (e.bar) e.bar.style.display = 'none';
+    if (!quiet && e.obj.visible && cheb(e.x, e.z, P.x, P.z) < 16) cbPlay(e, 'Death01', true); else e.obj.visible = false;
+  }
+  function liveRevive(e) {
+    e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.fought = false; e.looted = false; e.lootStore = null; e.calm = !!e.def.tame; e.hp = e.max = e.def.hp; e.diedAt = 0; e.path = null;
+    e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; if (e.mixer && e.mixer.stopAllAction) e.mixer.stopAllAction(); e.cur = ''; try { cbPlay(e, 'Idle_Loop'); } catch (x) {}
+  }
+  // ---- friends on the floor ----
+  function liveGhostModel(lk) {
+    if (!KIT || !KIT.ready || !lk) return null; var save = JSON.parse(JSON.stringify(look)), c = null;
+    try {
+      Object.keys(lk).forEach(function (k) { if (look[k] && Array.isArray(lk[k])) look[k] = lk[k].slice(); }); look.model = [0, look.model ? look.model[1] : 0];
+      kitApply(); (KIT.attached || []).forEach(function (o) { if (o.parent) o.parent.remove(o); });
+      c = THREE.SkeletonUtils.clone(KIT.root);
+      c.traverse(function (o) { if (o.material) o.material = Array.isArray(o.material) ? o.material.map(function (m) { return m.clone(); }) : o.material.clone(); if (o.isMesh && o.geometry && o.geometry.attributes.position && (o.isSkinnedMesh || o.name === 'Head')) o.geometry = o.geometry.clone(); if (o.isMesh) o.frustumCulled = false; });
+    } catch (x) { console.warn('ghost model', x); c = null; }
+    Object.keys(save).forEach(function (k) { look[k] = save[k]; }); try { buildHero(); } catch (x) {}
+    return c;
+  }
+  function liveGhostAdd(q) {
+    if (!q || q.id === LIVE.you || LIVE.ghosts[q.id]) { if (q && LIVE.ghosts[q.id] && q.p) LIVE.ghosts[q.id].p = q.p; return; }
+    var gh = { id: q.id, name: q.cname || q.name, dm: !q.look, p: q.p, g: new THREE.Group(), seen: !!q.p };
+    LIVE.ghosts[q.id] = gh; if (gh.dm) return; // the DM watches unseen
+    var inner = new THREE.Group(), m = liveGhostModel(q.look);
+    if (m) { inner.add(m); var h = (q.look.height || [1])[0]; inner.scale.set(1, [0.92, 1, 1.08][h] || 1, 1); gh.mixer = new THREE.AnimationMixer(m); gh.acts = {}; liveGhostPlay(gh, 'Idle_Loop'); }
+    else { var b = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 1.5, 10), new THREE.MeshLambertMaterial({ color: 0x6aa8ff })); b.position.y = 0.75; inner.add(b); }
+    gh.g.add(inner); scene.add(gh.g); if (q.p) gh.g.position.set(q.p.px, 0, q.p.pz);
+    var tag = document.createElement('div'); tag.className = 'liveTag'; tag.textContent = gh.name; tag.style.cssText = 'position:absolute;transform:translate(-50%,-100%);color:#bfe3ff;font:600 12px system-ui,sans-serif;text-shadow:0 1px 3px #000,0 0 2px #000;pointer-events:none;white-space:nowrap;z-index:5;display:none';
+    document.body.appendChild(tag); gh.tag = tag;
+  }
+  function liveGhostDrop(id) { var g = LIVE.ghosts[id]; if (!g) return; if (g.g.parent) scene.remove(g.g); if (g.tag) g.tag.remove(); if (g.bub) g.bub.remove(); delete LIVE.ghosts[id]; }
+  function liveClearGhosts() { Object.keys(LIVE.ghosts).forEach(liveGhostDrop); }
+  function liveGhostPlay(g, name) { if (!g.mixer || g.cur === name || !KIT.clips[name]) return; var a = g.acts[name] || (g.acts[name] = g.mixer.clipAction(KIT.clips[name])); a.reset().fadeIn(0.2).play(); if (g.curA) g.curA.fadeOut(0.2); g.curA = a; g.cur = name; }
+  function liveGhostShot(g, name) { if (!KIT.clips[name]) return; var a = g.mixer.clipAction(KIT.clips[name]); a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.play(); if (g.curA) g.curA.fadeOut(0.1); g.cur = name; g.curA = a; g.shotT = KIT.clips[name].duration; }
+  function liveBubble(id, text) { var g = LIVE.ghosts[id]; if (!g || g.dm) return; if (!g.bub) { g.bub = document.createElement('div'); g.bub.style.cssText = 'position:absolute;transform:translate(-50%,-100%);max-width:200px;background:rgba(20,24,32,.88);color:#eef;border:1px solid #6aa8ff;border-radius:8px;padding:4px 8px;font:13px system-ui,sans-serif;pointer-events:none;z-index:6;display:none'; document.body.appendChild(g.bub); }
+    g.bub.textContent = text; g.bubT = performance.now() + 6000; }
+  function liveSay(text) { text = String(text || '').trim().slice(0, 200); if (!text || !LIVE.on) return false; liveSendRaw({ t: 'say', text: text }); try { cbLog(CHAR.name || 'You', text); } catch (x) {} return true; }
+  function liveAct(a) { if (LIVE.on && !liveDM()) liveSendRaw({ t: 'act', a: a }); }
+  // ---- every frame: move the friends, and now and then tell the floor where you are ----
+  var liveClock = performance.now();
+  (function liveTick() {
+    requestAnimationFrame(liveTick); var now = performance.now(), dt = Math.min(0.1, (now - liveClock) / 1000); liveClock = now;
+    Object.keys(LIVE.ghosts).forEach(function (id) { var g = LIVE.ghosts[id]; if (g.dm || !g.p) return;
+      var dx = g.p.px - g.g.position.x, dz = g.p.pz - g.g.position.z, dist = Math.hypot(dx, dz), sp = Math.min(1, dt * 8);
+      if (dist > 6) g.g.position.set(g.p.px, 0, g.p.pz); else { g.g.position.x += dx * sp; g.g.position.z += dz * sp; }
+      var dr = g.p.ry - g.g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); g.g.rotation.y += dr * Math.min(1, dt * 10);
+      g.vis = visNow[g.p.x + ',' + g.p.z] !== undefined || liveDM(); g.g.visible = g.vis;
+      if (g.mixer) { if (g.shotT > 0) g.shotT -= dt; else liveGhostPlay(g, g.p.cr ? (dist > 0.05 || g.p.mv ? 'Crouch_Fwd_Loop' : 'Crouch_Idle_Loop') : dist > 0.05 || g.p.mv ? 'Walk_Loop' : 'Idle_Loop'); if (g.vis) g.mixer.update(dt); }
+      var s = g.vis ? toScreen(g.g.position.x, 1.95, g.g.position.z) : null;
+      if (g.tag) { if (s) { g.tag.style.display = 'block'; g.tag.style.left = s.x + 'px'; g.tag.style.top = s.y + 'px'; } else g.tag.style.display = 'none'; }
+      if (g.bub) { if (s && g.bubT > now) { g.bub.style.display = 'block'; g.bub.style.left = s.x + 'px'; g.bub.style.top = (s.y - 16) + 'px'; } else g.bub.style.display = 'none'; } });
+    if (!LIVE.on || liveDM() || now - LIVE.sentAt < 120) return; var p = livePos(), sig = JSON.stringify(p);
+    if (sig !== LIVE.lastSent || now - LIVE.sentAt > 5000) { LIVE.lastSent = sig; LIVE.sentAt = now; liveSendRaw(Object.assign({ t: 'pos' }, p)); }
+  })();
+  // connect when the floor is ready, reconnect when the floor or its layout changes, keep the line warm
+  setInterval(function () { if (liveWanted()) { if (!LIVE.ws || LIVE.fk !== liveFk()) liveConnect(); else liveSendRaw({ t: 'ping' }); } else if (LIVE.ws && !(typeof CHAR !== 'undefined' && CHAR)) liveClose(); }, 4000);
+
   // ---------- state ----------
   var P = { x: start.x, z: start.z, px: start.x, pz: start.z, speed: 0 };
   var CAMV = { a: Math.PI / 4, yaw: 0, cx: 1, cz: 1, px: 0, pz: 0, uz: 1, home: false, fx: 0, fz: 0, halfH: 4.1, ptrs: {}, pinch: 0 };
@@ -14001,6 +14126,8 @@
     if (CHAR && (CHAR.torch || hasLight())) { look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say('Torch raised', 'You hold up your torch. You see ' + SIGHTS[1].r + ' tiles, and it takes your off hand.', 3200); return; }
     say('No torch', 'You do not have a torch. Light one at any brazier (walk up to one and interact). Your eyes are what they are.', 3800);
   }
+  tap('aSay', function () { var t = prompt('Say to everyone on this floor'); if (t) liveSay(t); });
+  setInterval(function () { var b = document.getElementById('aSay'); if (b) b.style.display = LIVE.on && Object.keys(LIVE.ghosts).length ? '' : 'none'; }, 1500);
   tap('aInteract', openMenu); tap('aJump', jump); tap('aTry', function () { var best = null, bd = 7; CB.enemies.forEach(function (q) { if (q.dead || q.npc) return; var dd = cheb(P.x, P.z, q.x, q.z); if (dd < bd && los(P.x, P.z, q.x, q.z)) { bd = dd; best = q; } }); trySomething(best); }); tap('aCrouch', toggleCrouch); tap('aSight', cycleSight);
   var KEYS = { ArrowUp: 'U', ArrowDown: 'D', ArrowLeft: 'L', ArrowRight: 'R', w: 'U', s: 'D', a: 'L', d: 'R', W: 'U', S: 'D', A: 'L', D: 'R' };
   window.addEventListener('keydown', function (e) {
@@ -14212,7 +14339,8 @@
   window.__crawl.dmTest = function () { DM.as = 'dm'; refreshFog(); return Array.prototype.filter.call(tileState, function (v) { return v; }).length; }; window.__crawl.dmJump = function (x, z) { dmJump(x, z); return [P.x, P.z]; };
   window.__crawl.strike = function (slow) { KIT.slow = slow || 1; var W = pcWeapon(); return [W.style, kitStrike(W)]; }; window.__crawl.face = function (r) { hero.rotation.y = r; };
   window.__crawl.tram = { acts: function (k) { var q = k.split(','); return actsOf({ key: k, c: 'o', x: +q[0], z: +q[1] }); }, act: function (a, k) { return safeAct(a, { key: k, c: 'o' }); }, clear: function () { return tramClear(); }, slate: function (e) { slateWin(e, 0); }, open: function () { return gateOpen(); } };
-  window.__crawl.cam = { st: CAM, unpeace: function () { DM.peace = false; }, end: function (w) { cbEnd(w); }, dbg: function () { var c = CAM.list[0]; return { ready: CB.ready, peace: DM.peace, dm: isDM(), safe: inSafeRoom(P.x, P.z), n: CAM.list.length, lv: CAM.lv === LEVEL, crouch: crouch, sees: CAM.list.map(function (c) { return [c.sp.id, camOn(c.sp), camSees(c, P.x, P.z, false), camSees(c, P.x, P.z, true), +c.yaw.toFixed(2)]; }).filter(function (q) { return q[2]; }) }; } };
+  window.__crawl.live = { st: LIVE, get on() { return LIVE.on; }, get fk() { return LIVE.fk; }, get you() { return LIVE.you; }, get ghosts() { return LIVE.ghosts; }, say: function (t) { return liveSay(t); }, hideMe: function (v) { hero.visible = !v; }, dbg: function () { var g = LIVE.ghosts[Object.keys(LIVE.ghosts)[0]]; if (!g) return null; var sk = null; g.g.traverse(function (o) { if (o.isSkinnedMesh && !sk) sk = o; }); var w = new THREE.Vector3(); if (sk) sk.skeleton.bones[0].getWorldPosition(w); var inG = false; if (sk) { var b = sk.skeleton.bones[0]; while (b) { if (b === g.g) inG = true; b = b.parent; } } return { P: [P.px, P.pz], g: [g.g.position.x, g.g.position.z], bone0: [w.x, w.z], boneInGhost: inG }; } };
+  window.__crawl.cam = { st: CAM, kill: function (e) { cbKill(e); }, unpeace: function () { DM.peace = false; }, end: function (w) { cbEnd(w); }, dbg: function () { var c = CAM.list[0]; return { ready: CB.ready, peace: DM.peace, dm: isDM(), safe: inSafeRoom(P.x, P.z), n: CAM.list.length, lv: CAM.lv === LEVEL, crouch: crouch, sees: CAM.list.map(function (c) { return [c.sp.id, camOn(c.sp), camSees(c, P.x, P.z, false), camSees(c, P.x, P.z, true), +c.yaw.toFixed(2)]; }).filter(function (q) { return q[2]; }) }; } };
   window.__crawl.ach = { achieve: achieve, ACH: ACH, state: worldState, apply: worldApply, calm: calmSave, key: spawnKey, talkFight: function (e) { e.talk = e.talk || { lines: [], facts: [], mood: 'neutral' }; } }; // test hooks
   charInit(); cbHUD();
   requestAnimationFrame(loop);

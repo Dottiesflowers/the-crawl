@@ -86,6 +86,7 @@ export class Campaign extends DurableObject {
       CREATE TABLE IF NOT EXISTS kv (user_id INTEGER, k TEXT, v TEXT, updated INTEGER, PRIMARY KEY (user_id, k));
       CREATE TABLE IF NOT EXISTS board (id INTEGER PRIMARY KEY, user_id INTEGER, room INTEGER, text TEXT, created INTEGER);
       CREATE TABLE IF NOT EXISTS ai_usage (user_id INTEGER, day TEXT, calls INTEGER, PRIMARY KEY (user_id, day));
+      CREATE TABLE IF NOT EXISTS world (fk TEXT, k TEXT, v TEXT, by_user INTEGER, updated INTEGER, PRIMARY KEY (fk, k));
     `);
   }
   one(q, ...a) { const r = this.sql.exec(q, ...a).toArray(); return r[0] || null; }
@@ -102,12 +103,67 @@ export class Campaign extends DurableObject {
     this.sql.exec('DELETE FROM sessions WHERE expires < ?', Date.now());
     return `${COOKIE}=${t}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESSION_DAYS * 86400}`;
   }
+  // ---------- the shared world: one live connection per player, grouped by floor (fk = floor:layout) ----------
+  // Every player on a floor sees the others move, and the floor's events (kills, truces, set pieces, jammed doors, loot) are kept
+  // here once for everyone and replayed to whoever joins.
+  liveOpen(req, url) {
+    if (req.headers.get('Upgrade') !== 'websocket') return json({ error: 'expected_websocket' }, 426);
+    const origin = req.headers.get('Origin'); if (origin && origin !== url.origin) return json({ error: 'bad_origin' }, 403);
+    const u = this.me(req); if (!u) return json({ error: 'signed_out' }, 401);
+    const fk = String(url.searchParams.get('fk') || '').slice(0, 24); if (!/^[0-9a-z:_-]+$/i.test(fk)) return json({ error: 'bad_floor' }, 400);
+    const pair = new WebSocketPair(), [client, server] = Object.values(pair);
+    this.ctx.acceptWebSocket(server, ['fk:' + fk]);
+    server.serializeAttachment({ id: u.id, name: u.username, role: u.role, fk, at: Date.now(), p: null, look: null, cname: null });
+    return new Response(null, { status: 101, webSocket: client });
+  }
+  liveOthers(fk, except) { return this.ctx.getWebSockets('fk:' + fk).filter(w => w !== except); }
+  liveSend(w, obj) { try { w.send(typeof obj === 'string' ? obj : JSON.stringify(obj)); } catch (e) {} }
+  liveRoster(fk) { // one entry per player (a second tab replaces the first)
+    const seen = {}; this.ctx.getWebSockets('fk:' + fk).forEach(w => { const a = w.deserializeAttachment(); if (a) seen[a.id] = { id: a.id, name: a.name, cname: a.cname, role: a.role, p: a.p, look: a.look }; });
+    return Object.values(seen);
+  }
+  async webSocketMessage(ws, raw) {
+    let msg; try { msg = JSON.parse(raw); } catch (e) { return; } if (!msg || typeof msg !== 'object') return;
+    const a = ws.deserializeAttachment(); if (!a) return; const fk = a.fk;
+    if (msg.t === 'hello') {
+      a.cname = String(msg.cname || '').slice(0, 40) || null; a.look = msg.look && typeof msg.look === 'object' ? msg.look : null; a.p = msg.p || null; ws.serializeAttachment(a);
+      const rows = this.all('SELECT k, v FROM world WHERE fk = ?', fk);
+      this.liveSend(ws, { t: 'state', fk, you: a.id, items: rows.map(r => [r.k, JSON.parse(r.v)]), roster: this.liveRoster(fk).filter(q => q.id !== a.id) });
+      const join = JSON.stringify({ t: 'join', p: { id: a.id, name: a.name, cname: a.cname, role: a.role, p: a.p, look: a.look } });
+      this.liveOthers(fk, ws).forEach(w => this.liveSend(w, join)); return;
+    }
+    if (msg.t === 'pos') { // where I am and what I'm doing; passed straight on
+      a.p = { x: +msg.x || 0, z: +msg.z || 0, px: +msg.px || 0, pz: +msg.pz || 0, ry: +msg.ry || 0, mv: msg.mv ? 1 : 0, cr: msg.cr ? 1 : 0 }; ws.serializeAttachment(a);
+      const out = JSON.stringify({ t: 'pos', id: a.id, ...a.p }); this.liveOthers(fk, ws).forEach(w => this.liveSend(w, out)); return;
+    }
+    if (msg.t === 'act' || msg.t === 'say') {
+      const out = JSON.stringify({ t: msg.t, id: a.id, name: a.cname || a.name, a: String(msg.a || '').slice(0, 24), text: String(msg.text || '').slice(0, 200) });
+      this.liveOthers(fk, ws).forEach(w => this.liveSend(w, out)); return;
+    }
+    if (msg.t === 'ev' && Array.isArray(msg.evs)) { // world events: [key, value]; a null value clears the key
+      const keep = [];
+      for (const e of msg.evs.slice(0, 50)) {
+        if (!Array.isArray(e)) continue; const k = String(e[0] || '').slice(0, 80); if (!k) continue; const v = e[1];
+        if (v === null || v === undefined) this.sql.exec('DELETE FROM world WHERE fk = ? AND k = ?', fk, k);
+        else { const sv = JSON.stringify(v); if (sv.length > 2000) continue; this.sql.exec('INSERT INTO world (fk, k, v, by_user, updated) VALUES (?, ?, ?, ?, ?) ON CONFLICT(fk, k) DO UPDATE SET v = excluded.v, by_user = excluded.by_user, updated = excluded.updated', fk, k, sv, a.id, Date.now()); }
+        keep.push([k, v === undefined ? null : v]);
+      }
+      const out = JSON.stringify({ t: 'ev', by: a.id, name: a.cname || a.name, evs: keep }); this.liveOthers(fk, ws).forEach(w => this.liveSend(w, out)); return;
+    }
+    if (msg.t === 'ping') { this.liveSend(ws, { t: 'pong' }); return; }
+  }
+  async webSocketClose(ws) { this.liveGone(ws); }
+  async webSocketError(ws) { this.liveGone(ws); }
+  liveGone(ws) { const a = ws.deserializeAttachment(); if (!a) return; try { ws.close(1000, 'bye'); } catch (e) {}
+    const still = this.liveOthers(a.fk, ws).some(w => { const b = w.deserializeAttachment(); return b && b.id === a.id; });
+    if (!still) { const out = JSON.stringify({ t: 'leave', id: a.id }); this.liveOthers(a.fk, ws).forEach(w => this.liveSend(w, out)); } }
   profile(u) {
     const c = this.one('SELECT data FROM characters WHERE user_id = ?', u.id);
     return { user: { id: u.id, username: u.username, role: u.role }, character: c ? JSON.parse(c.data) : null };
   }
   async fetch(req) {
     const url = new URL(req.url), p = url.pathname, m = req.method;
+    if (p === '/api/live') return this.liveOpen(req, url);
     const body = m === 'POST' || m === 'PUT' ? await req.json().catch(() => ({})) : {};
     try {
       if (p === '/api/register' && m === 'POST') return this.register(body);
@@ -174,6 +230,10 @@ export class Campaign extends DurableObject {
       // ---- DM only ----
       if (p.startsWith('/api/dm/')) {
         if (u.role !== 'dm') return json({ error: 'dm_only' }, 403);
+        if (p === '/api/dm/world' && m === 'GET') return json({ floors: this.all('SELECT fk, COUNT(*) AS n, MAX(updated) AS updated FROM world GROUP BY fk') });
+        if (p === '/api/dm/world' && m === 'DELETE') { // reset one floor's shared world (everything comes back)
+          const fk = String(url.searchParams.get('fk') || ''); this.sql.exec('DELETE FROM world WHERE fk = ?', fk);
+          const out = JSON.stringify({ t: 'reset', fk }); this.ctx.getWebSockets('fk:' + fk).forEach(w => this.liveSend(w, out)); return json({ ok: true }); }
         if (p === '/api/dm/invites' && m === 'GET') return json({ invites: this.all('SELECT i.code, i.note, i.created, i.used_at, u.username AS used_by FROM invites i LEFT JOIN users u ON u.id = i.used_by ORDER BY i.created DESC') });
         if (p === '/api/dm/invites' && m === 'POST') { const code = inviteCode(); this.sql.exec('INSERT INTO invites (code, note, created_by, created) VALUES (?, ?, ?, ?)', code, String(body.note || '').slice(0, 60), u.id, Date.now()); return json({ code }); }
         if (p === '/api/dm/invites' && m === 'DELETE') { this.sql.exec('DELETE FROM invites WHERE code = ? AND used_by IS NULL', String(url.searchParams.get('code') || '')); return json({ ok: true }); }

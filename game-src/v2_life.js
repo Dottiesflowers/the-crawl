@@ -284,7 +284,7 @@
       else { notes.unshift('You kick the camera off its tripod and stamp on it. It is not quiet.'); hit = spFoes(function (e) { return !e.calm && !e.def.timid && !inSafeRoom(e.x, e.z) && cheb(e.x, e.z, P.x, P.z) <= 8 && (!CB.on || CB.order.indexOf(e) < 0); }); if (hit.length) notes.push(hit.length + ' of the cast heard that.'); } }
     if (sp.kind === 'distract' && sp.camoff != null) notes.push('Every camera on this set is blind now.');
     if (self) notes.push('You take ' + self + ' ' + dmgKind + ' damage.');
-    CHAR.setp = CHAR.setp || {}; CHAR.setp[spKey(sp)] = Date.now(); saveChar(CHAR); try { rebuildChunks(); } catch (x) {}
+    CHAR.setp = CHAR.setp || {}; CHAR.setp[spKey(sp)] = Date.now(); saveChar(CHAR); liveEv('sp:' + sp.id, 1); try { rebuildChunks(); } catch (x) {}
     if (sp.kind !== 'camera') setTimeout(function () { try { achieve('setpiece'); } catch (x) {} }, 3000);
     say(title, notes.filter(Boolean).join(' '), 7000); worldSave();
     var loud = !sp._cover && sp.kind !== 'distract' && sp.kind !== 'bookcase', watched = sp.kind !== 'camera' && FLOOR === 2 && camWatching();
@@ -304,7 +304,7 @@
   function jamToggle(k) { var q = k.split(','), x = +q[0], z = +q[1]; if (CB.on && !CB.res.action) { say('No action left', 'Jamming a door takes your action. Next turn.', 2600); return; }
     if (!CHAR.jam) CHAR.jam = {}; var kk = jamKey(k), on = !CHAR.jam[kk];
     if (on && (x === P.x && z === P.z || CB.enemies.some(function (e) { return !e.dead && e.x === x && e.z === z; }))) { say('Something is in the way', 'Someone is standing in the doorway.', 2400); return; }
-    if (CB.on) CB.res.action = 0; if (on) CHAR.jam[kk] = 1; else delete CHAR.jam[kk]; jamMesh(x, z, on); saveChar(CHAR);
+    if (CB.on) CB.res.action = 0; if (on) CHAR.jam[kk] = 1; else delete CHAR.jam[kk]; jamMesh(x, z, on); saveChar(CHAR); liveEv('j:' + k, on ? 1 : null);
     say(on ? 'DOOR JAMMED' : 'DOOR FREED', on ? 'You wedge a prop phaser into the track. The door shudders, sparks, and stays shut. Nothing is getting through here.' : 'You yank the phaser out. The door hisses open like nothing happened.', 3000);
     try { refreshFog(); } catch (x2) {} if (CB.on) cbAfterMyMove(); }
   function jamMesh(x, z, on) { var k = x + ',' + z; if (JAM.m[k]) { scene.remove(JAM.m[k]); delete JAM.m[k]; } if (!on) return;

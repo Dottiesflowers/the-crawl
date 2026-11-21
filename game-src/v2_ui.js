@@ -277,7 +277,7 @@
     if (!CHAR || !e || !e.dead || e.eaten || e.npc) return;
     var L = e.lootStore ? e.lootStore : rollDrops(e.kind, e.def.base), RD = DROPS.monsters[e.kind] || {};
     if (!e.lootStore && RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); }
-    e.eaten = true; e.claimed = false; e.obj.visible = false; e.bar.style.display = 'none'; e.looted = true;
+    e.eaten = true; e.claimed = false; e.obj.visible = false; e.bar.style.display = 'none'; e.looted = true; liveEv('g:' + e.n, 1);
     (L.items || []).forEach(function (it) { it.from = it.from || e.name; invAdd(it, true); }); CHAR.gold = (CHAR.gold || 0) + (L.gold || 0);
     CHAR.gear.push({ name: e.name + ' (body)', cat: 'body', body: e.n, desc: 'A whole ' + e.name.toLowerCase() + ', folded to fit. Shrubs would kill for it. Someone in Underline Station might pay for it. Drop it to use it as bait.' });
     kitOneShot('PickUp_Table'); skillCount('stash'); saveChar(CHAR); if (typeof worldSave === 'function') worldSave();
@@ -546,8 +546,9 @@
       if (RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); } // elites and bosses: one guaranteed pick from their table
       L.gold += skillLv('Scavenger'); skillCount('loot');
       if (e.boss) { L.gold += d(10, 6); L.items.push({ name: e.name.split(',')[0] + '\'s trophy', cat: 'valuable', desc: 'Proof you beat a zone boss. Heavier than it looks.' }); }
-      L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true;
+      L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true; liveEv('b:' + e.n, 1);
     }
+    if (e.lootStore.note && !(e.lootStore.items || []).length && !e.lootStore.gold) { say('Already searched', e.lootStore.note, 2800); return; }
     lootWindow(e.lootStore);
   }
   // ---------- credits (CC-BY assets must credit their authors) ----------
@@ -883,7 +884,7 @@
 
   // ---------- loot from containers and secret doors ----------
   // container pools live in items.js (DROPS.containers); rollContainer() reads them
-  function lootSpot(x, z, kind) { var st = lootPrep(x, z, kind); passiveClear(x + ',' + z); lootWindow(st); }
+  function lootSpot(x, z, kind) { var st = lootPrep(x, z, kind); passiveClear(x + ',' + z); if (st.note && !(st.items || []).length && !st.gold) { say('Already searched', st.note, 2800); return; } lootWindow(st); }
   // roll what is in a spot (once): searching shows it, and passive perception peeks at it
   function lootPrep(x, z, kind) {
     var key = 'loot' + x + ',' + z, st = lootSpot.done[key];
@@ -891,7 +892,7 @@
       var fnm = (LEVEL.dname[x + ',' + z] || '') + ' ' + ({ h: 'Shelf', k: 'Book stand', K: 'Crate', R: 'Barrel', b: 'Sack', T: 'Table', v: 'Vase' }[ch(x, z)] || '') + ' ' + ((LEVEL.decor[x + ',' + z] || []).map(function (d) { return d.m; }).join(' '));
       var R = rollLoot(kind, (roomInfo(x, z) || {}).theme, fnm.trim(), LEVEL.dname[x + ',' + z] || { h: 'shelf', k: 'book stand', K: 'crate', R: 'barrel', b: 'sack', v: 'vase' }[ch(x, z)] || '');
       if (kind === 'chest') { skillCount('box'); if (Math.random() < skillLv('Box Cracker') * 0.12) { var ex = rollLoot(kind).items[0]; if (ex) { ex.from = 'a loot box (Box Cracker)'; R.items.push(ex); } } }
-      st = lootSpot.done[key] = { title: kind === 'chest' ? 'Loot box' : 'You found', items: R.items, gold: R.gold };
+      st = lootSpot.done[key] = { title: kind === 'chest' ? 'Loot box' : 'You found', items: R.items, gold: R.gold }; liveEv('L:' + x + ',' + z, 1);
     }
     return st;
   }

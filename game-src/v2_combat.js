@@ -325,7 +325,7 @@
     return { lv: curLV(), dead: dead, eaten: eaten, calm: calm, calmK: calmK, hp: hp, reserve: WORLD.reserve, shrubs: CB.enemies.filter(function (e) { return e.def.base === 'shrub' && !e.dead && e.def.lvl > 1; }).map(function (e) { return [e.n, e.def.lvl]; }), rats: rats, names: mindKnownList(), at: Date.now() };
   }
   function spawnKey(e) { return (e.kind || '') + '@' + e.sx + ',' + e.sz; }
-  function calmSave(e) { if (!e || e.npc) return; e.calm = true; setTimeout(worldSave, 50); } // a truce lasts until you break it, across reloads too
+  function calmSave(e) { if (!e || e.npc) return; e.calm = true; setTimeout(worldSave, 50); try { liveEv('c:' + spawnKey(e), 1); } catch (x) {} } // a truce lasts until you break it, across reloads too
   function worldSave() {
     if (!CB.ready || !WORLD.loaded) return; var st = worldState();
     try { localStorage.setItem(worldKey(), JSON.stringify(st)); } catch (x) {}
@@ -336,12 +336,12 @@
   function inBag(e) { return !!(CHAR && (CHAR.gear || []).some(function (g) { return g.cat === 'body' && g.body === e.n; })); } // a body folded into your bag does not come back to life
   function ratBack(e) { return e && e.sp && e.sp.bz ? (e.n % 2 ? 30 : 60) * 60000 : RAT_BACK; }
   setInterval(function () {
-    if (!CB.ready || CB.on) return; var now = Date.now(), any = false;
+    if (!CB.ready || CB.on || liveFollower()) return; var now = Date.now(), any = false;
     CB.enemies.forEach(function (e) {
       if (e.def.base !== 'rat' || e.boss || !e.dead || !e.diedAt || now - e.diedAt < ratBack(e) || inBag(e)) return;
       if (cheb(P.x, P.z, e.sx, e.sz) < 14 || cheb(P.x, P.z, e.x, e.z) < 10) return;
       e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.looted = false; e.lootStore = null; e.calm = !!e.def.tame; e.hp = e.max; e.diedAt = 0; e.path = null;
-      e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; any = true;
+      e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; any = true; liveEv('d:' + e.n, null);
     });
     if (any) worldSave();
   }, 20000);
@@ -369,12 +369,12 @@
   }
   // every few minutes one dead regular monster in a zone with replacements left comes back, out of sight
   setInterval(function () {
-    if (!CB.ready || !WORLD.loaded || CB.on || !WORLD.reserve) return;
+    if (!CB.ready || !WORLD.loaded || CB.on || !WORLD.reserve || liveFollower()) return;
     var cands = CB.enemies.filter(function (e) { return e.dead && !e.npc && !e.boss && !e.guard && !inBag(e) && (WORLD.reserve[zoneOf(e)] || 0) > 0 && cheb(e.sx, e.sz, P.x, P.z) > 14 && visNow[e.sx + ',' + e.sz] === undefined && !enemyAt(e.sx, e.sz); });
     if (!cands.length) return; var e = cands[Math.floor(Math.random() * cands.length)], z = zoneOf(e);
     WORLD.reserve[z]--; if (e.def.base === 'shrub') { e.def = BEAST.shrub1; e.kind = 'shrub1'; e.lvl = 1; e.name = e.def.name; if (e.body) { e.obj.remove(e.body); e.body = null; e.mixer = null; } }
     e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.fought = false; e.looted = false; e.lootStore = null; e.calm = !!e.def.tame; e.hp = e.def.hp; e.max = e.def.hp;
-    e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.rotation.set(0, Math.PI * 0.75, 0); e.path = null; if (e.mixer && e.mixer.stopAllAction) e.mixer.stopAllAction(); e.cur = ''; cbPlay(e, 'Idle_Loop');
+    e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.rotation.set(0, Math.PI * 0.75, 0); e.path = null; if (e.mixer && e.mixer.stopAllAction) e.mixer.stopAllAction(); e.cur = ''; cbPlay(e, 'Idle_Loop'); liveEv('d:' + e.n, null);
     worldSave();
   }, 240000);
   function nearestSafe(x, z) { // the closest safe-room tile to a spot
@@ -945,7 +945,7 @@
     if (CB.on) try { personaAllyFell(e); } catch (x) {}
     if (/shrub/.test(e.def.base || e.kind || '')) skillCount('shrub');
     if (e.boss) logEvent('Killed ' + e.name + ', boss of ' + ((LEVEL.hoods[(roomInfo(e.x, e.z) || {}).hood] || {}).name || 'the floor'), 'boss'); else if (/chief|foreman|head|warden/.test(e.kind)) logEvent('Killed a ' + e.name, 'kill');
-    e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none';
+    e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none'; try { liveEv('d:' + e.n, 1); } catch (x) {}
     say('Enemy down · ' + e.name, e.def.xp + ' XP. ' + (e.kind === 'imp' ? 'The stairwell is unguarded.' : 'Its stick rolls away.'), 4200);
     if (e.kind === 'gatekeeper') setTimeout(function () { refreshFog(); logEvent('The stairs to Floor 2 are open', 'boss'); say('SYSTEM · The stairwell is open', 'The Gatekeeper is down, and somewhere to the east a stone floor slides aside. The stairs to Floor 2 are in the Stairwell. Bring your party.', 9000); }, 2600);
     if (PROPS && PROPS.ready) setTimeout(function () { place('Coin_Pile', e.px + 0.25, e.pz + 0.2, { s: 0.6 }); refreshFog(); }, 1600);
