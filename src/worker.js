@@ -133,6 +133,10 @@ export class Campaign extends DurableObject {
       const join = JSON.stringify({ t: 'join', p: { id: a.id, name: a.name, cname: a.cname, role: a.role, p: a.p, look: a.look } });
       this.liveOthers(fk, ws).forEach(w => this.liveSend(w, join)); return;
     }
+    if (msg.t === 'look') { // changed clothes or appearance after joining: everyone else rebuilds my model
+      if (!a.look) return; a.look = msg.look && typeof msg.look === 'object' ? msg.look : a.look; if (msg.cname) a.cname = String(msg.cname).slice(0, 40); ws.serializeAttachment(a);
+      const out = JSON.stringify({ t: 'look', id: a.id, look: a.look, cname: a.cname }); this.liveOthers(fk, ws).forEach(w => this.liveSend(w, out)); return;
+    }
     if (msg.t === 'pos') { // where I am and what I'm doing; passed straight on
       a.p = { x: +msg.x || 0, z: +msg.z || 0, px: +msg.px || 0, pz: +msg.pz || 0, ry: +msg.ry || 0, mv: msg.mv ? 1 : 0, cr: msg.cr ? 1 : 0, dn: msg.dn ? 1 : 0 }; ws.serializeAttachment(a);
       const out = JSON.stringify({ t: 'pos', id: a.id, ...a.p }); this.liveOthers(fk, ws).forEach(w => this.liveSend(w, out)); return;

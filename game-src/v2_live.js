@@ -12,7 +12,7 @@
     liveClose(); LIVE.fk = fk;
     var ws; try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/live?fk=' + encodeURIComponent(fk)); } catch (x) { return; }
     LIVE.ws = ws;
-    ws.onopen = function () { LIVE.retry = 0; liveSendRaw({ t: 'hello', cname: CHAR.name || NET.user, look: liveDM() ? null : JSON.parse(JSON.stringify(look)), p: livePos() }); };
+    ws.onopen = function () { LIVE.retry = 0; LIVE.lookKey = liveLookKey(); liveSendRaw({ t: 'hello', cname: CHAR.name || NET.user, look: liveDM() ? null : JSON.parse(JSON.stringify(look)), p: livePos() }); };
     ws.onmessage = function (m) { var j; try { j = JSON.parse(m.data); } catch (x) { return; } try { liveOn(j); } catch (x) { console.warn('live', x); } };
     ws.onclose = function () { if (LIVE.ws !== ws) return; LIVE.on = false; LIVE.ws = null; liveClearGhosts(); LIVE.retry = Math.min(30000, (LIVE.retry || 1000) * 2); setTimeout(liveConnect, LIVE.retry); };
     ws.onerror = function () {};
@@ -27,6 +27,7 @@
   function liveFollower() { if (!LIVE.on) return false; var ids = Object.keys(LIVE.ghosts).map(Number).filter(function (id) { return !LIVE.ghosts[id].dm; }); return ids.some(function (id) { return id < LIVE.you; }); }
   function liveOn(j) {
     if (j.t === 'state') { LIVE.on = true; LIVE.you = j.you; liveApplyState(j.items || []); (j.roster || []).forEach(liveGhostAdd); liveFlush(); if (j.roster && j.roster.length) say('On this floor', j.roster.map(function (q) { return q.cname || q.name; }).join(', ') + (j.roster.length > 1 ? ' are' : ' is') + ' here too.', 3600); return; }
+    if (j.t === 'look') { var og = LIVE.ghosts[j.id]; if (!og) return; var keep = { id: j.id, name: og.name, cname: j.cname || og.name, p: og.p, look: j.look }; liveGhostDrop(j.id); liveGhostAdd(keep); return; }
     if (j.t === 'join') { liveGhostAdd(j.p); if (!j.p.look) return; say((j.p.cname || j.p.name) + ' is here', 'They just arrived on this floor.', 2600); return; }
     if (j.t === 'leave') { liveGhostDrop(j.id); if (LF.on && LF.amHost) lfOn({ k: 'leave', id: LF.id, from: j.id }); return; }
     if (j.t === 'pos') { var g = LIVE.ghosts[j.id]; if (g) { g.p = j; if (!g.seen) { g.seen = true; g.g.position.set(j.px, 0, j.pz); } } return; }
@@ -65,14 +66,25 @@
   function liveKill(e, who, quiet) {
     var mine = CB.on && CB.order.indexOf(e) >= 0;
     if (mine) { e.hp = 0; cbKill(e); if (!CB.enemies.some(function (q) { return !q.dead && !q.calm && CB.order.indexOf(q) >= 0; })) setTimeout(function () { if (CB.on) cbEnd(true); }, 600); return; }
-    e.dead = true; e.counted = true; e.hp = 0; e.grappled = false; if (e.bar) e.bar.style.display = 'none';
-    if (!quiet && e.obj.visible && cheb(e.x, e.z, P.x, P.z) < 16) cbPlay(e, 'Death01', true); else e.obj.visible = false;
+    e.counted = true; liveCorpse(e, quiet || !e.obj.visible || cheb(e.x, e.z, P.x, P.z) >= 16);
+  }
+  function liveCorpse(e, still) { // killed on someone else's screen: leave a body on mine too (not a vanishing act, not a monster still standing)
+    e.dead = true; e.hp = 0; e.grappled = false; e.path = null; e.fought = false; if (e.bar) e.bar.style.display = 'none'; e.obj.visible = true;
+    if (e.mixer && e.mixer.stopAllAction) e.mixer.stopAllAction(); e.cur = ''; cbPlay(e, 'Death01', true);
+    if (still) { if (e.wrap) e.pt = 9; if (e.act && e.clips && e.clips.Death01) e.act.time = e.clips.Death01.duration; }
+    if (!e.diedAt) e.diedAt = Date.now();
   }
   function liveRevive(e) {
     e.dead = false; e.eaten = false; e.claimed = false; e.counted = false; e.fought = false; e.looted = false; e.lootStore = null; e.calm = !!e.def.tame; e.hp = e.max = e.def.hp; e.diedAt = 0; e.path = null;
     e.x = e.sx; e.z = e.sz; e.px = e.sx; e.pz = e.sz; e.obj.position.set(e.sx, 0, e.sz); e.obj.visible = true; if (e.body) e.body.rotation.z = 0; if (e.mixer && e.mixer.stopAllAction) e.mixer.stopAllAction(); e.cur = ''; try { cbPlay(e, 'Idle_Loop'); } catch (x) {}
   }
   // ---- friends on the floor ----
+  // clothes and looks change after you join (new character, getting dressed, re-dressing): send the new look whenever it changes
+  function liveLookKey() { return JSON.stringify(look) + '|' + ((CHAR && CHAR.name) || ''); }
+  setInterval(function () {
+    if (!LIVE.on || !LIVE.ws || LIVE.ws.readyState !== 1 || liveDM() || !LIVE.lookKey) return; var k = liveLookKey(); if (k === LIVE.lookKey) return;
+    LIVE.lookKey = k; liveSendRaw({ t: 'look', look: JSON.parse(JSON.stringify(look)), cname: (CHAR && CHAR.name) || '' });
+  }, 1500);
   function liveGhostModel(lk) {
     if (!KIT || !KIT.ready || !lk) return null; var save = JSON.parse(JSON.stringify(look)), c = null;
     try {
@@ -127,7 +139,7 @@
   // order; on your turn your own device runs your moves and attacks and sends the result. Monsters go for the nearest player.
   // In CB.order a friend is a stand-in object { remote: true, uid, name, init, hp, max }.
   var LF = { on: false, id: null, amHost: false, host: null, fights: {}, lastSnap: '', waitT: null, ps: {} };
-  var LF_REACH = 12;
+  var LF_REACH = 6; // how close you must be to a friend's fight to be pulled in (was 12)
   function lfSend(k, o) { o = o || {}; o.t = 'cb'; o.k = k; o.id = o.id || LF.id; return liveSendRaw(o); }
   function lfRemote(uid) { for (var i = 0; i < CB.order.length; i++) { var c = CB.order[i]; if (c && c.remote && c.uid === uid) return c; } return null; }
   function lfMarker(uid, name, init) { var m = { remote: true, uid: uid, name: name || 'Crawler', init: init, hp: 1, max: 1, dead: false, calm: false, kind: '__player', def: { h: 1.8, init: 0 }, ac: 12, down: false };
@@ -142,7 +154,7 @@
   function lfApplySnap(sn) {
     if (!sn) return; LIVE.applying = true;
     try { sn.forEach(function (q) { var e = liveByN(q[0]); if (!e) return;
-      if (q[5] && !e.dead) { e.hp = 0; if (CB.order.indexOf(e) >= 0) cbKill(e); else { e.dead = true; e.obj.visible = false; } return; }
+      if (q[5] && !e.dead) { e.hp = 0; if (CB.order.indexOf(e) >= 0) cbKill(e); else liveCorpse(e, cheb(e.x, e.z, P.x, P.z) >= 16); return; }
       if (q[1] < e.hp && !e.dead) floater(e.px, (e.def.h || 1) + 0.3, e.pz, '-' + (e.hp - q[1]), 'dmg');
       e.hp = q[1]; e.max = q[2];
       if ((e.x !== q[3] || e.z !== q[4]) && !e.path) { if (cheb(e.x, e.z, q[3], q[4]) <= 2) { e.path = [[q[3], q[4]]]; cbPlay(e, 'Walk_Loop'); e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); }; } else { e.x = q[3]; e.z = q[4]; e.px = q[3]; e.pz = q[4]; e.obj.position.set(q[3], 0, q[4]); } }
@@ -254,7 +266,8 @@
   // ---- a friend's side ----
   function lfMaybeJoin(j) { // a fight started (or is going) nearby: join it if you are close and free
     if (!LIVE.on || liveDM() || CB.on || !CB.ready || (CHAR && CHAR.dead) || inSafeRoom(P.x, P.z) || LF.on) return;
-    var near = cheb(j.x || 0, j.z || 0, P.x, P.z) <= LF_REACH || (j.snap || []).some(function (q) { return !q[5] && cheb(q[3], q[4], P.x, P.z) <= LF_REACH - 4; });
+    // close and able to see it: within 6 tiles of your friend with a clear line, or 4 tiles of a monster in it with a clear line
+    var near = (cheb(j.x || 0, j.z || 0, P.x, P.z) <= LF_REACH && los(P.x, P.z, j.x || 0, j.z || 0)) || (j.snap || []).some(function (q) { return !q[5] && cheb(q[3], q[4], P.x, P.z) <= 4 && los(P.x, P.z, q[3], q[4]); });
     if (!near) return;
     var init = d20() + MOD.DEX - (hasTrait('Distractible') ? 2 : 0) + buffInit(); PC.init = init; LF.pending = j.id;
     lfSend('join', { id: j.id, to: j.host || j.from, name: CHAR.name || NET.user, init: init, me: lfMe() });
