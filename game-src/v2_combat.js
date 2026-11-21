@@ -1076,7 +1076,7 @@
       var r = bfs(e.x, e.z, e, speed), best = null, bd = cheb(e.x, e.z, P.x, P.z);
       Object.keys(r.dist).forEach(function (k) { var p = k.split(','), d2 = cheb(+p[0], +p[1], P.x, P.z); if (d2 > bd) { bd = d2; best = k; } });
       if (!best) { e.fleeing = false; say(e.name, 'Cornered, it turns to fight.', 2200); return false; }
-      var pp = best.split(','); e.path = pathTo(r, +pp[0], +pp[1]); cbPlay(e, 'Walk_Loop');
+      var pp = best.split(','); e.path = pathTo(r, +pp[0], +pp[1]); cbPlay(e, 'Walk_Loop'); lfPath(e, e.path);
       e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); if (cheb(e.x, e.z, P.x, P.z) >= 9 || !los(P.x, P.z, e.x, e.z)) { e.calm = true; e.fled = true; CB.order = CB.order.filter(function (q) { return q !== e; }); say(e.name + ' got away', 'It has had enough and is out of the fight. It will not come back for more today.', 3200); if (!CB.order.some(function (q) { return q !== 'pc' && !q.dead && !q.calm; })) { setTimeout(function () { cbEnd(true); }, 600); return; } } setTimeout(cbNext, 350); };
       return true;
     }
