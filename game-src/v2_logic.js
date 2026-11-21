@@ -45,6 +45,8 @@
   setInterval(function () { posSave(false); }, 30000);
   if (CHAR) setTimeout(posRestore, 0);
   document.addEventListener('visibilitychange', function () { if (document.hidden) posSave(true); });
+  window.addEventListener('pagehide', function () { saveChar.unloading = true; try { posSave(true); } catch (x) {} saveChar.unloading = false; }); // refresh / close: save where you are
+  setInterval(function () { posSave(false); }, 8000);
 
   function los(x0, z0, x1, z1) {
     var dx = Math.abs(x1 - x0), dz = Math.abs(z1 - z0), sx = x0 < x1 ? 1 : -1, sz = z0 < z1 ? 1 : -1, e = dx - dz, x = x0, z = z0;
