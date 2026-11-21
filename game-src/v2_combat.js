@@ -524,7 +524,7 @@
 
   function cbHUD() {
     var a = pcAC();
-    var hpLine = CHAR && CHAR.dead ? 'Dead · waiting for your party' : PC.down ? 'Down · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : PC.hp + ' / ' + PC.max;
+    var hpLine = CHAR && CHAR.dead ? 'Dead · waiting for your party' : PC.down && PC.helpWait ? 'Down · waiting for a friend' : PC.down ? 'Down · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : PC.hp + ' / ' + PC.max;
     document.getElementById('hpTxt').innerHTML = '<span class="nm">' + esc(CHAR && CHAR.name || 'Crawler') + '</span><span class="lv">Level ' + (PC.level || 1) + (PC.hidden ? ' · hidden' : '') + '</span>' +
       '<span class="hpn"><b>HP</b> ' + hpLine + '</span><span class="ac"><b>' + a.ac + '</b>AC</span><span class="xp"><b>XP</b> ' + (PC.xp || 0) + ' / ' + nextLevelXP() + '<i style="width:' + Math.min(100, Math.round(100 * (PC.xp || 0) / nextLevelXP())) + '%"></i></span>';
     document.getElementById('hpFill').style.width = Math.max(0, 100 * PC.hp / PC.max) + '%';
@@ -655,6 +655,7 @@
   function cbNext() {
     if (!CB.on) return;
     if (LF.on && !LF.amHost) { lfDone(); return; } // in a friend's fight: the host moves the turns on
+    if (PC.down && PC.helpWait && lfAllDown()) { liveAllDown(); return; }
     if (!CB.enemies.some(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; })) { cbEnd(true); return; }
     CB.idx = (CB.idx + 1) % CB.order.length;
     if (CB.idx === 0) { CB.round = (CB.round || 0) + 1; cbJoinCheck(); if (CB.round > 1 && typeof VFX !== 'undefined') VFX.areas.forEach(function (A) { A.t += 6; }); } // in a fight, areas last by rounds (6 seconds each)
@@ -670,6 +671,7 @@
   function cbTurnPC() {
     CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.walked = false; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
     if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
+    if (PC.down && PC.helpWait) { cbRingsUpdate(); cbHUD(); say('Waiting for a friend', 'You are down. Someone has to reach you and help you up.', 1800); setTimeout(cbNext, 900); return; }
     if (PC.down) { cbRingsUpdate(); cbHUD(); setTimeout(cbDeathSave, 700); return; }
     burnPools(null); areaTurnStart('pc');
     if (LF.on) say('Your turn', 'Round ' + (CB.round || 1) + '.', 1600);
@@ -964,6 +966,7 @@
     if (isDM() && DM.immortal) { PC.hp = PC.max; cbHUD(); say('DM mode', 'The DM does not die. Back to full HP. (Turn this off in the DM panel to test dying.)', 3500); return; }
     PC.hp = 0; PC.down = true; PC.saves = { s: 0, f: 0 }; PC.hidden = false; CB.path = null; CB.busy = false; kitOneShot('Death01', true);
     CB.enemies.forEach(function (e) { e.grappled = false; });
+    if (liveFriends()) { PC.helpWait = true; if (CHAR) { CHAR.downed = { x: P.x, z: P.z }; saveChar(CHAR); } say('Downed', 'You drop. With friends on this floor you will not die: you lie here until one of them stands next to you and uses Help up.', 6500); cbHUD(); return; }
     say('Downed', 'You drop. On each of your turns you roll a death save: 10 or more is a success. Three successes and you stabilise; three failures and you die. A natural 20 puts you back on your feet.', 7000);
     cbHUD();
   }
@@ -998,10 +1001,11 @@
     var b = document.getElementById('deadRev'); if (b) b.onclick = function () { api('dm/revive', { method: 'POST', body: { user_id: NET.uid } }).then(reviveMe, function (e) { say('Failed', e.message); }); };
   }
   function reviveMe() {
-    if (!CHAR) return; CHAR.dead = null; PC.down = false; PC.hp = 1; logEvent('Brought back to life', 'revive'); if (KIT) KIT.shot = null; var el = document.getElementById('deadBox'); if (el) el.style.display = 'none';
+    if (!CHAR) return; CHAR.dead = null; CHAR.downed = null; PC.helpWait = false; PC.down = false; PC.hp = 1; logEvent('Brought back to life', 'revive'); if (KIT) KIT.shot = null; var el = document.getElementById('deadBox'); if (el) el.style.display = 'none';
     saveChar(CHAR); cbHUD(); say('Revived', 'You gasp back to life with 1 HP.', 5000);
   }
   function deadCheck() { // on load, and whenever we learn whether the campaign is live
+    if (CHAR && CHAR.downed && !CHAR.dead) { if (typeof heroTo === 'function') heroTo(CHAR.downed.x, CHAR.downed.z); PC.down = true; PC.hp = 0; PC.helpWait = true; if (KIT) kitOneShot('Death01', true); cbHUD(); return; }
     if (!CHAR || !CHAR.dead) return;
     if (NET.live) { if (CHAR.dead.x !== undefined && typeof heroTo === 'function') heroTo(CHAR.dead.x, CHAR.dead.z); deadShow(); } else if (NET.live === false) { reviveMe(); }
   }

@@ -105,6 +105,7 @@
   <button class="act" id="aSight" type="button">Torch</button>
   <button class="act big" id="aJump" type="button">Jump</button>
   <button class="act" id="aTry" type="button" title="Try something: describe any plan and the System rules on it">Try</button>
+  <button class="act" id="aHelp" type="button" title="Help a downed friend back up" style="display:none">Help up</button>
   <button class="act" id="aSay" type="button" title="Say something to everyone on this floor" style="display:none">Say</button>
 </div>
 <div id="menu"></div>
@@ -8869,7 +8870,7 @@
 
   function cbHUD() {
     var a = pcAC();
-    var hpLine = CHAR && CHAR.dead ? 'Dead · waiting for your party' : PC.down ? 'Down · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : PC.hp + ' / ' + PC.max;
+    var hpLine = CHAR && CHAR.dead ? 'Dead · waiting for your party' : PC.down && PC.helpWait ? 'Down · waiting for a friend' : PC.down ? 'Down · saves ' + PC.saves.s + '✓ ' + PC.saves.f + '✗' : PC.hp + ' / ' + PC.max;
     document.getElementById('hpTxt').innerHTML = '<span class="nm">' + esc(CHAR && CHAR.name || 'Crawler') + '</span><span class="lv">Level ' + (PC.level || 1) + (PC.hidden ? ' · hidden' : '') + '</span>' +
       '<span class="hpn"><b>HP</b> ' + hpLine + '</span><span class="ac"><b>' + a.ac + '</b>AC</span><span class="xp"><b>XP</b> ' + (PC.xp || 0) + ' / ' + nextLevelXP() + '<i style="width:' + Math.min(100, Math.round(100 * (PC.xp || 0) / nextLevelXP())) + '%"></i></span>';
     document.getElementById('hpFill').style.width = Math.max(0, 100 * PC.hp / PC.max) + '%';
@@ -9000,6 +9001,7 @@
   function cbNext() {
     if (!CB.on) return;
     if (LF.on && !LF.amHost) { lfDone(); return; } // in a friend's fight: the host moves the turns on
+    if (PC.down && PC.helpWait && lfAllDown()) { liveAllDown(); return; }
     if (!CB.enemies.some(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; })) { cbEnd(true); return; }
     CB.idx = (CB.idx + 1) % CB.order.length;
     if (CB.idx === 0) { CB.round = (CB.round || 0) + 1; cbJoinCheck(); if (CB.round > 1 && typeof VFX !== 'undefined') VFX.areas.forEach(function (A) { A.t += 6; }); } // in a fight, areas last by rounds (6 seconds each)
@@ -9015,6 +9017,7 @@
   function cbTurnPC() {
     CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.walked = false; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
     if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
+    if (PC.down && PC.helpWait) { cbRingsUpdate(); cbHUD(); say('Waiting for a friend', 'You are down. Someone has to reach you and help you up.', 1800); setTimeout(cbNext, 900); return; }
     if (PC.down) { cbRingsUpdate(); cbHUD(); setTimeout(cbDeathSave, 700); return; }
     burnPools(null); areaTurnStart('pc');
     if (LF.on) say('Your turn', 'Round ' + (CB.round || 1) + '.', 1600);
@@ -9309,6 +9312,7 @@
     if (isDM() && DM.immortal) { PC.hp = PC.max; cbHUD(); say('DM mode', 'The DM does not die. Back to full HP. (Turn this off in the DM panel to test dying.)', 3500); return; }
     PC.hp = 0; PC.down = true; PC.saves = { s: 0, f: 0 }; PC.hidden = false; CB.path = null; CB.busy = false; kitOneShot('Death01', true);
     CB.enemies.forEach(function (e) { e.grappled = false; });
+    if (liveFriends()) { PC.helpWait = true; if (CHAR) { CHAR.downed = { x: P.x, z: P.z }; saveChar(CHAR); } say('Downed', 'You drop. With friends on this floor you will not die: you lie here until one of them stands next to you and uses Help up.', 6500); cbHUD(); return; }
     say('Downed', 'You drop. On each of your turns you roll a death save: 10 or more is a success. Three successes and you stabilise; three failures and you die. A natural 20 puts you back on your feet.', 7000);
     cbHUD();
   }
@@ -9343,10 +9347,11 @@
     var b = document.getElementById('deadRev'); if (b) b.onclick = function () { api('dm/revive', { method: 'POST', body: { user_id: NET.uid } }).then(reviveMe, function (e) { say('Failed', e.message); }); };
   }
   function reviveMe() {
-    if (!CHAR) return; CHAR.dead = null; PC.down = false; PC.hp = 1; logEvent('Brought back to life', 'revive'); if (KIT) KIT.shot = null; var el = document.getElementById('deadBox'); if (el) el.style.display = 'none';
+    if (!CHAR) return; CHAR.dead = null; CHAR.downed = null; PC.helpWait = false; PC.down = false; PC.hp = 1; logEvent('Brought back to life', 'revive'); if (KIT) KIT.shot = null; var el = document.getElementById('deadBox'); if (el) el.style.display = 'none';
     saveChar(CHAR); cbHUD(); say('Revived', 'You gasp back to life with 1 HP.', 5000);
   }
   function deadCheck() { // on load, and whenever we learn whether the campaign is live
+    if (CHAR && CHAR.downed && !CHAR.dead) { if (typeof heroTo === 'function') heroTo(CHAR.downed.x, CHAR.downed.z); PC.down = true; PC.hp = 0; PC.helpWait = true; if (KIT) kitOneShot('Death01', true); cbHUD(); return; }
     if (!CHAR || !CHAR.dead) return;
     if (NET.live) { if (CHAR.dead.x !== undefined && typeof heroTo === 'function') heroTo(CHAR.dead.x, CHAR.dead.z); deadShow(); } else if (NET.live === false) { reviveMe(); }
   }
@@ -10872,7 +10877,7 @@
   setInterval(function () { if (typeof P === 'undefined') return; var m = document.getElementById('mini'); m.style.display = gearOpen || CC || AUTH.open ? 'none' : ''; if (m.style.display !== 'none') mapDraw(m, false); if (UI.map) mapDraw(document.getElementById('mapC'), true); }, 250);
 
   // ---------- inventory ----------
-  var CATS = [['all', 'All'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['scroll', 'Scrolls'], ['box', 'Loot boxes'], ['valuable', 'Valuables'], ['material', 'Materials'], ['body', 'Bodies'], ['misc', 'Misc']];
+  var CATS = [['all', 'All'], ['shared', 'Shared'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['scroll', 'Scrolls'], ['box', 'Loot boxes'], ['valuable', 'Valuables'], ['material', 'Materials'], ['body', 'Bodies'], ['misc', 'Misc']];
   function bagItems() { return CHAR && CHAR.gear ? CHAR.gear : []; }
   function bagToggle() {
     UI.bag = !UI.bag; if (UI.bag && UI.map) mapToggle(); document.getElementById('bag').classList.toggle('on', UI.bag);
@@ -10904,7 +10909,7 @@
   }
   function quickGo(it) { if (it.spell) { if (UI.bag) bagToggle(); useItem(it); return; } useItem(it); }
   function facetsFor(cat, items) {
-    if (cat === 'scroll' || cat === 'box') return [];
+    if (cat === 'scroll' || cat === 'box' || cat === 'shared') return [];
     if (FACETS[cat]) return FACETS[cat];
     var cnt = {}; items.forEach(function (it) { if (cat !== 'all' && it.cat !== cat) return; ((ITEMS[it.name] || {}).tags || it.tags || []).forEach(function (t) { if (TAGNAME[t]) cnt[t] = (cnt[t] || 0) + 1; }); });
     return Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).slice(0, 8).map(function (t) { return [t, TAGNAME[t]]; });
@@ -10938,11 +10943,11 @@
       '<div id="bagSub">' + (facets.length ? facets.map(function (f) { return '<button type="button" class="chip3' + (UI.sub === f[0] ? ' on' : '') + '" data-sub="' + f[0] + '">' + f[1] + '</button>'; }).join('') : '') +
         '<select id="bagRar" aria-label="Rarity"><option value="any">Any rarity</option><option value="common">Common</option><option value="uncommon">Uncommon</option><option value="rare">Rare +</option></select>' +
         '<select id="bagSort" aria-label="Sort"><option value="name">Sort: name</option><option value="rarity">Sort: rarity</option><option value="dmg">Sort: damage</option><option value="found">Sort: newest</option></select></div>' +
-      '<div id="bagList">' + (list.length ? list.map(function (o) {
+      (UI.cat === 'shared' ? stashHTML(q) : '<div id="bagList">' + (list.length ? list.map(function (o) {
         var t = o.it.worn ? 'worn' : o.k === '#hand' ? 'in hand' : o.k === '#back' ? 'on back' : '';
         return '<button type="button" data-i="' + o.i + '" class="' + (o.all.indexOf(UI.sel) >= 0 ? 'on' : '') + (o.it.rarity ? ' r-' + String(o.it.rarity).toLowerCase() : '') + (o.it.bonus ? ' magic' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + '</span>' + (o.n > 1 ? '<b class="qn">×' + o.n + '</b>' : '') + (t ? '<span class="tag">' + t + '</span>' : '') + (quickUse(o.it) ? '<span class="qu" role="button" data-qu="' + o.i + '">' + quickUse(o.it) + '</span>' : '') + '</button>';
       }).join('') : '<p style="padding:10px">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
-      '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div></div>';
+      '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div>') + '</div></div>';
     document.getElementById('bagSwap').onclick = swapWeapons;
     document.getElementById('bagSheet').onclick = function () { bagToggle(); charToggle(); };
     document.getElementById('bagCraft').onclick = function () { bagToggle(); craftToggle(); };
@@ -10950,12 +10955,15 @@
     document.getElementById('bagX').onclick = bagToggle;
     var qi = document.getElementById('bagQ'); qi.oninput = function () { UI.q = qi.value; var pos = qi.selectionStart; bagDraw(); var n = document.getElementById('bagQ'); n.focus(); n.setSelectionRange(pos, pos); };
     qi.addEventListener('keydown', function (ev) { ev.stopPropagation(); });
-    el.querySelectorAll('[data-cat]').forEach(function (b) { b.onclick = function () { UI.cat = b.dataset.cat; UI.sub = ''; bagDraw(); }; });
+    el.querySelectorAll('[data-cat]').forEach(function (b) { b.onclick = function () { UI.cat = b.dataset.cat; UI.sub = ''; if (UI.cat === 'shared') STASH.t = 0; bagDraw(); }; });
     el.querySelectorAll('[data-sub]').forEach(function (b) { b.onclick = function () { UI.sub = UI.sub === b.dataset.sub ? '' : b.dataset.sub; bagDraw(); }; });
     var br = document.getElementById('bagRar'), bs = document.getElementById('bagSort'); br.value = UI.rar; bs.value = UI.sort; br.onchange = function () { UI.rar = br.value; bagDraw(); }; bs.onchange = function () { UI.sort = bs.value; bagDraw(); };
     el.querySelectorAll('[data-qu]').forEach(function (b) { b.onclick = function (ev) { ev.stopPropagation(); var it = items[+b.dataset.qu]; if (it) quickGo(it); }; });
     el.querySelectorAll('[data-i]').forEach(function (b) { b.onclick = function () { UI.sel = +b.dataset.i; bagDraw(); }; });
     el.querySelectorAll('[data-act]').forEach(function (b) { b.onclick = function () { bagAct(b.dataset.act, sel); }; });
+    el.querySelectorAll('[data-s]').forEach(function (b) { b.onclick = function () { STASH.sel = +b.dataset.s; bagDraw(); }; });
+    el.querySelectorAll('[data-take]').forEach(function (b) { b.onclick = function (ev) { ev.stopPropagation(); stashTake(+b.dataset.take); }; });
+    if (UI.cat === 'shared' && !STASH.busy && Date.now() - STASH.t > 4000) stashLoad();
   }
   function catName(c) { var f = CATS.filter(function (x) { return x[0] === c; })[0]; return f ? f[1].replace(/s$/, '') : 'Misc'; }
   function bagInfo(it) {
@@ -10972,6 +10980,7 @@
     if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); }
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
     if (it.spell) acts.push(['qcast', isScroll(it) ? 'Read the scroll (aim)' : 'Cast (aim)']);
+    if (stashCan(it)) { acts.push(['share', 'Move to shared']); if ((it.qty || 1) > 1) acts.push(['shareAll', 'Move all ' + it.qty + ' to shared']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       loreLine(it) + (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
       '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (ITEMS[it.name] && ITEMS[it.name].twoHand ? ' · two-handed' : '') + (ITEMS[it.name] && ITEMS[it.name].ammo ? ' · ' + (ITEMS[it.name].ammo.kind || 'arrow') + ' ammo · 1d' + ITEMS[it.name].ammo.s : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
@@ -10999,7 +11008,54 @@
     if (a === 'hotO') { hotPut(it.name, false, hotKind(it) === 'eat' ? 'hotbar2' : 'hotbar'); }
     if (a === 'unhot') hotOff(it.name);
     if (a === 'light') { aimStart(it, true); return; }
+    if (a === 'share' || a === 'shareAll') { stashPut(it, a === 'shareAll'); return; }
     saveChar(CHAR); bagDraw(); wsetDraw();
+  }
+  // ---------- the party's shared stash: pick something up and it's yours; move it here and anyone can take it ----------
+  var STASH = { items: [], t: 0, busy: false, sel: null, err: '', loaded: false };
+  function stashOnline() { return typeof NET !== 'undefined' && NET.mode === 'server'; }
+  function stashCan(it) {
+    if (!stashOnline() || !it || it.worn || it.cat === 'body') return false;
+    var copies = (CHAR.gear || []).filter(function (g) { return g.name === it.name; }).reduce(function (n, g) { return n + (g.qty || 1); }, 0);
+    if ((CHAR.wield === it.name || CHAR.back === it.name) && copies < 2) return false; // put it away first
+    return true;
+  }
+  function stashLoad() {
+    if (!stashOnline()) return; STASH.busy = true;
+    api('stash').then(function (j) { STASH.items = j.items || []; STASH.err = ''; }).catch(function (e) { STASH.err = e.message || 'Could not reach the stash.'; })
+      .then(function () { STASH.busy = false; STASH.loaded = true; STASH.t = Date.now(); if (UI.bag && UI.cat === 'shared') bagDraw(); });
+  }
+  function stashPut(it, all) {
+    if (STASH.busy || !stashCan(it)) return; var n = all ? (it.qty || 1) : 1;
+    var copy = JSON.parse(JSON.stringify(it)); delete copy.worn; delete copy.lit; if (n > 1) copy.qty = n; else delete copy.qty;
+    STASH.busy = true;
+    api('stash/put', { method: 'POST', body: { item: copy } }).then(function () {
+      if ((it.qty || 1) > n) it.qty = (it.qty || 1) - n; else { var i = CHAR.gear.indexOf(it); if (i >= 0) CHAR.gear.splice(i, 1); UI.sel = null; }
+      if (!CHAR.gear.some(function (g) { return g.name === it.name; })) { if (hotHas(it.name)) hotOff(it.name); }
+      saveChar(CHAR); say('Shared · ' + it.name, (n > 1 ? n + ' of them are' : 'It is') + ' in the party stash now. Anyone can take ' + (n > 1 ? 'them' : 'it') + ' from the Shared tab.', 3000);
+    }).catch(function (e) { say('Could not share it', e.message || 'The stash did not answer. Try again.', 3000); })
+      .then(function () { STASH.busy = false; STASH.t = 0; if (UI.bag) bagDraw(); try { wsetDraw(); } catch (x) {} });
+  }
+  function stashTake(id) {
+    if (STASH.busy || !CHAR) return; STASH.busy = true;
+    api('stash/take', { method: 'POST', body: { id: id } }).then(function (j) {
+      var it = j.item; if (!it) return; it.from = it.from || 'the shared stash'; invAdd(it, true); saveChar(CHAR); STASH.sel = null;
+      say('Taken · ' + it.name, ((it.qty || 1) > 1 ? 'They are' : 'It is') + ' in your bag now.', 2600);
+    }).catch(function (e) { say('Gone', e.message || 'Someone already took that.', 2600); })
+      .then(function () { STASH.busy = false; STASH.t = 0; if (UI.bag) bagDraw(); });
+  }
+  function stashHTML(q) {
+    if (!stashOnline()) return '<div id="bagList"><p style="padding:10px">The shared stash needs you signed in to the party server.</p></div><div id="bagInfo"><p>Sign in to share loot with your friends.</p></div>';
+    var list = STASH.items.filter(function (o) { var it = o.item || {}; return (UI.rar === 'any' || (UI.rar === 'rare' ? rarRank(it) >= 3 : rarRank(it) === (UI.rar === 'uncommon' ? 2 : 1))) && (!q || (it.name + ' ' + (it.desc || '') + ' ' + catName(it.cat) + ' ' + ((ITEMS[it.name] || {}).tags || []).join(' ') + ' ' + (o.by || '')).toLowerCase().indexOf(q) >= 0); });
+    if (UI.sort === 'rarity') list.sort(function (a, b) { return rarRank(b.item) - rarRank(a.item) || a.item.name.localeCompare(b.item.name); });
+    else if (UI.sort === 'dmg') list.sort(function (a, b) { return dmgAvg(b.item) - dmgAvg(a.item) || a.item.name.localeCompare(b.item.name); });
+    else if (UI.sort === 'name') list.sort(function (a, b) { return a.item.name.localeCompare(b.item.name); });
+    var sel = STASH.items.filter(function (o) { return o.id === STASH.sel; })[0];
+    var rows = list.length ? list.map(function (o) { var it = o.item; return '<button type="button" data-s="' + o.id + '" class="' + (o.id === STASH.sel ? 'on' : '') + (it.rarity ? ' r-' + String(it.rarity).toLowerCase() : '') + (it.bonus ? ' magic' : '') + '">' + itemIcon(it) + '<span>' + esc(it.name) + '</span>' + ((it.qty || 1) > 1 ? '<b class="qn">×' + it.qty + '</b>' : '') + (o.by ? '<span class="tag">' + esc(o.by) + '</span>' : '') + '<span class="qu" role="button" data-take="' + o.id + '">Take</span></button>'; }).join('')
+      : '<p style="padding:10px">' + (STASH.err ? esc(STASH.err) : !STASH.loaded ? 'Opening the stash…' : STASH.items.length ? 'Nothing matches.' : 'The shared stash is empty. Pick an item in your bag and choose Move to shared.') + '</p>';
+    var info = sel ? '<h3>' + esc(sel.item.name) + '</h3><p>' + esc(sel.item.desc || 'No description.') + '</p><p><small>' + (sel.item.rarity ? esc(sel.item.rarity) + ' · ' : '') + esc(catName(sel.item.cat)) + (sel.item.dmg ? ' · damage ' + esc(sel.item.dmg) : '') + (sel.by ? ' · shared by ' + esc(sel.by) : '') + '</small></p><div class="acts"><button type="button" class="ccBtn" data-take="' + sel.id + '">Take it</button></div>'
+      : '<p>Everything the party has shared. Search it, then tap Take to move a thing into your own bag.</p>';
+    return '<div id="bagList">' + rows + '</div><div id="bagInfo">' + info + '</div>';
   }
   // ---------- whole bodies: DCC-style, you can carry a corpse. Keeps it from the shrubs; drop it later as bait, or sell it ----------
   function stashBody(e) {
@@ -13642,7 +13698,7 @@
   function liveClose() { if (LIVE.ws) { var w = LIVE.ws; LIVE.ws = null; try { w.close(); } catch (x) {} } LIVE.on = false; liveClearGhosts(); }
   function liveSendRaw(o) { if (LIVE.ws && LIVE.ws.readyState === 1) try { LIVE.ws.send(JSON.stringify(o)); return true; } catch (x) {} return false; }
   function liveDM() { return !!(CHAR && CHAR.isDM) || isDM(); }
-  function livePos() { return { x: P.x, z: P.z, px: +P.px.toFixed(2), pz: +P.pz.toFixed(2), ry: +hero.rotation.y.toFixed(2), mv: P.path || (P.moving) ? 1 : 0, cr: crouch ? 1 : 0 }; }
+  function livePos() { return { x: P.x, z: P.z, px: +P.px.toFixed(2), pz: +P.pz.toFixed(2), ry: +hero.rotation.y.toFixed(2), mv: P.path || (P.moving) ? 1 : 0, cr: crouch ? 1 : 0, dn: PC.down ? 1 : 0 }; }
   // a world event happened here: tell everyone (queued until the connection is up)
   function liveEv(k, v) { if (LIVE.applying || NET.mode !== 'server' || liveDM()) return; /* DM-mode testing never changes the shared floor */ LIVE.queue.push([k, v === undefined ? 1 : v]); clearTimeout(liveEv.t); liveEv.t = setTimeout(liveFlush, 60); }
   function liveFlush() { if (!LIVE.queue.length || !LIVE.on) return; if (liveSendRaw({ t: 'ev', evs: LIVE.queue.slice(0, 50) })) LIVE.queue.splice(0, 50); if (LIVE.queue.length) setTimeout(liveFlush, 100); }
@@ -13655,6 +13711,7 @@
     if (j.t === 'say') { liveBubble(j.id, j.text); try { cbLog(j.name, j.text); } catch (x) {} return; }
     if (j.t === 'act') { var g2 = LIVE.ghosts[j.id]; if (g2 && g2.mixer && /^[A-Za-z_]+$/.test(j.a)) liveGhostShot(g2, j.a); return; }
     if (j.t === 'ev') { LIVE.applying = true; try { (j.evs || []).forEach(function (e) { liveApply(e[0], e[1], j.name); }); } finally { LIVE.applying = false; } worldSave(); return; }
+    if (j.t === 'stash') { STASH.t = 0; if (UI.bag && UI.cat === 'shared') stashLoad(); return; }
     if (j.t === 'cb') { try { lfOn(j); } catch (x) { console.warn('live fight', x); } return; }
     if (j.t === 'reset') { var all = j.fk === '*'; if (all) try { Object.keys(localStorage).forEach(function (k) { if (/^crawl-(char|world|fog|talk|dmchar|look)/.test(k)) localStorage.removeItem(k); }); } catch (x) {}
       say(all ? 'Starting over' : 'The floor resets', all ? 'The DM has started the campaign over. Time to make a new character.' : 'The DM has reset this floor. Everything is back.', 4000); setTimeout(function () { location.href = location.pathname; }, 1800); }
@@ -13718,7 +13775,7 @@
   }
   function liveGhostDrop(id) { var g = LIVE.ghosts[id]; if (!g) return; if (g.g.parent) scene.remove(g.g); if (g.tag) g.tag.remove(); if (g.bub) g.bub.remove(); delete LIVE.ghosts[id]; }
   function liveClearGhosts() { Object.keys(LIVE.ghosts).forEach(liveGhostDrop); }
-  function liveGhostPlay(g, name) { if (!g.mixer || g.cur === name || !KIT.clips[name]) return; var a = g.acts[name] || (g.acts[name] = g.mixer.clipAction(KIT.clips[name])); a.reset().fadeIn(0.2).play(); if (g.curA) g.curA.fadeOut(0.2); g.curA = a; g.cur = name; }
+  function liveGhostPlay(g, name) { if (!g.mixer || g.cur === name || !KIT.clips[name]) return; var a = g.acts[name] || (g.acts[name] = g.mixer.clipAction(KIT.clips[name])); if (name === 'Death01') { a.setLoop(THREE.LoopOnce); a.clampWhenFinished = true; } a.reset().fadeIn(0.2).play(); if (g.curA) g.curA.fadeOut(0.2); g.curA = a; g.cur = name; }
   function liveGhostShot(g, name) { if (!KIT.clips[name]) return; var a = g.mixer.clipAction(KIT.clips[name]); a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; a.play(); if (g.curA) g.curA.fadeOut(0.1); g.cur = name; g.curA = a; g.shotT = KIT.clips[name].duration; }
   function liveBubble(id, text) { var g = LIVE.ghosts[id]; if (!g || g.dm) return; if (!g.bub) { g.bub = document.createElement('div'); g.bub.style.cssText = 'position:absolute;transform:translate(-50%,-100%);max-width:200px;background:rgba(20,24,32,.88);color:#eef;border:1px solid #6aa8ff;border-radius:8px;padding:4px 8px;font:13px system-ui,sans-serif;pointer-events:none;z-index:6;display:none'; document.body.appendChild(g.bub); }
     g.bub.textContent = text; g.bubT = performance.now() + 6000; }
@@ -13733,7 +13790,7 @@
       if (dist > 6) g.g.position.set(g.p.px, 0, g.p.pz); else { g.g.position.x += dx * sp; g.g.position.z += dz * sp; }
       var dr = g.p.ry - g.g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); g.g.rotation.y += dr * Math.min(1, dt * 10);
       g.vis = visNow[g.p.x + ',' + g.p.z] !== undefined || liveDM(); g.g.visible = g.vis;
-      if (g.mixer) { if (g.shotT > 0) g.shotT -= dt; else liveGhostPlay(g, g.p.cr ? (dist > 0.05 || g.p.mv ? 'Crouch_Fwd_Loop' : 'Crouch_Idle_Loop') : dist > 0.05 || g.p.mv ? 'Walk_Loop' : 'Idle_Loop'); if (g.vis) g.mixer.update(dt); }
+      if (g.mixer) { if (g.shotT > 0) g.shotT -= dt; else liveGhostPlay(g, g.p.dn ? 'Death01' : g.p.cr ? (dist > 0.05 || g.p.mv ? 'Crouch_Fwd_Loop' : 'Crouch_Idle_Loop') : dist > 0.05 || g.p.mv ? 'Walk_Loop' : 'Idle_Loop'); if (g.vis) g.mixer.update(dt); }
       var s = g.vis ? toScreen(g.g.position.x, 1.95, g.g.position.z) : null;
       if (g.tag) { if (s) { g.tag.style.display = 'block'; g.tag.style.left = s.x + 'px'; g.tag.style.top = s.y + 'px'; } else g.tag.style.display = 'none'; }
       if (g.bub) { if (s && g.bubT > now) { g.bub.style.display = 'block'; g.bub.style.left = s.x + 'px'; g.bub.style.top = (s.y - 16) + 'px'; } else g.bub.style.display = 'none'; } });
@@ -13772,6 +13829,49 @@
     finally { LIVE.applying = false; } cbRingsUpdate(); cbHUD(); }
   function lfApplyPs(ps) { if (!ps) return; Object.keys(ps).forEach(function (u) { var m = lfRemote(+u); if (m) { var v = ps[u]; m.hp = v[0]; m.max = v[1]; m.down = !!v[2]; m.ac = v[3]; m.dodge = !!v[4]; m.hidden = !!v[5]; m.prone = !!v[6]; m.webbed = !!v[7]; } }); }
   function lfAllPs() { var o = {}; o[LIVE.you] = lfMe(); CB.order.forEach(function (c) { if (c.remote) o[c.uid] = [c.hp, c.max, c.down ? 1 : 0, c.ac, c.dodge ? 1 : 0, c.hidden ? 1 : 0, c.prone ? 1 : 0, c.webbed ? 1 : 0]; }); return o; }
+  // ---- playing together: bigger monsters, and nobody dies while a friend can still reach them ----
+  function liveFriends() { return !!(LIVE.on && NET.mode === 'server' && !liveDM() && Object.keys(LIVE.ghosts).some(function (id) { return !LIVE.ghosts[id].dm; })); }
+  var PARTY_HP = 0.2; // monsters in a fight with two or more of you have 20% more HP
+  function lfBoost() { if (!CB.on || !CB.order.some(function (c) { return c && c.remote; })) return;
+    CB.order.forEach(function (e) { if (!e || e === 'pc' || e.remote || e.dead || e.partyAdd) return; var add = Math.max(1, Math.round(e.max * PARTY_HP)); e.partyAdd = add; e.max += add; e.hp += add; }); }
+  function lfUnboost() { CB.enemies.forEach(function (e) { if (!e.partyAdd) return; e.max -= e.partyAdd; e.hp = Math.min(e.hp, e.max); e.partyAdd = 0; }); }
+  function lfAllDown() { return PC.down && !CB.order.some(function (c) { return c && c.remote && !c.down && !c.dead && c.hp > 0; }); }
+  function liveAllDown() { // nobody left standing: the monsters wander off and you lie there until a friend gets to you
+    lfUnboost(); cbEnd(false); CB.enemies.forEach(function (e) { if (!e.dead) { e.path = null; e.fought = false; cbPlay(e, 'Idle_Loop'); } });
+    say('Everyone is down', 'The monsters lose interest. Lie still until a friend helps you up, or the DM revives you.', 6000); refreshFog(); cbHUD(); worldSave();
+  }
+  function helpedUp(who) {
+    if (!PC.down || (CHAR && CHAR.dead)) return;
+    PC.down = false; PC.helpWait = false; PC.hp = Math.max(1, PC.hp); PC.saves = { s: 0, f: 0 }; if (KIT) KIT.shot = null; if (CHAR) { CHAR.downed = null; saveChar(CHAR); }
+    var el = document.getElementById('downBox'); if (el) el.style.display = 'none';
+    say('Back on your feet', who + ' hauls you up. 1 HP.', 3600); cbHUD(); cbShowMoves();
+    if (LF.on && !LF.amHost) lfSend('snap', { to: LF.host, me: lfMe() });
+  }
+  function helpTarget() { // a downed friend right next to you
+    if (!LIVE.on || PC.down || (CHAR && CHAR.dead)) return null; var best = null;
+    Object.keys(LIVE.ghosts).forEach(function (id) { var g = LIVE.ghosts[id]; if (!g.p || !g.p.dn || g.dm) return; if (cheb(g.p.x, g.p.z, P.x, P.z) <= 1) best = { uid: +id, name: g.cname || g.name || 'your friend' }; });
+    return best;
+  }
+  function helpUp() {
+    var t = helpTarget(); if (!t) return;
+    if (CB.on) { if (!cbMyTurn() || CB.busy) { say('Not your turn', 'Help them up on your turn. It takes your action.', 2400); return; } if (!CB.res.action) { say('No action left', 'Helping a friend up takes your action. Next turn.', 2400); return; } CB.res.action = 0; cbShowMoves(); cbHUD(); }
+    liveSendRaw({ t: 'cb', k: 'help', id: LF.id || 'help', to: t.uid, name: CHAR && CHAR.name || NET.user });
+    var m = lfRemote(t.uid); if (m) { m.down = false; m.hp = Math.max(1, m.hp); }
+    kitOneShot('PickUp_Table'); say('Help up', 'You haul ' + t.name + ' back onto their feet. 1 HP.', 3000); cbHUD();
+  }
+  function downShow() { // lying there, out of the fight, waiting
+    var el = document.getElementById('downBox');
+    if (!el) { el = document.createElement('div'); el.id = 'downBox'; el.style.cssText = 'position:fixed;left:50%;top:30%;transform:translate(-50%,-50%);z-index:25;max-width:340px;padding:12px 16px;border-radius:12px;background:rgba(10,4,8,.82);border:1px solid #ff3a5a;color:#f4dfe4;text-align:center;font-size:14px;pointer-events:none'; document.body.appendChild(el); }
+    el.innerHTML = '<b>You are down</b><br>You will not die while friends are on this floor. One of them has to stand next to you and use Help up.';
+    el.style.display = 'block';
+  }
+  setInterval(function () {
+    var b = document.getElementById('aHelp'); if (b) { var t = helpTarget(); b.style.display = t ? '' : 'none'; if (t) b.textContent = 'Help up ' + String(t.name).split(' ')[0]; }
+    var el = document.getElementById('downBox'); if (el && el.style.display === 'block' && !PC.down) el.style.display = 'none';
+    if (PC.down && PC.helpWait && !CB.on && !(CHAR && CHAR.dead)) downShow();
+    // if every friend has left the floor for three minutes, you come to on your own rather than lie there forever
+    if (PC.down && PC.helpWait && !CB.on) { if (liveFriends()) helpUp.alone = 0; else if (!helpUp.alone) helpUp.alone = Date.now(); else if (Date.now() - helpUp.alone > 180000) { helpUp.alone = 0; helpedUp('Nobody'); say('You come to', 'Nobody came. You drag yourself up with 1 HP.', 4000); } }
+  }, 600);
   // ---- the host's side ----
   function lfHostStart() { // called from cbStart when the floor is shared
     if (!LIVE.on || liveDM()) return; LF.on = true; LF.amHost = true; LF.host = LIVE.you; LF.id = LIVE.you + '-' + Date.now().toString(36);
@@ -13782,13 +13882,13 @@
     var m = lfMarker(j.from, j.name, j.init); m.hp = j.me[0]; m.max = j.me[1]; m.ac = j.me[3];
     var initOf = function (c) { return c === 'pc' ? PC.init : c.init; }, at = CB.order.length;
     for (var i = 0; i < CB.order.length; i++) if (m.init > initOf(CB.order[i])) { at = i; break; }
-    CB.order.splice(at, 0, m); if (at <= CB.idx) CB.idx++;
+    CB.order.splice(at, 0, m); if (at <= CB.idx) CB.idx++; lfBoost();
     say((j.name || 'A friend') + ' joins the fight', 'Initiative ' + j.init + '. They take their place in the turn order.', 3200);
     lfBroadcastOrder(); cbRingsUpdate(); cbHUD();
   }
   function lfBroadcastOrder() { lfSend('order', { host: LIVE.you, order: lfOrderIds(), snap: lfSnap(), ps: lfAllPs(), idx: CB.idx, round: CB.round }); }
   function lfHostTurn() { // every turn change: everyone gets the order, the position of the turn and the monsters' state
-    lfSend('turn', { order: lfOrderIds(), snap: lfSnap(), ps: lfAllPs(), idx: CB.idx, round: CB.round });
+    lfBoost(); lfSend('turn', { order: lfOrderIds(), snap: lfSnap(), ps: lfAllPs(), idx: CB.idx, round: CB.round });
     var c = CB.order[CB.idx]; clearTimeout(LF.waitT);
     if (c && c.remote) { var at = CB.idx; LF.waitT = setTimeout(function () { if (CB.on && CB.idx === at && CB.order[at] === c) { say(c.name + ' is taking a while', 'Skipping their turn.', 2600); cbNext(); } }, 120000); }
     else if (c && c !== 'pc') { var at2 = CB.idx, r2 = CB.round; LF.waitT = setTimeout(function () { if (CB.on && CB.idx === at2 && CB.round === r2 && CB.order[at2] === c) { c.path = null; c.afterWalk = null; CB.busy = false; cbNext(); } }, 15000); } // a monster turn that hangs never stalls the table
@@ -13867,9 +13967,8 @@
     if (PC.hp <= 0) cbFall(); cbHUD(); lfSend('snap', { to: LF.host, me: lfMe() });
   }
   function lfEnd(win) { // the fight is over (from either side)
-    if (!LF.on) return; var was = LF.amHost; LF.on = false; clearTimeout(LF.waitT);
+    if (!LF.on) return; var was = LF.amHost; LF.on = false; clearTimeout(LF.waitT); if (was) lfUnboost();
     if (was) lfSend('end', { win: win ? 1 : 0, snap: lfSnap() }); else if (CB.on) { lfSend('snap', { to: LF.host, snap: lfSnap(), me: lfMe() }); lfSend('leave', { to: LF.host }); }
-    if (win && PC.down) { PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; setTimeout(function () { say('Back on your feet', 'Your friends haul you up. 1 HP.', 3600); cbHUD(); }, 2500); }
     LF.id = null; LF.amHost = false; LF.host = null;
   }
   // two of us started fights over the same monsters at the same moment: the lower player id keeps hosting, the other folds in
@@ -13887,6 +13986,7 @@
   // ---- messages ----
   function lfOn(j) {
     if (j.k === 'area') { lfArea(j); return; }
+    if (j.k === 'help') { if (j.to === LIVE.you) helpedUp(j.name || 'A friend'); else { var hm = lfRemote(j.to); if (hm) { hm.down = false; hm.hp = Math.max(1, hm.hp); cbHUD(); } } return; }
     if ((j.k === 'fight' || j.k === 'turn' || j.k === 'order') && lfClash(j)) return;
     if (j.k === 'fight') { LF.fights[j.id] = { host: j.host, x: j.x, z: j.z, at: Date.now() }; lfMaybeJoin(j); return; }
     if (j.k === 'join') { if (LF.on && LF.amHost && j.id === LF.id) lfHostJoin(j); return; }
@@ -13899,7 +13999,7 @@
     if (j.k === 'hurt') { if (j.id === LF.id) lfHurt(j); return; }
     if (j.k === 'path') { if (j.id !== LF.id || LF.amHost) return; var e = liveByN(j.n); if (e && j.path && j.path.length) { e.path = j.path; cbPlay(e, 'Walk_Loop'); e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); }; } return; }
     if (j.k === 'anim') { if (j.id !== LF.id || LF.amHost) return; var e2 = liveByN(j.n); if (e2) cbPlay(e2, j.clip, true); return; }
-    if (j.k === 'end') { delete LF.fights[j.id]; if (LF.on && j.id === LF.id && !LF.amHost) { lfApplySnap(j.snap); LF.on = false; LF.id = null; if (CB.on) cbEnd(!!j.win); if (j.win && PC.down) { PC.down = false; PC.hp = 1; say('Back on your feet', 'Your friends haul you up. 1 HP.', 3600); } } if (LF.pending === j.id) LF.pending = null; return; }
+    if (j.k === 'end') { delete LF.fights[j.id]; if (LF.on && j.id === LF.id && !LF.amHost) { lfApplySnap(j.snap); LF.on = false; LF.id = null; if (CB.on) cbEnd(!!j.win); } if (LF.pending === j.id) LF.pending = null; return; }
     if (j.k === 'leave') { if (!LF.on || !LF.amHost || j.id !== LF.id) return; var m = lfRemote(j.from); if (!m) return; m.dead = true; var at = CB.order.indexOf(m); var cur = CB.order[CB.idx] === m;
       CB.order.splice(at, 1); if (at < CB.idx) CB.idx--; if (cur) { CB.idx--; cbNext(); } else lfBroadcastOrder(); cbHUD(); return; }
   }
@@ -14177,7 +14277,7 @@
   }
   function closeMenu() { menuOpen = false; menuEl.classList.remove('on'); document.getElementById('aInteract').classList.remove('held'); }
   function openMenu(t0) {
-    if (gearOpen || (CHAR && CHAR.dead)) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
+    if (gearOpen || (CHAR && CHAR.dead) || (PC.down && !CB.on)) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
     var t = t0 || findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
     menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : nameOf(t); menuEl.appendChild(hd);
     (t.e ? enemyActs(t.e) : actsOf(t)).forEach(function (a, i) {
@@ -14248,7 +14348,7 @@
   }
   function moveHero(dt) {
     if (CB.on) { cbMove(dt); return; }
-    if (CHAR && CHAR.dead) { P.speed = 0; P.path = null; return; }
+    if ((CHAR && CHAR.dead) || (PC.down && !CB.on)) { P.speed = 0; P.path = null; return; }
     if (PC.timeout && performance.now() < PC.timeout) { P.speed = 0; return; }
     var sx = joy.x, sy = joy.y;
     if (keys.L) sx -= 1; if (keys.R) sx += 1; if (keys.U) sy -= 1; if (keys.D) sy += 1;
@@ -14310,6 +14410,7 @@
     if (CHAR && (CHAR.torch || hasLight())) { look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say('Torch raised', 'You hold up your torch. You see ' + SIGHTS[1].r + ' tiles, and it takes your off hand.', 3200); return; }
     say('No torch', 'You do not have a torch. Light one at any brazier (walk up to one and interact). Your eyes are what they are.', 3800);
   }
+  tap('aHelp', function () { helpUp(); });
   tap('aSay', function () { var t = prompt('Say to everyone on this floor'); if (t) liveSay(t); });
   setInterval(function () { var b = document.getElementById('aSay'); if (b) b.style.display = LIVE.on && Object.keys(LIVE.ghosts).length ? '' : 'none'; }, 1500);
   tap('aInteract', openMenu); tap('aJump', jump); tap('aTry', function () { var best = null, bd = 7; CB.enemies.forEach(function (q) { if (q.dead || q.npc) return; var dd = cheb(P.x, P.z, q.x, q.z); if (dd < bd && los(P.x, P.z, q.x, q.z)) { bd = dd; best = q; } }); trySomething(best); }); tap('aCrouch', toggleCrouch); tap('aSight', cycleSight);
@@ -14523,7 +14624,7 @@
   window.__crawl.dmTest = function () { DM.as = 'dm'; refreshFog(); return Array.prototype.filter.call(tileState, function (v) { return v; }).length; }; window.__crawl.dmJump = function (x, z) { dmJump(x, z); return [P.x, P.z]; };
   window.__crawl.strike = function (slow) { KIT.slow = slow || 1; var W = pcWeapon(); return [W.style, kitStrike(W)]; }; window.__crawl.face = function (r) { hero.rotation.y = r; };
   window.__crawl.tram = { acts: function (k) { var q = k.split(','); return actsOf({ key: k, c: 'o', x: +q[0], z: +q[1] }); }, act: function (a, k) { return safeAct(a, { key: k, c: 'o' }); }, clear: function () { return tramClear(); }, slate: function (e) { slateWin(e, 0); }, open: function () { return gateOpen(); } };
-  window.__crawl.live = { st: LIVE, get on() { return LIVE.on; }, get fk() { return LIVE.fk; }, get you() { return LIVE.you; }, get ghosts() { return LIVE.ghosts; }, say: function (t) { return liveSay(t); }, hideMe: function (v) { hero.visible = !v; }, area: function () { vfxArea('fire', P.x + 1, P.z, 1.5, 20); return VFX.areas.length; }, areas: function () { return VFX.areas.map(function (A) { return A.kind + '@' + A.x + ',' + A.z; }); }, dbg: function () { var g = LIVE.ghosts[Object.keys(LIVE.ghosts)[0]]; if (!g) return null; var sk = null; g.g.traverse(function (o) { if (o.isSkinnedMesh && !sk) sk = o; }); var w = new THREE.Vector3(); if (sk) sk.skeleton.bones[0].getWorldPosition(w); var inG = false; if (sk) { var b = sk.skeleton.bones[0]; while (b) { if (b === g.g) inG = true; b = b.parent; } } return { P: [P.px, P.pz], g: [g.g.position.x, g.g.position.z], bone0: [w.x, w.z], boneInGhost: inG }; } };
+  window.__crawl.live = { fall: function () { PC.hp = 0; cbFall(); cbHUD(); lfSend('snap', { to: LF.host, me: lfMe() }); }, down: function () { return [PC.down, !!PC.helpWait, PC.hp, CB.on]; }, helpT: function () { return helpTarget(); }, help: function () { helpUp(); }, stash: STASH, sLoad: function () { stashLoad(); }, sPut: function (name, all) { var it = CHAR.gear.filter(function (g) { return g.name === name; })[0]; if (it) stashPut(it, all); return !!it; }, sTake: function (id) { stashTake(id); }, gear: function () { return CHAR.gear.map(function (g) { return g.name + (g.qty > 1 ? ' x' + g.qty : ''); }); }, st: LIVE, get on() { return LIVE.on; }, get fk() { return LIVE.fk; }, get you() { return LIVE.you; }, get ghosts() { return LIVE.ghosts; }, say: function (t) { return liveSay(t); }, hideMe: function (v) { hero.visible = !v; }, area: function () { vfxArea('fire', P.x + 1, P.z, 1.5, 20); return VFX.areas.length; }, areas: function () { return VFX.areas.map(function (A) { return A.kind + '@' + A.x + ',' + A.z; }); }, dbg: function () { var g = LIVE.ghosts[Object.keys(LIVE.ghosts)[0]]; if (!g) return null; var sk = null; g.g.traverse(function (o) { if (o.isSkinnedMesh && !sk) sk = o; }); var w = new THREE.Vector3(); if (sk) sk.skeleton.bones[0].getWorldPosition(w); var inG = false; if (sk) { var b = sk.skeleton.bones[0]; while (b) { if (b === g.g) inG = true; b = b.parent; } } return { P: [P.px, P.pz], g: [g.g.position.x, g.g.position.z], bone0: [w.x, w.z], boneInGhost: inG }; } };
   window.__crawl.cam = { st: CAM, kill: function (e) { cbKill(e); }, fight: function (e) { cbStart('Test fight.', e); }, endTurn: function () { cbEndTurn(); }, attack: function (e) { cbAttack(e); }, lf: function () { return { on: LF.on, host: LF.amHost, id: LF.id, idx: CB.idx, round: CB.round, host: LF.amHost, order: CB.order.map(function (c) { return c === 'pc' ? 'ME' : c.remote ? 'friend:' + c.name : c.name + (c.dead ? '(dead)' : ''); }), mine: cbMyTurn(), hp: PC.hp, cbon: CB.on }; }, unpeace: function () { DM.peace = false; }, end: function (w) { cbEnd(w); }, dbg: function () { var c = CAM.list[0]; return { ready: CB.ready, peace: DM.peace, dm: isDM(), safe: inSafeRoom(P.x, P.z), n: CAM.list.length, lv: CAM.lv === LEVEL, crouch: crouch, sees: CAM.list.map(function (c) { return [c.sp.id, camOn(c.sp), camSees(c, P.x, P.z, false), camSees(c, P.x, P.z, true), +c.yaw.toFixed(2)]; }).filter(function (q) { return q[2]; }) }; } };
   window.__crawl.ach = { achieve: achieve, ACH: ACH, state: worldState, apply: worldApply, calm: calmSave, key: spawnKey, talkFight: function (e) { e.talk = e.talk || { lines: [], facts: [], mood: 'neutral' }; } }; // test hooks
   charInit(); cbHUD();

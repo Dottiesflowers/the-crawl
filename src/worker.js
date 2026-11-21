@@ -86,6 +86,7 @@ export class Campaign extends DurableObject {
       CREATE TABLE IF NOT EXISTS kv (user_id INTEGER, k TEXT, v TEXT, updated INTEGER, PRIMARY KEY (user_id, k));
       CREATE TABLE IF NOT EXISTS board (id INTEGER PRIMARY KEY, user_id INTEGER, room INTEGER, text TEXT, created INTEGER);
       CREATE TABLE IF NOT EXISTS ai_usage (user_id INTEGER, day TEXT, calls INTEGER, PRIMARY KEY (user_id, day));
+      CREATE TABLE IF NOT EXISTS stash (id INTEGER PRIMARY KEY, data TEXT, by_user INTEGER, created INTEGER);
       CREATE TABLE IF NOT EXISTS world (fk TEXT, k TEXT, v TEXT, by_user INTEGER, updated INTEGER, PRIMARY KEY (fk, k));
     `);
   }
@@ -133,7 +134,7 @@ export class Campaign extends DurableObject {
       this.liveOthers(fk, ws).forEach(w => this.liveSend(w, join)); return;
     }
     if (msg.t === 'pos') { // where I am and what I'm doing; passed straight on
-      a.p = { x: +msg.x || 0, z: +msg.z || 0, px: +msg.px || 0, pz: +msg.pz || 0, ry: +msg.ry || 0, mv: msg.mv ? 1 : 0, cr: msg.cr ? 1 : 0 }; ws.serializeAttachment(a);
+      a.p = { x: +msg.x || 0, z: +msg.z || 0, px: +msg.px || 0, pz: +msg.pz || 0, ry: +msg.ry || 0, mv: msg.mv ? 1 : 0, cr: msg.cr ? 1 : 0, dn: msg.dn ? 1 : 0 }; ws.serializeAttachment(a);
       const out = JSON.stringify({ t: 'pos', id: a.id, ...a.p }); this.liveOthers(fk, ws).forEach(w => this.liveSend(w, out)); return;
     }
     if (msg.t === 'act' || msg.t === 'say') {
@@ -201,6 +202,24 @@ export class Campaign extends DurableObject {
         this.sql.exec('INSERT INTO board (user_id, room, text, created) VALUES (?, ?, ?, ?)', u.id, parseInt(body.room, 10) || 0, text, Date.now());
         return json({ ok: true });
       }
+      // the party's shared stash: anyone can put an item in or take one out; taking is atomic so two people can't grab the same thing
+      if (p === '/api/stash' && m === 'GET') return json({ items: this.all('SELECT s.id, s.data, s.created, u.username FROM stash s LEFT JOIN users u ON u.id = s.by_user ORDER BY s.id DESC LIMIT 500').map(r => ({ id: r.id, item: JSON.parse(r.data), by: r.username, t: r.created })) });
+      if (p === '/api/stash/put' && m === 'POST') {
+        const it = body.item; if (!it || typeof it.name !== 'string') return json({ error: 'bad_item' }, 400);
+        const s0 = JSON.stringify(it); if (s0.length > 8000) return json({ error: 'too_big' }, 413);
+        if ((this.one('SELECT COUNT(*) AS n FROM stash') || {}).n >= 500) return json({ error: 'full', message: 'The shared stash is full (500 things).' }, 400);
+        this.sql.exec('INSERT INTO stash (data, by_user, created) VALUES (?, ?, ?)', s0, u.id, Date.now());
+        const id = (this.one('SELECT last_insert_rowid() AS id') || {}).id;
+        const out = JSON.stringify({ t: 'stash', k: 'put', who: u.username, name: it.name }); this.ctx.getWebSockets().forEach(w => this.liveSend(w, out));
+        return json({ ok: true, id });
+      }
+      if (p === '/api/stash/take' && m === 'POST') {
+        const id = parseInt(body.id, 10) || 0; const r = this.one('SELECT data FROM stash WHERE id = ?', id);
+        if (!r) return json({ error: 'gone', message: 'Someone already took that.' }, 404);
+        this.sql.exec('DELETE FROM stash WHERE id = ?', id); const it = JSON.parse(r.data);
+        const out = JSON.stringify({ t: 'stash', k: 'take', who: u.username, name: it.name }); this.ctx.getWebSockets().forEach(w => this.liveSend(w, out));
+        return json({ ok: true, item: it });
+      }
       // campaign settings everyone can read; only the DM changes them (live = the campaign has started and testing tools lock)
       // recipes the SGC has invented, shared by everyone (inventor, level and track ride along)
       if (p === '/api/recipes' && m === 'GET') { const r = this.one('SELECT v FROM kv WHERE user_id = 0 AND k = ?', 'recipes'); return json({ value: r ? JSON.parse(r.v) : [] }); }
@@ -236,7 +255,7 @@ export class Campaign extends DurableObject {
         if (u.role !== 'dm') return json({ error: 'dm_only' }, 403);
         if (p === '/api/dm/wipe' && m === 'POST') { // start the campaign over: every character, every save, the shared floors and invented recipes go; accounts stay
           if (body.confirm !== 'START OVER') return json({ error: 'confirm', message: 'Type START OVER to confirm.' }, 400);
-          this.sql.exec('DELETE FROM characters'); this.sql.exec('DELETE FROM kv WHERE user_id > 0'); this.sql.exec("DELETE FROM kv WHERE user_id = 0 AND k = 'recipes'"); this.sql.exec('DELETE FROM world');
+          this.sql.exec('DELETE FROM characters'); this.sql.exec('DELETE FROM kv WHERE user_id > 0'); this.sql.exec("DELETE FROM kv WHERE user_id = 0 AND k = 'recipes'"); this.sql.exec('DELETE FROM world'); this.sql.exec('DELETE FROM stash');
           const out = JSON.stringify({ t: 'reset', fk: '*' }); this.ctx.getWebSockets().forEach(w => this.liveSend(w, out)); return json({ ok: true }); }
         if (p === '/api/dm/world' && m === 'GET') return json({ floors: this.all('SELECT fk, COUNT(*) AS n, MAX(updated) AS updated FROM world GROUP BY fk') });
         if (p === '/api/dm/world' && m === 'DELETE') { // reset one floor's shared world (everything comes back)

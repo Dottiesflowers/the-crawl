@@ -262,7 +262,7 @@
   }
   function closeMenu() { menuOpen = false; menuEl.classList.remove('on'); document.getElementById('aInteract').classList.remove('held'); }
   function openMenu(t0) {
-    if (gearOpen || (CHAR && CHAR.dead)) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
+    if (gearOpen || (CHAR && CHAR.dead) || (PC.down && !CB.on)) return; if (CB.on) { say('In combat', 'Tap an enemy to attack it, or use the combat buttons.', 2600); return; } if (menuOpen && !t0) { closeMenu(); return; }
     var t = t0 || findTarget(); menuAt = { x: P.px, z: P.pz }; sysEl.classList.remove('on');
     menuEl.innerHTML = ''; var hd = document.createElement('div'); hd.className = 'mh'; hd.textContent = t.e ? t.e.dead ? t.e.name + ' · dead' : t.e.npc ? t.e.name + ' · ' + 'production crew' : t.e.name + ' · ' + healthState(t.e)[0] + (t.e.calm ? ' · friendly' : '') : nameOf(t); menuEl.appendChild(hd);
     (t.e ? enemyActs(t.e) : actsOf(t)).forEach(function (a, i) {
@@ -333,7 +333,7 @@
   }
   function moveHero(dt) {
     if (CB.on) { cbMove(dt); return; }
-    if (CHAR && CHAR.dead) { P.speed = 0; P.path = null; return; }
+    if ((CHAR && CHAR.dead) || (PC.down && !CB.on)) { P.speed = 0; P.path = null; return; }
     if (PC.timeout && performance.now() < PC.timeout) { P.speed = 0; return; }
     var sx = joy.x, sy = joy.y;
     if (keys.L) sx -= 1; if (keys.R) sx += 1; if (keys.U) sy -= 1; if (keys.D) sy += 1;
@@ -395,6 +395,7 @@
     if (CHAR && (CHAR.torch || hasLight())) { look.off = [2, look.off[1]]; buildHero(); saveLook(); refreshFog(); say('Torch raised', 'You hold up your torch. You see ' + SIGHTS[1].r + ' tiles, and it takes your off hand.', 3200); return; }
     say('No torch', 'You do not have a torch. Light one at any brazier (walk up to one and interact). Your eyes are what they are.', 3800);
   }
+  tap('aHelp', function () { helpUp(); });
   tap('aSay', function () { var t = prompt('Say to everyone on this floor'); if (t) liveSay(t); });
   setInterval(function () { var b = document.getElementById('aSay'); if (b) b.style.display = LIVE.on && Object.keys(LIVE.ghosts).length ? '' : 'none'; }, 1500);
   tap('aInteract', openMenu); tap('aJump', jump); tap('aTry', function () { var best = null, bd = 7; CB.enemies.forEach(function (q) { if (q.dead || q.npc) return; var dd = cheb(P.x, P.z, q.x, q.z); if (dd < bd && los(P.x, P.z, q.x, q.z)) { bd = dd; best = q; } }); trySomething(best); }); tap('aCrouch', toggleCrouch); tap('aSight', cycleSight);
@@ -608,7 +609,7 @@
   window.__crawl.dmTest = function () { DM.as = 'dm'; refreshFog(); return Array.prototype.filter.call(tileState, function (v) { return v; }).length; }; window.__crawl.dmJump = function (x, z) { dmJump(x, z); return [P.x, P.z]; };
   window.__crawl.strike = function (slow) { KIT.slow = slow || 1; var W = pcWeapon(); return [W.style, kitStrike(W)]; }; window.__crawl.face = function (r) { hero.rotation.y = r; };
   window.__crawl.tram = { acts: function (k) { var q = k.split(','); return actsOf({ key: k, c: 'o', x: +q[0], z: +q[1] }); }, act: function (a, k) { return safeAct(a, { key: k, c: 'o' }); }, clear: function () { return tramClear(); }, slate: function (e) { slateWin(e, 0); }, open: function () { return gateOpen(); } };
-  window.__crawl.live = { st: LIVE, get on() { return LIVE.on; }, get fk() { return LIVE.fk; }, get you() { return LIVE.you; }, get ghosts() { return LIVE.ghosts; }, say: function (t) { return liveSay(t); }, hideMe: function (v) { hero.visible = !v; }, area: function () { vfxArea('fire', P.x + 1, P.z, 1.5, 20); return VFX.areas.length; }, areas: function () { return VFX.areas.map(function (A) { return A.kind + '@' + A.x + ',' + A.z; }); }, dbg: function () { var g = LIVE.ghosts[Object.keys(LIVE.ghosts)[0]]; if (!g) return null; var sk = null; g.g.traverse(function (o) { if (o.isSkinnedMesh && !sk) sk = o; }); var w = new THREE.Vector3(); if (sk) sk.skeleton.bones[0].getWorldPosition(w); var inG = false; if (sk) { var b = sk.skeleton.bones[0]; while (b) { if (b === g.g) inG = true; b = b.parent; } } return { P: [P.px, P.pz], g: [g.g.position.x, g.g.position.z], bone0: [w.x, w.z], boneInGhost: inG }; } };
+  window.__crawl.live = { fall: function () { PC.hp = 0; cbFall(); cbHUD(); lfSend('snap', { to: LF.host, me: lfMe() }); }, down: function () { return [PC.down, !!PC.helpWait, PC.hp, CB.on]; }, helpT: function () { return helpTarget(); }, help: function () { helpUp(); }, stash: STASH, sLoad: function () { stashLoad(); }, sPut: function (name, all) { var it = CHAR.gear.filter(function (g) { return g.name === name; })[0]; if (it) stashPut(it, all); return !!it; }, sTake: function (id) { stashTake(id); }, gear: function () { return CHAR.gear.map(function (g) { return g.name + (g.qty > 1 ? ' x' + g.qty : ''); }); }, st: LIVE, get on() { return LIVE.on; }, get fk() { return LIVE.fk; }, get you() { return LIVE.you; }, get ghosts() { return LIVE.ghosts; }, say: function (t) { return liveSay(t); }, hideMe: function (v) { hero.visible = !v; }, area: function () { vfxArea('fire', P.x + 1, P.z, 1.5, 20); return VFX.areas.length; }, areas: function () { return VFX.areas.map(function (A) { return A.kind + '@' + A.x + ',' + A.z; }); }, dbg: function () { var g = LIVE.ghosts[Object.keys(LIVE.ghosts)[0]]; if (!g) return null; var sk = null; g.g.traverse(function (o) { if (o.isSkinnedMesh && !sk) sk = o; }); var w = new THREE.Vector3(); if (sk) sk.skeleton.bones[0].getWorldPosition(w); var inG = false; if (sk) { var b = sk.skeleton.bones[0]; while (b) { if (b === g.g) inG = true; b = b.parent; } } return { P: [P.px, P.pz], g: [g.g.position.x, g.g.position.z], bone0: [w.x, w.z], boneInGhost: inG }; } };
   window.__crawl.cam = { st: CAM, kill: function (e) { cbKill(e); }, fight: function (e) { cbStart('Test fight.', e); }, endTurn: function () { cbEndTurn(); }, attack: function (e) { cbAttack(e); }, lf: function () { return { on: LF.on, host: LF.amHost, id: LF.id, idx: CB.idx, round: CB.round, host: LF.amHost, order: CB.order.map(function (c) { return c === 'pc' ? 'ME' : c.remote ? 'friend:' + c.name : c.name + (c.dead ? '(dead)' : ''); }), mine: cbMyTurn(), hp: PC.hp, cbon: CB.on }; }, unpeace: function () { DM.peace = false; }, end: function (w) { cbEnd(w); }, dbg: function () { var c = CAM.list[0]; return { ready: CB.ready, peace: DM.peace, dm: isDM(), safe: inSafeRoom(P.x, P.z), n: CAM.list.length, lv: CAM.lv === LEVEL, crouch: crouch, sees: CAM.list.map(function (c) { return [c.sp.id, camOn(c.sp), camSees(c, P.x, P.z, false), camSees(c, P.x, P.z, true), +c.yaw.toFixed(2)]; }).filter(function (q) { return q[2]; }) }; } };
   window.__crawl.ach = { achieve: achieve, ACH: ACH, state: worldState, apply: worldApply, calm: calmSave, key: spawnKey, talkFight: function (e) { e.talk = e.talk || { lines: [], facts: [], mood: 'neutral' }; } }; // test hooks
   charInit(); cbHUD();

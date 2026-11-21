@@ -143,7 +143,7 @@
   setInterval(function () { if (typeof P === 'undefined') return; var m = document.getElementById('mini'); m.style.display = gearOpen || CC || AUTH.open ? 'none' : ''; if (m.style.display !== 'none') mapDraw(m, false); if (UI.map) mapDraw(document.getElementById('mapC'), true); }, 250);
 
   // ---------- inventory ----------
-  var CATS = [['all', 'All'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['scroll', 'Scrolls'], ['box', 'Loot boxes'], ['valuable', 'Valuables'], ['material', 'Materials'], ['body', 'Bodies'], ['misc', 'Misc']];
+  var CATS = [['all', 'All'], ['shared', 'Shared'], ['weapon', 'Weapons'], ['clothing', 'Clothing'], ['tool', 'Tools'], ['consumable', 'Consumables'], ['scroll', 'Scrolls'], ['box', 'Loot boxes'], ['valuable', 'Valuables'], ['material', 'Materials'], ['body', 'Bodies'], ['misc', 'Misc']];
   function bagItems() { return CHAR && CHAR.gear ? CHAR.gear : []; }
   function bagToggle() {
     UI.bag = !UI.bag; if (UI.bag && UI.map) mapToggle(); document.getElementById('bag').classList.toggle('on', UI.bag);
@@ -175,7 +175,7 @@
   }
   function quickGo(it) { if (it.spell) { if (UI.bag) bagToggle(); useItem(it); return; } useItem(it); }
   function facetsFor(cat, items) {
-    if (cat === 'scroll' || cat === 'box') return [];
+    if (cat === 'scroll' || cat === 'box' || cat === 'shared') return [];
     if (FACETS[cat]) return FACETS[cat];
     var cnt = {}; items.forEach(function (it) { if (cat !== 'all' && it.cat !== cat) return; ((ITEMS[it.name] || {}).tags || it.tags || []).forEach(function (t) { if (TAGNAME[t]) cnt[t] = (cnt[t] || 0) + 1; }); });
     return Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).slice(0, 8).map(function (t) { return [t, TAGNAME[t]]; });
@@ -209,11 +209,11 @@
       '<div id="bagSub">' + (facets.length ? facets.map(function (f) { return '<button type="button" class="chip3' + (UI.sub === f[0] ? ' on' : '') + '" data-sub="' + f[0] + '">' + f[1] + '</button>'; }).join('') : '') +
         '<select id="bagRar" aria-label="Rarity"><option value="any">Any rarity</option><option value="common">Common</option><option value="uncommon">Uncommon</option><option value="rare">Rare +</option></select>' +
         '<select id="bagSort" aria-label="Sort"><option value="name">Sort: name</option><option value="rarity">Sort: rarity</option><option value="dmg">Sort: damage</option><option value="found">Sort: newest</option></select></div>' +
-      '<div id="bagList">' + (list.length ? list.map(function (o) {
+      (UI.cat === 'shared' ? stashHTML(q) : '<div id="bagList">' + (list.length ? list.map(function (o) {
         var t = o.it.worn ? 'worn' : o.k === '#hand' ? 'in hand' : o.k === '#back' ? 'on back' : '';
         return '<button type="button" data-i="' + o.i + '" class="' + (o.all.indexOf(UI.sel) >= 0 ? 'on' : '') + (o.it.rarity ? ' r-' + String(o.it.rarity).toLowerCase() : '') + (o.it.bonus ? ' magic' : '') + '">' + itemIcon(o.it) + '<span>' + esc(o.it.name) + '</span>' + (o.n > 1 ? '<b class="qn">×' + o.n + '</b>' : '') + (t ? '<span class="tag">' + t + '</span>' : '') + (quickUse(o.it) ? '<span class="qu" role="button" data-qu="' + o.i + '">' + quickUse(o.it) + '</span>' : '') + '</button>';
       }).join('') : '<p style="padding:10px">' + (items.length ? 'Nothing matches.' : (CHAR ? 'Your pockets are empty. Loot something.' : 'Create a character to get your starting gear.')) + '</p>') + '</div>' +
-      '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div></div></div>';
+      '<div id="bagInfo">' + (sel ? bagInfo(sel) : '<p>Pick an item to see what it does.</p>') + '</div>') + '</div></div>';
     document.getElementById('bagSwap').onclick = swapWeapons;
     document.getElementById('bagSheet').onclick = function () { bagToggle(); charToggle(); };
     document.getElementById('bagCraft').onclick = function () { bagToggle(); craftToggle(); };
@@ -221,12 +221,15 @@
     document.getElementById('bagX').onclick = bagToggle;
     var qi = document.getElementById('bagQ'); qi.oninput = function () { UI.q = qi.value; var pos = qi.selectionStart; bagDraw(); var n = document.getElementById('bagQ'); n.focus(); n.setSelectionRange(pos, pos); };
     qi.addEventListener('keydown', function (ev) { ev.stopPropagation(); });
-    el.querySelectorAll('[data-cat]').forEach(function (b) { b.onclick = function () { UI.cat = b.dataset.cat; UI.sub = ''; bagDraw(); }; });
+    el.querySelectorAll('[data-cat]').forEach(function (b) { b.onclick = function () { UI.cat = b.dataset.cat; UI.sub = ''; if (UI.cat === 'shared') STASH.t = 0; bagDraw(); }; });
     el.querySelectorAll('[data-sub]').forEach(function (b) { b.onclick = function () { UI.sub = UI.sub === b.dataset.sub ? '' : b.dataset.sub; bagDraw(); }; });
     var br = document.getElementById('bagRar'), bs = document.getElementById('bagSort'); br.value = UI.rar; bs.value = UI.sort; br.onchange = function () { UI.rar = br.value; bagDraw(); }; bs.onchange = function () { UI.sort = bs.value; bagDraw(); };
     el.querySelectorAll('[data-qu]').forEach(function (b) { b.onclick = function (ev) { ev.stopPropagation(); var it = items[+b.dataset.qu]; if (it) quickGo(it); }; });
     el.querySelectorAll('[data-i]').forEach(function (b) { b.onclick = function () { UI.sel = +b.dataset.i; bagDraw(); }; });
     el.querySelectorAll('[data-act]').forEach(function (b) { b.onclick = function () { bagAct(b.dataset.act, sel); }; });
+    el.querySelectorAll('[data-s]').forEach(function (b) { b.onclick = function () { STASH.sel = +b.dataset.s; bagDraw(); }; });
+    el.querySelectorAll('[data-take]').forEach(function (b) { b.onclick = function (ev) { ev.stopPropagation(); stashTake(+b.dataset.take); }; });
+    if (UI.cat === 'shared' && !STASH.busy && Date.now() - STASH.t > 4000) stashLoad();
   }
   function catName(c) { var f = CATS.filter(function (x) { return x[0] === c; })[0]; return f ? f[1].replace(/s$/, '') : 'Misc'; }
   function bagInfo(it) {
@@ -243,6 +246,7 @@
     if (it.throw || it.escape || it.box || (it.buff && !it.heal)) { acts.push(['use', it.box ? 'Open (safe room)' : it.escape ? 'Use (escape a fight)' : it.throw ? 'Throw' + (it.uses ? ' (' + (it.usesLeft === undefined ? it.uses : it.usesLeft) + ' left)' : '') : 'Use']); }
     if (it.cat === 'consumable' && it.heal) { acts.push(['use', 'Use (' + it.heal + ' HP)']); }
     if (it.spell) acts.push(['qcast', isScroll(it) ? 'Read the scroll (aim)' : 'Cast (aim)']);
+    if (stashCan(it)) { acts.push(['share', 'Move to shared']); if ((it.qty || 1) > 1) acts.push(['shareAll', 'Move all ' + it.qty + ' to shared']); }
     return '<h3>' + esc(it.name) + '</h3><p>' + esc(it.desc || 'No description. The System could not be bothered.') + '</p>' +
       loreLine(it) + (it.bonus ? '<p><b style="color:#7A1F1A">Enchanted · +' + it.bonus + ' to hit and damage</b></p>' : '') +
       '<p><small>' + (it.rarity ? esc(it.rarity) + ' · ' : '') + esc(catName(it.cat)) + (it.dmg ? ' · damage ' + esc(it.dmg) : '') + (ITEMS[it.name] && ITEMS[it.name].twoHand ? ' · two-handed' : '') + (ITEMS[it.name] && ITEMS[it.name].ammo ? ' · ' + (ITEMS[it.name].ammo.kind || 'arrow') + ' ammo · 1d' + ITEMS[it.name].ammo.s : '') + (it.slot ? ' · ' + esc(slotLabel(it.slot)) : '') + (it.from ? ' · from ' + esc(it.from) : '') + (isLamp(it) ? ' · battery ' + (it.charge === undefined ? 100 : it.charge) + '%' + (it.worn ? (it.lit ? ' · on' : ' · off') : '') : '') + '</small></p>' +
@@ -270,7 +274,54 @@
     if (a === 'hotO') { hotPut(it.name, false, hotKind(it) === 'eat' ? 'hotbar2' : 'hotbar'); }
     if (a === 'unhot') hotOff(it.name);
     if (a === 'light') { aimStart(it, true); return; }
+    if (a === 'share' || a === 'shareAll') { stashPut(it, a === 'shareAll'); return; }
     saveChar(CHAR); bagDraw(); wsetDraw();
+  }
+  // ---------- the party's shared stash: pick something up and it's yours; move it here and anyone can take it ----------
+  var STASH = { items: [], t: 0, busy: false, sel: null, err: '', loaded: false };
+  function stashOnline() { return typeof NET !== 'undefined' && NET.mode === 'server'; }
+  function stashCan(it) {
+    if (!stashOnline() || !it || it.worn || it.cat === 'body') return false;
+    var copies = (CHAR.gear || []).filter(function (g) { return g.name === it.name; }).reduce(function (n, g) { return n + (g.qty || 1); }, 0);
+    if ((CHAR.wield === it.name || CHAR.back === it.name) && copies < 2) return false; // put it away first
+    return true;
+  }
+  function stashLoad() {
+    if (!stashOnline()) return; STASH.busy = true;
+    api('stash').then(function (j) { STASH.items = j.items || []; STASH.err = ''; }).catch(function (e) { STASH.err = e.message || 'Could not reach the stash.'; })
+      .then(function () { STASH.busy = false; STASH.loaded = true; STASH.t = Date.now(); if (UI.bag && UI.cat === 'shared') bagDraw(); });
+  }
+  function stashPut(it, all) {
+    if (STASH.busy || !stashCan(it)) return; var n = all ? (it.qty || 1) : 1;
+    var copy = JSON.parse(JSON.stringify(it)); delete copy.worn; delete copy.lit; if (n > 1) copy.qty = n; else delete copy.qty;
+    STASH.busy = true;
+    api('stash/put', { method: 'POST', body: { item: copy } }).then(function () {
+      if ((it.qty || 1) > n) it.qty = (it.qty || 1) - n; else { var i = CHAR.gear.indexOf(it); if (i >= 0) CHAR.gear.splice(i, 1); UI.sel = null; }
+      if (!CHAR.gear.some(function (g) { return g.name === it.name; })) { if (hotHas(it.name)) hotOff(it.name); }
+      saveChar(CHAR); say('Shared · ' + it.name, (n > 1 ? n + ' of them are' : 'It is') + ' in the party stash now. Anyone can take ' + (n > 1 ? 'them' : 'it') + ' from the Shared tab.', 3000);
+    }).catch(function (e) { say('Could not share it', e.message || 'The stash did not answer. Try again.', 3000); })
+      .then(function () { STASH.busy = false; STASH.t = 0; if (UI.bag) bagDraw(); try { wsetDraw(); } catch (x) {} });
+  }
+  function stashTake(id) {
+    if (STASH.busy || !CHAR) return; STASH.busy = true;
+    api('stash/take', { method: 'POST', body: { id: id } }).then(function (j) {
+      var it = j.item; if (!it) return; it.from = it.from || 'the shared stash'; invAdd(it, true); saveChar(CHAR); STASH.sel = null;
+      say('Taken · ' + it.name, ((it.qty || 1) > 1 ? 'They are' : 'It is') + ' in your bag now.', 2600);
+    }).catch(function (e) { say('Gone', e.message || 'Someone already took that.', 2600); })
+      .then(function () { STASH.busy = false; STASH.t = 0; if (UI.bag) bagDraw(); });
+  }
+  function stashHTML(q) {
+    if (!stashOnline()) return '<div id="bagList"><p style="padding:10px">The shared stash needs you signed in to the party server.</p></div><div id="bagInfo"><p>Sign in to share loot with your friends.</p></div>';
+    var list = STASH.items.filter(function (o) { var it = o.item || {}; return (UI.rar === 'any' || (UI.rar === 'rare' ? rarRank(it) >= 3 : rarRank(it) === (UI.rar === 'uncommon' ? 2 : 1))) && (!q || (it.name + ' ' + (it.desc || '') + ' ' + catName(it.cat) + ' ' + ((ITEMS[it.name] || {}).tags || []).join(' ') + ' ' + (o.by || '')).toLowerCase().indexOf(q) >= 0); });
+    if (UI.sort === 'rarity') list.sort(function (a, b) { return rarRank(b.item) - rarRank(a.item) || a.item.name.localeCompare(b.item.name); });
+    else if (UI.sort === 'dmg') list.sort(function (a, b) { return dmgAvg(b.item) - dmgAvg(a.item) || a.item.name.localeCompare(b.item.name); });
+    else if (UI.sort === 'name') list.sort(function (a, b) { return a.item.name.localeCompare(b.item.name); });
+    var sel = STASH.items.filter(function (o) { return o.id === STASH.sel; })[0];
+    var rows = list.length ? list.map(function (o) { var it = o.item; return '<button type="button" data-s="' + o.id + '" class="' + (o.id === STASH.sel ? 'on' : '') + (it.rarity ? ' r-' + String(it.rarity).toLowerCase() : '') + (it.bonus ? ' magic' : '') + '">' + itemIcon(it) + '<span>' + esc(it.name) + '</span>' + ((it.qty || 1) > 1 ? '<b class="qn">×' + it.qty + '</b>' : '') + (o.by ? '<span class="tag">' + esc(o.by) + '</span>' : '') + '<span class="qu" role="button" data-take="' + o.id + '">Take</span></button>'; }).join('')
+      : '<p style="padding:10px">' + (STASH.err ? esc(STASH.err) : !STASH.loaded ? 'Opening the stash…' : STASH.items.length ? 'Nothing matches.' : 'The shared stash is empty. Pick an item in your bag and choose Move to shared.') + '</p>';
+    var info = sel ? '<h3>' + esc(sel.item.name) + '</h3><p>' + esc(sel.item.desc || 'No description.') + '</p><p><small>' + (sel.item.rarity ? esc(sel.item.rarity) + ' · ' : '') + esc(catName(sel.item.cat)) + (sel.item.dmg ? ' · damage ' + esc(sel.item.dmg) : '') + (sel.by ? ' · shared by ' + esc(sel.by) : '') + '</small></p><div class="acts"><button type="button" class="ccBtn" data-take="' + sel.id + '">Take it</button></div>'
+      : '<p>Everything the party has shared. Search it, then tap Take to move a thing into your own bag.</p>';
+    return '<div id="bagList">' + rows + '</div><div id="bagInfo">' + info + '</div>';
   }
   // ---------- whole bodies: DCC-style, you can carry a corpse. Keeps it from the shrubs; drop it later as bait, or sell it ----------
   function stashBody(e) {
