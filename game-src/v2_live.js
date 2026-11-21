@@ -22,7 +22,7 @@
   function liveDM() { return !!(CHAR && CHAR.isDM) || isDM(); }
   function livePos() { return { x: P.x, z: P.z, px: +P.px.toFixed(2), pz: +P.pz.toFixed(2), ry: +hero.rotation.y.toFixed(2), mv: P.path || (P.moving) ? 1 : 0, cr: crouch ? 1 : 0 }; }
   // a world event happened here: tell everyone (queued until the connection is up)
-  function liveEv(k, v) { if (LIVE.applying || NET.mode !== 'server' || liveDM()) return; // DM-mode testing never changes the shared floor LIVE.queue.push([k, v === undefined ? 1 : v]); clearTimeout(liveEv.t); liveEv.t = setTimeout(liveFlush, 60); }
+  function liveEv(k, v) { if (LIVE.applying || NET.mode !== 'server' || liveDM()) return; /* DM-mode testing never changes the shared floor */ LIVE.queue.push([k, v === undefined ? 1 : v]); clearTimeout(liveEv.t); liveEv.t = setTimeout(liveFlush, 60); }
   function liveFlush() { if (!LIVE.queue.length || !LIVE.on) return; if (liveSendRaw({ t: 'ev', evs: LIVE.queue.slice(0, 50) })) LIVE.queue.splice(0, 50); if (LIVE.queue.length) setTimeout(liveFlush, 100); }
   function liveFollower() { if (!LIVE.on) return false; var ids = Object.keys(LIVE.ghosts).map(Number).filter(function (id) { return !LIVE.ghosts[id].dm; }); return ids.some(function (id) { return id < LIVE.you; }); }
   function liveOn(j) {
