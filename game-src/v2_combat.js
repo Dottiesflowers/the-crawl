@@ -573,6 +573,7 @@
     opt = opt || {};
     if (CB.on || !CB.ready || (CHAR && CHAR.dead)) return;
     if (inSafeRoom(P.x, P.z)) { safeRoomPenalty(); return; }
+    if (LIVE.on && !liveDM() && !LF.on) { var nf = lfNearbyFight(); if (nf) { var F = LF.fights[nf]; lfMaybeJoin({ id: nf, host: F.host, x: F.x, z: F.z }); return; } } // a friend's fight is right here: join it
     var solo = CB.dmPick === 'one' && first; CB.dmSolo = !!solo; CB.dmPick = null;
     var foes = solo ? [first] : CB.enemies.filter(function (e) { return !e.dead && !e.calm && (first === e || (!e.def.timid && cheb(e.x, e.z, P.x, P.z) <= (e.guard ? 3 : 8))); });
     if (!foes.length) return;
@@ -589,7 +590,7 @@
     var names = CB.order.map(function (c) { return (c === 'pc' ? 'You ' + pcInit : c.name + ' ' + c.init); }).join(', ');
     say('Combat · Roll for initiative', why + (surp.length ? ' ' + (surp.length === foes.length ? (foes.length === 1 ? 'It is' : 'They are all') : surp.length + ' of them are') + ' surprised: no turn for ' + (surp.length === 1 ? 'it' : 'them') + ' this round.' + (sneaky ? ' You were sneaking: your first attack has advantage.' : '') : '') + (opt.advInit ? ' You struck first: advantage on initiative (' + ia + '/' + ib + ').' : '') + ' Turn order: ' + names + '.', 6000);
     CB.idx = -1; CB.round = 0; foes.forEach(function (e) { cbFace(e, P.x, P.z); });
-    setTimeout(cbNext, 700); cbHUD();
+    setTimeout(cbNext, 700); cbHUD(); try { lfHostStart(); } catch (x) { console.warn('live fight', x); }
   }
   // ---------- the fight has a reach: anything hostile that comes inside it rolls initiative and joins ----------
   // The zone is centred on everyone in the fight. Monsters join when they see you close up, or when they are
@@ -626,7 +627,7 @@
   function gateOpen() { return slatesOf().length >= 3 || (typeof DM !== 'undefined' && DM.as === 'dm'); }
   function slateWin(e, n) { if (!CHAR) return; CHAR.slates = CHAR.slates || []; if (CHAR.slates.indexOf(e.name) >= 0) return; CHAR.slates.push(e.name); saveChar(CHAR);
     var k = CHAR.slates.length; setTimeout(function () { say('SCENE WRAPPED · slate ' + k + (k < 3 ? '/3' : ''), e.name + ' is done. You pocket the slate (a clapperboard with the scene chalked on it). ' + (k < 3 ? (3 - k) + ' more and the Soundstage 9 door opens.' : k === 3 ? 'That is three: the stage door on Director\'s Row will open for you now.' : 'Soundstage 9 is already open to you.'), 7000); }, 1200 + 2600 * n); }
-  function cbEnd(win) { (CHAR && CHAR.gear || []).forEach(function (g) { g.unloaded = false; var GB = ITEMS[g.name] && ITEMS[g.name].bow; if (GB && GB.cyl) { g.loaded = GB.cyl; g.jammed = false; } }); // between fights you reload and clear any jam CB.enemies.forEach(function (q) { q.pinned = 0; q.surprised = false; q.blind = 0; q.poisoned = null; q.doused = 0; }); PC.burning = 0; CB.dmSolo = false; CB.allyFell = false; CB.enemies.forEach(function (e) { e.rallied = false; e.rally = 0; e.furious = false; e.fleeing = false; e.tauntedThisFight = 0; }); PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
+  function cbEnd(win) { try { if (LF.on) lfEnd(win); } catch (x) {} (CHAR && CHAR.gear || []).forEach(function (g) { g.unloaded = false; var GB = ITEMS[g.name] && ITEMS[g.name].bow; if (GB && GB.cyl) { g.loaded = GB.cyl; g.jammed = false; } }); // between fights you reload and clear any jam CB.enemies.forEach(function (q) { q.pinned = 0; q.surprised = false; q.blind = 0; q.poisoned = null; q.doused = 0; }); PC.burning = 0; CB.dmSolo = false; CB.allyFell = false; CB.enemies.forEach(function (e) { e.rallied = false; e.rally = 0; e.furious = false; e.fleeing = false; e.tauntedThisFight = 0; }); PC.prone = false; PC.webbed = false; CB.enemies.forEach(function (e) { e.webbed = false; });
     setTimeout(worldSave, 500);
     CB.on = false; CB.busy = false; CB.path = null; CB.aim = null; PC.hidden = false; CB.graceUntil = performance.now() + 30000; CB.lastFight = performance.now(); cbShowMoves(); cbRingsUpdate(); cbHUD();
     if (CB.thrownDagger) { look.off = [3, look.off[1]]; CB.thrownDagger = false; buildHero(); }
@@ -653,23 +654,30 @@
   }
   function cbNext() {
     if (!CB.on) return;
+    if (LF.on && !LF.amHost) { lfDone(); return; } // in a friend's fight: the host moves the turns on
     if (!CB.enemies.some(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; })) { cbEnd(true); return; }
     CB.idx = (CB.idx + 1) % CB.order.length;
     if (CB.idx === 0) { CB.round = (CB.round || 0) + 1; cbJoinCheck(); if (CB.round > 1 && typeof VFX !== 'undefined') VFX.areas.forEach(function (A) { A.t += 6; }); } // in a fight, areas last by rounds (6 seconds each)
     var c = CB.order[CB.idx];
     if (c !== 'pc' && (c.dead || c.calm)) { cbNext(); return; }
     if (c === 'pc' && cbEscaped()) return;
-    if (c === 'pc') {
-      CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.walked = false; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
-      if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
-      if (PC.down) { cbRingsUpdate(); cbHUD(); setTimeout(cbDeathSave, 700); return; }
-      burnPools(null); areaTurnStart('pc');
-      cbShowMoves();
-    } else { c.react = true; cbShowMoves(); setTimeout(function () { cbEnemyTurn(c); }, 250); }
+    if (LF.on) lfHostTurn();
+    if (c === 'pc') { cbTurnPC(); return; }
+    if (c.remote) { cbShowMoves(); cbRingsUpdate(); cbHUD(); return; } // a friend's turn: their device plays it and hands back
+    c.react = true; cbShowMoves(); setTimeout(function () { cbEnemyTurn(c); }, 250);
     cbRingsUpdate(); cbHUD();
+  }
+  function cbTurnPC() {
+    CB.res = { move: 6, action: 1, bonus: 1, swap: 1 }; CB.walked = false; CB.dodge = false; CB.disengage = false; CB.aim = null; CB.busy = false; PC.react = true;
+    if (PC.hidden && PC.hiddenTurns-- <= 0) { PC.hidden = false; say('Spotted', 'You stayed in one place too long. They can see you again.', 2400); }
+    if (PC.down) { cbRingsUpdate(); cbHUD(); setTimeout(cbDeathSave, 700); return; }
+    burnPools(null); areaTurnStart('pc');
+    if (LF.on) say('Your turn', 'Round ' + (CB.round || 1) + '.', 1600);
+    cbShowMoves(); cbRingsUpdate(); cbHUD();
   }
   // running away works: if no hostile monster is close enough to keep after you, the fight is over
   function cbEscaped() {
+    if (LF.on) return false; // in a shared fight nobody slips away alone
     var foes = CB.enemies.filter(function (e) { return !e.dead && !e.calm && CB.order.indexOf(e) >= 0; });
     var near = foes.some(function (e) { var dd = cheb(e.x, e.z, P.x, P.z); return dd <= 5 || (dd <= 8 && los(e.x, e.z, P.x, P.z)); });
     if (near || PC.down) return false;
@@ -1034,6 +1042,7 @@
     var speed = e.def.speed;
     if (e.prone) { e.prone = false; speed = Math.floor(speed / 2); cbPlay(e, 'Idle_Loop'); say(e.name, 'It scrambles back to its feet (half its movement).', 2200); }
     if (e.grappled || e.webbed) speed = 0; if (e.pinned > 0) { e.pinned--; speed = 0; }
+    var lt = LF.on && LF.amHost ? lfTarget(e) : null; if (lt) { lfEnemyVsFriend(e, lt, speed); return; } // a friend is closer (or you are down): it goes for them
     if (PC.down) { // the show likes a dramatic pause: monsters gloat instead of finishing you
       setTimeout(function () { say(e.name, ['It pokes you with its ' + e.def.weapon + ' and waves at the camera.', 'It goes through your pockets.', 'It does a little dance.'][Math.floor(Math.random() * 3)], 2400); setTimeout(cbNext, 900); }, 300); return;
     }
@@ -1045,7 +1054,7 @@
     if (best === null) { say(e.name, 'It cannot find a way to you and snarls instead.', 2500); setTimeout(cbNext, 700); return; }
     var p = best.split(','), full = pathTo(r, +p[0], +p[1]), path = [], spent = 0; for (var pi = 0; pi < full.length; pi++) { spent += tileCost(full[pi][0], full[pi][1]); if (spent > speed) break; path.push(full[pi]); } // ice, webs and spikes cost double
     if (!path.length) { setTimeout(cbNext, 300); return; }
-    e.path = path; cbPlay(e, 'Walk_Loop');
+    e.path = path; cbPlay(e, 'Walk_Loop'); lfPath(e, path);
     e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); if (cheb(e.x, e.z, P.x, P.z) <= 1) cbEnemyAttack(e, false, cbNextAfterHit); else setTimeout(cbNext, 350); };
   }
   // ---------- personality in a fight (from the five traits every monster rolls) ----------
@@ -1059,7 +1068,7 @@
     if (intl === 'none' && e.def.base !== 'rat') return false;
     var leader = e.boss || /chief|foreman|head|monarch|captain|lead|king|warden/i.test(e.kind);
     if (leader && !e.rallied && (e.hp <= e.max * 0.5 || CB.allyFell)) { // rally
-      e.rallied = true; var n = 0; CB.order.forEach(function (q) { if (q !== 'pc' && q !== e && !q.dead && !q.calm && cheb(q.x, q.z, e.x, e.z) <= 6) { q.rally = 2; q.fleeing = false; n++; fxTag(q, 'RALLIED'); } });
+      e.rallied = true; var n = 0; CB.order.forEach(function (q) { if (q !== 'pc' && !q.remote && q !== e && !q.dead && !q.calm && cheb(q.x, q.z, e.x, e.z) <= 6) { q.rally = 2; q.fleeing = false; n++; fxTag(q, 'RALLIED'); } });
       if (n) { fxTag(e, 'RALLY!'); say(m.name || e.name, '"' + ['Hold the line!', 'Nobody runs! NOBODY!', 'Get them, you idiots!', 'For the show!'][Math.floor(Math.random() * 4)] + '" ' + n + ' all' + (n > 1 ? 'ies get' : 'y gets') + ' +2 on their next attack.', 3400); }
     }
     if (!e.boss && !e.fleeing && e.hp <= e.max * 0.3 && (t.brave <= 2 || (t.brave === 3 && Math.random() < 0.35)) && !e.rally) { e.fleeing = true; fxTag(e, 'PANICKING'); say((m.known ? m.name : e.name) + ' panics', 'It turns and runs for it.', 2800); }
@@ -1078,7 +1087,7 @@
     return false;
   }
   function personaAllyFell(dead) { // loyal friends get angry, disloyal cowards get ideas
-    CB.allyFell = true; CB.order.forEach(function (q) { if (q === 'pc' || q.dead || q.calm || q === dead || cheb(q.x, q.z, dead.x, dead.z) > 4) return; var m = typeof mindOf === 'function' ? mindOf(q) : null; if (!m || !m.t) return;
+    CB.allyFell = true; CB.order.forEach(function (q) { if (q === 'pc' || q.remote || q.dead || q.calm || q === dead || cheb(q.x, q.z, dead.x, dead.z) > 4) return; var m = typeof mindOf === 'function' ? mindOf(q) : null; if (!m || !m.t) return;
       if (m.t.loyalty >= 5 && !q.furious) { q.furious = true; fxTag(q, 'FURIOUS'); say((m.known ? m.name : q.name) + ' is furious', 'It saw that. +1 to hit for the rest of the fight.', 2800); }
       else if (m.t.loyalty <= 2 && m.t.brave <= 2 && !q.boss && Math.random() < 0.5) { q.fleeing = true; fxTag(q, 'BOLTS'); } });
   }
@@ -1144,7 +1153,7 @@
   }
   function cbNextAfterHit() { setTimeout(function () { if (!PC.down || CB.order[CB.idx] !== 'pc') cbNext(); }, 450); }
   function cbEnemyAttack(e, opportunity, then) {
-    cbFace(e, P.x, P.z); cbPlay(e, e.def.attackClip, true);
+    cbFace(e, P.x, P.z); cbPlay(e, e.def.attackClip, true); lfAnim(e, e.def.attackClip);
     var dis = CB.dodge || PC.hidden || e.prone, why = [];
     if (CB.dodge) why.push('you dodge'); if (PC.hidden) why.push('cannot see you'); if (e.prone) why.push('attacking from the floor'); if (e.blind > 0) { dis = true; why.push('it is blinded'); }
     var adv2 = false, oP = obscured(P.x, P.z), oE = obscured(e.x, e.z), nearP = cheb(e.x, e.z, P.x, P.z) <= 1;

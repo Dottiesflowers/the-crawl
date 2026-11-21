@@ -28,12 +28,14 @@
   function liveOn(j) {
     if (j.t === 'state') { LIVE.on = true; LIVE.you = j.you; liveApplyState(j.items || []); (j.roster || []).forEach(liveGhostAdd); liveFlush(); if (j.roster && j.roster.length) say('On this floor', j.roster.map(function (q) { return q.cname || q.name; }).join(', ') + (j.roster.length > 1 ? ' are' : ' is') + ' here too.', 3600); return; }
     if (j.t === 'join') { liveGhostAdd(j.p); if (!j.p.look) return; say((j.p.cname || j.p.name) + ' is here', 'They just arrived on this floor.', 2600); return; }
-    if (j.t === 'leave') { liveGhostDrop(j.id); return; }
+    if (j.t === 'leave') { liveGhostDrop(j.id); if (LF.on && LF.amHost) lfOn({ k: 'leave', id: LF.id, from: j.id }); return; }
     if (j.t === 'pos') { var g = LIVE.ghosts[j.id]; if (g) { g.p = j; if (!g.seen) { g.seen = true; g.g.position.set(j.px, 0, j.pz); } } return; }
     if (j.t === 'say') { liveBubble(j.id, j.text); try { cbLog(j.name, j.text); } catch (x) {} return; }
     if (j.t === 'act') { var g2 = LIVE.ghosts[j.id]; if (g2 && g2.mixer && /^[A-Za-z_]+$/.test(j.a)) liveGhostShot(g2, j.a); return; }
     if (j.t === 'ev') { LIVE.applying = true; try { (j.evs || []).forEach(function (e) { liveApply(e[0], e[1], j.name); }); } finally { LIVE.applying = false; } worldSave(); return; }
-    if (j.t === 'reset') { say('The floor resets', 'The DM has reset this floor. Everything is back.', 4000); setTimeout(function () { location.reload(); }, 1800); }
+    if (j.t === 'cb') { try { lfOn(j); } catch (x) { console.warn('live fight', x); } return; }
+    if (j.t === 'reset') { var all = j.fk === '*'; if (all) try { Object.keys(localStorage).forEach(function (k) { if (/^crawl-(char|world|fog|talk|dmchar|look)/.test(k)) localStorage.removeItem(k); }); } catch (x) {}
+      say(all ? 'Starting over' : 'The floor resets', all ? 'The DM has started the campaign over. Time to make a new character.' : 'The DM has reset this floor. Everything is back.', 4000); setTimeout(function () { location.href = location.pathname; }, 1800); }
   }
   // ---- world events ----
   function liveByN(n) { n = +n; for (var i = 0; i < CB.enemies.length; i++) if (CB.enemies[i].n === n) return CB.enemies[i]; return null; }
@@ -118,3 +120,160 @@
   })();
   // connect when the floor is ready, reconnect when the floor or its layout changes, keep the line warm
   setInterval(function () { if (liveWanted()) { if (!LIVE.ws || LIVE.fk !== liveFk()) liveConnect(); else liveSendRaw({ t: 'ping' }); } else if (LIVE.ws && !(typeof CHAR !== 'undefined' && CHAR)) liveClose(); }, 4000);
+
+  // ---------- shared fights (stage 3): one turn order for everyone nearby ----------
+  // Whoever starts a fight hosts it: their machine runs the monsters. Friends within reach roll initiative and join the same
+  // order; on your turn your own device runs your moves and attacks and sends the result. Monsters go for the nearest player.
+  // In CB.order a friend is a stand-in object { remote: true, uid, name, init, hp, max }.
+  var LF = { on: false, id: null, amHost: false, host: null, fights: {}, lastSnap: '', waitT: null, ps: {} };
+  var LF_REACH = 12;
+  function lfSend(k, o) { o = o || {}; o.t = 'cb'; o.k = k; o.id = o.id || LF.id; return liveSendRaw(o); }
+  function lfRemote(uid) { for (var i = 0; i < CB.order.length; i++) { var c = CB.order[i]; if (c && c.remote && c.uid === uid) return c; } return null; }
+  function lfMarker(uid, name, init) { var m = { remote: true, uid: uid, name: name || 'Crawler', init: init, hp: 1, max: 1, dead: false, calm: false, kind: '__player', def: { h: 1.8, init: 0 }, ac: 12, down: false };
+    Object.defineProperty(m, 'x', { get: function () { var g = LIVE.ghosts[uid]; return g && g.p ? g.p.x : P.x; } }); Object.defineProperty(m, 'z', { get: function () { var g = LIVE.ghosts[uid]; return g && g.p ? g.p.z : P.z; } });
+    Object.defineProperty(m, 'px', { get: function () { var g = LIVE.ghosts[uid]; return g ? g.g.position.x : P.px; } }); Object.defineProperty(m, 'pz', { get: function () { var g = LIVE.ghosts[uid]; return g ? g.g.position.z : P.pz; } });
+    return m; }
+  function lfOrderIds() { return CB.order.map(function (c) { return c === 'pc' ? ['u', LIVE.you, PC.init, CHAR.name || NET.user] : c.remote ? ['u', c.uid, c.init, c.name] : ['e', c.n, c.init]; }); }
+  function lfFlags(e) { var f = {}; ['prone', 'stunned', 'blind', 'webbed', 'grappled', 'pinned', 'calm', 'surprised', 'doused', 'rally', 'furious', 'fleeing'].forEach(function (k) { if (e[k]) f[k] = e[k]; });
+    ['burning', 'poisoned', 'weak'].forEach(function (k) { if (e[k] && e[k].turns > 0) f[k] = e[k]; }); return f; }
+  function lfSnap() { return CB.order.filter(function (c) { return c !== 'pc' && !c.remote; }).map(function (e) { return [e.n, e.hp, e.max, e.x, e.z, e.dead ? 1 : 0, lfFlags(e)]; }); }
+  function lfMe() { return [PC.hp, PC.max, PC.down ? 1 : 0, pcAC().ac, CB.dodge ? 1 : 0, PC.hidden ? 1 : 0]; }
+  function lfApplySnap(sn) {
+    if (!sn) return; LIVE.applying = true;
+    try { sn.forEach(function (q) { var e = liveByN(q[0]); if (!e) return;
+      if (q[5] && !e.dead) { e.hp = 0; if (CB.order.indexOf(e) >= 0) cbKill(e); else { e.dead = true; e.obj.visible = false; } return; }
+      if (q[1] < e.hp && !e.dead) floater(e.px, (e.def.h || 1) + 0.3, e.pz, '-' + (e.hp - q[1]), 'dmg');
+      e.hp = q[1]; e.max = q[2];
+      if ((e.x !== q[3] || e.z !== q[4]) && !e.path) { if (cheb(e.x, e.z, q[3], q[4]) <= 2) { e.path = [[q[3], q[4]]]; cbPlay(e, 'Walk_Loop'); e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); }; } else { e.x = q[3]; e.z = q[4]; e.px = q[3]; e.pz = q[4]; e.obj.position.set(q[3], 0, q[4]); } }
+      ['prone', 'stunned', 'blind', 'webbed', 'grappled', 'pinned', 'calm', 'surprised', 'doused', 'rally', 'furious', 'fleeing', 'burning', 'poisoned', 'weak'].forEach(function (k) { e[k] = q[6][k] || (k === 'burning' || k === 'poisoned' || k === 'weak' ? null : 0); });
+      if (e.calm) { var at = CB.order.indexOf(e); if (at >= 0 && at !== CB.idx) { CB.order.splice(at, 1); if (at < CB.idx) CB.idx--; } } }); }
+    finally { LIVE.applying = false; } cbRingsUpdate(); cbHUD(); }
+  function lfApplyPs(ps) { if (!ps) return; Object.keys(ps).forEach(function (u) { var m = lfRemote(+u); if (m) { var v = ps[u]; m.hp = v[0]; m.max = v[1]; m.down = !!v[2]; m.ac = v[3]; m.dodge = !!v[4]; m.hidden = !!v[5]; } }); }
+  function lfAllPs() { var o = {}; o[LIVE.you] = lfMe(); CB.order.forEach(function (c) { if (c.remote) o[c.uid] = [c.hp, c.max, c.down ? 1 : 0, c.ac, c.dodge ? 1 : 0, c.hidden ? 1 : 0]; }); return o; }
+  // ---- the host's side ----
+  function lfHostStart() { // called from cbStart when the floor is shared
+    if (!LIVE.on || liveDM()) return; LF.on = true; LF.amHost = true; LF.host = LIVE.you; LF.id = LIVE.you + '-' + Date.now().toString(36);
+    lfSend('fight', { host: LIVE.you, x: P.x, z: P.z, order: lfOrderIds(), snap: lfSnap(), ps: lfAllPs(), idx: CB.idx, round: CB.round });
+  }
+  function lfHostJoin(j) {
+    if (!LF.on || !LF.amHost || !CB.on || lfRemote(j.from)) return;
+    var m = lfMarker(j.from, j.name, j.init); m.hp = j.me[0]; m.max = j.me[1]; m.ac = j.me[3];
+    var initOf = function (c) { return c === 'pc' ? PC.init : c.init; }, at = CB.order.length;
+    for (var i = 0; i < CB.order.length; i++) if (m.init > initOf(CB.order[i])) { at = i; break; }
+    CB.order.splice(at, 0, m); if (at <= CB.idx) CB.idx++;
+    say((j.name || 'A friend') + ' joins the fight', 'Initiative ' + j.init + '. They take their place in the turn order.', 3200);
+    lfBroadcastOrder(); cbRingsUpdate(); cbHUD();
+  }
+  function lfBroadcastOrder() { lfSend('order', { host: LIVE.you, order: lfOrderIds(), snap: lfSnap(), ps: lfAllPs(), idx: CB.idx, round: CB.round }); }
+  function lfHostTurn() { // every turn change: everyone gets the order, the position of the turn and the monsters' state
+    lfSend('turn', { order: lfOrderIds(), snap: lfSnap(), ps: lfAllPs(), idx: CB.idx, round: CB.round });
+    var c = CB.order[CB.idx]; clearTimeout(LF.waitT);
+    if (c && c.remote) { var at = CB.idx; LF.waitT = setTimeout(function () { if (CB.on && CB.idx === at && CB.order[at] === c) { say(c.name + ' is taking a while', 'Skipping their turn.', 2600); cbNext(); } }, 120000); }
+  }
+  function lfHostDone(j) { var c = CB.order[CB.idx]; if (!LF.on || !LF.amHost || !c || !c.remote || c.uid !== j.from) return; clearTimeout(LF.waitT); lfApplySnap(j.snap); if (j.me) lfApplyPs((function () { var o = {}; o[j.from] = j.me; return o; })()); setTimeout(cbNext, 300); }
+  function lfPath(e, path) { if (LF.on && LF.amHost) lfSend('path', { n: e.n, path: path }); }
+  function lfAnim(e, clip) { if (LF.on && LF.amHost) lfSend('anim', { n: e.n, clip: clip }); }
+  // a monster picks the nearest player still on their feet; a friend is returned as their stand-in
+  function lfTarget(e) {
+    if (!LF.on || !LF.amHost) return null; var best = null, bd = PC.down ? 1e9 : cheb(e.x, e.z, P.x, P.z);
+    CB.order.forEach(function (c) { if (!c.remote || c.dead || c.down || c.hp <= 0) return; var dd = cheb(e.x, e.z, c.x, c.z) - (e.tgtUid === c.uid ? 1 : 0); if (dd < bd) { bd = dd; best = c; } });
+    if (best) e.tgtUid = best.uid; else e.tgtUid = null; return best;
+  }
+  function lfEnemyVsFriend(e, t, speed) {
+    if (cheb(e.x, e.z, t.x, t.z) <= 1) { lfEnemyHit(e, t); return; }
+    if (!speed) { setTimeout(cbNext, 600); return; }
+    var r = bfs(e.x, e.z, e, 40), best = null;
+    for (var dz = -1; dz <= 1; dz++) for (var dx = -1; dx <= 1; dx++) { if (!dx && !dz) continue; var k = (t.x + dx) + ',' + (t.z + dz); if (r.dist[k] !== undefined && (best === null || r.dist[k] < r.dist[best])) best = k; }
+    if (best === null) { setTimeout(cbNext, 600); return; }
+    var p = best.split(','), full = pathTo(r, +p[0], +p[1]), path = [], spent = 0; for (var i = 0; i < full.length; i++) { spent += tileCost(full[i][0], full[i][1]); if (spent > speed) break; path.push(full[i]); }
+    if (!path.length) { setTimeout(cbNext, 300); return; }
+    e.path = path; cbPlay(e, 'Walk_Loop'); lfPath(e, path);
+    e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); if (cheb(e.x, e.z, t.x, t.z) <= 1) lfEnemyHit(e, t); else setTimeout(cbNext, 350); };
+  }
+  function lfEnemyHit(e, t) {
+    cbFace(e, t.x, t.z); cbPlay(e, e.def.attackClip, true); lfAnim(e, e.def.attackClip);
+    var dis = !!(t.dodge || t.hidden || e.prone || e.blind > 0), pb = (e.rally || 0) + (e.furious ? 1 : 0); e.rally = 0;
+    var R = roll20(false, dis), tot = R.r + e.def.atk + pb, crit = R.r === 20, hit = crit || (R.r !== 1 && tot >= t.ac);
+    var dm = hit ? d(crit ? e.def.dmg[0] * 2 : e.def.dmg[0], e.def.dmg[1]) + e.def.dmg[2] : 0, line = R.txt + ' + ' + e.def.atk + ' = ' + tot + ' vs AC ' + t.ac + (dis ? ' (disadvantage)' : '');
+    setTimeout(function () {
+      lfSend('hurt', { to: t.uid, dmg: dm, hit: hit ? 1 : 0, crit: crit ? 1 : 0, who: e.name, weapon: e.def.weapon, line: line });
+      floater(t.px, 1.5, t.pz, hit ? '-' + dm : 'MISS', hit ? (crit ? 'crit' : 'dmg') : 'miss'); if (hit) { t.hp = Math.max(0, t.hp - dm); if (t.hp <= 0) t.down = true; }
+      say(e.name + (hit ? ' hits ' : ' misses ') + t.name + ' · ' + line, hit ? t.name + ' takes ' + dm + ' damage.' : 'A miss.', 3200); cbHUD();
+      setTimeout(cbNext, 900);
+    }, 480);
+  }
+  // ---- a friend's side ----
+  function lfMaybeJoin(j) { // a fight started (or is going) nearby: join it if you are close and free
+    if (!LIVE.on || liveDM() || CB.on || !CB.ready || (CHAR && CHAR.dead) || inSafeRoom(P.x, P.z) || LF.on) return;
+    var near = cheb(j.x || 0, j.z || 0, P.x, P.z) <= LF_REACH || (j.snap || []).some(function (q) { return !q[5] && cheb(q[3], q[4], P.x, P.z) <= LF_REACH - 4; });
+    if (!near) return;
+    var init = d20() + MOD.DEX - (hasTrait('Distractible') ? 2 : 0) + buffInit(); PC.init = init; LF.pending = j.id;
+    lfSend('join', { id: j.id, to: j.host || j.from, name: CHAR.name || NET.user, init: init, me: lfMe() });
+  }
+  function lfBegin(j) { // the host put you in the order
+    if (CB.on) return; LF.on = true; LF.amHost = false; LF.id = j.id; LF.host = j.host || j.from; LF.pending = null;
+    if (menuOpen) closeMenu(); if (crouch) toggleCrouch(); keys = {}; joy.x = joy.y = 0;
+    CB.on = true; CB.airFight = false; CB.dodge = false; CB.disengage = false; CB.aim = null; P.px = P.x; P.pz = P.z; P.speed = 0; CB.path = null; PC.react = true; CB.busy = false;
+    CB.res = { move: 0, action: 0, bonus: 0, swap: 0 };
+    lfSetOrder(j.order); lfApplySnap(j.snap); lfApplyPs(j.ps); CB.idx = j.idx; CB.round = j.round || 0;
+    CB.order.forEach(function (c) { if (c !== 'pc' && !c.remote) { c.fought = true; c.react = true; } });
+    say('Combat · You join the fight', 'Initiative ' + PC.init + '. ' + (CB.order.filter(function (c) { return c.remote; }).map(function (c) { return c.name; }).join(' and ') || 'Your friend') + ' started it; you are in the same turn order.', 4200);
+    cbShowMoves(); cbRingsUpdate(); cbHUD(); if (CB.order[CB.idx] === 'pc') cbTurnPC();
+  }
+  function lfSetOrder(ids) { var old = {}; CB.order.forEach(function (c) { if (c.remote) old[c.uid] = c; });
+    CB.order = ids.map(function (q) { if (q[0] === 'u') { if (q[1] === LIVE.you) { PC.init = q[2]; return 'pc'; } var m = old[q[1]] || lfMarker(q[1], q[3], q[2]); m.init = q[2]; return m; } var e = liveByN(q[1]); if (e) { e.init = q[2]; e.fought = true; } return e; }).filter(Boolean); }
+  function lfTurn(j) { // the host moved the fight on
+    if (!LF.on || LF.amHost || j.id !== LF.id) return; lfSetOrder(j.order); lfApplySnap(j.snap); lfApplyPs(j.ps); CB.round = j.round; var prev = CB.order[CB.idx]; CB.idx = j.idx;
+    if (CB.order[CB.idx] === 'pc' && prev !== 'pc') cbTurnPC(); else { cbShowMoves(); cbRingsUpdate(); cbHUD(); }
+  }
+  function lfDone() { // my turn is over: hand the fight back to the host
+    if (CB.order[CB.idx] !== 'pc') return; CB.res = { move: 0, action: 0, bonus: 0, swap: 0 }; cbShowMoves(); cbHUD();
+    lfSend('done', { to: LF.host, idx: CB.idx, snap: lfSnap(), me: lfMe() }); }
+  function lfHurt(j) {
+    if (!CB.on || !LF.on) return;
+    if (!j.hit) { floater(P.px, 1.5, P.pz, 'MISS', 'miss'); say(j.who + ' misses · ' + j.line, 'It whistles past.', 3000); return; }
+    PC.hp = Math.max(0, PC.hp - j.dmg); floater(P.px, 1.5, P.pz, '-' + j.dmg, j.crit ? 'crit' : 'pdmg'); kitOneShot('Hit_Chest');
+    say(j.who + ' hits · ' + (j.weapon || '') + ' · ' + j.line, 'You take ' + j.dmg + ' damage. ' + (PC.hp > 0 ? PC.hp + ' HP left.' : ''), 4200);
+    if (PC.hp <= 0) cbFall(); cbHUD(); lfSend('snap', { to: LF.host, me: lfMe() });
+  }
+  function lfEnd(win) { // the fight is over (from either side)
+    if (!LF.on) return; var was = LF.amHost; LF.on = false; clearTimeout(LF.waitT);
+    if (was) lfSend('end', { win: win ? 1 : 0, snap: lfSnap() }); else if (CB.on) { lfSend('snap', { to: LF.host, snap: lfSnap(), me: lfMe() }); lfSend('leave', { to: LF.host }); }
+    if (win && PC.down) { PC.down = false; PC.hp = 1; if (KIT) KIT.shot = null; setTimeout(function () { say('Back on your feet', 'Your friends haul you up. 1 HP.', 3600); cbHUD(); }, 2500); }
+    LF.id = null; LF.amHost = false; LF.host = null;
+  }
+  // two of us started fights over the same monsters at the same moment: the lower player id keeps hosting, the other folds in
+  function lfClash(j) {
+    if (!LF.on || !LF.amHost || !CB.on || j.id === LF.id) return false; var other = j.host || j.from; if (!other || other > LIVE.you) return false;
+    var mine = {}; CB.order.forEach(function (c) { if (c !== 'pc' && !c.remote) mine[c.n] = 1; });
+    var overlap = (j.snap || []).some(function (q) { return mine[q[0]]; }) || (j.x !== undefined && cheb(j.x, j.z, P.x, P.z) <= LF_REACH);
+    if (!overlap) return false;
+    lfSend('end', { win: 0, snap: [] }); LF.on = false; LF.id = null; LF.amHost = false; clearTimeout(LF.waitT);
+    CB.on = false; CB.order = []; CB.busy = false; CB.path = null; CB.aim = null; cbShowMoves(); cbRingsUpdate(); cbHUD();
+    var e0 = (j.snap || []).filter(function (q) { return !q[5]; })[0];
+    lfMaybeJoin({ id: j.id, host: other, x: j.x !== undefined ? j.x : e0 ? e0[3] : P.x, z: j.z !== undefined ? j.z : e0 ? e0[4] : P.z, snap: j.snap });
+    return true;
+  }
+  // ---- messages ----
+  function lfOn(j) {
+    if ((j.k === 'fight' || j.k === 'turn' || j.k === 'order') && lfClash(j)) return;
+    if (j.k === 'fight') { LF.fights[j.id] = { host: j.host, x: j.x, z: j.z, at: Date.now() }; lfMaybeJoin(j); return; }
+    if (j.k === 'join') { if (LF.on && LF.amHost && j.id === LF.id) lfHostJoin(j); return; }
+    if (j.k === 'order') { LF.fights[j.id] = LF.fights[j.id] || { host: j.host, at: Date.now() }; LF.fights[j.id].at = Date.now();
+      if (!LF.on && LF.pending === j.id && j.order.some(function (q) { return q[0] === 'u' && q[1] === LIVE.you; })) lfBegin(j); else if (LF.on && !LF.amHost && j.id === LF.id) lfTurn(j); return; }
+    if (j.k === 'turn') { if (LF.fights[j.id]) LF.fights[j.id].at = Date.now(); else LF.fights[j.id] = { host: j.from, at: Date.now() };
+      if (LF.on && j.id === LF.id) lfTurn(j); else if (!LF.on && !CB.on) { var e0 = (j.snap || []).filter(function (q) { return !q[5]; })[0]; if (e0) lfMaybeJoin({ id: j.id, host: j.from, x: e0[3], z: e0[4], snap: j.snap }); } return; }
+    if (j.k === 'done') { if (j.id === LF.id) lfHostDone(j); return; }
+    if (j.k === 'snap') { if (j.id !== LF.id) return; if (j.snap) lfApplySnap(j.snap); if (j.me) { var o = {}; o[j.from] = j.me; lfApplyPs(o); cbHUD(); } return; }
+    if (j.k === 'hurt') { if (j.id === LF.id) lfHurt(j); return; }
+    if (j.k === 'path') { if (j.id !== LF.id || LF.amHost) return; var e = liveByN(j.n); if (e && j.path && j.path.length) { e.path = j.path; cbPlay(e, 'Walk_Loop'); e.afterWalk = function () { cbPlay(e, 'Idle_Loop'); }; } return; }
+    if (j.k === 'anim') { if (j.id !== LF.id || LF.amHost) return; var e2 = liveByN(j.n); if (e2) cbPlay(e2, j.clip, true); return; }
+    if (j.k === 'end') { delete LF.fights[j.id]; if (LF.on && j.id === LF.id && !LF.amHost) { lfApplySnap(j.snap); LF.on = false; LF.id = null; if (CB.on) cbEnd(!!j.win); if (j.win && PC.down) { PC.down = false; PC.hp = 1; say('Back on your feet', 'Your friends haul you up. 1 HP.', 3600); } } if (LF.pending === j.id) LF.pending = null; return; }
+    if (j.k === 'leave') { if (!LF.on || !LF.amHost || j.id !== LF.id) return; var m = lfRemote(j.from); if (!m) return; m.dead = true; var at = CB.order.indexOf(m); var cur = CB.order[CB.idx] === m;
+      CB.order.splice(at, 1); if (at < CB.idx) CB.idx--; if (cur) { CB.idx--; cbNext(); } else lfBroadcastOrder(); cbHUD(); return; }
+  }
+  // a fight nearby that someone else is hosting: join it rather than starting a second one over the same monsters
+  function lfNearbyFight() { var now = Date.now(), best = null; Object.keys(LF.fights).forEach(function (id) { var f = LF.fights[id]; if (now - f.at > 15000) { delete LF.fights[id]; return; } if (f.x !== undefined && cheb(f.x, f.z, P.x, P.z) <= LF_REACH + 4) best = id; }); return best; }
+  // while I'm acting, keep everyone's view of the monsters current
+  setInterval(function () { if (!LF.on || !CB.on) return; var mine = CB.order[CB.idx] === 'pc' || (LF.amHost && CB.order[CB.idx] && !CB.order[CB.idx].remote); if (!mine) return;
+    var s = JSON.stringify(lfSnap()) + JSON.stringify(lfMe()); if (s === LF.lastSnap) return; LF.lastSnap = s; lfSend('snap', { snap: lfSnap(), me: lfMe() }); }, 350);

@@ -150,6 +150,10 @@ export class Campaign extends DurableObject {
       }
       const out = JSON.stringify({ t: 'ev', by: a.id, name: a.cname || a.name, evs: keep }); this.liveOthers(fk, ws).forEach(w => this.liveSend(w, out)); return;
     }
+    if (msg.t === 'cb' && msg.k) { // shared fights: the fight's host and its players pass turns, results and hits through here
+      const out = JSON.stringify({ ...msg, from: a.id }); if (out.length > 30000) return;
+      this.liveOthers(fk, ws).forEach(w => { if (msg.to) { const b = w.deserializeAttachment(); if (!b || b.id !== msg.to) return; } this.liveSend(w, out); }); return;
+    }
     if (msg.t === 'ping') { this.liveSend(ws, { t: 'pong' }); return; }
   }
   async webSocketClose(ws) { this.liveGone(ws); }
@@ -230,6 +234,10 @@ export class Campaign extends DurableObject {
       // ---- DM only ----
       if (p.startsWith('/api/dm/')) {
         if (u.role !== 'dm') return json({ error: 'dm_only' }, 403);
+        if (p === '/api/dm/wipe' && m === 'POST') { // start the campaign over: every character, every save, the shared floors and invented recipes go; accounts stay
+          if (body.confirm !== 'START OVER') return json({ error: 'confirm', message: 'Type START OVER to confirm.' }, 400);
+          this.sql.exec('DELETE FROM characters'); this.sql.exec('DELETE FROM kv WHERE user_id > 0'); this.sql.exec("DELETE FROM kv WHERE user_id = 0 AND k = 'recipes'"); this.sql.exec('DELETE FROM world');
+          const out = JSON.stringify({ t: 'reset', fk: '*' }); this.ctx.getWebSockets().forEach(w => this.liveSend(w, out)); return json({ ok: true }); }
         if (p === '/api/dm/world' && m === 'GET') return json({ floors: this.all('SELECT fk, COUNT(*) AS n, MAX(updated) AS updated FROM world GROUP BY fk') });
         if (p === '/api/dm/world' && m === 'DELETE') { // reset one floor's shared world (everything comes back)
           const fk = String(url.searchParams.get('fk') || ''); this.sql.exec('DELETE FROM world WHERE fk = ?', fk);
