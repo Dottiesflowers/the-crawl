@@ -10035,7 +10035,7 @@
     if (s === 0) {
       h = '<h2>Crawler intake · step 1 of 5</h2><p class="sys">Congratulations! Out of eight billion candidates, you have been selected as one of humanity\'s five representatives in the galaxy\'s most-watched dungeon crawl. Please make your species proud. The System will now interview you about your real life and turn it into your starting stats, skills, one trait, one flaw, and whatever you happened to have on you when we took you.</p>' +
         '<label for="ccName">Your name</label><input type="text" id="ccName" maxlength="24" value="' + esc(CC.name) + '" autocomplete="off">' +
-        '<label>Which crawler are you? Each of you starts with your own kit.</label><div class="grid">' + KIT_WHO.map(function (w) { var n = kitItems(w).length; return '<div class="st pick' + (CC.kit === w ? ' on' : '') + '" data-kit="' + w + '" role="button" tabindex="0"><span>' + w + '<small>' + (n ? n + ' personal items' : 'no fixed kit: the System picks everything') + '</small></span></div>'; }).join('') + '<div class="st pick' + (!CC.kit ? ' on' : '') + '" data-kit="" role="button" tabindex="0"><span>Someone else<small>the System picks everything</small></span></div></div>' +
+        '<label>Which crawler are you? Each of you starts with your own kit.</label><div class="grid">' + KIT_WHO.map(function (w) { var n = kitItems(w).length; return '<div class="st pick' + (CC.kit === w ? ' on' : '') + '" data-kit="' + w + '" role="button" tabindex="0"><span>' + w + '<small>' + (n ? n + ' personal items' : 'no fixed kit: the System picks everything') + '</small></span></div>'; }).join('') + '<div class="st pick' + (!CC.kit ? ' on' : '') + '" data-kit="" role="button" tabindex="0"><span>Michael, or someone else<small>no fixed kit: the System picks everything from your interview</small></span></div></div>' +
         '<div class="nav"><button type="button" id="ccGo">Start the interview</button><button type="button" class="alt" id="ccMichael">Use Michael\'s test sheet</button>' + (CHAR ? '<button type="button" class="alt" id="ccCancel">Cancel</button>' : '') + '</div>';
     } else if (s === 1) {
       h = '<h2>Interview · step 2 of 5</h2><p class="sys">Answer in your own words. Short is fine. Jokes are fine.</p>' +
@@ -10109,7 +10109,7 @@
   }
   // ask Claude (through the page's sample capability) to play the System for the interview
   // the SGC's personal kits live in items.js (kit: 'Ari' etc.); everyone also gets what the interview says they had on them
-  var KIT_WHO = ['Ari', 'Ben', 'Dusty', 'Monty', 'Michael'];
+  var KIT_WHO = ['Ari', 'Ben', 'Dusty', 'Monty'];
   function kitItems(who) { if (!who) return []; return Object.keys(ITEMS).filter(function (n) { return ITEMS[n].kit === who; }).map(function (n) { var it = item(n); if (it && it.cat === 'clothing' && it.col !== undefined && it.color === undefined) { try { it.color = closestColor(it.style, it.col); } catch (x) { it.color = 0; } } return it; }).filter(Boolean); }
   function kitGuess() { var t = ((NET.user && (NET.user.username || NET.user)) || '') + ' ' + ((CHAR && CHAR.name) || ''); for (var i = 0; i < KIT_WHO.length; i++) if (new RegExp('\\b' + KIT_WHO[i], 'i').test(t) || String(t).toLowerCase().indexOf(KIT_WHO[i].toLowerCase()) === 0) return KIT_WHO[i]; return (CHAR && CHAR.kit) || ''; }
   // talk it out: the crawler tells the System how they see themselves, and it reworks the sheet (or pushes back)
