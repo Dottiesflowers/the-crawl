@@ -275,6 +275,14 @@
     setTimeout(function () { var f = document.getElementById(join ? 'aInv' : 'aUser'); if (f) f.focus(); }, 50);
   }
   function authClose() { AUTH.open = false; document.getElementById('auth').classList.remove('on'); }
+  function ccInvites() { // the DM can hand out invite codes before making a character (after Start over there is no Sheet tab yet)
+    var box = document.getElementById('ccInv'); if (!box) return;
+    api('dm/invites').then(function (j) {
+      var open = j.invites.filter(function (i) { return !i.used_by; });
+      box.innerHTML = '<b>DM: invite codes</b> <small>(each works once)</small>' + (open.length ? '<ul style="margin:6px 0">' + open.map(function (i) { return '<li><b style="user-select:all">' + esc(i.code) + '</b>' + (i.note ? ' · ' + esc(i.note) : '') + '</li>'; }).join('') + '</ul>' : '<p style="margin:6px 0">No unused codes.</p>') + '<button type="button" class="alt" id="ccInvNew">Make an invite code</button>';
+      document.getElementById('ccInvNew').onclick = function () { var note = prompt('Who is this invite for? (optional)') || ''; api('dm/invites', { method: 'POST', body: { note: note } }).then(ccInvites, function (e) { say('Invite failed', e.message); }); };
+    }, function () { box.innerHTML = '<small>Could not load invite codes.</small>'; });
+  }
   function logOut() { api('logout', { method: 'POST' }).then(function () { location.reload(); }, function () { location.reload(); }); }
   // ---------- DM tools (shown on the Sheet tab for the DM account) ----------
   function sheetAfter() {
@@ -352,7 +360,7 @@
     if (s === 0) {
       h = '<h2>Crawler intake · step 1 of 5</h2><p class="sys">Congratulations! Out of eight billion candidates, you have been selected as one of humanity\'s five representatives in the galaxy\'s most-watched dungeon crawl. Please make your species proud. The System will now interview you about your real life and turn it into your starting stats, skills, one trait, one flaw, and whatever you happened to have on you when we took you.</p>' +
         '<label for="ccName">Your name</label><input type="text" id="ccName" maxlength="24" value="' + esc(CC.name) + '" autocomplete="off">' +
-        '<label>Which crawler are you? Each of you starts with your own kit.</label><div class="grid">' + KIT_WHO.map(function (w) { var n = kitItems(w).length; return '<div class="st pick' + (CC.kit === w ? ' on' : '') + '" data-kit="' + w + '" role="button" tabindex="0"><span>' + w + '<small>' + (n ? n + ' personal items' : 'no fixed kit: the System picks everything') + '</small></span></div>'; }).join('') + '<div class="st pick' + (!CC.kit ? ' on' : '') + '" data-kit="" role="button" tabindex="0"><span>Michael, or someone else<small>no fixed kit: the System picks everything from your interview</small></span></div></div>' +
+        (NET.user && NET.user.role === 'dm' ? '<div id="ccInv" style="margin:8px 0;padding:8px 10px;border:1px solid rgba(255,255,255,.15);border-radius:8px"></div>' : '') + '<label>Which crawler are you? Each of you starts with your own kit.</label><div class="grid">' + KIT_WHO.map(function (w) { var n = kitItems(w).length; return '<div class="st pick' + (CC.kit === w ? ' on' : '') + '" data-kit="' + w + '" role="button" tabindex="0"><span>' + w + '<small>' + (n ? n + ' personal items' : 'no fixed kit: the System picks everything') + '</small></span></div>'; }).join('') + '<div class="st pick' + (!CC.kit ? ' on' : '') + '" data-kit="" role="button" tabindex="0"><span>Michael, or someone else<small>no fixed kit: the System picks everything from your interview</small></span></div></div>' +
         '<div class="nav"><button type="button" id="ccGo">Start the interview</button><button type="button" class="alt" id="ccMichael">Use Michael\'s test sheet</button>' + (CHAR ? '<button type="button" class="alt" id="ccCancel">Cancel</button>' : '') + '</div>';
     } else if (s === 1) {
       h = '<h2>Interview · step 2 of 5</h2><p class="sys">Answer in your own words. Short is fine. Jokes are fine.</p>' +
@@ -389,6 +397,7 @@
     if (q('ccMichael')) q('ccMichael').onclick = function () { var c = JSON.parse(JSON.stringify(MICHAEL)); delete c.preset; applyChar(c); saveChar(c); ccClose(); say('Welcome back, Michael', 'Test sheet loaded. Your stats, skills, trait and flaw are set.'); };
     el.querySelectorAll('[data-st]').forEach(function (b) { b.onclick = function () { var k = b.dataset.st, v = CC.stats[k] + (+b.dataset.d); if (v < 8 || v > 15) return; var t = {}; for (var x in CC.stats) t[x] = CC.stats[x]; t[k] = v; if (buyCost(t) > BUDGET) return; CC.stats = t; ccDraw(); }; });
     el.querySelectorAll('[data-sk]').forEach(function (b) { b.onclick = function () { var k = b.dataset.sk, v = (CC.skills[k] || 0) + (+b.dataset.d); if (v < 0 || v > 3) return; var used = Object.keys(CC.skills).reduce(function (t, n) { return t + (n === k ? 0 : CC.skills[n]); }, 0); if (used + v > SKILL_BUDGET) return; CC.skills[k] = v; if (!v) delete CC.skills[k]; ccDraw(); }; });
+    if (q('ccInv')) ccInvites();
     el.querySelectorAll('[data-kit]').forEach(function (b) { b.onclick = function () { var n = document.getElementById('ccName'); if (n) CC.name = n.value.trim(); CC.kit = b.dataset.kit; ccDraw(); }; });
     if (q('ccTalkGo')) q('ccTalkGo').onclick = function () { var t = q('ccTalk').value.trim(); if (!t) { q('ccTalk').focus(); return; } ccKeep(); ccRework(t); };
     el.querySelectorAll('[data-tr]').forEach(function (b) { b.onclick = function () { CC.trait = b.dataset.tr; ccDraw(); }; });
