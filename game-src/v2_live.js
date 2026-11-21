@@ -344,6 +344,9 @@
   // ---- messages ----
   function lfOn(j) {
     if (j.k === 'area') { lfArea(j); return; }
+    if (j.k === 'talk') { var te = j.n === null || j.n === undefined ? null : liveByN(j.n), g0 = LIVE.ghosts[j.from];
+      if (te) { bubble.remote = true; try { bubble(te, j.text); } finally { bubble.remote = false; } } else liveBubble(j.from, j.text);
+      var wx = te ? te.x : g0 && g0.p ? g0.p.x : null, wz = te ? te.z : g0 && g0.p ? g0.p.z : null; if (wx !== null && cheb(wx, wz, P.x, P.z) <= 20) try { cbLog(j.name || 'Someone', j.text); } catch (x) {} return; }
     if (j.k === 'help') { if (j.to === LIVE.you) helpedUp(j.name || 'A friend'); else { var hm = lfRemote(j.to); if (hm) { hm.down = false; hm.hp = Math.max(1, hm.hp); cbHUD(); } } return; }
     if ((j.k === 'fight' || j.k === 'turn' || j.k === 'order') && lfClash(j)) return;
     if (j.k === 'fight') { LF.fights[j.id] = { host: j.host, x: j.x, z: j.z, at: Date.now() }; lfMaybeJoin(j); return; }

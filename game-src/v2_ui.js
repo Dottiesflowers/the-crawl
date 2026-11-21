@@ -576,7 +576,8 @@
     el.textContent = whisper ? (who === 'pc' ? '(whispering) ' : '') + text : text; document.getElementById('bubs').appendChild(el);
     BUBS = BUBS.filter(function (b) { if (b.who === who) { b.el.remove(); return false; } return true; });
     BUBS.push({ el: el, who: who, until: performance.now() + Math.min(12000, 3500 + text.length * 70) });
-    // later: broadcast to other players in the room unless whispering
+    // talking to monsters is out loud: friends on the floor see both sides (whispers stay private)
+    if (!whisper && !bubble.remote) { try { if (LIVE.on && (who === 'pc' || (who && who.n !== undefined))) liveSendRaw({ t: 'cb', k: 'talk', id: 'talk', n: who === 'pc' ? null : who.n, text: String(text).slice(0, 240), name: who === 'pc' ? (CHAR && CHAR.name) : who.name }); } catch (x) {} }
   }
   (function bubLoop() {
     var now = performance.now();
