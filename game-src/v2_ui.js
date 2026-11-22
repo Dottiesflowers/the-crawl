@@ -28,7 +28,7 @@
     var mf = document.createElement('div'); mf.id = 'mapFull'; mf.setAttribute('role', 'dialog'); mf.setAttribute('aria-label', 'Floor map');
     mf.innerHTML = '<header><b>' + (FLOOR === 2 ? 'Floor 2 map · The Backlot' : 'Floor 1 map') + (isDM() ? ' · tap to jump' : '') + '</b><button type="button" class="xbtn" id="mapDM">DM</button><button type="button" class="xbtn" id="mapKey">Key</button><button type="button" class="xbtn" id="mapX">Close</button></header><canvas id="mapC" aria-label="Map: pinch or scroll to zoom, drag to move"></canvas>' +
       '<div id="mapTools"><button type="button" id="mapIn" aria-label="Zoom in">+</button><button type="button" id="mapOut" aria-label="Zoom out">−</button><button type="button" id="mapMe" aria-label="Center on me" style="font-size:15px">◎</button></div>' +
-      '<div id="mapLeg" class="' + (innerWidth < 700 ? 'hide' : '') + '"><span><i style="background:#3df2e0"></i>You</span><span><i style="background:#ff4a6a"></i>Hostile</span><span><i style="background:#5f6"></i>Friendly</span><span><i style="background:#ffd34a"></i>Stairs</span><span><i style="background:#c98a4a"></i>Door</span><span><i style="background:#e0c060"></i>Loot box</span><span>✚ Safe room</span><span>☠ Boss</span><span>▼ Stairs</span><span>★ Secret</span></div>';
+      '<div id="mapLeg" class="' + (innerWidth < 700 ? 'hide' : '') + '"><span><i style="background:#3df2e0"></i>You</span><span><i style="background:#ffc23d"></i>Party</span><span><i style="background:#ff4a6a"></i>Hostile</span><span><i style="background:#5f6"></i>Friendly</span><span><i style="background:#ffd34a"></i>Stairs</span><span><i style="background:#c98a4a"></i>Door</span><span><i style="background:#e0c060"></i>Loot box</span><span>✚ Safe room</span><span>☠ Boss</span><span>▼ Stairs</span><span>★ Secret</span></div>';
     document.body.appendChild(mf); document.getElementById('mapX').onclick = mapToggle; document.getElementById('mapDM').onclick = dmPanel; mapControls();
     var bag = document.createElement('div'); bag.id = 'bag'; bag.setAttribute('role', 'dialog'); bag.setAttribute('aria-label', 'Inventory');
     document.body.appendChild(bag);
@@ -103,6 +103,14 @@
     if (typeof VFX !== 'undefined') VFX.areas.forEach(function (A) { // lingering spell areas: fire, grease, ice, webs...
       g.globalAlpha = 0.55; var R = Math.ceil(A.r); for (var dz = -R; dz <= R; dz++) for (var dx = -R; dx <= R; dx++) if (dx * dx + dz * dz <= (A.r + 0.3) * (A.r + 0.3)) cell(Math.round(A.x) + dx, Math.round(A.z) + dz, AREA_COL[A.kind] || '#fff'); g.globalAlpha = 1; });
     CB.enemies.forEach(function (e) { if (e.dead || visNow[e.x + ',' + e.z] === undefined) return; dot(e.px, e.pz, e.calm ? '#5f6' : '#ff4a6a', full ? 3.5 : 2.6); });
+    // friends on this floor, live: a gold dot with their initial (pinned to the edge of the minimap when they are off it)
+    if (typeof LIVE !== 'undefined' && LIVE.on) Object.keys(LIVE.ghosts).forEach(function (id) {
+      var fg = LIVE.ghosts[id]; if (fg.dm || !fg.p) return; var fx = fg.g ? fg.g.position.x : fg.p.px, fz = fg.g ? fg.g.position.z : fg.p.pz;
+      if (LEVEL.upZ && (fz >= LEVEL.upZ) !== upMe) return;
+      var q = tr(fx, fz), m = 7 * dpr, r = (full ? 5 : 4) * dpr; if (!full) { q[0] = Math.max(m, Math.min(cv.width - m, q[0])); q[1] = Math.max(m, Math.min(cv.height - m, q[1])); }
+      g.globalAlpha = 1; g.fillStyle = fg.p.dn ? '#ff4a6a' : '#ffc23d'; g.strokeStyle = '#1a1206'; g.lineWidth = 1.5 * dpr; g.beginPath(); g.arc(q[0], q[1], r, 0, 7); g.fill(); g.stroke();
+      if (full) { g.font = 'bold ' + (10.5 * dpr) + 'px ui-monospace,monospace'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.lineWidth = 3 * dpr; g.strokeStyle = 'rgba(0,0,0,.8)'; var nm = String(fg.name || '').split(' ')[0]; g.strokeText(nm, q[0] + r + 3 * dpr, q[1]); g.fillStyle = '#ffd77a'; g.fillText(nm, q[0] + r + 3 * dpr, q[1]); }
+    });
     dot(P.px, P.pz, '#3df2e0', full ? 4.5 : 3.2);
     if (full) mapLabels(g, tr, tpx, dpr, cv);
   }
