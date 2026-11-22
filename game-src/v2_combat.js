@@ -243,7 +243,7 @@
       try { gearModel(hold, { name: W.name || 'Monster weapon', cat: 'weapon', model: W.model, len: W.len, skin: W.skin, bow: W.gun ? { pose: 'gun' } : undefined }); } catch (x) { console.warn('mob weapon', x); }
       hold.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } }); }); }
   function ownFx(e, dt) {
-    var w = e.wrap; if (!w) return; e.pt = (e.pt || 0) + dt; var t = e.pt, n = e.pfx;
+    var w = e.wrap; if (!w) return; e.pt = (e.pt || 0) + dt; if (e.dead && !e.clips.Death01 && e.pfx !== 'Death01') { e.pfx = 'Death01'; e.pt = 9; } if (!e.dead && e.pfx === 'Death01') e.pfx = null; var t = e.pt, n = e.pfx;
     w.position.set(0, e.def.lift ? e.def.lift + Math.sin(performance.now() / 1000 * 2.2 + e.n) * 0.08 : 0, 0); w.rotation.set(0, 0, 0); // fliers hover and bob
     if (e.pwalk && !e.dead) { var ph = performance.now() / 1000 * 9; w.position.y += Math.abs(Math.sin(ph)) * (e.def.lift ? 0.03 : 0.07); w.rotation.z = Math.sin(ph) * 0.07; w.rotation.x = 0.08; }
     if (n === 'Death01') { var k = Math.min(1, t / 0.55); w.rotation.x = -k * k * Math.PI / 2; w.position.y = e.def.lift ? e.def.lift * (1 - k) + 0.1 : 0.12 * k; }
@@ -296,7 +296,7 @@
       if (!CB.anims[B.own] || !CB.anims[B.own].length) { var hasBone = false; ro.traverse(function (o) { if (o.isBone) hasBone = true; }); if (!hasBone) { ro.updateMatrixWorld(true); var bb = new THREE.Box3().setFromObject(ro), cc = bb.getCenter(new THREE.Vector3()); ro.position.x -= cc.x; ro.position.z -= cc.z; ro.position.y -= bb.min.y; if (B.yaw) ro.rotation.y = B.yaw; } } // a statue model: feet on the floor, centred on its tile
       var wrap = new THREE.Group(); wrap.add(ro); wrap.scale.setScalar(B.h / CB.hgtBones[B.own]); e.obj.add(wrap); ownProps(e, ro, B); mobWeapon(e, ro, B); // (not e.body: that is for rats and shrubs, which animate in code) the wrapper takes the scale: the model's own tracks may animate its root
       var mx = new THREE.AnimationMixer(ro), up = mx.update.bind(mx); e.wrap = wrap; e.clips = {};
-      e.mixer = { update: function (dt) { up(dt); ownFx(e, dt); }, clipAction: function (c) { return mx.clipAction(c); }, stopAllAction: function () { mx.stopAllAction(); } };
+      e.mixer = { update: function (dt) { if (!(e.dead && !e.clips.Death01)) up(dt); ownFx(e, dt); } /* a dead flier with no death clip of its own stops flapping */, clipAction: function (c) { return mx.clipAction(c); }, stopAllAction: function () { mx.stopAllAction(); } };
       (CB.anims[B.own] || []).forEach(function (cl) { var nm = cl.name; if (/idle/i.test(nm)) e.clips.Idle_Loop = cl; else if (/walk|run|crawl/i.test(nm)) e.clips.Walk_Loop = cl; else if (/attack|bite|swipe/i.test(nm)) e.clips[B.attackClip] = cl; else if (/hit|hurt|damage/i.test(nm)) e.clips.Hit_Chest = cl; else if (/death|die/i.test(nm)) e.clips.Death01 = cl; });
       if (!e.clips.Idle_Loop && e.clips.Walk_Loop) e.clips.Idle_Loop = THREE.AnimationUtils.subclip(e.clips.Walk_Loop, 'Idle', 0, 1, 30); // stand still in the walk's first pose
       e.cur = ''; var w0 = e.want || (e.dead ? 'Death01' : 'Idle_Loop'); cbPlay(e, w0, e.dead); if (e.dead) e.pt = 9; return;
@@ -381,6 +381,7 @@
     var best = null, bd = 1e9; LEVEL.rooms.forEach(function (r) { if (r.type !== 'safe') return; var c = [(r.x0 + r.x1) >> 1, (r.z0 + r.z1) >> 1]; for (var t = 0; t < 30; t++) { var cx = c[0] + Math.round((Math.random() - 0.5) * 2 * Math.min(3, (r.x1 - r.x0) >> 1)), cz = c[1] + Math.round((Math.random() - 0.5) * 2 * Math.min(3, (r.z1 - r.z0) >> 1)); if (!blocksMove(cx, cz) && inSafeRoom(cx, cz)) { var d = Math.abs(cx - x) + Math.abs(cz - z); if (d < bd) { bd = d; best = { x: cx, z: cz }; } break; } } }); return best;
   }
   function cbPlay(e, name, once) {
+    if (e.dead && name !== 'Death01') return; // the dead stay down
     if (!e.mixer) { e.want = name; return; }
     var c = e.clips[name];
     if (e.wrap) { // own-model: missing clips are done in code (ownFx)
@@ -955,7 +956,7 @@
     if (CB.on) try { personaAllyFell(e); } catch (x) {}
     if (/shrub/.test(e.def.base || e.kind || '')) skillCount('shrub');
     if (e.boss) logEvent('Killed ' + e.name + ', boss of ' + ((LEVEL.hoods[(roomInfo(e.x, e.z) || {}).hood] || {}).name || 'the floor'), 'boss'); else if (/chief|foreman|head|warden/.test(e.kind)) logEvent('Killed a ' + e.name, 'kill');
-    e.dead = true; e.grappled = false; cbPlay(e, 'Death01', true); e.bar.style.display = 'none'; try { liveEv('d:' + e.n, 1); } catch (x) {}
+    e.dead = true; e.grappled = false; e.path = null; cbPlay(e, 'Death01', true); e.bar.style.display = 'none'; try { liveEv('d:' + e.n, 1); } catch (x) {}
     say('Enemy down · ' + e.name, e.def.xp + ' XP. ' + (e.kind === 'imp' ? 'The stairwell is unguarded.' : 'Its stick rolls away.'), 4200);
     if (e.kind === 'gatekeeper') setTimeout(function () { refreshFog(); logEvent('The stairs to Floor 2 are open', 'boss'); say('SYSTEM · The stairwell is open', 'The Gatekeeper is down, and somewhere to the east a stone floor slides aside. The stairs to Floor 2 are in the Stairwell. Bring your party.', 9000); }, 2600);
     if (PROPS && PROPS.ready) setTimeout(function () { place('Coin_Pile', e.px + 0.25, e.pz + 0.2, { s: 0.6 }); refreshFog(); }, 1600);
