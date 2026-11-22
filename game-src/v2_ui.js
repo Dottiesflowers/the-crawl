@@ -326,14 +326,13 @@
   // ---------- whole bodies: DCC-style, you can carry a corpse. Keeps it from the shrubs; drop it later as bait, or sell it ----------
   function stashBody(e) {
     if (!CHAR || !e || !e.dead || e.eaten || e.npc) return;
-    var L = e.lootStore ? e.lootStore : rollDrops(e.kind, e.def.base), RD = DROPS.monsters[e.kind] || {};
-    if (!e.lootStore && RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); }
+    bodyLoot(e); var L = e.lootStore; // the same loot a search gives (Scavenger gold, a boss's gold and trophy, guaranteed picks), so stashing the body misses nothing
     e.eaten = true; e.claimed = false; e.obj.visible = false; e.bar.style.display = 'none'; e.looted = true; liveEv('g:' + e.n, 1);
-    (L.items || []).forEach(function (it) { it.from = it.from || e.name; invAdd(it, true); }); CHAR.gold = (CHAR.gold || 0) + (L.gold || 0);
+    var got = (L.items || []).length + (L.gold ? 1 : 0), gold0 = L.gold || 0;
+    (L.items || []).forEach(function (it) { it.from = it.from || e.name; invAdd(it, true); }); CHAR.gold = (CHAR.gold || 0) + gold0; L.items = []; L.gold = 0;
     CHAR.gear.push({ name: e.name + ' (body)', cat: 'body', body: e.n, desc: 'A whole ' + e.name.toLowerCase() + ', folded to fit. Shrubs would kill for it. Someone in Underline Station might pay for it. Drop it to use it as bait.' });
     kitOneShot('PickUp_Table'); skillCount('stash'); saveChar(CHAR); if (typeof worldSave === 'function') worldSave();
-    var got = (L.items || []).length + (L.gold ? 1 : 0);
-    say('Stashed · ' + e.name, 'Into the bag it goes' + (got ? ', along with what it was carrying' + (L.gold ? ' (' + L.gold + ' gold)' : '') : '') + '. The System approves: nothing wasted.', 4500);
+    say('Stashed · ' + e.name, 'Into the bag it goes' + (got ? ', along with what it was carrying' + (gold0 ? ' (' + gold0 + ' gold)' : '') : '') + '. The System approves: nothing wasted.', 4500);
   }
   function dropBody(it) {
     var e = CB.enemies.filter(function (q) { return q.n === it.body; })[0]; if (!e) return;
@@ -592,7 +591,7 @@
 
   // ---------- looting bodies ----------
   // monster drops live in items.js (DROPS.monsters); rollDrops() reads them
-  function lootBody(e) {
+  function bodyLoot(e) { // roll a body's loot once, whether it gets searched or stashed whole
     if (!e.lootStore) {
       var L = rollDrops(e.kind, e.def.base), RD = DROPS.monsters[e.kind] || {};
       if (RD.oneOf && RD.oneOf.length) { var pk = item(RD.oneOf[Math.floor(Math.random() * RD.oneOf.length)]); if (pk) L.items.push(pk); } // elites and bosses: one guaranteed pick from their table
@@ -600,6 +599,9 @@
       if (e.boss) { L.gold += d(10, 6); L.items.push({ name: e.name.split(',')[0] + '\'s trophy', cat: 'valuable', desc: 'Proof you beat a zone boss. Heavier than it looks.' }); }
       L.items.forEach(function (it) { it.from = e.name; }); e.lootStore = { title: 'Searching ' + e.name, items: L.items, gold: L.gold }; e.looted = true; liveEv('b:' + e.n, 1);
     }
+  }
+  function lootBody(e) {
+    bodyLoot(e);
     if (e.lootStore.note && !(e.lootStore.items || []).length && !e.lootStore.gold) { say('Already searched', e.lootStore.note, 2800); return; }
     lootWindow(e.lootStore);
   }
