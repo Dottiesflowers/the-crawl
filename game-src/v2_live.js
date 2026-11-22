@@ -12,7 +12,7 @@
     liveClose(); LIVE.fk = fk;
     var ws; try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/live?fk=' + encodeURIComponent(fk)); } catch (x) { return; }
     LIVE.ws = ws;
-    ws.onopen = function () { LIVE.retry = 0; LIVE.lookKey = liveLookKey(); liveSendRaw({ t: 'hello', cname: CHAR.name || NET.user, look: liveDM() ? null : JSON.parse(JSON.stringify(look)), p: livePos() }); };
+    ws.onopen = function () { LIVE.retry = 0; LIVE.lookKey = liveLookKey(); liveSendRaw({ t: 'hello', cname: CHAR.name || NET.user, look: liveDM() ? null : liveLookOut(), p: livePos() }); };
     ws.onmessage = function (m) { var j; try { j = JSON.parse(m.data); } catch (x) { return; } try { liveOn(j); } catch (x) { console.warn('live', x); } };
     ws.onclose = function () { if (LIVE.ws !== ws) return; LIVE.on = false; LIVE.ws = null; liveClearGhosts(); LIVE.retry = Math.min(30000, (LIVE.retry || 1000) * 2); setTimeout(liveConnect, LIVE.retry); };
     ws.onerror = function () {};
@@ -80,19 +80,23 @@
   }
   // ---- friends on the floor ----
   // clothes and looks change after you join (new character, getting dressed, re-dressing): send the new look whenever it changes
-  function liveLookKey() { return JSON.stringify(look) + '|' + ((CHAR && CHAR.name) || ''); }
+  function liveWieldOf() { if (!CHAR || !CHAR.wield) return null; var it = (CHAR.gear || []).filter(function (g) { return g.name === CHAR.wield; })[0]; if (!it) return null; var o = {}; ['name', 'cat', 'dmg', 'model', 'len', 'skin', 'bow', 'proc', 'icon', 'twoHand', 'tags', 'desc'].forEach(function (k) { if (it[k] !== undefined) o[k] = it[k]; }); return o; }
+  function liveLookOut() { var o = JSON.parse(JSON.stringify(look)); o._wield = liveWieldOf(); return o; } // what friends need to draw you: your look plus what is in your hand
+  function liveLookKey() { return JSON.stringify(liveLookOut()) + '|' + ((CHAR && CHAR.name) || ''); }
   setInterval(function () {
     if (!LIVE.on || !LIVE.ws || LIVE.ws.readyState !== 1 || liveDM() || !LIVE.lookKey) return; var k = liveLookKey(); if (k === LIVE.lookKey) return;
-    LIVE.lookKey = k; liveSendRaw({ t: 'look', look: JSON.parse(JSON.stringify(look)), cname: (CHAR && CHAR.name) || '' });
+    LIVE.lookKey = k; liveSendRaw({ t: 'look', look: liveLookOut(), cname: (CHAR && CHAR.name) || '' });
   }, 1500);
   function liveGhostModel(lk) {
-    if (!KIT || !KIT.ready || !lk) return null; var save = JSON.parse(JSON.stringify(look)), c = null;
+    if (!KIT || !KIT.ready || !lk) return null; var save = JSON.parse(JSON.stringify(look)), c = null, sw = CHAR ? { wield: CHAR.wield, gear: CHAR.gear } : null;
     try {
       Object.keys(lk).forEach(function (k) { if (look[k] && Array.isArray(lk[k])) look[k] = lk[k].slice(); }); look.model = [0, look.model ? look.model[1] : 0];
-      kitApply(); (KIT.attached || []).forEach(function (o) { if (o.parent) o.parent.remove(o); });
+      if (CHAR) { CHAR.wield = lk._wield ? lk._wield.name : null; CHAR.gear = lk._wield ? [JSON.parse(JSON.stringify(lk._wield))] : []; } // their weapon in the hand, just for the copy
+      buildHero(); (KIT.attached || []).forEach(function (o) { try { o.updateMatrix(); } catch (x) {} });
       c = THREE.SkeletonUtils.clone(KIT.root);
       c.traverse(function (o) { if (o.material) o.material = Array.isArray(o.material) ? o.material.map(function (m) { return m.clone(); }) : o.material.clone(); if (o.isMesh && o.geometry && o.geometry.attributes.position && (o.isSkinnedMesh || o.name === 'Head')) o.geometry = o.geometry.clone(); if (o.isMesh) o.frustumCulled = false; });
     } catch (x) { console.warn('ghost model', x); c = null; }
+    if (CHAR && sw) { CHAR.wield = sw.wield; CHAR.gear = sw.gear; }
     Object.keys(save).forEach(function (k) { look[k] = save[k]; }); try { buildHero(); } catch (x) {}
     return c;
   }
