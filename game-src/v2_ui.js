@@ -106,11 +106,15 @@
     // friends on this floor, live: a gold dot with their initial (pinned to the edge of the minimap when they are off it)
     if (typeof LIVE !== 'undefined' && LIVE.on) Object.keys(LIVE.ghosts).forEach(function (id) {
       var fg = LIVE.ghosts[id]; if (fg.dm || !fg.p) return; var fx = fg.g ? fg.g.position.x : fg.p.px, fz = fg.g ? fg.g.position.z : fg.p.pz;
-      if (LEVEL.upZ && (fz >= LEVEL.upZ) !== upMe) return;
+      var other = LEVEL.upZ && (fz >= LEVEL.upZ) !== upMe; // upstairs or downstairs in a building: still shown, faded
       var q = tr(fx, fz), m = 7 * dpr, r = (full ? 5 : 4) * dpr; if (!full) { q[0] = Math.max(m, Math.min(cv.width - m, q[0])); q[1] = Math.max(m, Math.min(cv.height - m, q[1])); }
-      g.globalAlpha = 1; g.fillStyle = fg.p.dn ? '#ff4a6a' : '#ffc23d'; g.strokeStyle = '#1a1206'; g.lineWidth = 1.5 * dpr; g.beginPath(); g.arc(q[0], q[1], r, 0, 7); g.fill(); g.stroke();
-      if (full) { g.font = 'bold ' + (10.5 * dpr) + 'px ui-monospace,monospace'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.lineWidth = 3 * dpr; g.strokeStyle = 'rgba(0,0,0,.8)'; var nm = String(fg.name || '').split(' ')[0]; g.strokeText(nm, q[0] + r + 3 * dpr, q[1]); g.fillStyle = '#ffd77a'; g.fillText(nm, q[0] + r + 3 * dpr, q[1]); }
+      g.globalAlpha = other ? 0.5 : 1; g.fillStyle = fg.p.dn ? '#ff4a6a' : '#ffc23d'; g.strokeStyle = '#1a1206'; g.lineWidth = 1.5 * dpr; g.beginPath(); g.arc(q[0], q[1], r, 0, 7); g.fill(); g.stroke();
+      if (full) { g.font = 'bold ' + (10.5 * dpr) + 'px ui-monospace,monospace'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.lineWidth = 3 * dpr; g.strokeStyle = 'rgba(0,0,0,.8)'; var nm = String(fg.name || '').split(' ')[0]; g.strokeText(nm, q[0] + r + 3 * dpr, q[1]); g.fillStyle = '#ffd77a'; g.fillText(nm + (other ? (fz >= LEVEL.upZ ? ' (upstairs)' : ' (downstairs)') : ''), q[0] + r + 3 * dpr, q[1]); }
+      g.globalAlpha = 1;
     });
+    // friends on another floor: listed in the corner of the full map
+    if (full && typeof NET !== 'undefined' && NET.party) { var away = NET.party.filter(function (pm) { return pm.id !== NET.uid && pm.name && pm.floor && pm.floor !== FLOOR && pm.role !== 'dm'; });
+      if (away.length) { g.font = 'bold ' + (11 * dpr) + 'px ui-monospace,monospace'; g.textAlign = 'left'; g.textBaseline = 'top'; away.forEach(function (pm, i) { var t = '● ' + pm.name.split(' ')[0] + ': Floor ' + pm.floor; g.lineWidth = 3 * dpr; g.strokeStyle = 'rgba(0,0,0,.8)'; g.strokeText(t, 10 * dpr, (10 + i * 16) * dpr); g.fillStyle = '#ffd77a'; g.fillText(t, 10 * dpr, (10 + i * 16) * dpr); }); } }
     dot(P.px, P.pz, '#3df2e0', full ? 4.5 : 3.2);
     if (full) mapLabels(g, tr, tpx, dpr, cv);
   }
@@ -246,7 +250,7 @@
     if (canBack(it) && CHAR.wield !== it.name) acts.push(CHAR.back === it.name ? ['unback', 'Take off back'] : ['back', 'Wear on back']);
     if (it.cat === 'clothing') acts.push(it.worn ? (clothNone(it.slot) ? ['unwear', 'Take off'] : null) : ['wear', 'Wear']);
     if (it.cat === 'body') acts.push(['drop', 'Drop it here']);
-    if (ITEMS[it.name] && ITEMS[it.name].ammo) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Load these first']);
+    if (ammoDef(it)) acts.push(CHAR.ammo === it.name ? ['unnock', 'Stop preferring these'] : ['nock', 'Load these first']);
     if (it.name === 'Paintball gun') acts.push(it.noTank ? ((CHAR.gear || []).some(function (g) { return g.name === 'CO2 tank'; }) ? ['tankon', 'Screw a CO2 tank on'] : null) : ['tankoff', 'Unscrew the CO2 tank']);
     acts = acts.concat(lampActs(it));
     if (!it.throw && burnsKnown(it)) acts.push(['light', 'Light it and throw']);
@@ -498,9 +502,9 @@
     var wa = document.getElementById('wAmmo'); if (wa) wa.onclick = ammoCycle;
   }
   // the arrows on the string: the ones you picked stay loaded until you switch (tap the In hand card)
-  function ammoTypes() { var L = launcherOf(CHAR.wield), kind = (L && L.ammo) || 'arrow'; return (CHAR.gear || []).filter(function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; }); }
+  function ammoTypes() { var L = launcherOf(CHAR.wield), kind = (L && L.ammo) || 'arrow'; return (CHAR.gear || []).filter(function (g) { var A = ammoDef(g); return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; }); }
   // what a kind of ammo does, in a few words (the In hand card, the switch message)
-  function ammoWhat(n) { var A = ITEMS[n] && ITEMS[n].ammo; if (!A) return ''; if (A.plain) return 'no damage · a crit blinds';
+  function ammoWhat(n) { var A = ammoDef(n); if (!A) return ''; if (A.area) return '1d' + A.s + ' and a ' + A.area.kind + ' patch where it lands'; if (A.plain) return 'no damage · a crit blinds';
     if (A.splash) return A.splash.type === 'acid' ? 'coats in acid' : A.splash.type === 'poison' ? 'coats in poison' : A.splash.area === 'grease' ? 'greases them and the floor' : A.splash.douse ? 'soaks them in oil' : 'splashes';
     return '1d' + A.s + (A.acc ? ' · +' + A.acc + ' hit' : '') + (A.onHit && A.onHit.type === 'burn' ? ' · fire' : '') + (A.edmg ? ' · +' + A.edmg.dice + ' ' + A.edmg.type : ''); }
   function ammoNoun() { var k = (launcherOf(CHAR.wield) || {}).ammo || 'arrow'; return k === 'paintball' ? 'paintballs' : k === 'pebble' ? 'pebbles' : 'arrows'; }

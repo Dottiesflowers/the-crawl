@@ -559,22 +559,24 @@
     if (!CB.on) return; var el = document.getElementById('turns'); if (!el) return; var bars = el.querySelectorAll('.ini:not(.join)');
     CB.order.forEach(function (c, i) { var b = bars[i]; if (!b) return; var f = b.querySelector('.hp i'); if (f) f.style.width = Math.round(100 * iniHP(c)) + '%'; b.classList.toggle('dead', c !== 'pc' && !!c.dead); });
   }, 500);
+  // ammo stats: catalog ammo from items.js, crafted ammo from the item itself
+  function ammoDef(g) { if (!g) return null; var n = typeof g === 'string' ? g : g.name; if (ITEMS[n] && ITEMS[n].ammo) return ITEMS[n].ammo; if (typeof g === 'object' && g.ammo) return g.ammo; var c = (CHAR && CHAR.gear || []).filter(function (x) { return x.name === n && x.ammo; })[0]; return c ? c.ammo : null; }
   function cbMyTurn() { return CB.on && CB.order[CB.idx] === 'pc'; }
   function cbAdjacent() { return CB.enemies.filter(function (e) { return !e.dead && !e.calm && cheb(P.x, P.z, e.x, e.z) <= 1; }); }
   var AMMO_HINT = { bullet: 'Revolver rounds are rare. Bosses and lockboxes, mostly. Every shot is gone for good.', arrow: 'Jury-rig some: wood + a tip (wood, rubble, scrap metal or imp horn).', pebble: 'Any Chunk of rubble or River stone works, or find ball bearings.', paintball: 'Find paintballs (stagehands and key grips carry them). Jury-rig them with a filling: acid, something toxic, grease or something flammable.' };
   function bowHeld() { return !!(CHAR && CHAR.wield && launcherOf(CHAR.wield)); }
   // ammo for a launcher: the stack you picked (Inventory → Shoot these), else the hardest-hitting stack you carry
   function ammoPick(kind) {
-    var st = (CHAR.gear || []).filter(function (g) { var I = ITEMS[g.name]; return I && I.ammo && (I.ammo.kind || 'arrow') === kind && (g.qty || 1) > 0; });
+    var st = (CHAR.gear || []).filter(function (g) { var A = ammoDef(g); return A && (A.kind || 'arrow') === kind && (g.qty || 1) > 0; });
     if (!st.length) return null; var pref = st.filter(function (g) { return g.name === CHAR.ammo; })[0]; if (pref) return pref;
-    var sc = function (X) { return X.s + (X.acc || 0) + (X.edmg ? 2 : 0) + (X.splash ? 6 : 0) - (X.plain ? 6 : 0); }; st.sort(function (a, b) { return sc(ITEMS[b.name].ammo) - sc(ITEMS[a.name].ammo); }); return st[0]; /* filled paintballs beat plain ones unless you picked */
+    var sc = function (X) { return X.s + (X.acc || 0) + (X.edmg ? 2 : 0) + (X.splash ? 6 : 0) - (X.plain ? 6 : 0); }; st.sort(function (a, b) { return sc(ammoDef(b)) - sc(ammoDef(a)); }); return st[0]; /* filled paintballs beat plain ones unless you picked */
   }
   function cbThrowable() {
     var bw = CHAR && CHAR.wield && launcherOf(CHAR.wield); // holding a bow: Throw becomes Shoot, and the bow stays in your hands
     var wi = bw && wieldItem(); if (wi && wi.noTank) return { name: '(no air)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true, ammoKind: 'air', noAir: true };
     if (bw) { var am = ammoPick(bw.ammo || 'arrow');
       if (!am) return { name: '(no ' + (bw.ammo || 'arrow') + 's)', n: 1, s: 4, stat: 'DEX', prof: true, range: bw.range, long: bw.long, bow: true, empty: true, ammoKind: bw.ammo || 'arrow' };
-      var A = ITEMS[am.name].ammo, gl = bw.cyl ? gunLv() : 0; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: bw.n || 1, s: bw.s ? Math.max(A.s, bw.s) : A.s, acc: (A.acc || 0) + (bw.acc || 0) + (gl >= 3 ? 1 : 0), onHit: A.onHit || null, edmg: A.edmg || null, stat: 'DEX', prof: !bw.cyl || gl >= 1, range: bw.range, long: bw.long, bow: true, ammo: am, ammoKind: bw.ammo || 'arrow', shots: bw.cyl && gl >= 5 ? 2 : (bw.shots || 1), pose: bw.pose || 'bow', fly: bw.fly || 'arrow', gun: !!bw.cyl, crit: bw.cyl && gl >= 3 ? 19 : 0 }; }
+      var A = ammoDef(am), gl = bw.cyl ? gunLv() : 0; return { name: am.name.toLowerCase().replace(/s$/, '') + ' (' + (am.qty || 1) + ' left)', n: bw.n || 1, s: bw.s ? Math.max(A.s, bw.s) : A.s, acc: (A.acc || 0) + (bw.acc || 0) + (gl >= 3 ? 1 : 0), onHit: A.onHit || null, edmg: A.edmg || null, stat: 'DEX', prof: !bw.cyl || gl >= 1, range: bw.range, long: bw.long, bow: true, ammo: am, ammoKind: bw.ammo || 'arrow', shots: bw.cyl && gl >= 5 ? 2 : (bw.shots || 1), pose: bw.pose || 'bow', fly: bw.fly || 'arrow', gun: !!bw.cyl, crit: bw.cyl && gl >= 3 ? 19 : 0 }; }
     if (sty('off') === 3 || (KIT && !KIT.on && sty('main') === 0 && sty('off') === 3)) return { name: 'your dagger', n: 1, s: 4, stat: MOD.DEX > MOD.STR ? 'DEX' : 'STR', prof: true, range: 4, long: 12, dagger: true };
     return { name: 'a rock', n: 1, s: 4, stat: 'STR', prof: false, range: 4, long: 12 };
   }
@@ -875,11 +877,11 @@
     var Wp = { name: (Wt.bow ? Wt.ammo.name.toLowerCase().replace(/s$/, '') : 'thrown ' + Wt.name.replace(/^(your|a) /, '')), n: Wt.n, s: Wt.s, hit: (Wt.prof ? PROF() : 0) + MOD[Wt.stat] + (Wt.acc || 0), dmgB: MOD[Wt.stat], range: Wt.range, onHit: Wt.onHit || null, edmg: Wt.edmg || null };
     var spend = function () { // one piece of ammo per shot; paintballs never come back
       if (!Wt.bow) return true; var A = Wt.ammo; if (!A || (A.qty || 1) <= 0 || CHAR.gear.indexOf(A) < 0) return false;
-      if (!(ITEMS[A.name].ammo || {}).noRecover) { CB.shot = CB.shot || {}; CB.shot[A.name] = (CB.shot[A.name] || 0) + 1; }
+      if (!(ammoDef(A) || {}).noRecover) { CB.shot = CB.shot || {}; CB.shot[A.name] = (CB.shot[A.name] || 0) + 1; }
       A.qty = (A.qty || 1) - 1; if (A.qty <= 0) CHAR.gear.splice(CHAR.gear.indexOf(A), 1); saveChar(CHAR); if (typeof wsetDraw === 'function') wsetDraw(); return true; };
     var close = Wt.bow && Wt.pose !== 'gun' && cheb(P.x, P.z, e.x, e.z) <= 2;
     var flyK = Wt.bow ? (Wt.fly === 'bullet' ? 'bullet' : Wt.fly === 'pebble' ? 'pebble' : Wt.fly === 'paint' ? 'paint' : (Wt.onHit && Wt.onHit.type === 'burn' ? 'firearrow' : 'arrow')) : Wt.dagger ? 'dagger' : 'rock'; // what flies: the hit lands when it arrives
-    var AM = Wt.bow && Wt.ammo && ITEMS[Wt.ammo.name] ? ITEMS[Wt.ammo.name].ammo : null; if (AM && AM.plain) Wp.plain = true;
+    var AM = Wt.bow && Wt.ammo ? ammoDef(Wt.ammo) : null; if (AM && AM.plain) Wp.plain = true;
     var PCOL = AM && AM.splash ? (AM.splash.type === 'acid' ? 0x9aff3a : AM.splash.type === 'poison' ? 0xb050ff : AM.splash.area === 'grease' ? 0xd8a030 : AM.splash.douse ? 0x8a5a20 : 0xffffff) : 0;
     var shots = Math.max(1, Wt.shots || 1); spend();
     if (G) { // a gunshot: untrained it rolls with disadvantage and can jam; it uses a round from the cylinder, and the whole room hears it
@@ -893,6 +895,7 @@
         if (PR.wild) { var ang = Math.random() * Math.PI * 2, dd = 2 + Math.floor(Math.random() * 2); lx = Math.round(e.x + Math.cos(ang) * dd); lz = Math.round(e.z + Math.sin(ang) * dd); } }
       vfxBolt(flyK, x0, z0, lx, lz, function () {
       if (AM && AM.splash) paintSplash(e, AM.splash, Wp, PR, Math.round(lx), Math.round(lz)); else cbResolve(e, Wp, { ranged: true, close: close });
+      if (AM && AM.area && typeof vfxArea === 'function') { vfxArea(AM.area.kind, e.x, e.z, AM.area.r || 1, AM.area.secs || 20); say('Splat · ' + (AM.area.kind === 'web' ? 'webbing' : AM.area.kind), 'The payload bursts where it lands.', 2600); } // crafted arrows that carry a trap
       if (Wt.dagger) { look.off = [0, look.off[1]]; buildHero(); say('Dagger thrown', 'It is on the floor over there now. Pick it up after the fight (it returns to your hand when the fight ends).', 3000); CB.thrownDagger = true; }
       if (left > 1 && !e.dead && CB.on && (!G || G.w.loaded > 0) && spend()) { if (G) G.w.loaded--; setTimeout(function () { kitGunKick(); fly(x0, y0, z0, left - 1); }, 260); return; } // a second shot in the same action
       cbAfterMyMove();

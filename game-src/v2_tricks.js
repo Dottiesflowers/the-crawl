@@ -148,9 +148,11 @@
     var go = function (j) { tryApply(j, ctx, text); };
     TRY.busy = true; say('The System is considering it', '"' + text.slice(0, 120) + '"', 9000);
     if (!NET.sample) { go(tryCanned(text, ctx)); return; }
-    serverSample([{ role: 'user', content: sys + '\n\n' + CREW_LORE + '\n\nThe crawler says: "' + text + '"' }], { modelTier: 'complex', maxTokens: 500 }).then(function (r) {
-      var j = null; try { j = JSON.parse((r.text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {} go(j || tryCanned(text, ctx));
-    }, function () { go(tryCanned(text, ctx)); });
+    // if the System can't be reached, say so and keep the try (the keyword fallback was a flat DEX/Acrobatics DC 13 for everything)
+    var nope = function (why) { TRY.busy = false; console.warn('Try: AI failed', why); say('The System did not answer', why + ' Your try was not used. Try again in a moment.', 6000); };
+    serverSample([{ role: 'user', content: sys + '\n\n' + CREW_LORE + '\n\nThe crawler says: "' + text + '"' }], { modelTier: 'complex', maxTokens: 1100 }).then(function (r) {
+      var j = null; try { j = JSON.parse((r.text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {} if (j) go(j); else nope(r.truncated ? 'Its ruling ran too long and got cut off.' : 'Its answer came back garbled.');
+    }, function (e) { nope(e && e.message ? '(' + e.message + ')' : 'It could not be reached.'); });
   }
   function tryCanned(text, ctx) { // no AI: a keyword reading so the button still works offline
     var t = text.toLowerCase(), e = ctx.mons[0], W = weakOf(e), weak = false;

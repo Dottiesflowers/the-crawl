@@ -202,7 +202,7 @@ export class Campaign extends DurableObject {
       }
       if (p === '/api/party' && m === 'GET') {
         const rows = this.all('SELECT u.id, u.username, u.role, c.data, c.updated FROM users u LEFT JOIN characters c ON c.user_id = u.id ORDER BY u.id');
-        return json({ party: rows.map(r => { const c = r.data ? JSON.parse(r.data) : null; return { id: r.id, username: r.username, role: r.role, name: c && c.name, xp: c ? c.xp || 0 : 0, level: c ? c.level || 1 : 1, trait: c && c.trait, flaw: c && c.flaw, dead: !!(c && c.dead), updated: r.updated }; }) });
+        return json({ party: rows.map(r => { const c = r.data ? JSON.parse(r.data) : null; return { id: r.id, username: r.username, role: r.role, name: c && c.name, xp: c ? c.xp || 0 : 0, level: c ? c.level || 1 : 1, trait: c && c.trait, flaw: c && c.flaw, dead: !!(c && c.dead), floor: c ? c.floorNow || 1 : 1, updated: r.updated }; }) });
       }
       if (p === '/api/board' && m === 'GET') {
         const room = parseInt(url.searchParams.get('room') || '0', 10);

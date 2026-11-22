@@ -79,7 +79,7 @@
   function tg(g, t) { return (g.tags || []).indexOf(t) >= 0 || (ITEMS[g.name] && (ITEMS[g.name].tags || []).indexOf(t) >= 0); } // the catalog's tags count too (items picked up before a tag was added)
   function arrowCraft(sel, idea) {
     var wantsArrows = /arrow/i.test(idea || ''); if (sel.length < 2 || (sel.length > 3 && !wantsArrows)) return false; // asking for arrows by name lets you throw in extras: it uses what it needs
-    var isArrow = function (g) { var A = ITEMS[g.name] && ITEMS[g.name].ammo; return A && (A.kind || 'arrow') === 'arrow'; };
+    var isArrow = function (g) { var A = ammoDef(g); return A && (A.kind || 'arrow') === 'arrow'; };
     // paintballs + a filling: acid, then poison, then grease, then anything flammable
     var pb = sel.filter(function (g) { return g.name === 'Paintballs'; })[0], rest = sel.filter(function (g) { return g !== pb; });
     if (pb && rest.length === 1) {
@@ -110,20 +110,23 @@
   function craftInvent(idea) {
     if (CRAFT.busy) return; if (CRAFT.sel.length < 2) { craftSay('no', 'Need more parts', 'Pick at least two things to put together.'); return; } var sel = CRAFT.sel.slice(); CRAFT.result = null;
     if (arrowCraft(sel, idea)) return;
-    var desc = sel.map(function (g) { return g.name + ' [' + (g.cat || 'misc') + (g.tags && g.tags.length ? '; ' + g.tags.join(', ') : '') + (g.dmg ? '; ' + g.dmg : '') + (g.heal ? '; heals ' + g.heal : '') + ']: ' + (g.desc || ''); }).join('\n');
+    var fxTxt = function (T) { return (T.fx || []).map(function (f) { return f.type + (f.dice ? ' ' + f.dice : '') + (f.turns ? ' ' + f.turns + ' turns' : ''); }).join(', ') + (T.area ? ', area ' + T.area : ''); };
+    var desc = sel.map(function (g) { var A = ammoDef(g); return g.name + ((g.qty || 1) > 1 ? ' x' + g.qty : '') + ' [' + (g.cat || 'misc') + (g.tags && g.tags.length ? '; ' + g.tags.join(', ') : '') + (g.dmg ? '; ' + g.dmg : '') + (g.heal ? '; heals ' + g.heal : '') + (g.throw ? '; thrown: ' + fxTxt(g.throw) : '') + (A ? '; AMMO (' + (A.kind || 'arrow') + ', 1d' + A.s + (A.area ? ', bursts into ' + A.area.kind : '') + (A.onHit ? ', on hit ' + A.onHit.type : '') + ')' : '') + (g.crafted ? '; something the crawler built earlier' : '') + ']: ' + (g.desc || ''); }).join('\n');
     if (!NET.sample) { craftApply(craftOffline(sel, idea), sel, idea); return; }
     CRAFT.busy = true; CRAFT.result = null; craftDraw();
-    var done = false, to = setTimeout(function () { if (done) return; done = true; CRAFT.busy = false; craftApply(craftOffline(sel, idea), sel, idea); }, 25000); // never leave you hanging
+    var nope = function (why) { CRAFT.busy = false; console.warn('Jury-rig: AI failed', why); craftSay('no', 'The System did not answer', why + ' Nothing was used up. Try again in a moment.'); };
+    var done = false, to = setTimeout(function () { if (done) return; done = true; nope('It took too long to rule on that.'); }, 45000); // never leave you hanging
     var prompt = 'You are the System, the AI running a Dungeon Crawler Carl style dungeon on D&D 5e rules. ' + CREW_LORE + '\n\nA crawler wants to jury-rig something from items in their bag. Judge it like a fair, funny DM. Physical builds use the Jury-Rig track (INT); mixtures, potions, poisons and chemistry use the Alchemy track (WIS). ' +
       'Crawler skills: Jury-Rig ' + skillLv('Jury-Rig') + ', Alchemy ' + skillLv('Alchemy') + ', INT mod ' + MOD.INT + ', WIS mod ' + MOD.WIS + '.\n\nItems:\n' + desc + '\n\nWhat they want to make: ' + (idea || '(they did not say; make the most sensible thing)') +
       '\n\nRules: if the combination cannot plausibly make anything, ok=false and say why in comment. Otherwise design ONE item using only these fields. level = how hard it is to BUILD, 1-5: 1 = crude (taping, tying, stuffing, smearing, wrapping, jamming things together: anyone can do it), 2 = takes some know-how (a simple mechanism, careful measuring or mixing), 3 = a real build (springs, triggers, distilling, wiring), 4-5 = proper engineering or advanced alchemy. Be generous with crude builds: if it could physically be done with these parts, ok=true. Set ok=false only if it truly cannot work no matter who builds it. Do not lower the level because the crawler is unskilled; the game checks their skill against the level. Power limits: level 1 = up to 2d6 damage or 1d8 weapon or 2d4 healing; level 2 = up to 3d6, 1d10 weapon, 3d4+2 healing; level 3 = up to 4d6 area 2. ' +
-      'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. Tools like a lighter are usually not consumed; materials are. They may hand you any number of items, duplicates included (two of the same item means they want to use both). Use the parts that make sense, put only those in consumes, and judge the whole idea: more parts can make a sturdier or stronger build, but junk that does not belong adds nothing.' +
-      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"consumes":["exact item names used up"],"unused":["exact names of parts that played no part at all (not tools that helped)"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: stickbomb (a bomb on a stick) spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
-    serverSample([{ role: 'user', content: prompt }], { modelTier: 'complex', maxTokens: 600 }).then(function (r) {
+      'Effects a throwable can have (fx types): damage {dice}, burn {dice, turns}, stun {turns}, distract {turns}, prone, push {tiles}, weaken {ac, turns}. AMMUNITION: if they are combining ammo (arrows, paintballs, ball bearings) with a payload (a trap, slime, grease, acid, a bomb), the result is new AMMO that a bow or launcher fires: set "ammo": {"kind": the same kind as the ammo used, "die": 4-8 damage die, "area": {"kind": one of grease, acid, ice, web, smoke, fire, "r": 1, "secs": 10-30} for a payload that coats the ground where it lands, "onHit": one rider like {"type":"stun","turns":1}, {"type":"burn","dice":"1d4","turns":2}, {"type":"prone"}, {"type":"distract","turns":1} or {"type":"weaken","ac":1,"turns":2}}, and "qty": how many come out (up to the number of ammo used). Leave out throw for ammo. Tools like a lighter are usually not consumed; materials are. They may hand you any number of items, duplicates included (two of the same item means they want to use both). Use the parts that make sense, put only those in consumes, and judge the whole idea: more parts can make a sturdier or stronger build, but junk that does not belong adds nothing.' +
+      '\nReply with JSON only: {"ok":true,"track":"physical|alchemy","level":1,"name":"short catchy name","desc":"one dry System line","cat":"weapon|consumable|tool","dmg":"1d6 (weapons only)","heal":"2d4 (healing only)","crit":20,"throw":{"fx":[{"type":"damage","dice":"2d6"}],"area":0},"uses":0,"tags":["flammable"],"ammo":null,"qty":1,"consumes":["exact item names used up"],"unused":["exact names of parts that played no part at all (not tools that helped)"],"traits_used":["the tags from the item list that made this work, e.g. flammable"],"icon":"one of: stickbomb (a bomb on a stick) spear sword axe knife mace hammer bat bomb potion drink slime sap shield pan tape light tool box","comment":"one short System line"}';
+    serverSample([{ role: 'user', content: prompt }], { modelTier: 'complex', maxTokens: 1100 }).then(function (r) {
       if (done) return; done = true; clearTimeout(to);
       var j = null; try { j = JSON.parse(r.text.replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (x) {}
-      CRAFT.busy = false; try { craftApply(j || craftOffline(sel, idea), sel, idea); } catch (x) { console.error(x); craftSay('no', 'Something broke', 'The System choked on that one. Try again.'); }
-    }).catch(function () { if (done) return; done = true; clearTimeout(to); CRAFT.busy = false; craftApply(craftOffline(sel, idea), sel, idea); });
+      if (!j) { nope(r.truncated ? 'Its design ran too long and got cut off.' : 'Its answer came back garbled.'); return; }
+      CRAFT.busy = false; try { craftApply(j, sel, idea); } catch (x) { console.error(x); craftSay('no', 'Something broke', 'The System choked on that one. Try again.'); }
+    }).catch(function (e) { if (done) return; done = true; clearTimeout(to); nope(e && e.message ? '(' + e.message + ')' : 'It could not be reached.'); });
   }
   // without the AI: a handful of sensible combinations by tag
   function craftOffline(sel, idea) {
@@ -150,6 +153,13 @@
       if (!spec.throw.fx.length) delete spec.throw;
     }
     if (+j.uses > 1 && spec.cat === 'tool') spec.uses = Math.min(5, +j.uses);
+    if (j.ammo && typeof j.ammo === 'object') { // crafted ammunition: fired from a launcher, can carry a trap or a rider
+      var A = j.ammo, kinds = { arrow: 1, paintball: 1, pebble: 1, bolt: 1 }, areas = { grease: 1, acid: 1, ice: 1, web: 1, smoke: 1, fire: 1 }, okH = { stun: 1, burn: 1, prone: 1, distract: 1, weaken: 1 };
+      var am = { kind: kinds[A.kind] ? A.kind : 'arrow', s: Math.max(4, Math.min(lv >= 2 ? 8 : 6, (+A.die || +A.s || 6))) };
+      if (A.area && areas[A.area.kind]) { am.area = { kind: A.area.kind, r: 1, secs: Math.max(10, Math.min(30, +A.area.secs || 20)) }; am.noRecover = true; }
+      if (A.onHit && okH[A.onHit.type]) { var h = { type: A.onHit.type }; if (A.onHit.turns) h.turns = Math.min(2, +A.onHit.turns || 1); if (A.onHit.dice) h.dice = clampDice(A.onHit.dice, 1, 6) || '1d4'; if (A.onHit.ac) h.ac = Math.min(2, +A.onHit.ac || 1); am.onHit = h; am.noRecover = true; }
+      spec.ammo = am; spec.cat = 'misc'; delete spec.throw; delete spec.dmg; spec.qty = Math.max(1, Math.min(12, +j.qty || 1)); if (spec.tags.indexOf('ammo') < 0) spec.tags.push('ammo');
+    }
     return { lv: lv, spec: spec };
   }
   function craftApply(j, sel, idea) {
@@ -158,6 +168,7 @@
     var track = j.track === 'alchemy' ? 'alchemy' : 'physical', sk = trackSkill(track), cs = craftSpec(j), need = Math.max(1, Math.min(5, +j.level || 1)), myLv = skillLv(sk);
     var name = String(j.name || 'Contraption').replace(/[^\w '\-+!?]/g, '').slice(0, 40), consumes = (j.consumes || []).filter(function (n) { return sel.some(function (g) { return g.name === n; }); });
     if (!consumes.length) consumes = sel.filter(function (g) { return g.cat === 'material' || g.cat === 'consumable'; }).map(function (g) { return g.name; });
+    if (cs.spec.ammo) cs.spec.qty = Math.min(cs.spec.qty || 1, Math.max(1, sel.filter(function (g) { return ammoDef(g); }).length)); // one new round per round you put in
     var known = CHAR.recipes && CHAR.recipes[name] && CHAR.recipes[name].inventor;
     if (!known && myLv < need - 1) {
       skillUse(sk);
