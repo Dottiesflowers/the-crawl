@@ -539,7 +539,7 @@
     if (foe && ab) { var Wq = pcWeapon(), need = acOf(foe) - Wq.hit, pct = Math.round(Math.max(5, Math.min(95, (21 - need) * 5))); ab.innerHTML = 'Attack<small>+' + Wq.hit + ' · ' + pct + '% to hit</small>'; }
     var joining = CB.enemies.some(function (e) { return !e.dead && !e.calm && e.joining; });
     document.getElementById('turns').innerHTML = '<div class="rnd"><small>Round</small><b>' + (CB.round || 1) + '</b></div>' + CB.order.map(function (c, i) {
-      var me = c === 'pc', dead = !me && c.dead, hp = me ? PC.hp / PC.max : Math.max(0, c.hp) / (c.max || 1), nm = me ? 'You' : c.name.split(',')[0];
+      var me = c === 'pc', dead = !me && c.dead, hp = iniHP(c), nm = me ? 'You' : c.name.split(',')[0];
       var face = me ? '<b>' + esc((CHAR && CHAR.name || 'Y').charAt(0)) + '</b>' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="11" r="6"/><path d="M9.5 10h.01M14.5 10h.01M9.5 14c1.5 1 3.5 1 5 0"/></svg>';
       return '<div class="ini' + (i === CB.idx ? ' cur' : '') + (me ? ' me' : '') + (dead ? ' dead' : '') + (c.calm ? ' calm' : '') + '" title="' + esc(me ? 'You' : c.name) + '"><span class="pf">' + face + '</span><span class="hp"><i style="width:' + Math.round(100 * hp) + '%"></i></span><small>' + esc(nm) + ' · ' + (me ? PC.init : c.init) + (c.prone ? ' · prone' : '') + '</small></div>';
     }).join('<span class="arr">›</span>') + (joining ? '<span class="arr">›</span><div class="ini join"><span class="pf">?</span><span class="hp"></span><small>Joining</small></div>' : '');
@@ -549,6 +549,16 @@
     document.getElementById('cbAtk').disabled = !mine || !r.action; document.getElementById('cbActs').disabled = !mine; document.getElementById('cbBonus').disabled = !mine || !r.bonus;
     document.getElementById('cbEnd').disabled = !mine;
   }
+  // initiative bar health: you from your own HP, friends from their live HP, monsters from theirs (kept fresh every half second)
+  function iniHP(c) {
+    if (c === 'pc') return Math.max(0, Math.min(1, PC.hp / (PC.max || 1)));
+    if (c.remote) { var g = typeof LIVE !== 'undefined' && LIVE.ghosts[c.uid], p = g && g.p; if (p && p.mx) { c.hp = p.hp; c.max = p.mx; c.down = !!p.dn; } }
+    return Math.max(0, Math.min(1, Math.max(0, c.hp) / (c.max || 1)));
+  }
+  setInterval(function () {
+    if (!CB.on) return; var el = document.getElementById('turns'); if (!el) return; var bars = el.querySelectorAll('.ini:not(.join)');
+    CB.order.forEach(function (c, i) { var b = bars[i]; if (!b) return; var f = b.querySelector('.hp i'); if (f) f.style.width = Math.round(100 * iniHP(c)) + '%'; b.classList.toggle('dead', c !== 'pc' && !!c.dead); });
+  }, 500);
   function cbMyTurn() { return CB.on && CB.order[CB.idx] === 'pc'; }
   function cbAdjacent() { return CB.enemies.filter(function (e) { return !e.dead && !e.calm && cheb(P.x, P.z, e.x, e.z) <= 1; }); }
   var AMMO_HINT = { bullet: 'Revolver rounds are rare. Bosses and lockboxes, mostly. Every shot is gone for good.', arrow: 'Jury-rig some: wood + a tip (wood, rubble, scrap metal or imp horn).', pebble: 'Any Chunk of rubble or River stone works, or find ball bearings.', paintball: 'Find paintballs (stagehands and key grips carry them). Jury-rig them with a filling: acid, something toxic, grease or something flammable.' };
